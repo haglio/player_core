@@ -15,6 +15,11 @@ installed editable:
 "C:/path/to/suite-root/projects/genau/.venv/Scripts/python.exe" -m pytest tests/
 ```
 
+## Installing
+
+Always `--config-settings editable_mode=compat`; the README says why, and
+`tests/test_install.py` goes red if a venv is ever reinstalled without it.
+
 ## What belongs here
 
 - **Only what a second repo needs.** A module earns a place here once both
