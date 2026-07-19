@@ -21,6 +21,8 @@ import time
 from pathlib import Path
 from typing import Callable, Mapping
 
+from .file_channel import publish_whole
+
 
 class StatusWriter:
     def __init__(
@@ -47,10 +49,10 @@ class StatusWriter:
         if self._last_write is not None and now - self._last_write < self._min_interval:
             return False
         text = "".join(f"{key}={value}\n" for key, value in self._fields(session).items())
-        try:
-            self._path.parent.mkdir(parents=True, exist_ok=True)
-            self._path.write_text(text, encoding="utf-8")
-        except OSError:
+        # Published whole rather than truncated in place: the orchestrator polls
+        # this file, and a poller that caught a truncating write would read no
+        # clip at all — which it cannot tell from a player that has none.
+        if not publish_whole(self._path, text):
             return False
         self._last_write = now
         return True

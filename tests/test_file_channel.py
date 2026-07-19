@@ -1,9 +1,11 @@
 """Tests for player_core.file_channel."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
+from unittest.mock import patch
 
-from player_core.file_channel import consume_command_file, read_paused_state
+from player_core.file_channel import consume_command_file, publish_whole, read_paused_state
 
 
 def test_consume_returns_empty_list_when_file_missing(tmp_path: Path):
@@ -103,3 +105,25 @@ def test_read_paused_state_strips_a_byte_order_mark(tmp_path: Path):
     paused_file.write_text("1", encoding="utf-8-sig")
 
     assert read_paused_state(paused_file) is True
+
+
+def test_publish_retries_past_a_reader_holding_the_file_open(tmp_path: Path):
+    """Windows refuses to replace a file another process has open, so a publish
+    landing inside one of the reader's polls raises.  Riding out that microsecond
+    delivers the record instead of dropping it."""
+    path = tmp_path / "status.txt"
+    path.write_text("old\n", encoding="utf-8")
+    real_replace = os.replace
+    calls = []
+
+    def flaky_replace(src, dst):
+        calls.append(src)
+        if len(calls) == 1:
+            raise PermissionError(5, "Access is denied")
+        real_replace(src, dst)
+
+    with patch("player_core.file_channel.os.replace", side_effect=flaky_replace):
+        assert publish_whole(path, "new\n") is True
+
+    assert len(calls) == 2
+    assert path.read_text(encoding="utf-8") == "new\n"

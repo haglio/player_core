@@ -10,11 +10,54 @@ tick is milliseconds away and will see the settled value.
 Pause rides its own file rather than the command channel so that being paused is
 a *state* the player converges on, not an event it can miss: a player that
 starts late, restarts, or drops a verb still reads the flag and lands correctly.
+
+The other direction of that best-effort contract is :func:`publish_whole`: a
+file one side polls has to be written aside and renamed over, never truncated in
+place, or the poller reads a blank and cannot tell it from an empty state.
 """
 from __future__ import annotations
 
 import logging
+import os
+import time
 from pathlib import Path
+
+
+def publish_whole(
+    path: Path, text: str, *, attempts: int = 5, delay_s: float = 0.005,
+) -> bool:
+    """Write *text* to *path* so a concurrent poller reads all of it or none.
+
+    The reader polls several times a second while the writer republishes several
+    times a second, so an ordinary truncate-and-write leaves a window in which
+    the file is empty — and a poller cannot tell "I caught it mid-write" from
+    "there is nothing here", so it acts on the blank.  Writing a sibling temp
+    file and renaming it over closes that window.
+
+    The rename itself is retried: Windows refuses to replace a file another
+    process holds open, so a publish landing inside one of those reads fails
+    with a sharing violation.  Retrying turns that into a sub-millisecond wait;
+    a file locked for longer reports False, leaving the previous whole record in
+    place for the next tick to replace — never a half-published one.
+    """
+    tmp = path.with_suffix(".tmp")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp.write_text(text, encoding="utf-8")
+    except OSError:
+        return False
+    for attempt in range(attempts):
+        try:
+            os.replace(tmp, path)
+            return True
+        except OSError:
+            if attempt < attempts - 1:
+                time.sleep(delay_s)
+    # Nothing landed, so nothing is left behind: the temp file lives in the
+    # state directory beside the real one, where a stray copy per failed publish
+    # would accumulate and read as a file some component owns.
+    tmp.unlink(missing_ok=True)
+    return False
 
 
 def consume_command_file(

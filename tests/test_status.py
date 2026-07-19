@@ -7,6 +7,7 @@ directory, and surviving a file that cannot be written.
 """
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 
 from player_core.status import StatusWriter
@@ -86,14 +87,52 @@ class TestStatusWriter:
         assert writer.write(session)
         assert "position_ms=12400" in status_path.read_text(encoding="utf-8")
 
+    def test_a_poller_never_reads_a_half_written_record(self, tmp_path):
+        # The orchestrator polls this file several times a second while the
+        # player rewrites it several times a second.  A write that truncates the
+        # file in place leaves a window in which the poller reads nothing — and
+        # a poller cannot tell "I caught it mid-write" from "this player has no
+        # clip", so it acts on the blank.  The write has to land whole or not at
+        # all.
+        status_path = tmp_path / "status.txt"
+        writer = StatusWriter(status_path, _fields, min_interval=0.0)
+        session = StubSession()
+        writer.write(session)
+
+        stop = threading.Event()
+        torn: list[str] = []
+
+        def poll() -> None:
+            while not stop.is_set():
+                try:
+                    text = status_path.read_text(encoding="utf-8")
+                except OSError:
+                    continue
+                if "video=" not in text or "position_ms=" not in text:
+                    torn.append(text)
+
+        poller = threading.Thread(target=poll, daemon=True)
+        poller.start()
+        try:
+            for tick in range(120):
+                session.position_ms = 12345.6 + tick
+                writer.write(session)
+        finally:
+            stop.set()
+            poller.join(timeout=5)
+
+        assert not torn, f"the poller read {len(torn)} incomplete records, e.g. {torn[0]!r}"
+
     def test_an_unwritable_path_is_reported_not_raised(self, tmp_path):
         # A locked or vanished status file must never take down a run loop; the
-        # next tick will try again.
+        # next tick will try again — and a publish that never landed leaves
+        # nothing behind, not even the file it staged.
         status_path = tmp_path / "status.txt"
         status_path.mkdir()  # a directory where the file should be
         writer = StatusWriter(status_path, _fields, now_source=lambda: 0.0)
 
         assert writer.write(StubSession()) is False
+        assert list(tmp_path.iterdir()) == [status_path]
 
     def test_a_failed_write_does_not_start_the_throttle(self, tmp_path):
         # Throttling off a write that never landed would suppress the retry that
