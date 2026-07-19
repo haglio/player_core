@@ -23,6 +23,9 @@ another application's internals to get it:
 - **`file_channel`** — the command file and paused flag file an orchestrator
   steers a player through.
 - **`status`** — the throttled status file a player publishes back.
+- **`hud_panel`** — the chrome the players' in-video HUDs are drawn on: the
+  rounded translucent slab, the palette, the point-sized Segoe face, and the
+  RGBA -> BGRA hand-off. What each HUD *says* stays with the app that says it.
 
 Nothing app-specific belongs here. A module earns a place only once a second
 repo needs it; until then it stays with the app that owns it.
