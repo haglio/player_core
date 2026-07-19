@@ -10,3 +10,7 @@ build/
 
 # libmpv binary (fetched locally, not committed — see README)
 vendor/
+
+# Private overlay — the real blocklist is itself a catalogue of excluded terms,
+# so it stays local; sanitize/blocklist.example.txt documents the format.
+/sanitize/blocklist.local.txt

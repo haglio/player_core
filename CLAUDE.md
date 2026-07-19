@@ -12,7 +12,7 @@ This repo has no venv of its own. Use a consumer's — both have this package
 installed editable:
 
 ```bash
-"C:/path/to/suite-root/projects/genau/.venv/Scripts/python.exe" -m pytest tests/
+"C:/path/to/genau/.venv/Scripts/python.exe" -m pytest tests/
 ```
 
 ## Installing
