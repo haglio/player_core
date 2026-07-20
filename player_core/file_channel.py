@@ -71,6 +71,12 @@ def append_command(
     edge-triggered command that fires once and is never re-asserted goes missing
     for good.
 
+    The verb is put on a line of its own even when what is already queued does not
+    end in a newline.  A writer that replaces the file whole rarely bothers with a
+    trailing one, and appending straight onto that welds the two into a single word
+    matching neither, which loses both — a "NEXT" written whole and a flag appended
+    behind it left a player sitting on the video it was told to leave.
+
     The reader drains this ~20x/s by rewriting it, so a write that overlaps a
     drain hits a transient Windows sharing violation.  Retrying briefly turns
     that into a millisecond's delay instead of a lost verb; a file locked for
@@ -83,7 +89,16 @@ def append_command(
         return False
     for attempt in range(attempts):
         try:
-            with path.open("a", encoding="utf-8") as handle:
+            # Checked inside the retry loop: the queue can be drained between
+            # attempts, and whether a separator is needed goes with it.
+            with path.open("a+", encoding="utf-8") as handle:
+                handle.seek(0, 2)
+                if handle.tell():
+                    handle.seek(handle.tell() - 1)
+                    unterminated = handle.read(1) not in ("\n", "\r")
+                    handle.seek(0, 2)
+                    if unterminated:
+                        handle.write("\n")
                 handle.write(line + "\n")
             return True
         except OSError:

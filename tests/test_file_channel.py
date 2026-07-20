@@ -24,6 +24,29 @@ def test_append_command_queues_a_verb_without_losing_the_one_before_it(tmp_path:
     assert consume_command_file(path, uppercase=False) == ["SET_ACTIVE 1", "SET_TCODE_ENABLED 0"]
 
 
+def test_append_command_starts_a_line_of_its_own_after_an_unterminated_write(tmp_path: Path):
+    """An orchestrator that writes the file whole rarely bothers with a trailing
+    newline, and appending straight onto that welds the two verbs into one word
+    that matches neither — silently losing both.  Observed as exactly that: a
+    "NEXT" written whole, an appended flag, and a player that never navigated.
+    """
+    path = tmp_path / "cmd.txt"
+    path.write_text("NEXT", encoding="utf-8")  # no trailing newline
+
+    assert append_command(path, "SET_ACTIVE 1")
+
+    assert consume_command_file(path, uppercase=False) == ["NEXT", "SET_ACTIVE 1"]
+
+
+def test_append_command_does_not_double_space_a_terminated_file(tmp_path: Path):
+    path = tmp_path / "cmd.txt"
+    path.write_text("NEXT\n", encoding="utf-8")
+
+    assert append_command(path, "PREV")
+
+    assert path.read_text(encoding="utf-8") == "NEXT\nPREV\n"
+
+
 def test_append_command_creates_the_file_and_its_directory(tmp_path: Path):
     path = tmp_path / "state" / "cmd.txt"
 
