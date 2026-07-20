@@ -5,7 +5,45 @@ import os
 from pathlib import Path
 from unittest.mock import patch
 
-from player_core.file_channel import consume_command_file, publish_whole, read_paused_state
+from player_core.file_channel import (
+    append_command,
+    consume_command_file,
+    publish_whole,
+    read_paused_state,
+)
+
+
+def test_append_command_queues_a_verb_without_losing_the_one_before_it(tmp_path: Path):
+    """The channel is a queue, not a slot: two writers in one drain window must
+    both be heard, and a writer that overwrites silently eats the other's verb."""
+    path = tmp_path / "cmd.txt"
+
+    assert append_command(path, "SET_ACTIVE 1")
+    assert append_command(path, "SET_TCODE_ENABLED 0")
+
+    assert consume_command_file(path, uppercase=False) == ["SET_ACTIVE 1", "SET_TCODE_ENABLED 0"]
+
+
+def test_append_command_creates_the_file_and_its_directory(tmp_path: Path):
+    path = tmp_path / "state" / "cmd.txt"
+
+    assert append_command(path, "QUIT")
+
+    assert consume_command_file(path) == ["QUIT"]
+
+
+def test_append_command_retries_past_a_drain_then_gives_up(tmp_path: Path):
+    """The orchestrator drains this file ~20x/s, and a write overlapping a drain
+    hits a Windows sharing violation.  Retrying makes that a millisecond's wait;
+    a file locked for longer drops the line rather than raising into a run loop —
+    the next command lands, where an exception would take the loop down.
+    """
+    path = tmp_path / "cmd.txt"
+
+    with patch("pathlib.Path.open", side_effect=OSError("locked")):
+        assert append_command(path, "NEXT", attempts=2, delay_s=0) is False
+
+    assert consume_command_file(path) == []
 
 
 def test_consume_returns_empty_list_when_file_missing(tmp_path: Path):

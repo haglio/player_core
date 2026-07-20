@@ -60,6 +60,38 @@ def publish_whole(
     return False
 
 
+def append_command(
+    path: Path, line: str, *, attempts: int = 5, delay_s: float = 0.005,
+) -> bool:
+    """Queue one verb on *path*, keeping whatever is already waiting there.
+
+    The channel is a queue and this is how a verb joins it.  Writing the file
+    whole instead — the obvious way, and the one several callers reached for —
+    silently drops any verb queued since the last drain, which is how an
+    edge-triggered command that fires once and is never re-asserted goes missing
+    for good.
+
+    The reader drains this ~20x/s by rewriting it, so a write that overlaps a
+    drain hits a transient Windows sharing violation.  Retrying briefly turns
+    that into a millisecond's delay instead of a lost verb; a file locked for
+    longer drops the line (the next one lands) rather than raising into a run
+    loop that has a frame to draw.
+    """
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return False
+    for attempt in range(attempts):
+        try:
+            with path.open("a", encoding="utf-8") as handle:
+                handle.write(line + "\n")
+            return True
+        except OSError:
+            if attempt < attempts - 1:
+                time.sleep(delay_s)
+    return False
+
+
 def consume_command_file(
     path: Path, *, logger: logging.Logger | None = None, uppercase: bool = True
 ) -> list[str]:
