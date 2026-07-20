@@ -19,10 +19,17 @@ from PIL import Image, ImageDraw, ImageFont
 # glance over moving video.  A caller wanting another face passes its filename.
 UI_FONT = "segoeuib.ttf"
 
-# Palette, matching the shared_ui tokens the Qt HUDs drew with (RGB).
+# Palette, matching the shared_ui tokens the Qt HUDs drew with (RGB).  Mirrored
+# rather than imported: shared_ui is Qt, so its tokens are QColors and these HUDs
+# are Pillow.  Carried whole rather than trimmed to today's callers — the point of
+# one palette is that the HUDs look alike, and a player reaching for its own blue
+# is back to the ad-hoc literals this replaced.
 BG_PRIMARY = (24, 24, 24)
 BORDER_PANEL = (112, 119, 128)
+BLUE = (48, 128, 224)
 GREEN = (48, 160, 48)
+RED = (255, 60, 60)
+AMBER = (255, 200, 120)
 TEXT_MUTED = (120, 120, 120)
 TEXT_PRIMARY = (240, 240, 240)
 WHITE = (255, 255, 255)
