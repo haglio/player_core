@@ -50,9 +50,43 @@ class TestProgressBar:
         bar = progress_bar_bgra(5_000, 10_000, None, 1000)  # 50%
         x0, x1 = bar_track_x(1000)
         my = bar.shape[0] // 2
-        cursor_x = x0 + (x1 - x0 - 1) // 2
-        # A bright, opaque column at the halfway mark.
-        assert tuple(int(v) for v in bar[my, cursor_x]) == (255, 255, 255, 255)
+        # An opaque white cursor around the track midpoint, at least 3px wide — a
+        # prominent bar, not a 1px hairline.
+        assert _rgba(bar, my, x0 + (x1 - x0) // 2) == (255, 255, 255, 255)
+        white = [x for x in range(x0, x1) if _rgba(bar, my, x) == (255, 255, 255, 255)]
+        assert len(white) >= 3
+
+    def test_draws_prominent_amber_loop_marks(self):
+        bar = progress_bar_bgra(0, 10_000, (2_500, 7_500), 1000)  # in 25%, out 75%
+        x0, x1 = bar_track_x(1000)
+        my = bar.shape[0] // 2
+        amber = [x for x in range(x0, x1) if _rgba(bar, my, x)[:3] == (235, 180, 60)]
+        assert len(amber) >= 6  # two marks (in and out), each a few px wide
+        xc = (x0 + x1) // 2
+        assert any(x < xc for x in amber) and any(x > xc for x in amber)
+
+    def test_no_loop_marks_without_a_loop(self):
+        bar = progress_bar_bgra(0, 10_000, None, 1000)
+        my = bar.shape[0] // 2
+        assert not any(_rgba(bar, my, x)[:3] == (235, 180, 60) for x in range(1000))
+
+    def test_record_in_point_shows_red(self):
+        bar = progress_bar_bgra(0, 10_000, None, 1000, record_in_ms=5_000)
+        x0, x1 = bar_track_x(1000)
+        my = bar.shape[0] // 2
+        red = [x for x in range(x0, x1) if _rgba(bar, my, x)[:3] == (220, 40, 40)]
+        assert len(red) >= 3
+
+    def test_track_fill_is_uniform_either_side_of_the_cursor(self):
+        bar = progress_bar_bgra(5_000, 10_000, None, 1000)  # cursor mid-track
+        x0, x1 = bar_track_x(1000)
+        my = bar.shape[0] // 2
+        # No elapsed-vs-remaining distinction: the fill reads the same on both sides.
+        assert _rgba(bar, my, x0 + 30) == _rgba(bar, my, x1 - 30)
+
+    def test_zero_duration_is_safe(self):
+        bar = progress_bar_bgra(0, 0, None, 800, height=20)
+        assert bar.shape == (20, 800, 4)
 
     def test_the_track_ends_before_the_volume_slot(self):
         """The whole point of reserving SLOT_W: the fill and border stop clear of
