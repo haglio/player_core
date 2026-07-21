@@ -65,6 +65,49 @@ def text_width(font: ImageFont.FreeTypeFont, text: str) -> int:
     return int(font.getlength(text))
 
 
+# Where each glyph's ink sits relative to the origin ``draw.text`` draws from,
+# measured once per face+size+glyph.  A HUD uses a dozen glyphs and repaints them
+# for the life of the session, so the probe below runs a handful of times.
+_INK_OFFSETS: dict[tuple[str, int, str], tuple[float, float] | None] = {}
+
+
+def _ink_center_offset(font: ImageFont.FreeTypeFont, glyph: str) -> tuple[float, float] | None:
+    """The centre of *glyph*'s ink, offset from where ``draw.text`` starts it.
+
+    Measured by drawing it, because nothing reported is the ink box:
+    ``textbbox`` gives the layout box, whose bottom is the face's descender line
+    however short the glyph — a minus sign reports nine pixels of empty space
+    under it.  None when the glyph leaves no ink at all.
+    """
+    key = (str(getattr(font, "path", "")), int(getattr(font, "size", 0)), glyph)
+    if key not in _INK_OFFSETS:
+        pad = 8
+        box = font.getbbox(glyph)
+        probe = Image.new("L", (int(box[2]) + 2 * pad, int(box[3]) + 2 * pad), 0)
+        ImageDraw.Draw(probe).text((pad, pad), glyph, font=font, fill=255)
+        ink = probe.getbbox()
+        _INK_OFFSETS[key] = None if ink is None else (
+            (ink[0] + ink[2] - 1) / 2 - pad, (ink[1] + ink[3] - 1) / 2 - pad,
+        )
+    return _INK_OFFSETS[key]
+
+
+def draw_glyph(draw: ImageDraw.ImageDraw, cx: float, cy: float, glyph: str,
+               font: ImageFont.FreeTypeFont, fill) -> None:
+    """Draw *glyph* centred on its own ink at ``(cx, cy)``.
+
+    Pillow's ``anchor="mm"`` centres the font's ascent/descent box, not the mark
+    inside it — and on the symbol faces these HUDs use, the mark sits high in a
+    box that runs down to the descender.  Every icon button was therefore drawing
+    its glyph two to six pixels low.  Centring the ink puts it where the eye
+    expects it, whatever the glyph.
+    """
+    offset = _ink_center_offset(font, glyph)
+    if offset is None:
+        return
+    draw.text((cx - offset[0], cy - offset[1]), glyph, font=font, fill=fill)
+
+
 def to_bgra(image: Image.Image) -> np.ndarray:
     """An RGBA Pillow image as the contiguous BGRA array mpv's overlays take."""
     rgba = np.asarray(image, dtype=np.uint8)
