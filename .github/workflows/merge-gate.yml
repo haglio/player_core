@@ -1,0 +1,48 @@
+name: merge gate (full suite)
+
+# The merge queue's required check. The queue builds the candidate merge of a PR
+# onto current main, runs the whole suite on that candidate, and fast-forwards
+# main only when this is green -- so a red tree can never land. Also runs on PRs
+# for early feedback and on push to main as a visible post-merge backstop.
+#
+# Runs on windows-latest for two repo-specific reasons. (1) The editable install
+# MUST use compat mode: this repo's directory shares the package's name, so a
+# default editable install lets the repo root win as a namespace shadow and
+# player_core/__init__.py never runs -- tests/test_install.py fails loudly if it
+# does. (2) The shared HUD chrome renders with Segoe UI Bold (segoeuib.ttf), a
+# Windows face the hud/volume/timeline tests measure real glyph geometry against;
+# it exists only on a Windows runner.
+#
+# libmpv is deliberately NOT provided here. import mpv loads mpv-2.dll at import
+# time, but the unit suite never triggers it: no test constructs MpvPlayer, and
+# player_core/__init__.py imports no submodule, so nothing on the tested paths
+# imports mpv. The DLL-backed player is covered by fun_time's hidden-desktop
+# integration suite, not this one -- so this runner needs no DLL.
+
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+  push:
+    branches: [main]
+
+concurrency:
+  group: merge-gate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  full-suite:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install (editable, compat mode)
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]" --config-settings editable_mode=compat
+      - name: Run the suite
+        shell: bash
+        run: python -m pytest -q
