@@ -52,6 +52,12 @@ def _shared_options(*, muted: bool, loop_file: bool, prefetch: bool) -> dict:
         loop_file="inf" if loop_file else "no",
         keep_open="yes",
         mute="yes" if muted else "no",
+        # An audio device that cannot be opened must never stop the video:
+        # mpv's default clock follows audio, so a failed output would freeze
+        # every frame while the file "plays".  Null-audio playback keeps the
+        # clock running and the session alive (a headset sink that is not
+        # accepting streams yet is the case that found this).
+        audio_fallback_to_null="yes",
         osc=False,
         input_default_bindings=False,
     )
