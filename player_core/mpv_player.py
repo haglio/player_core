@@ -4,8 +4,11 @@ mpv hardware-decodes on the GPU end-to-end (d3d11va), so it plays HD/4K
 smoothly where the old OpenCV-on-the-render-thread pipeline dropped frames.
 It also owns audio (A/V sync for free), precise seeking (click-to-seek), and
 native A/B looping — so this one object replaces the former VideoStream +
-AudioPlayer + PlaybackClock trio.  mpv renders directly into a pygame window
-the caller owns (via ``wid``); overlays go on top through ``overlay_add``.
+AudioPlayer + PlaybackClock trio.  ``MpvPlayer`` renders directly into a pygame
+window the caller owns (via ``wid``); its offscreen twin
+(:mod:`player_core.render_player`) renders into a caller-supplied framebuffer
+instead, sharing the ``_MpvControl`` surface below.  Overlays go on top through
+``overlay_add`` in both.
 
 The interface is deliberately a superset of what any one player needs, because
 the two use it differently: Nau plays one file at a time (``loop_file="inf"``)
@@ -33,35 +36,44 @@ def _import_mpv():
     return mpv
 
 
-class MpvPlayer:
-    def __init__(
-        self, wid: int, *, muted: bool = False, loop_file: bool = True, prefetch: bool = False
-    ) -> None:
-        mpv = _import_mpv()
-        options = dict(
-            wid=str(int(wid)),
-            vo="gpu",
-            hwdec="auto-safe",
-            # loop-1: the current file repeats (like the old primary VLC's
-            # --repeat), so a video never ends on its own; [ ] navigates.
-            # Nau defaults to this; a satellite constructs with loop_file=False
-            # ("no") so end-of-file advances its playlist, and toggles it on to
-            # lock a clip in place (see set_loop_file).
-            loop_file="inf" if loop_file else "no",
-            keep_open="yes",
-            mute="yes" if muted else "no",
-            osc=False,
-            input_default_bindings=False,
-            input_vo_keyboard=False,
-        )
-        if prefetch:
-            # Open and demux the *next* playlist entry during the tail of the
-            # current one, so a satellite's end-of-file auto-advance cuts to an
-            # already-loaded clip instead of cold-opening it on screen.  Only
-            # satellites pass this; Nau plays one file at a time (loop_file=inf,
-            # explicit [ ] nav) and has no next entry to prefetch.
-            options["prefetch_playlist"] = "yes"
-        self._mpv = mpv.MPV(**options)
+def _shared_options(*, muted: bool, loop_file: bool, prefetch: bool) -> dict:
+    """The mpv options every player in this family shares, however it renders.
+
+    The windowed player adds its ``wid``/``vo=gpu`` pair on top; the offscreen
+    one (:mod:`player_core.render_player`) adds ``vo=libmpv`` instead.
+    """
+    options = dict(
+        hwdec="auto-safe",
+        # loop-1: the current file repeats (like the old primary VLC's
+        # --repeat), so a video never ends on its own; [ ] navigates.
+        # Nau defaults to this; a satellite constructs with loop_file=False
+        # ("no") so end-of-file advances its playlist, and toggles it on to
+        # lock a clip in place (see set_loop_file).
+        loop_file="inf" if loop_file else "no",
+        keep_open="yes",
+        mute="yes" if muted else "no",
+        osc=False,
+        input_default_bindings=False,
+    )
+    if prefetch:
+        # Open and demux the *next* playlist entry during the tail of the
+        # current one, so a satellite's end-of-file auto-advance cuts to an
+        # already-loaded clip instead of cold-opening it on screen.  Only
+        # satellites pass this; Nau plays one file at a time (loop_file=inf,
+        # explicit [ ] nav) and has no next entry to prefetch.
+        options["prefetch_playlist"] = "yes"
+    return options
+
+
+class _MpvControl:
+    """The control surface shared by the windowed and offscreen players.
+
+    Subclasses construct ``self._mpv``; every method here only drives it, so
+    the session classes (Nau's, a satellite's, fun_time_vr's roles) can hold
+    either player without knowing which rendering path is behind it.
+    """
+
+    _mpv: object
 
     def load(self, path: Path) -> None:
         self._mpv.play(str(path))
@@ -143,6 +155,27 @@ class MpvPlayer:
         """
         self._mpv.volume = volume
 
+    def set_muted(self, muted: bool) -> None:
+        """Silence or unsilence the player at runtime, leaving the volume alone
+        (so unmuting restores whatever level was set — the mixer convention)."""
+        self._mpv.mute = muted
+
+    def set_audio_device_matching(self, substring: str) -> str | None:
+        """Route audio to the first output device whose name or description
+        contains *substring*, case-insensitively.
+
+        Returns the picked device's description, or None — with the device
+        untouched — when nothing matches, so a headset that is off falls back
+        to the system default rather than to silence.
+        """
+        needle = substring.lower()
+        for device in self._mpv.audio_device_list or []:
+            label = f"{device.get('name', '')} {device.get('description', '')}"
+            if needle in label.lower():
+                self._mpv.audio_device = device["name"]
+                return str(device.get("description") or device["name"])
+        return None
+
     def seek_ms(self, ms: float) -> None:
         self._mpv.command("seek", max(0.0, ms) / 1000.0, "absolute", "exact")
 
@@ -197,3 +230,17 @@ class MpvPlayer:
             self._mpv.terminate()
         except Exception:
             pass
+
+
+class MpvPlayer(_MpvControl):
+    def __init__(
+        self, wid: int, *, muted: bool = False, loop_file: bool = True, prefetch: bool = False
+    ) -> None:
+        mpv = _import_mpv()
+        options = _shared_options(muted=muted, loop_file=loop_file, prefetch=prefetch)
+        options.update(
+            wid=str(int(wid)),
+            vo="gpu",
+            input_vo_keyboard=False,
+        )
+        self._mpv = mpv.MPV(**options)
