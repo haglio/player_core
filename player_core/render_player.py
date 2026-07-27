@@ -33,11 +33,21 @@ class MpvRenderPlayer(_MpvControl):
         muted: bool = False,
         loop_file: bool = True,
         prefetch: bool = False,
+        audio: bool = True,
     ) -> None:
         mpv = _import_mpv()
         options = _shared_options(muted=muted, loop_file=loop_file, prefetch=prefetch)
         # No window to own: libmpv renders on demand into the caller's FBO.
         options["vo"] = "libmpv"
+        if not audio:
+            # No audio track at all — stronger than muted.  mpv's default
+            # clock follows audio, so a muted player still stalls its VIDEO
+            # the moment its output device stops draining (a VR headset's
+            # sink parks whenever the headset isn't worn, and every player
+            # in the process opens some device).  A host whose player is
+            # silent by design opts out of audio selection entirely, and the
+            # clock runs on video timing, immune to any device's state.
+            options["aid"] = "no"
         self._mpv = mpv.MPV(**options)
 
         def _resolve(_ctx, name: bytes):
