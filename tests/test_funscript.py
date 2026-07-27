@@ -96,6 +96,57 @@ class TestIsRestingAt:
         assert fs.is_resting_at(15000) is True
 
 
+class TestNextActiveMs:
+    def _two_clusters(self):
+        return Funscript(actions=[
+            (10000, 0), (10300, 100), (10600, 0),   # cluster A
+            (40000, 0), (40300, 100), (40600, 0),   # cluster B
+        ])
+
+    def test_from_the_top_reaches_the_first_cluster(self):
+        assert self._two_clusters().next_active_ms(0) == 10000
+
+    def test_inside_a_gap_reaches_the_cluster_after_it(self):
+        assert self._two_clusters().next_active_ms(25000) == 40000
+
+    def test_lands_on_the_first_stroke_not_in_the_buffer_before_it(self):
+        # is_resting_at hands the script back a _QUIET_LEAD_IN_MS buffer ahead of
+        # a cluster so the OSR2 settles onto it; a jump that stopped there would
+        # be five seconds of nothing, so it goes all the way to the stroke.
+        fs = self._two_clusters()
+
+        assert fs.is_resting_at(36000) is False   # inside the buffer
+        assert fs.next_active_ms(25000) == 40000  # the jump still goes past it
+
+    def test_inside_a_cluster_carries_on_to_the_next(self):
+        """"Next" is forward: asked from the middle of a run, the answer is the
+        run after it, not the one already playing."""
+        assert self._two_clusters().next_active_ms(10300) == 40000
+
+    def test_past_the_last_cluster_has_nowhere_to_go(self):
+        assert self._two_clusters().next_active_ms(50000) is None
+
+    def test_isolated_blips_are_not_somewhere_to_jump_to(self):
+        # A lone action is not action; only densely-sampled runs count, the same
+        # standard is_resting_at applies.
+        fs = Funscript(actions=[
+            (10000, 0), (10300, 100), (10600, 0),   # a real cluster
+            (30000, 50),                            # a stray blip
+        ])
+
+        assert fs.next_active_ms(20000) is None
+
+    def test_an_unscripted_stretch_of_a_scripted_video_still_answers(self):
+        fs = Funscript(actions=[(60000, 0), (60300, 100), (60600, 0)])
+
+        assert fs.next_active_ms(0) == 60000
+
+    def test_a_script_with_no_dense_action_at_all_has_nowhere_to_go(self):
+        fs = Funscript(actions=[(0, 0), (10000, 100), (20000, 0), (30000, 100)])
+
+        assert fs.next_active_ms(0) is None
+
+
 class TestSnapLoop:
     def _make_fs(self):
         return Funscript(actions=[

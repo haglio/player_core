@@ -2,9 +2,10 @@
 
 A funscript is a JSON list of (time, position) actions authored against one
 video.  Beyond parsing, this answers where sustained action begins (so the OSR2
-rests through a long quiet lead-in instead of drifting toward it) and whether a
+rests through a long quiet lead-in instead of drifting toward it), whether a
 given playhead sits in a quiet stretch (``is_resting_at`` — what the hybrid
-handoff hands to Genau), plus loop-boundary snapping for A-B loops.
+handoff hands to Genau), where the action next picks up (``next_active_ms`` —
+where a jump-to-the-action lands), plus loop-boundary snapping for A-B loops.
 """
 from __future__ import annotations
 
@@ -39,8 +40,8 @@ class Funscript:
 
     def __post_init__(self) -> None:
         self._times = [a[0] for a in self.actions]
-        self._first_real_event_ms = self._compute_first_real_event_ms()
         self._dense_times = self._compute_dense_times()
+        self._onsets = self._compute_onsets()
 
     @property
     def first_real_event_ms(self) -> int | None:
@@ -52,13 +53,38 @@ class Funscript:
         callers drive from the top; otherwise the OSR2 rests at its parked
         position until this time.
         """
-        return self._first_real_event_ms
+        if not self._onsets:
+            return None
+        onset = self._onsets[0]
+        return onset if onset >= _QUIET_LEAD_IN_MS else None
 
-    def _compute_first_real_event_ms(self) -> int | None:
-        for (t, _p), (next_t, _np) in zip(self.actions, self.actions[1:]):
-            if next_t - t < _QUIET_LEAD_IN_MS:
-                return t if t >= _QUIET_LEAD_IN_MS else None
-        return None
+    def next_active_ms(self, position_ms: int) -> int | None:
+        """Where scripted action next starts up after *position_ms*, else None.
+
+        The answer is the first stroke of the next dense cluster, not the buffer
+        :meth:`is_resting_at` allows ahead of it: this is where a seek asking for
+        the action lands, and landing in the buffer would leave several seconds
+        of nothing on the near side of it.  A position inside a cluster is
+        carried past that cluster to the one after — "next" is always forward,
+        never the run already playing — and None means nothing scripted remains.
+        """
+        i = bisect.bisect_right(self._onsets, position_ms)
+        return self._onsets[i] if i < len(self._onsets) else None
+
+    def _compute_onsets(self) -> list[int]:
+        """The start of each dense cluster: a dense time with no dense
+        predecessor inside _QUIET_LEAD_IN_MS, i.e. the far side of a quiet
+        stretch.  The first is where the script begins in earnest, which is what
+        first_real_event_ms reports once it is far enough in to be worth parking
+        for; the rest are where it resumes after each interior gap.
+        """
+        onsets: list[int] = []
+        previous: int | None = None
+        for t in self._dense_times:
+            if previous is None or t - previous >= _QUIET_LEAD_IN_MS:
+                onsets.append(t)
+            previous = t
+        return onsets
 
     def _compute_dense_times(self) -> list[int]:
         """Times of actions that belong to a dense cluster — those with a
