@@ -117,23 +117,27 @@ class TestSnapLoop:
 
         assert result == (2000, 4000)
 
-    def test_no_base_before_in(self):
+    def test_no_base_before_in_keeps_the_mark(self):
+        # Nothing to pull the in point back onto — the first base is ahead of it —
+        # so it stays where it was marked rather than jumping to the script's start.
         fs = Funscript(actions=[
             (1000, 0), (2000, 100), (3000, 0), (4000, 100),
         ])
 
         result = snap_loop(fs, 500, 2500)
 
-        assert result == (1000, 4000)
+        assert result == (500, 2500)
 
-    def test_no_base_after_out(self):
+    def test_no_base_after_out_keeps_the_mark(self):
+        # The last base is behind the out point, and snapping is outward only, so
+        # the loop still ends where it was marked — never short of it.
         fs = Funscript(actions=[
             (0, 100), (1000, 0), (2000, 100), (3000, 0),
         ])
 
         result = snap_loop(fs, 2500, 3500)
 
-        assert result == (2000, 3000)
+        assert result == (2000, 3500)
 
     def test_zero_duration_extends(self):
         fs = self._make_fs()
@@ -141,3 +145,32 @@ class TestSnapLoop:
         result = snap_loop(fs, 2050, 2050)
 
         assert result[1] - result[0] >= 500
+
+    def test_a_distant_base_does_not_stretch_the_loop(self):
+        # Full strokes for the first two seconds, then a long stretch of shallow
+        # ones that never reach a base.  A mark inside that stretch has no base
+        # near either end, and a loop stretched out to the far ones would run for
+        # a minute instead of the five seconds that were marked.
+        actions = [(0, 100), (500, 0), (1000, 100), (1500, 0), (2000, 100)]
+        actions += [(t, 60 if (t // 500) % 2 else 20)
+                    for t in range(2500, 60001, 500)]
+        fs = Funscript(actions=actions)
+
+        in_ms, out_ms = snap_loop(fs, 30000, 35000)
+
+        assert (in_ms, out_ms) == (30000, 35000)
+
+    def test_a_script_with_no_base_at_all_keeps_the_mark(self):
+        # A script authored to a reduced range never reaches a base, so there is
+        # nothing anywhere to snap to — which must not be read as "loop the file".
+        fs = Funscript(actions=[(t, 80 if (t // 500) % 2 else 0)
+                                for t in range(0, 60001, 500)])
+
+        assert snap_loop(fs, 30000, 35000) == (30000, 35000)
+
+    def test_no_funscript_keeps_the_mark(self):
+        # An unscripted video loops too; there is simply nothing to snap to.
+        assert snap_loop(None, 30000, 35000) == (30000, 35000)
+
+    def test_no_funscript_still_widens_to_the_minimum(self):
+        assert snap_loop(None, 30000, 30100) == (30000, 30500)
