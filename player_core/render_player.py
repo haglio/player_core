@@ -62,9 +62,17 @@ class MpvRenderPlayer(_MpvControl):
 
         mpv scales to the target preserving aspect, so a target sized to the
         video's own aspect (see :attr:`video_dims`) fills edge to edge.
+
+        Returns immediately: without block_for_target_time=False, libmpv holds
+        the call until the frame's own display time — pacing the caller at the
+        video's frame rate.  A host compositing several players on its own
+        clock (a 90Hz VR frame loop over 30fps videos) must never inherit that
+        pacing; presentation timing is the host's, and mpv just supplies its
+        latest frame.
         """
         self._render_context.render(
             flip_y=flip_y,
+            block_for_target_time=False,
             opengl_fbo={"fbo": int(fbo), "w": int(width), "h": int(height)},
         )
 
