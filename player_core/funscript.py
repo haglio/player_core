@@ -17,6 +17,13 @@ from pathlib import Path
 _BASE_THRESHOLD = 95
 _MIN_LOOP_MS = 500
 
+# How far a marked loop boundary may travel to land on a stroke base.  Snapping
+# exists so the seam falls at the foot of a stroke rather than mid-stroke, and a
+# stroke runs a few hundred milliseconds to about a second — so a base further
+# out than this belongs to some other action, not to the stroke the mark landed
+# in, and honoring the mark beats looping something nobody marked.
+_SNAP_TOLERANCE_MS = 1000
+
 # A funscript whose sustained action does not begin until at least this far in
 # has a long enough quiet lead-in that the OSR2 should rest at its parked
 # position rather than drift toward a still-distant action.  The same value
@@ -88,43 +95,41 @@ class Funscript:
         return nearest > _QUIET_LEAD_IN_MS
 
 
-def snap_loop(
-    fs: Funscript | None,
-    in_ms: int,
-    out_ms: int,
-    threshold: int = _BASE_THRESHOLD,
-) -> tuple[int, int]:
-    if fs is None or not fs.actions:
-        # No funscript to snap to (a plain clip loop): use the raw marked range,
-        # ordered and widened to the minimum loop length.
-        lo, hi = min(in_ms, out_ms), max(in_ms, out_ms)
-        return lo, max(hi, lo + _MIN_LOOP_MS)
-    bases = [t for t, p in fs.actions if p >= threshold]
-    snapped_in = in_ms
-    for t in reversed(bases):
-        if t <= in_ms:
-            snapped_in = t
-            break
-    else:
-        snapped_in = fs.actions[0][0]
+def snap_loop(fs: Funscript | None, in_ms: int, out_ms: int) -> tuple[int, int]:
+    """The marked range as a loop: ordered, at least _MIN_LOOP_MS long, and each
+    end pulled outward onto a nearby stroke base so the seam is not mid-stroke.
 
-    snapped_out = out_ms
-    for t in bases:
-        if t >= out_ms:
-            snapped_out = t
-            break
-    else:
-        snapped_out = fs.actions[-1][0]
+    A boundary with no base within _SNAP_TOLERANCE_MS keeps the time it was marked
+    at.  Snapping was unbounded once, walking to whatever base came next and
+    falling back to the script's own first and last action when a script never
+    reached _BASE_THRESHOLD at all — so a five-second mark came back as a
+    minutes-long range on about a fifth of a real library, and a range that long
+    plays as no loop at all.
+    """
+    lo, hi = min(in_ms, out_ms), max(in_ms, out_ms)
+    # Widen before snapping: both snaps only ever move a boundary outward, so a
+    # mark shorter than a loop is lengthened here and stays long afterwards.
+    hi = max(hi, lo + _MIN_LOOP_MS)
+    # No funscript is simply nothing to snap to — a plain clip loop keeps its mark.
+    actions = fs.actions if fs is not None else []
+    bases = [t for t, p in actions if p >= _BASE_THRESHOLD]
+    return _snap_back(bases, lo), _snap_forward(bases, hi)
 
-    if snapped_out - snapped_in < _MIN_LOOP_MS:
-        for t in bases:
-            if t > snapped_in:
-                snapped_out = t
-                break
-    if snapped_out - snapped_in < _MIN_LOOP_MS:
-        snapped_out = snapped_in + _MIN_LOOP_MS
 
-    return snapped_in, snapped_out
+def _snap_back(bases: list[int], boundary_ms: int) -> int:
+    """*boundary_ms* pulled back to the latest base close enough behind it."""
+    i = bisect.bisect_right(bases, boundary_ms)
+    if i and boundary_ms - bases[i - 1] <= _SNAP_TOLERANCE_MS:
+        return bases[i - 1]
+    return boundary_ms
+
+
+def _snap_forward(bases: list[int], boundary_ms: int) -> int:
+    """*boundary_ms* pushed on to the earliest base close enough ahead of it."""
+    i = bisect.bisect_left(bases, boundary_ms)
+    if i < len(bases) and bases[i] - boundary_ms <= _SNAP_TOLERANCE_MS:
+        return bases[i]
+    return boundary_ms
 
 
 def load(path: Path) -> Funscript:
