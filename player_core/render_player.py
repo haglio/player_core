@@ -51,6 +51,22 @@ class MpvRenderPlayer(_MpvControl):
             "opengl",
             opengl_init_params={"get_proc_address": self._get_proc_address},
         )
+        # Dimensions arrive by observation rather than being queried on
+        # demand: a property read (mpv_get_property) takes the core's lock,
+        # which a file being opened holds for long stretches — a frame loop
+        # asking for dimensions mid-open measured hundreds of milliseconds
+        # blocked on it.  The observer runs on python-mpv's event thread with
+        # the new value in hand, so readers only ever touch a plain tuple.
+        # video-out-params (not dwidth/dheight) so both numbers land in one
+        # event and a reader can never see a half-updated size.
+        self._video_dims = (0, 0)
+        self._mpv.observe_property("video-out-params", self._note_video_dims)
+
+    def _note_video_dims(self, _name: str, value) -> None:
+        if isinstance(value, dict):
+            self._video_dims = (int(value.get("dw") or 0), int(value.get("dh") or 0))
+        else:
+            self._video_dims = (0, 0)
 
     @property
     def has_new_frame(self) -> bool:
@@ -78,8 +94,16 @@ class MpvRenderPlayer(_MpvControl):
 
     @property
     def video_dims(self) -> tuple[int, int]:
-        """The playing video's display size in pixels — (0, 0) until known."""
-        return int(self._mpv.dwidth or 0), int(self._mpv.dheight or 0)
+        """The playing video's display size in pixels — (0, 0) until known.
+
+        Served from the last video-out-params change event, never from a live
+        core query (see the observer in __init__): safe to read at frame rate
+        while another clip is opening.  Goes back to (0, 0) between files;
+        callers keep their last-sized target through that window, which is
+        what keeps the previous clip's final frame on screen during a
+        transition instead of a teardown flicker.
+        """
+        return self._video_dims
 
     def close(self) -> None:
         try:
