@@ -11,9 +11,11 @@ instead, sharing the ``_MpvControl`` surface below.  Overlays go on top through
 ``overlay_add`` in both.
 
 The interface is deliberately a superset of what any one player needs, because
-the two use it differently: Nau plays one file at a time (``loop_file="inf"``)
-and navigates explicitly, while a satellite lets end-of-file walk a prefetched
-playlist.  The comments below name which caller drives which option — that is
+the two use it differently: Nau opens on one file at a time (``loop_file="inf"``)
+and navigates explicitly, while a satellite opens letting end-of-file walk a
+prefetched playlist.  Each can be told to behave like the other — that is what a
+lock is on either — so the constructor's option is the *default*, not the rule.
+The comments below name which caller drives which option — that is
 documentation of the two usage patterns, not knowledge the code acts on.  No
 method branches on who is calling, and nothing here imports an application.
 
@@ -46,9 +48,9 @@ def _shared_options(*, muted: bool, loop_file: bool, prefetch: bool) -> dict:
         hwdec="auto-safe",
         # loop-1: the current file repeats (like the old primary VLC's
         # --repeat), so a video never ends on its own; [ ] navigates.
-        # Nau defaults to this; a satellite constructs with loop_file=False
-        # ("no") so end-of-file advances its playlist, and toggles it on to
-        # lock a clip in place (see set_loop_file).
+        # Nau opens on this; a satellite constructs with loop_file=False
+        # ("no") so end-of-file advances its playlist.  Both toggle it at
+        # runtime, which is what a lock is on either (see set_loop_file).
         loop_file="inf" if loop_file else "no",
         keep_open="yes",
         mute="yes" if muted else "no",
@@ -138,10 +140,11 @@ class _MpvControl:
     def set_loop_file(self, loop: bool) -> None:
         """Toggle infinite single-file looping at runtime.
 
-        A satellite unlocked plays through and lets end-of-file advance its
-        playlist (``no``); locked, it repeats its clip seamlessly in place
-        (``inf``).  Nau stays on ``inf`` and navigates explicitly, so it never
-        calls this.
+        This is what a lock is on every player here: unlocked plays through and
+        lets end-of-file walk the playlist (``no``); locked, the file repeats
+        seamlessly in place (``inf``).  Which end each opens on differs — a
+        satellite starts unlocked, Nau starts locked — but the switch is the same
+        one, so "locked" means the same thing wherever it is said.
         """
         self._mpv.loop_file = "inf" if loop else "no"
 
