@@ -109,6 +109,37 @@ def draw_glyph(draw: ImageDraw.ImageDraw, cx: float, cy: float, glyph: str,
     draw.text((cx - offset[0], cy - offset[1]), glyph, font=font, fill=fill)
 
 
+# The app marks, cell by cell.  Every icon in this family is a pink letter laid
+# out on a five-by-five grid — the shape each app's own .ico carries — and a HUD
+# that wants one draws it from the grid rather than loading the file: the .ico
+# files live in the apps' own repos, and no app here may reach into another's.
+# A letter set in the body face is not the same mark: it is a thin letterform
+# where the icon is a chunky one, and it reads as a caption rather than a badge.
+ICON_GRIDS = {
+    "B": ("#####", "#...#", "#####", "#...#", "#####"),  # the OSR2 broker
+    "F": ("#####", "#....", "#####", "#....", "#...."),  # F-mode
+}
+
+
+def draw_icon(draw: ImageDraw.ImageDraw, rect: tuple[int, int, int, int],
+              letter: str, fill=PINK) -> None:
+    """Draw the app mark for *letter*, centred in *rect* and sized to fill it.
+
+    The grid's blank cells are left alone rather than painted, so whatever is
+    behind shows through the letter's counters — exactly as the .ico's own
+    transparent cells let the panel under it through.
+    """
+    x, y, w, h = rect
+    cell = max(1, min(w, h) // 7)
+    left, top = x + (w - 5 * cell) / 2, y + (h - 5 * cell) / 2
+    for row, line in enumerate(ICON_GRIDS[letter]):
+        for column, painted in enumerate(line):
+            if painted != "#":
+                continue
+            cx, cy = left + column * cell, top + row * cell
+            draw.rectangle([cx, cy, cx + cell - 1, cy + cell - 1], fill=(*fill, 255))
+
+
 def to_bgra(image: Image.Image) -> np.ndarray:
     """An RGBA Pillow image as the contiguous BGRA array mpv's overlays take."""
     rgba = np.asarray(image, dtype=np.uint8)

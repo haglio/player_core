@@ -5,9 +5,12 @@ import numpy as np
 
 from player_core.hud_panel import (
     BG_PRIMARY,
+    ICON_GRIDS,
     PANEL_ALPHA,
+    PINK,
     HudPanel,
     draw_glyph,
+    draw_icon,
     load_font,
     px,
     text_width,
@@ -71,6 +74,59 @@ def test_a_glyph_is_centred_on_its_ink_not_on_the_fonts_box():
 
         assert abs(centred[1] - 30) <= 0.5, glyph
         assert by_metrics[1] > centred[1], glyph  # the old way sat lower
+
+
+def _icon_cells(letter: str, size: int = 18) -> list[str]:
+    """The mark *letter* draws, read back off the pixels as its own grid."""
+    from PIL import Image, ImageDraw
+
+    image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw_icon(ImageDraw.Draw(image), (0, 0, size, size), letter)
+    painted = np.asarray(image)[:, :, 3] > 0
+    ys, xs = np.nonzero(painted)
+    cell = (xs.max() - xs.min() + 1) / 5
+    return [
+        "".join(
+            "#" if painted[int(ys.min() + (row + 0.5) * cell),
+                           int(xs.min() + (column + 0.5) * cell)] else "."
+            for column in range(5)
+        )
+        for row in range(5)
+    ]
+
+
+def test_an_app_mark_draws_the_grid_its_icon_carries():
+    """The .ico files live in the apps' own repos, so a HUD in one of them draws
+    the mark from the grid instead of loading another repo's file — which only
+    works if what lands on the pixels is that grid."""
+    for letter, grid in ICON_GRIDS.items():
+        assert _icon_cells(letter) == list(grid), letter
+
+
+def test_an_app_mark_leaves_its_counters_clear_for_the_fill_behind_it():
+    """The .ico's blank cells are transparent, so the panel colour shows through
+    the letter's counters; painting them would make the mark a solid block."""
+    from PIL import Image, ImageDraw
+
+    image = Image.new("RGBA", (18, 18), (0, 0, 0, 255))
+    draw_icon(ImageDraw.Draw(image), (0, 0, 18, 18), "B")
+    pixels = np.asarray(image)
+
+    assert (pixels[:, :, :3] == PINK).all(axis=2).any()   # the letter is drawn …
+    assert (pixels[:, :, :3] == 0).all(axis=2).any()      # … and its holes are not
+
+
+def test_an_app_mark_fits_inside_the_button_it_is_centred_in():
+    """It has to sit in the same 18px square every other control on these HUDs
+    uses, with room left around it rather than running to the button's border."""
+    from PIL import Image, ImageDraw
+
+    image = Image.new("RGBA", (18, 18), (0, 0, 0, 0))
+    draw_icon(ImageDraw.Draw(image), (0, 0, 18, 18), "F")
+    ys, xs = np.nonzero(np.asarray(image)[:, :, 3])
+
+    assert xs.min() >= 2 and xs.max() <= 15
+    assert ys.min() >= 2 and ys.max() <= 15
 
 
 def test_a_glyph_with_no_ink_draws_nothing_rather_than_raising():
