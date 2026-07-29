@@ -124,12 +124,12 @@ def _draw_speaker(draw: ImageDraw.ImageDraw, muted: bool) -> None:
     Drawn rather than typed: the glyph fonts differ on the trailing waves, and a
     missing one draws a tofu box where the clearest control on the chip should be.
     """
-    colour = TEXT_MUTED if muted else TEXT_PRIMARY
+    color = TEXT_MUTED if muted else TEXT_PRIMARY
     mid = CHIP_H // 2
     x = PAD
-    draw.rectangle([x, mid - 3, x + 4, mid + 3], fill=(*colour, 255))
+    draw.rectangle([x, mid - 3, x + 4, mid + 3], fill=(*color, 255))
     draw.polygon([(x + 4, mid - 3), (x + 10, mid - 7), (x + 10, mid + 7), (x + 4, mid + 3)],
-                 fill=(*colour, 255))
+                 fill=(*color, 255))
     if muted:
         draw.line([(x, mid + 7), (x + 13, mid - 7)], fill=(*_MUTED_BAR, 255), width=2)
 
