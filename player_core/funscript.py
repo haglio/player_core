@@ -42,6 +42,9 @@ class Funscript:
         self._times = [a[0] for a in self.actions]
         self._dense_times = self._compute_dense_times()
         self._onsets = self._compute_onsets()
+        # The script sampled on a fixed grid, for :meth:`trace` to take windows of.
+        self._grid_step: float | None = None
+        self._grid_values: tuple[float, ...] = ()
 
     @property
     def first_real_event_ms(self) -> int | None:
@@ -57,6 +60,69 @@ class Funscript:
             return None
         onset = self._onsets[0]
         return onset if onset >= _QUIET_LEAD_IN_MS else None
+
+    def trace(self, start_ms: int, span_ms: int, count: int) -> tuple[float, ...]:
+        """*count* samples of the script covering *span_ms* from *start_ms*, as
+        0-1 heights — the picture of what the device is about to be asked to do.
+
+        The same shape a stroke engine's own samples make, so a HUD can draw
+        either one on the same trace and a handoff between them reads as one
+        continuous line rather than two unrelated pictures.  Between two actions
+        the value is interpolated, which is what the driver makes the device do
+        (it is sent "be at the next one in this long"); before the first and
+        after the last it holds, because that is where the device holds too.
+
+        Sampled on a grid fixed to the script rather than to *start_ms*, and
+        cached: a whole script sampled once, and a window of it taken per frame.
+        Resampling from the playhead put the sample points at a new offset every
+        frame, so every peak and trough landed somewhere slightly different and
+        the line boiled in place instead of sliding.  On this grid the shape is
+        the shape, and moving the playhead slides the window along it.
+        """
+        if count <= 0 or not self.actions:
+            return ()
+        step = span_ms / max(1, count - 1)
+        grid = self._grid(step)
+        first = round(start_ms / step) if step > 0 else 0
+        # Past the end of the script the grid is exhausted; the device holds at the
+        # last action, so the picture does too.
+        tail = grid[-1] if grid else 0.0
+        return tuple(
+            grid[first + i] if 0 <= first + i < len(grid) else tail
+            for i in range(count)
+        )
+
+    def _grid(self, step_ms: float) -> tuple[float, ...]:
+        """The whole script at one sample every *step_ms*, from zero, memoized.
+
+        One grid per step, because the step follows the trace's span and that is
+        published by whoever owns the stroke — it can change, but hardly ever.
+        """
+        if self._grid_step != step_ms:
+            last = self.actions[-1][0]
+            count = int(last / step_ms) + 2 if step_ms > 0 else 1
+            self._grid_step = step_ms
+            self._grid_values = tuple(
+                self.position_at(round(i * step_ms)) / 100 for i in range(count))
+        return self._grid_values
+
+    def position_at(self, position_ms: int) -> float:
+        """Where the script has the device at *position_ms*, 0-100.
+
+        Interpolated between the surrounding actions and held flat outside them,
+        the same motion the waypoint driver asks the OSR2 for.
+        """
+        if not self.actions:
+            return 0.0
+        index = bisect.bisect_right(self._times, position_ms) - 1
+        if index < 0:
+            return float(self.actions[0][1])
+        if index >= len(self.actions) - 1:
+            return float(self.actions[-1][1])
+        (t0, p0), (t1, p1) = self.actions[index], self.actions[index + 1]
+        if t1 <= t0:
+            return float(p1)
+        return p0 + (p1 - p0) * (position_ms - t0) / (t1 - t0)
 
     def next_active_ms(self, position_ms: int) -> int | None:
         """Where scripted action next starts up after *position_ms*, else None.

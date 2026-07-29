@@ -225,3 +225,65 @@ class TestSnapLoop:
 
     def test_no_funscript_still_widens_to_the_minimum(self):
         assert snap_loop(None, 30000, 30100) == (30000, 30500)
+
+
+class TestTrace:
+    """The script as a picture, for a HUD to draw the same way it draws a stroke
+    engine's own samples — so a handoff between the two reads as one line."""
+
+    def test_it_samples_the_span_evenly_from_where_it_is_asked(self):
+        fs = Funscript(actions=[(0, 0), (1000, 100)])
+
+        assert fs.trace(0, 1000, 3) == (0.0, 0.5, 1.0)
+
+    def test_the_shape_slides_rather_than_being_resampled(self):
+        """Sampling from the playhead put the points at a new offset every frame,
+        so every peak landed somewhere slightly different and the line boiled in
+        place.  On a grid fixed to the script, moving along it is a window
+        sliding: the values a window drops are the ones the last one had."""
+        fs = Funscript(actions=[(0, 0), (250, 100), (500, 0), (750, 100), (1000, 0)])
+
+        first = fs.trace(0, 1000, 5)
+        stepped = fs.trace(250, 1000, 5)
+
+        assert stepped[:3] == first[1:4]
+
+    def test_a_window_between_two_grid_points_lands_on_the_nearer_one(self):
+        """Which is what keeps the shape stable: the window moves in whole
+        samples, so the picture never stretches between frames."""
+        fs = Funscript(actions=[(0, 0), (250, 100), (500, 0)])
+
+        assert fs.trace(30, 500, 3) == fs.trace(0, 500, 3)
+
+    def test_past_the_end_of_the_script_the_picture_holds(self):
+        fs = Funscript(actions=[(0, 0), (500, 40)])
+
+        assert fs.trace(4000, 500, 3) == (0.4, 0.4, 0.4)
+
+    def test_between_two_actions_it_reads_the_move_the_device_is_making(self):
+        """The driver sends "be at the next one in this long", so between two
+        actions the device really is on its way — a picture that stepped would be
+        a picture of something else."""
+        fs = Funscript(actions=[(0, 0), (400, 80)])
+
+        assert fs.position_at(200) == 40.0
+
+    def test_before_the_first_and_past_the_last_it_holds(self):
+        """Which is where the device holds too."""
+        fs = Funscript(actions=[(500, 20), (1500, 60)])
+
+        assert fs.position_at(0) == 20.0
+        assert fs.position_at(9000) == 60.0
+
+    def test_an_unscripted_video_traces_nothing(self):
+        assert Funscript(actions=[]).trace(0, 1000, 4) == ()
+
+    def test_it_gives_back_as_many_samples_as_asked_for(self):
+        fs = Funscript(actions=[(0, 0), (5000, 100)])
+
+        assert len(fs.trace(1000, 12000, 80)) == 80
+
+    def test_every_sample_is_a_height_the_trace_can_draw(self):
+        fs = Funscript(actions=[(0, 0), (250, 100), (500, 0), (750, 100)])
+
+        assert all(0.0 <= value <= 1.0 for value in fs.trace(0, 1000, 40))
