@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from player_core.funscript import Funscript
+from player_core.tcode import HANDOFF_MS
 from player_core.tcode_driver import FunscriptTCodeDriver
 
 
@@ -96,9 +97,10 @@ class TestFunscriptTCodeDriver:
         driver = FunscriptTCodeDriver(sink)
         fs = Funscript(actions=[(0, 0), (1000, 50)])
 
-        driver.update(1500, fs, now=0.0)
+        driver.update(0, fs, now=0.0)   # spend the takeover glide first
+        driver.update(1500, fs, now=1.5)
 
-        assert sink.sent[0] == "L05000I100"
+        assert sink.sent[-1] == "L05000I100"
 
     def test_periodic_resend_protects_against_packet_loss(self):
         sink = FakeSink()
@@ -110,6 +112,76 @@ class TestFunscriptTCodeDriver:
         driver.update(500, fs, now=0.5)  # same segment, 500ms later
 
         assert len(sink.sent) == 2
+
+
+class TestTakingOver:
+    """The device is wherever the other driver left it when this one takes it.
+
+    Both drivers send "be at *pos* in *ms*" and the OSR2 interpolates from where
+    it is, so the seam is a matter of time alone: the ordinary interval — the gap
+    to the next waypoint — can be tens of milliseconds, and crossing most of the
+    travel in that is the jolt.
+    """
+
+    def test_the_first_waypoint_after_taking_over_is_given_time_to_glide(self):
+        sink = FakeSink()
+        driver = FunscriptTCodeDriver(sink)
+        # The next action is 40ms out: on time, and a snap from wherever Genau's
+        # stroke had the device.
+        fs = Funscript(actions=[(0, 0), (40, 100), (2000, 0)])
+
+        driver.update(0, fs, now=0.0)
+
+        assert sink.sent[0] == f"L09999I{HANDOFF_MS}"
+
+    def test_a_waypoint_already_longer_than_the_glide_is_left_alone(self):
+        """The glide is a floor, not a rewrite: a script that was always going to
+        take a second to get there keeps its own timing."""
+        sink = FakeSink()
+        driver = FunscriptTCodeDriver(sink)
+
+        driver.update(0, Funscript(actions=[(0, 0), (1000, 100)]), now=0.0)
+
+        assert sink.sent[0] == "L09999I1000"
+
+    def test_the_script_is_back_on_its_own_clock_once_the_glide_runs_out(self):
+        """A glide, not a slowed-down stroke: the floor lifts after
+        ``HANDOFF_MS`` and every waypoint after that is the script's own."""
+        sink = FakeSink()
+        driver = FunscriptTCodeDriver(sink)
+        fs = Funscript(actions=[(0, 0), (40, 100), (80, 0), (2000, 50)])
+
+        driver.update(0, fs, now=0.0)
+        driver.update(41, fs, now=HANDOFF_MS / 1000 + 0.01)
+
+        assert sink.sent[1] == "L00000I39"
+
+    def test_a_waypoint_inside_the_glide_is_stretched_too(self):
+        """Not the first command alone.  The device is still on its way when the
+        next waypoint lands, and an ordinary interval there would make it cover
+        whatever was left of the gap in a frame — the jolt, moved."""
+        sink = FakeSink()
+        driver = FunscriptTCodeDriver(sink)
+        fs = Funscript(actions=[(0, 0), (40, 100), (80, 0), (2000, 50)])
+
+        driver.update(0, fs, now=0.0)
+        driver.update(41, fs, now=0.05)
+
+        assert sink.sent[1] == f"L00000I{HANDOFF_MS}"
+
+    def test_taking_the_device_back_glides_again(self):
+        """Genau holds it through a quiet stretch and the script takes over
+        again; that seam is the same seam."""
+        sink = FakeSink()
+        driver = FunscriptTCodeDriver(sink)
+        fs = Funscript(actions=[(0, 0), (40, 100), (80, 0), (2000, 50)])
+        driver.update(0, fs, now=0.0)
+        driver.update(41, fs, now=HANDOFF_MS / 1000 + 0.01)
+
+        driver.reset()
+        driver.update(41, fs, now=HANDOFF_MS / 1000 + 0.02)
+
+        assert sink.sent[-1] == f"L00000I{HANDOFF_MS}"
 
 
 class TestLeadInPark:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import bisect
 import time
 
-from .tcode import TCodeSink, format_tcode_command
+from .tcode import HandoffGlide, TCodeSink, format_tcode_command
 
 from .funscript import Funscript
 
@@ -19,6 +19,12 @@ class FunscriptTCodeDriver:
         self._sink = sink
         self._last_send_time: float = -1.0
         self._last_segment: int = -1
+        # The device is wherever the other driver left it when this one takes
+        # over, so its first waypoints glide rather than snap.  Armed by
+        # :meth:`reset`, which is what a takeover already calls, and armed here
+        # too: the first waypoint of a session starts from the broker's park.
+        self._glide = HandoffGlide()
+        self._glide.begin()
 
     def update(
         self, position_ms: int, fs: Funscript, *, now: float | None = None, speed: float = 1.0
@@ -35,7 +41,7 @@ class FunscriptTCodeDriver:
 
         segment = max(0, bisect.bisect_right(fs._times, position_ms) - 1)
         if self._should_send(segment, now):
-            self._send_waypoint(fs, segment, position_ms, speed)
+            self._send_waypoint(fs, segment, position_ms, speed, now)
             self._mark_sent(segment, now)
 
     def park(self, *, now: float | None = None) -> None:
@@ -49,6 +55,7 @@ class FunscriptTCodeDriver:
         if now is None:
             now = time.monotonic()
         if self._should_send(_PARK_SEGMENT, now):
+            # Already a glide, and a long one, so a takeover needs nothing extra.
             self._sink.send(format_tcode_command("L0", 0, _PARK_INTERVAL_MS))
             self._mark_sent(_PARK_SEGMENT, now)
 
@@ -65,7 +72,7 @@ class FunscriptTCodeDriver:
         self._last_send_time = now
 
     def _send_waypoint(
-        self, fs: Funscript, segment: int, position_ms: int, speed: float
+        self, fs: Funscript, segment: int, position_ms: int, speed: float, now: float
     ) -> None:
         if segment + 1 < len(fs.actions):
             next_t, next_pos = fs.actions[segment + 1]
@@ -74,15 +81,31 @@ class FunscriptTCodeDriver:
             # ``speed`` the move must finish in that many wall-milliseconds.
             remaining = max(1, round((next_t - position_ms) / speed))
             tcode_pos = round(next_pos * 9999 / 100)
-            self._sink.send(format_tcode_command("L0", tcode_pos, remaining))
+            self._send(tcode_pos, remaining, now)
         else:
             _, pos = fs.actions[-1]
             tcode_pos = round(pos * 9999 / 100)
-            self._sink.send(format_tcode_command("L0", tcode_pos, 100))
+            self._send(tcode_pos, 100, now)
+
+    def _send(self, position: int, interval_ms: int, now: float) -> None:
+        """One waypoint, given the handoff's glide while one is running.
+
+        The script's own timing runs a beat late for that stretch — the
+        alternative is arriving on time by snapping there from wherever Genau's
+        stroke had the device, which is the jolt this exists to remove.
+        """
+        self._sink.send(format_tcode_command(
+            "L0", position, self._glide.interval_ms(interval_ms, now)))
 
     def reset(self) -> None:
+        """Forget what was sent, and glide onto whatever comes next.
+
+        A reset is what a takeover, a seek and a new video all do, and each of
+        them leaves the device somewhere this script did not put it.
+        """
         self._last_segment = -1
         self._last_send_time = -1.0
+        self._glide.begin()
 
     def close(self) -> None:
         self._sink.close()
