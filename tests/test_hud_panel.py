@@ -8,8 +8,11 @@ from player_core.hud_panel import (
     ICON_GRIDS,
     PANEL_ALPHA,
     PINK,
+    TEXT_MUTED,
     TOOLTIP_PAD,
+    WHITE,
     HudPanel,
+    draw_active_dot,
     draw_glyph,
     draw_icon,
     draw_tooltip,
@@ -49,6 +52,19 @@ def test_text_width_measures_the_drawn_string():
 
     assert text_width(font, "") == 0
     assert text_width(font, "Volume 6") > text_width(font, "Vol")
+
+
+def test_the_active_dot_is_lit_or_grey_but_never_absent():
+    """An absent dot cannot be told from an idle one, so only the player holding the
+    floor would say anything — and a reader would have to check every screen to
+    learn what one mark should tell them."""
+    def dot(active: bool) -> tuple[int, ...]:
+        panel = HudPanel(40, 40)
+        draw_active_dot(panel.draw, 10, 10, active)
+        return tuple(np.asarray(panel.image)[15, 15][:3])
+
+    assert dot(True) == WHITE
+    assert dot(False) == TEXT_MUTED
 
 
 def test_a_tooltip_wider_than_the_panel_wraps_rather_than_running_off_it():
