@@ -140,6 +140,63 @@ def draw_icon(draw: ImageDraw.ImageDraw, rect: tuple[int, int, int, int],
             draw.rectangle([cx, cy, cx + cell - 1, cy + cell - 1], fill=(*fill, 255))
 
 
+# The tooltip box: the room around its words, how round its corner is, and how
+# solid it sits over the slab it covers.
+TOOLTIP_PAD = 5
+TOOLTIP_RADIUS = 4
+TOOLTIP_ALPHA = 240
+_TOOLTIP_EDGE = 2           # the gap it keeps from the panel's own edge
+_TOOLTIP_OFFSET = (14, 16)  # right of and below the cursor, clear of the pointer
+
+
+def _wrap(font: ImageFont.FreeTypeFont, text: str, available: int) -> list[str]:
+    """*text* broken on spaces into lines of at most *available* px.
+
+    A word wider than *available* keeps its own line and overhangs — breaking
+    mid-word would read as two words, and nothing named on these HUDs has one
+    that long.
+    """
+    lines: list[str] = []
+    for word in text.split():
+        if lines and text_width(font, f"{lines[-1]} {word}") <= available:
+            lines[-1] = f"{lines[-1]} {word}"
+        else:
+            lines.append(word)
+    return lines
+
+
+def draw_tooltip(draw: ImageDraw.ImageDraw, font: ImageFont.FreeTypeFont, text: str,
+                 pos: tuple[int, int], bounds: tuple[int, int]) -> tuple[int, int, int, int]:
+    """Name a control in a box near *pos*, inside a panel *bounds* big, and return
+    the box it drew.
+
+    These HUDs are painted into the video, so there is no native tooltip to fall
+    back on and every glyph on them is cryptic on purpose — this box *is* how a
+    control says what it is.  Being part of the panel's own bitmap is also why it
+    wraps rather than running on: whatever crosses the slab's edge is never drawn,
+    so an over-wide tooltip loses its tail with nothing to say it had one.  The box
+    is then nudged back inside the slab, so a control near an edge names itself
+    inward instead of off it.
+    """
+    room = max(1, bounds[0] - 2 * (_TOOLTIP_EDGE + TOOLTIP_PAD))
+    lines = _wrap(font, text, room)
+    if not lines:
+        return (0, 0, 0, 0)
+    ascent, descent = font.getmetrics()
+    line_h = ascent + descent
+    w = max(text_width(font, line) for line in lines) + 2 * TOOLTIP_PAD
+    h = line_h * len(lines) + 2 * TOOLTIP_PAD
+    x = max(_TOOLTIP_EDGE, min(pos[0] + _TOOLTIP_OFFSET[0], bounds[0] - w - _TOOLTIP_EDGE))
+    y = max(_TOOLTIP_EDGE, min(pos[1] + _TOOLTIP_OFFSET[1], bounds[1] - h - _TOOLTIP_EDGE))
+    draw.rounded_rectangle([x, y, x + w - 1, y + h - 1], radius=TOOLTIP_RADIUS,
+                           fill=(*BG_PRIMARY, TOOLTIP_ALPHA),
+                           outline=(*BORDER_PANEL, 255), width=1)
+    for index, line in enumerate(lines):
+        draw.text((x + w / 2, y + TOOLTIP_PAD + index * line_h + ascent), line,
+                  font=font, anchor="ms", fill=(*TEXT_PRIMARY, 255))
+    return (x, y, w, h)
+
+
 def to_bgra(image: Image.Image) -> np.ndarray:
     """An RGBA Pillow image as the contiguous BGRA array mpv's overlays take."""
     rgba = np.asarray(image, dtype=np.uint8)

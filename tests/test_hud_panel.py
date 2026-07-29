@@ -8,9 +8,11 @@ from player_core.hud_panel import (
     ICON_GRIDS,
     PANEL_ALPHA,
     PINK,
+    TOOLTIP_PAD,
     HudPanel,
     draw_glyph,
     draw_icon,
+    draw_tooltip,
     load_font,
     px,
     text_width,
@@ -47,6 +49,35 @@ def test_text_width_measures_the_drawn_string():
 
     assert text_width(font, "") == 0
     assert text_width(font, "Volume 6") > text_width(font, "Vol")
+
+
+def test_a_tooltip_wider_than_the_panel_wraps_rather_than_running_off_it():
+    """A tooltip is drawn into the panel's own bitmap, so whatever crosses the edge
+    is simply never drawn — the sentence loses its tail with nothing to say it had
+    one.  It wraps to the room there is instead, and the box stays on the slab."""
+    panel = HudPanel(150, 120)
+    font = load_font(8)
+
+    box = draw_tooltip(panel.draw, font, "Unfavorite it or mark weird when it is "
+                       "not a favorite", (20, 20), panel.image.size)
+
+    x, y, w, h = box
+    assert (x, y) >= (0, 0) and (x + w, y + h) <= (150, 120)
+    assert h > sum(font.getmetrics()) + 2 * TOOLTIP_PAD  # more than one line
+
+
+def test_a_tooltip_that_fits_stays_on_one_line_beside_the_cursor():
+    """Wrapping is what a tooltip does when it must, not what it does — one that
+    fits keeps its single line and sits down and to the right of the pointer,
+    clear of the arrow itself."""
+    panel = HudPanel(300, 200)
+    font = load_font(8)
+
+    x, y, _w, h = draw_tooltip(panel.draw, font, "Next clip", (40, 60),
+                               panel.image.size)
+
+    assert h == sum(font.getmetrics()) + 2 * TOOLTIP_PAD
+    assert (x, y) > (40, 60)
 
 
 def _ink_center(size: int, paint) -> tuple[float, float]:
