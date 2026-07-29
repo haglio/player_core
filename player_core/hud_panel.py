@@ -109,6 +109,24 @@ def draw_glyph(draw: ImageDraw.ImageDraw, cx: float, cy: float, glyph: str,
     draw.text((cx - offset[0], cy - offset[1]), glyph, font=font, fill=fill)
 
 
+# The dot at the head of every HUD's status line, saying whether a bare, unaddressed
+# command lands on this player.  Same size and same corner on all three, because a
+# reader glancing across two screens is looking for one mark in one place.
+ACTIVE_DOT = 10
+
+
+def draw_active_dot(draw: ImageDraw.ImageDraw, x: int, y: int, active: bool) -> None:
+    """The active-player dot, its top-left at ``(x, y)``.
+
+    White while a bare command would land on this player, the palette's grey
+    otherwise — and always drawn, never hidden.  An absent dot and an idle dot look
+    the same, and then only the player that *has* the floor says anything, which is
+    half an answer to a question asked of the room.
+    """
+    draw.ellipse([x, y, x + ACTIVE_DOT, y + ACTIVE_DOT],
+                 fill=(*(WHITE if active else TEXT_MUTED), 255))
+
+
 # The app marks, cell by cell.  Every icon in this family is a pink letter laid
 # out on a five-by-five grid — the shape each app's own .ico carries — and a HUD
 # that wants one draws it from the grid rather than loading the file: the .ico
