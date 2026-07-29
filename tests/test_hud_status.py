@@ -3,7 +3,9 @@ from __future__ import annotations
 
 from player_core.hud_status import (
     F_MODE_LABEL,
+    LATEST_LABEL,
     LOCKED_LABEL,
+    SHUFFLE_LABEL,
     UNLOCKED_LABEL,
     status_line,
 )
@@ -38,5 +40,11 @@ def test_a_set_playing_through_drops_unlocked_but_keeps_locked():
 def test_an_empty_slot_takes_no_room_and_leaves_no_separator():
     """Every slot but the lock is optional, and a player without one prints nothing
     there rather than an empty phrase or a doubled separator."""
-    assert status_line(locked=False, order="Shuffle") == f"{UNLOCKED_LABEL} · Shuffle"
+    assert status_line(locked=False, order=SHUFFLE_LABEL) == f"{UNLOCKED_LABEL} · Shuffle"
     assert status_line(locked=False, filter_label="beta") == f"{UNLOCKED_LABEL} · beta"
+
+
+def test_the_two_browse_orders_are_named_once_for_every_player():
+    """Each player browses newest-first or shuffled, and says so in this slot — so
+    the words belong here rather than in each app, where they drifted before."""
+    assert (LATEST_LABEL, SHUFFLE_LABEL) == ("Latest", "Shuffle")

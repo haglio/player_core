@@ -103,7 +103,7 @@ class TestPainter:
 
     def test_the_filled_part_of_the_track_grows_with_the_level(self):
         # Only the fill is near-white; the empty track and the chip's border are
-        # both mid-grey, so a high threshold counts the fill and nothing else.
+        # both mid-gray, so a high threshold counts the fill and nothing else.
         def filled(volume: int) -> int:
             chip = self._chip(volume=volume)
             return int((chip[:, SPEAKER_W:, :3].sum(axis=2) > 600).sum())

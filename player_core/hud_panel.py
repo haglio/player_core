@@ -118,7 +118,7 @@ ACTIVE_DOT = 10
 def draw_active_dot(draw: ImageDraw.ImageDraw, x: int, y: int, active: bool) -> None:
     """The active-player dot, its top-left at ``(x, y)``.
 
-    White while a bare command would land on this player, the palette's grey
+    White while a bare command would land on this player, the palette's gray
     otherwise — and always drawn, never hidden.  An absent dot and an idle dot look
     the same, and then only the player that *has* the floor says anything, which is
     half an answer to a question asked of the room.
