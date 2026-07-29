@@ -1,10 +1,12 @@
 """The volume chip every player in this family draws in its timeline row.
 
-A speaker and a slider, sized for the corner of a video: Nau draws it live and
-reports presses to Fun Time (which holds the authoritative level for the whole
-primary display); a silent satellite draws the same chip as a muted *indicator*.
-Because both players are separate processes in separate repos, the chip lives
-here in the shared engine rather than in either of them.
+A speaker and a slider, sized for the corner of a video: Nau and Genau each draw
+it live and report presses to Fun Time (which holds the authoritative level for
+the whole primary display); a silent satellite draws the same chip as a muted
+*indicator*.  Because those players are separate processes in separate repos,
+the chip lives here in the shared engine rather than in any of them — and it is
+painted into both an mpv overlay bitmap and a pygame surface, since the players
+that draw it live do not share a renderer.
 
 It shows the level *and* the mute as separate facts.  Fun Time silences a sink by
 publishing a level of zero, which is all a sink needs and useless to draw: muted
@@ -143,14 +145,31 @@ class VolumeHudPainter:
 
     def __init__(self) -> None:
         self._painted: VolumeHud | None = None
+        self._image: Image.Image | None = None
         self._bgra: np.ndarray | None = None
 
     def bgra(self, hud: VolumeHud) -> np.ndarray:
-        if hud != self._painted:
-            self._painted, self._bgra = hud, self._paint(hud)
+        """*hud* as an mpv overlay bitmap — what Nau composites into its video."""
+        if self._ensure(hud) or self._bgra is None:
+            self._bgra = to_bgra(self._image)
         return self._bgra
 
-    def _paint(self, hud: VolumeHud) -> np.ndarray:
+    def rgba(self, hud: VolumeHud) -> tuple[bytes, tuple[int, int]]:
+        """*hud* as ``(rgba_bytes, size)`` — what pygame takes, for Genau to blit
+        into its own window.  The chip is a fixed size, but the pair comes back
+        together anyway so a caller sizes its blit from what it was handed rather
+        than from constants it read separately."""
+        self._ensure(hud)
+        return self._image.tobytes(), self._image.size
+
+    def _ensure(self, hud: VolumeHud) -> bool:
+        """Repaint if what the chip shows has changed; True when it did."""
+        if hud == self._painted and self._image is not None:
+            return False
+        self._painted, self._image = hud, self._paint(hud)
+        return True
+
+    def _paint(self, hud: VolumeHud) -> Image.Image:
         image = Image.new("RGBA", (CHIP_W, CHIP_H), (0, 0, 0, 0))
         draw = ImageDraw.Draw(image)
         draw.rounded_rectangle([0, 0, CHIP_W - 1, CHIP_H - 1], radius=CHIP_H // 2,
@@ -170,4 +189,4 @@ class VolumeHudPainter:
                 [_TRACK_X0, mid - TRACK_H // 2, filled, mid + TRACK_H // 2],
                 radius=TRACK_H // 2, fill=(*TEXT_PRIMARY, 255),
             )
-        return to_bgra(image)
+        return image
