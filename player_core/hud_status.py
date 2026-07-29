@@ -22,6 +22,12 @@ SEPARATOR = " · "
 LOCKED_LABEL = "Locked"
 UNLOCKED_LABEL = "Unlocked"
 
+# What the two browse orders are called.  Every player browses in one of them —
+# newest-first, or shuffled — and a reader glancing between two screens is
+# comparing the same two words, so they are named once here.
+LATEST_LABEL = "Latest"
+SHUFFLE_LABEL = "Shuffle"
+
 # What F-mode is called.  One Fun Time key toggles it for every player at once, so
 # a reader seeing it lit on one screen and named differently on another would have
 # to work out they are the same switch.

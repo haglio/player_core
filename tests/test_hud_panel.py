@@ -54,7 +54,7 @@ def test_text_width_measures_the_drawn_string():
     assert text_width(font, "Volume 6") > text_width(font, "Vol")
 
 
-def test_the_active_dot_is_lit_or_grey_but_never_absent():
+def test_the_active_dot_is_lit_or_gray_but_never_absent():
     """An absent dot cannot be told from an idle one, so only the player holding the
     floor would say anything — and a reader would have to check every screen to
     learn what one mark should tell them."""
@@ -151,7 +151,7 @@ def test_an_app_mark_draws_the_grid_its_icon_carries():
 
 
 def test_an_app_mark_leaves_its_counters_clear_for_the_fill_behind_it():
-    """The .ico's blank cells are transparent, so the panel colour shows through
+    """The .ico's blank cells are transparent, so the panel color shows through
     the letter's counters; painting them would make the mark a solid block."""
     from PIL import Image, ImageDraw
 
