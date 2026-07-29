@@ -42,6 +42,24 @@ class TestPlacement:
 
         assert x >= 0
 
+    def test_a_player_with_no_scrubber_keeps_the_chip_above_the_bottom_edge(self):
+        """Genau draws no timeline, and centring in a row of no height put the
+        chip's *top* on the bottom edge — the whole thing below the window, which
+        is how its volume control came out invisible.  With no row to sit in it
+        keeps the bottom margin it keeps at the right."""
+        x, y = chip_xy(win_w=1200, win_h=900, timeline_h=0)
+
+        assert y + CHIP_H <= 900, "the chip has to be inside the window"
+        assert 900 - (y + CHIP_H) == MARGIN, "a margin up from the bottom"
+        assert 1200 - (x + CHIP_W) == MARGIN, "the same margin as at the right"
+
+    def test_a_window_shorter_than_the_chip_still_places_it(self):
+        """Clamped at the top for the reason the left edge is: still on screen,
+        still clickable."""
+        _x, y = chip_xy(win_w=1200, win_h=10, timeline_h=0)
+
+        assert y >= 0
+
 
 class TestWindowPoints:
     """Presses arrive in the window's coordinates; every hit test here takes the
