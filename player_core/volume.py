@@ -54,14 +54,22 @@ SLOT_W = MARGIN + CHIP_W + MARGIN
 
 def chip_xy(*, win_w: int, win_h: int, timeline_h: int) -> tuple[int, int]:
     """The chip's top-left: the right end of the timeline row, centred in its
-    height.
+    height — or a margin up from the bottom edge where there is no row.
 
     Beside the scrubber, the way VLC laid the seek bar and the volume out
     together, rather than floating in a row of its own above it.  The track leaves
     ``SLOT_W`` clear on the right for it.  Clamped at the left so a narrow window
     shrinks the margin instead of pushing the chip off screen.
+
+    A player with no scrubber passes ``timeline_h=0``, and centring in a row of
+    no height put the chip's *top* on the bottom edge — the whole thing drawn
+    below the window, which is how Genau's came out invisible.  With no row to
+    sit in it keeps the same margin from the bottom that it keeps from the right,
+    so the two edges read alike.
     """
     x = max(0, win_w - MARGIN - CHIP_W)
+    if timeline_h <= 0:
+        return x, max(0, win_h - MARGIN - CHIP_H)
     y = win_h - timeline_h + max(0, (timeline_h - CHIP_H) // 2)
     return x, y
 
