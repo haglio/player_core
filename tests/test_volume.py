@@ -131,3 +131,25 @@ class TestPainter:
 
         assert not np.array_equal(
             painter.bgra(VolumeHud(volume=50)), painter.bgra(VolumeHud(volume=51)))
+
+    def test_the_pygame_shape_is_the_same_chip_the_mpv_one_is(self):
+        """Nau composites an mpv overlay and Genau blits a pygame surface, so the
+        chip is handed out in both shapes — off one painting, or the two players
+        would be free to show different chips."""
+        painter = VolumeHudPainter()
+        hud = VolumeHud(volume=40, muted=True)
+
+        rgba, size = painter.rgba(hud)
+        bgra = painter.bgra(hud)
+
+        assert size == (CHIP_W, CHIP_H)
+        assert len(rgba) == CHIP_W * CHIP_H * 4
+        # Same pixels, in each renderer's channel order.
+        from_rgba = np.frombuffer(rgba, dtype=np.uint8).reshape(CHIP_H, CHIP_W, 4)
+        assert np.array_equal(from_rgba[:, :, [2, 1, 0, 3]], bgra)
+
+    def test_an_unchanged_control_is_not_repainted_for_pygame_either(self):
+        painter = VolumeHudPainter()
+
+        assert painter.rgba(VolumeHud(volume=50)) == painter.rgba(VolumeHud(volume=50))
+        assert painter.rgba(VolumeHud(volume=50))[0] != painter.rgba(VolumeHud(volume=90))[0]
