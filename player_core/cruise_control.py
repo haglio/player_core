@@ -20,6 +20,18 @@ def _snap_to_5(value: float) -> int:
     return round(value / 5) * 5
 
 
+def _glide(carried: float | None, dial: int, target: float, rate: float) -> float:
+    """One step of the glide toward *target*, kept unrounded.
+
+    *carried* is where the glide had got to, or None before it has started;
+    *dial* is what the value actually is now.  A hand on the dial between ticks
+    moves it away from *carried* by more than a snap's worth, and the glide
+    resumes from there rather than from where it thought it was.
+    """
+    start = dial if carried is None or abs(carried - dial) > 2.5 else carried
+    return max(0.0, min(100.0, start + (target - start) * rate))
+
+
 @dataclass
 class CruiseControlState:
     """Hands-free variation of the stroke itself — never of which clip plays.
@@ -34,6 +46,14 @@ class CruiseControlState:
     _last_tick: float = 0.0
     _amplitude_target: float = 100.0
     _center_target: float = 50.0
+    # Where the glide has actually got to, unrounded.  The dials are whole
+    # numbers snapped to fives, and a tick moves them by a twentieth of the gap
+    # — under about two and a half points that rounds straight back to where it
+    # started, so amplitude and centre sat still for every target inside half
+    # the range while speed, which steps a discrete five, moved as advertised.
+    # Carrying the glide here and snapping only on the way out fixes both.
+    _amplitude_now: float | None = None
+    _center_now: float | None = None
     _next_retarget: float = 0.0
     _next_speed_change: float = 0.0
     _next_shape_change: float = 0.0
@@ -80,14 +100,17 @@ def tick_cruise_control(
         cc._center_target = cc.rng.uniform(20, 80)
         cc._next_retarget = now + cc.rng.uniform(3, 8)
 
-    # Smooth interpolation toward targets, snapped to multiples of 5
+    # Smooth interpolation toward targets, snapped to multiples of 5 on the way
+    # out.  The glide itself is carried unrounded (see the state's fields), and
+    # picks up from wherever the dial is now — so a dial moved by hand mid-cruise
+    # is glided on from, not yanked back.
     lerp_rate = 2.0 * dt
-    direct.amplitude = _snap_to_5(max(0, min(100,
-        direct.amplitude + (cc._amplitude_target - direct.amplitude) * lerp_rate
-    )))
-    direct.intended_center = _snap_to_5(max(0, min(100,
-        direct.intended_center + (cc._center_target - direct.intended_center) * lerp_rate
-    )))
+    cc._amplitude_now = _glide(cc._amplitude_now, direct.amplitude,
+                               cc._amplitude_target, lerp_rate)
+    cc._center_now = _glide(cc._center_now, direct.intended_center,
+                            cc._center_target, lerp_rate)
+    direct.amplitude = _snap_to_5(cc._amplitude_now)
+    direct.intended_center = _snap_to_5(cc._center_now)
     _recompute_center(direct)
 
     # Step speed periodically
