@@ -248,16 +248,30 @@ class TestTrace:
 
         assert stepped[:3] == first[1:4]
 
-    def test_a_window_between_two_grid_points_slides_between_them(self):
-        """Snapped to the nearest knot, the line lurched forward one whole knot
-        at a time — his "blip-blip-blip" — while everything beside it slid.
-        The knots stay fixed (no boil); the window blends between them."""
+    def test_a_window_between_two_grid_points_keeps_the_same_values(self):
+        """The script never changes while it plays, so its picture is computed
+        once: a playhead between two knots reads the same values as the knot
+        behind it, and the leftover fraction is handed to the drawer to shift
+        the stable shape by.  Reading blended values instead morphed the wave's
+        heights at fixed columns every frame — the shape visibly changed as it
+        moved, which is the regression he caught."""
         fs = Funscript(actions=[(0, 0), (250, 100), (500, 0)])
 
-        halfway = fs.trace(125, 500, 3)
+        at_knot, none_over = fs.trace_window(0, 500, 3)
+        halfway, half_over = fs.trace_window(125, 500, 3)
 
-        assert halfway[0] == 0.5   # midway up the 0→100 stroke
-        assert halfway[1] == 0.5   # midway down the 100→0 stroke
+        assert halfway == at_knot
+        assert none_over == 0.0
+        assert half_over == 0.5
+
+    def test_the_window_carries_one_knot_past_the_far_edge(self):
+        """The drawer shifts the line left by the fraction, so without a spare
+        knot the line would fall short of the border by up to a sample."""
+        fs = Funscript(actions=[(0, 0), (250, 100), (500, 0)])
+
+        values, _over = fs.trace_window(0, 500, 3)
+
+        assert len(values) == 4
 
     def test_past_the_end_of_the_script_the_picture_holds(self):
         fs = Funscript(actions=[(0, 0), (500, 40)])

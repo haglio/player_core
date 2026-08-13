@@ -91,47 +91,52 @@ class Funscript:
         cached: a whole script sampled once, and a window of it read per frame.
         Resampling from the playhead put the sample points at a new offset every
         frame, so every peak and trough landed somewhere slightly different and
-        the line boiled in place instead of sliding.  The window itself slides
-        continuously — see :meth:`_window` — so the picture moves every frame
-        rather than one whole knot at a time.
+        the line boiled in place instead of sliding.  The window sits on whole
+        knots; a drawer that wants to move between them takes the fraction from
+        :meth:`trace_window` and shifts the stable picture itself.
+        """
+        values, _slide = self.trace_window(start_ms, span_ms, count)
+        return values[:count]
+
+    def trace_window(self, start_ms: int, span_ms: int, count: int,
+                     ) -> tuple[tuple[float, ...], float]:
+        """*count* + 1 knot samples from the knot at or before *start_ms*, and
+        how far past that knot *start_ms* sits as a fraction of one.
+
+        The values are the fixed grid's own, never resampled and never blended
+        — the script does not change while it plays, so its picture is computed
+        once and reread — and the fraction is for the drawer: shift the whole
+        polyline left by it and a stable shape slides across the screen, the
+        way he asked for it.  Reading the grid *at* the shifted positions
+        instead morphed the heights at fixed columns every frame — the shape
+        visibly changed while it moved.  The extra trailing sample is the knot
+        just past the span's far edge, so the shifted line still reaches the
+        border.
         """
         if count <= 0 or not self.actions:
-            return ()
+            return (), 0.0
         step = span_ms / max(1, count - 1)
         grid = self._grid(step)
         # Past the end of the script the device holds at the last action, so
         # the picture does too.
-        return self._window(grid, start_ms, step, count, grid[-1] if grid else 0.0)
+        return self._window(grid, start_ms, step, count + 1,
+                            grid[-1] if grid else 0.0)
 
     @staticmethod
     def _window(grid: tuple[float, ...], start_ms: int, step: float,
-                count: int, tail: float) -> tuple[float, ...]:
-        """*count* samples of *grid* from *start_ms*, the window sliding
-        continuously.
-
-        A start between two grid knots reads each sample as the blend of the
-        knots around it, so the picture advances a little every frame instead
-        of jumping one whole knot at a time — snapped to the nearest knot, the
-        line lurched forward at the knot rate while everything drawn beside it
-        slid.  The knots themselves stay fixed to the script, which is what
-        keeps the shape from boiling; past the last knot the window rests on
-        *tail*, blended into from the final knot the same way.
-        """
+                count: int, tail: float) -> tuple[tuple[float, ...], float]:
+        """*count* whole-knot samples of *grid* from the knot at or before
+        *start_ms*, plus the leftover fraction of a knot.  Whole knots only:
+        the values a window returns for one anchor knot never change, whatever
+        fraction the playhead sits past it."""
         if step <= 0 or not grid:
-            return tuple(tail for _ in range(count))
-        offset = start_ms / step
-        values: list[float] = []
-        for i in range(count):
-            whole, frac = divmod(offset + i, 1)
-            k = int(whole)
-            if k < 0:
-                values.append(grid[0])
-            elif k < len(grid):
-                nxt = grid[k + 1] if k + 1 < len(grid) else tail
-                values.append(grid[k] * (1 - frac) + nxt * frac)
-            else:
-                values.append(tail)
-        return tuple(values)
+            return tuple(tail for _ in range(count)), 0.0
+        whole, frac = divmod(start_ms / step, 1)
+        first = int(whole)
+        return tuple(
+            grid[first + i] if 0 <= first + i < len(grid) else tail
+            for i in range(count)
+        ), frac
 
     def _grid(self, step_ms: float) -> tuple[float, ...]:
         """The whole script at one sample every *step_ms*, from zero, memoized.
@@ -209,12 +214,18 @@ class Funscript:
         the same reason: resampled from the playhead, the picture boiled in
         place instead of sliding.
         """
+        values, _slide = self.planned_trace_window(start_ms, span_ms, count)
+        return values[:count]
+
+    def planned_trace_window(self, start_ms: int, span_ms: int, count: int,
+                             ) -> tuple[tuple[float, ...], float]:
+        """:meth:`trace_window` for the device's plan: *count* + 1 whole-knot
+        samples and the knot fraction to shift the drawn line by.  Past the end
+        of the script the device rests at its park, so the picture does too."""
         if count <= 0 or not self.actions:
-            return ()
+            return (), 0.0
         step = span_ms / max(1, count - 1)
-        # Past the end of the script the device rests at its park, so the
-        # picture does too.
-        return self._window(self._planned_grid(step), start_ms, step, count, 0.0)
+        return self._window(self._planned_grid(step), start_ms, step, count + 1, 0.0)
 
     def _planned_grid(self, step_ms: float) -> tuple[float, ...]:
         """The whole plan at one sample every *step_ms*, from zero, memoized."""
