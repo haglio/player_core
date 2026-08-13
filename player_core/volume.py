@@ -51,27 +51,35 @@ MAX_VOLUME = 100
 # subtracts it, so the two agree on where the track ends and the chip begins.
 SLOT_W = MARGIN + CHIP_W + MARGIN
 
+# The row the chip is centred in when the player under it draws no scrubber: the
+# height the scrubber would have had, ``player_core.timeline.TIMELINE_HEIGHT``.
+# Restated rather than imported, because ``timeline`` reads ``SLOT_W`` from here
+# and the import cannot go both ways; ``test_volume`` pins the two together.
+ROW_H = 24
+
 
 def chip_xy(*, win_w: int, win_h: int, timeline_h: int) -> tuple[int, int]:
-    """The chip's top-left: the right end of the timeline row, centred in its
-    height — or a margin up from the bottom edge where there is no row.
+    """The chip's top-left: the right end of the timeline row, centred in its height.
 
     Beside the scrubber, the way VLC laid the seek bar and the volume out
     together, rather than floating in a row of its own above it.  The track leaves
-    ``SLOT_W`` clear on the right for it.  Clamped at the left so a narrow window
-    shrinks the margin instead of pushing the chip off screen.
+    ``SLOT_W`` clear on the right for it.  Clamped at the left and the top so a
+    window smaller than the chip shrinks the margin instead of pushing it off
+    screen.
 
-    A player with no scrubber passes ``timeline_h=0``, and centring in a row of
-    no height put the chip's *top* on the bottom edge — the whole thing drawn
-    below the window, which is how Genau's came out invisible.  With no row to
-    sit in it keeps the same margin from the bottom that it keeps from the right,
-    so the two edges read alike.
+    A player with no scrubber passes ``timeline_h=0`` and is centred in
+    :data:`ROW_H` regardless, so its chip lands exactly where a player with the
+    row puts one.  Two earlier answers to "no row" both moved the control instead:
+    centring in a row of no height put the chip's *top* on the bottom edge — the
+    whole thing below the window, which is how Genau's came out invisible — and
+    measuring a margin up from the bottom fixed that by inventing a second
+    position, nine pixels above the one nau and hybrid show in the same session.
     """
-    x = max(0, win_w - MARGIN - CHIP_W)
-    if timeline_h <= 0:
-        return x, max(0, win_h - MARGIN - CHIP_H)
-    y = win_h - timeline_h + max(0, (timeline_h - CHIP_H) // 2)
-    return x, y
+    row_h = timeline_h if timeline_h > 0 else ROW_H
+    return (
+        max(0, win_w - MARGIN - CHIP_W),
+        max(0, win_h - row_h + max(0, (row_h - CHIP_H) // 2)),
+    )
 
 
 # --- hit-testing -------------------------------------------------------------
