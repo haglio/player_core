@@ -139,3 +139,78 @@ class TestTickCruiseControlActive:
         for i in range(200):
             tick_cruise_control(dc, auto, now=0.1 * (i + 1))
         assert dc.shape in list(WaveformShape)
+
+
+def _cruise_for(seconds, *, tick=0.025, seed=5):
+    """Run cruise control over a stroke for *seconds*, collecting every value
+    each dial took."""
+    from player_core.cruise_control import CruiseControlState, enable_cruise_control
+    from player_core.direct_control import DirectControlState
+
+    direct = DirectControlState()
+    direct.playing = True
+    cc = CruiseControlState(rng=random.Random(seed))
+    enable_cruise_control(cc)
+    seen = {"amplitude": set(), "center": set(), "speed": set(), "shape": set()}
+    now = 1000.0
+    for _ in range(int(seconds / tick)):
+        now += tick
+        tick_cruise_control(direct, cc, now)
+        for dial in seen:
+            seen[dial].add(getattr(direct, dial))
+    return seen
+
+
+def test_cruise_control_moves_every_dial_it_claims_to():
+    # It moved only speed for years: a tick steps a dial by a twentieth of the
+    # gap to its target and the result was snapped to fives, so any target
+    # nearer than about fifty points rounded back to where it started. Speed
+    # steps a discrete five, so speed alone appeared to work.
+    seen = _cruise_for(40)
+    assert len(seen["amplitude"]) > 3
+    assert len(seen["center"]) > 3
+    assert len(seen["speed"]) > 1
+    assert len(seen["shape"]) > 1
+
+
+def test_a_near_target_still_gets_there():
+    # The failure was worst close in: with amplitude at 100 and a target of 60,
+    # every step rounded away and the dial never left 100.
+    from player_core.cruise_control import CruiseControlState, enable_cruise_control
+    from player_core.direct_control import DirectControlState
+
+    direct = DirectControlState()
+    direct.playing = True
+    cc = CruiseControlState()
+    enable_cruise_control(cc)
+    cc._amplitude_target = 60.0
+    cc._center_target = 50.0
+    cc._next_retarget = float("inf")   # hold the target still and watch the glide
+    cc._next_speed_change = float("inf")
+    cc._next_shape_change = float("inf")
+    now = 1000.0
+    for _ in range(400):
+        now += 0.025
+        tick_cruise_control(direct, cc, now)
+    assert direct.amplitude == 60
+
+
+def test_a_dial_moved_by_hand_mid_cruise_is_glided_on_from():
+    from player_core.cruise_control import CruiseControlState, enable_cruise_control
+    from player_core.direct_control import DirectControlState, set_amplitude
+
+    direct = DirectControlState()
+    direct.playing = True
+    cc = CruiseControlState()
+    enable_cruise_control(cc)
+    cc._amplitude_target = 60.0
+    cc._next_retarget = float("inf")
+    now = 1000.0
+    for _ in range(40):
+        now += 0.025
+        tick_cruise_control(direct, cc, now)
+    set_amplitude(direct, 20)          # a hand on the dial
+    for _ in range(400):
+        now += 0.025
+        tick_cruise_control(direct, cc, now)
+    assert direct.amplitude == 60      # glided up from 20, not yanked back down
