@@ -287,3 +287,75 @@ class TestTrace:
         fs = Funscript(actions=[(0, 0), (250, 100), (500, 0), (750, 100)])
 
         assert all(0.0 <= value <= 1.0 for value in fs.trace(0, 1000, 40))
+
+
+class TestPlan:
+    """Where the device is *sent*, as opposed to where the script's line
+    interpolates: through every quiet stretch the neutral is the parked
+    position, with a timed rise back to each cluster's opening action."""
+
+    def _gapped(self) -> Funscript:
+        # A dense cluster, a 20s interior gap, then a second cluster whose
+        # opening action sits high — so the rise's target is visible — and a tail.
+        first = [(i * 200, 100 if i % 2 else 0) for i in range(6)]
+        second = [(21_000 + i * 200, 0 if i % 2 else 80) for i in range(6)]
+        return Funscript(actions=first + second)
+
+    def test_inside_a_cluster_the_plan_is_the_script(self):
+        fs = self._gapped()
+
+        assert fs.is_parked_at(300) is False
+        assert fs.planned_position_at(300) == fs.position_at(300)
+
+    def test_a_gap_rests_at_park_not_at_the_last_position(self):
+        """position_at drifts across a gap toward the far cluster; the device
+        does not follow it — its neutral between clusters is the park."""
+        fs = self._gapped()
+
+        assert fs.is_parked_at(10_000) is True
+        assert fs.planned_position_at(10_000) == 0.0
+
+    def test_the_tail_after_the_last_action_rests_at_park(self):
+        fs = self._gapped()
+
+        assert fs.is_parked_at(30_000) is True
+        assert fs.planned_position_at(30_000) == 0.0
+
+    def test_the_rise_starts_a_beat_ahead_and_lands_on_the_opening_action(self):
+        fs = self._gapped()
+
+        assert fs.is_parked_at(19_999) is True   # still parked
+        assert fs.is_parked_at(20_000) is False  # the rise begins
+        assert fs.planned_position_at(20_000) == 0.0
+        assert fs.planned_position_at(20_500) == fs.position_at(21_000) / 2
+        assert fs.planned_position_at(21_000) == fs.position_at(21_000)
+
+    def test_a_stray_blip_in_a_quiet_stretch_is_sat_out(self):
+        """An isolated action with no dense neighbors is noise, not a stroke;
+        the device stays at its rest rather than lunging at it."""
+        fs = Funscript(actions=[(0, 0), (200, 100), (400, 0),
+                                (10_000, 90),
+                                (20_000, 0), (20_200, 100), (20_400, 0)])
+
+        assert fs.is_parked_at(10_000) is True
+        assert fs.planned_position_at(10_000) == 0.0
+
+    def test_a_script_of_nothing_but_blips_rests_throughout(self):
+        """No dense action anywhere is one long quiet stretch — the same script
+        is_resting_at already hands to Genau whole."""
+        fs = Funscript(actions=[(0, 50), (10_000, 100), (20_000, 0)])
+
+        assert fs.is_parked_at(10_000) is True
+
+    def test_planned_trace_slides_on_the_same_fixed_grid(self):
+        fs = self._gapped()
+
+        first = fs.planned_trace(0, 1000, 5)
+        stepped = fs.planned_trace(250, 1000, 5)
+
+        assert stepped[:3] == first[1:4]
+
+    def test_past_the_end_planned_trace_rests_on_the_park(self):
+        fs = Funscript(actions=[(0, 0), (200, 100), (400, 40)])
+
+        assert fs.planned_trace(50_000, 500, 3) == (0.0, 0.0, 0.0)

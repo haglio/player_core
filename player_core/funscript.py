@@ -33,6 +33,11 @@ _SNAP_TOLERANCE_MS = 1000
 # another (gap below this) is where it truly begins.
 _QUIET_LEAD_IN_MS = 5000
 
+# How long the device takes to rise from its parked rest to a cluster's opening
+# action: long enough to read as a deliberate approach rather than a twitch,
+# short enough that it rests through nearly all of a long quiet stretch.
+_RISE_MS = 1000
+
 
 @dataclass
 class Funscript:
@@ -42,9 +47,12 @@ class Funscript:
         self._times = [a[0] for a in self.actions]
         self._dense_times = self._compute_dense_times()
         self._onsets = self._compute_onsets()
-        # The script sampled on a fixed grid, for :meth:`trace` to take windows of.
+        # The script sampled on a fixed grid, for :meth:`trace` to take windows
+        # of, and the device's plan sampled the same way for :meth:`planned_trace`.
         self._grid_step: float | None = None
         self._grid_values: tuple[float, ...] = ()
+        self._planned_grid_step: float | None = None
+        self._planned_grid_values: tuple[float, ...] = ()
 
     @property
     def first_real_event_ms(self) -> int | None:
@@ -105,6 +113,87 @@ class Funscript:
             self._grid_values = tuple(
                 self.position_at(round(i * step_ms)) / 100 for i in range(count))
         return self._grid_values
+
+    def is_parked_at(self, position_ms: int) -> bool:
+        """Whether the device's plan at *position_ms* is its parked position.
+
+        The neutral pose through every stretch the script is not actively
+        stroking — the quiet lead-in, interior gaps, the tail past the last
+        action — is the park, not wherever the last action happened to leave
+        the device: it drops to park as a cluster ends and rises again
+        ``_RISE_MS`` ahead of the next one, timed to meet its opening action.
+        Inside a cluster it is never parked, and isolated stray blips out in
+        the quiet stretches are noise the device sits out.
+        """
+        if not self._dense_times:
+            return True
+        i = bisect.bisect_left(self._dense_times, position_ms)
+        nxt = self._dense_times[i] if i < len(self._dense_times) else None
+        prv = self._dense_times[i - 1] if i > 0 else None
+        if nxt is not None and nxt - position_ms <= _RISE_MS:
+            return False
+        # Between two dense actions of one cluster the device is mid-stroke;
+        # between clusters (or past the last) it rests.
+        return not (
+            prv is not None and nxt is not None and nxt - prv < _QUIET_LEAD_IN_MS
+        )
+
+    def planned_position_at(self, position_ms: int) -> float:
+        """Where the device is *planned* to be at *position_ms*, 0-100.
+
+        The script's own motion through each dense cluster, the parked position
+        through the quiet stretches, and a straight climb between them — from
+        park at the foot of the rise to the cluster's opening action as it
+        fires.  This is the line the waypoint driver walks, so a trace drawn
+        from it is the device's coming motion rather than a picture the device
+        contradicts (:meth:`position_at` holds the last position across gaps
+        the device spends parked).
+        """
+        if self.is_parked_at(position_ms):
+            return 0.0
+        i = bisect.bisect_left(self._dense_times, position_ms)
+        nxt = self._dense_times[i] if i < len(self._dense_times) else None
+        prv = self._dense_times[i - 1] if i > 0 else None
+        rising = (
+            nxt is not None and position_ms < nxt
+            and (prv is None or nxt - prv >= _QUIET_LEAD_IN_MS)
+        )
+        if rising:
+            return self.position_at(nxt) * (1 - (nxt - position_ms) / _RISE_MS)
+        return self.position_at(position_ms)
+
+    def planned_trace(self, start_ms: int, span_ms: int, count: int) -> tuple[float, ...]:
+        """*count* samples of the device's plan covering *span_ms* from
+        *start_ms*, as 0-1 heights — :meth:`trace` for what the driver will
+        actually send: parked through the quiet stretches, rising to meet each
+        cluster, the script's own shape inside one.
+
+        Sampled and cached on the same script-fixed grid as :meth:`trace`, for
+        the same reason: resampled from the playhead, the picture boiled in
+        place instead of sliding.
+        """
+        if count <= 0 or not self.actions:
+            return ()
+        step = span_ms / max(1, count - 1)
+        grid = self._planned_grid(step)
+        first = round(start_ms / step) if step > 0 else 0
+        # Past the end of the script the device rests at its park, so the
+        # picture does too.
+        return tuple(
+            grid[first + i] if 0 <= first + i < len(grid) else 0.0
+            for i in range(count)
+        )
+
+    def _planned_grid(self, step_ms: float) -> tuple[float, ...]:
+        """The whole plan at one sample every *step_ms*, from zero, memoized."""
+        if self._planned_grid_step != step_ms:
+            last = self.actions[-1][0]
+            count = int(last / step_ms) + 2 if step_ms > 0 else 1
+            self._planned_grid_step = step_ms
+            self._planned_grid_values = tuple(
+                self.planned_position_at(round(i * step_ms)) / 100
+                for i in range(count))
+        return self._planned_grid_values
 
     def position_at(self, position_ms: int) -> float:
         """Where the script has the device at *position_ms*, 0-100.

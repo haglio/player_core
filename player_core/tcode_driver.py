@@ -32,15 +32,13 @@ class FunscriptTCodeDriver:
         if now is None:
             now = time.monotonic()
 
-        park_until = fs.first_real_event_ms
-        if park_until is not None and position_ms < park_until and fs.is_resting_at(position_ms):
-            # A long quiet lead-in with no real action yet: rest at the closest
-            # position instead of drifting toward an action still seconds away.
-            # Only while the script is resting — resting ends a buffer ahead of
-            # the action (the same rule the hybrid handoff hands the device over
-            # on), and that last stretch drives below, so the device glides to
-            # the script's opening position instead of sitting parked until the
-            # first stroke yanks it across the whole range.
+        if fs.is_parked_at(position_ms):
+            # The plan through every quiet stretch — the lead-in, interior gaps,
+            # the tail past the last action — is the parked position: the
+            # device's neutral is its rest, not wherever the last action left it
+            # and not a drift toward one still seconds away.  The rise back out
+            # is the waypoint below, which the plan arms a beat ahead of each
+            # cluster so the device meets its opening action as it fires.
             self.park(now=now)
             return
 
