@@ -88,24 +88,50 @@ class Funscript:
         after the last it holds, because that is where the device holds too.
 
         Sampled on a grid fixed to the script rather than to *start_ms*, and
-        cached: a whole script sampled once, and a window of it taken per frame.
+        cached: a whole script sampled once, and a window of it read per frame.
         Resampling from the playhead put the sample points at a new offset every
         frame, so every peak and trough landed somewhere slightly different and
-        the line boiled in place instead of sliding.  On this grid the shape is
-        the shape, and moving the playhead slides the window along it.
+        the line boiled in place instead of sliding.  The window itself slides
+        continuously — see :meth:`_window` — so the picture moves every frame
+        rather than one whole knot at a time.
         """
         if count <= 0 or not self.actions:
             return ()
         step = span_ms / max(1, count - 1)
         grid = self._grid(step)
-        first = round(start_ms / step) if step > 0 else 0
-        # Past the end of the script the grid is exhausted; the device holds at the
-        # last action, so the picture does too.
-        tail = grid[-1] if grid else 0.0
-        return tuple(
-            grid[first + i] if 0 <= first + i < len(grid) else tail
-            for i in range(count)
-        )
+        # Past the end of the script the device holds at the last action, so
+        # the picture does too.
+        return self._window(grid, start_ms, step, count, grid[-1] if grid else 0.0)
+
+    @staticmethod
+    def _window(grid: tuple[float, ...], start_ms: int, step: float,
+                count: int, tail: float) -> tuple[float, ...]:
+        """*count* samples of *grid* from *start_ms*, the window sliding
+        continuously.
+
+        A start between two grid knots reads each sample as the blend of the
+        knots around it, so the picture advances a little every frame instead
+        of jumping one whole knot at a time — snapped to the nearest knot, the
+        line lurched forward at the knot rate while everything drawn beside it
+        slid.  The knots themselves stay fixed to the script, which is what
+        keeps the shape from boiling; past the last knot the window rests on
+        *tail*, blended into from the final knot the same way.
+        """
+        if step <= 0 or not grid:
+            return tuple(tail for _ in range(count))
+        offset = start_ms / step
+        values: list[float] = []
+        for i in range(count):
+            whole, frac = divmod(offset + i, 1)
+            k = int(whole)
+            if k < 0:
+                values.append(grid[0])
+            elif k < len(grid):
+                nxt = grid[k + 1] if k + 1 < len(grid) else tail
+                values.append(grid[k] * (1 - frac) + nxt * frac)
+            else:
+                values.append(tail)
+        return tuple(values)
 
     def _grid(self, step_ms: float) -> tuple[float, ...]:
         """The whole script at one sample every *step_ms*, from zero, memoized.
@@ -186,14 +212,9 @@ class Funscript:
         if count <= 0 or not self.actions:
             return ()
         step = span_ms / max(1, count - 1)
-        grid = self._planned_grid(step)
-        first = round(start_ms / step) if step > 0 else 0
         # Past the end of the script the device rests at its park, so the
         # picture does too.
-        return tuple(
-            grid[first + i] if 0 <= first + i < len(grid) else 0.0
-            for i in range(count)
-        )
+        return self._window(self._planned_grid(step), start_ms, step, count, 0.0)
 
     def _planned_grid(self, step_ms: float) -> tuple[float, ...]:
         """The whole plan at one sample every *step_ms*, from zero, memoized."""

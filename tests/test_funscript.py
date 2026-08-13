@@ -248,12 +248,16 @@ class TestTrace:
 
         assert stepped[:3] == first[1:4]
 
-    def test_a_window_between_two_grid_points_lands_on_the_nearer_one(self):
-        """Which is what keeps the shape stable: the window moves in whole
-        samples, so the picture never stretches between frames."""
+    def test_a_window_between_two_grid_points_slides_between_them(self):
+        """Snapped to the nearest knot, the line lurched forward one whole knot
+        at a time — his "blip-blip-blip" — while everything beside it slid.
+        The knots stay fixed (no boil); the window blends between them."""
         fs = Funscript(actions=[(0, 0), (250, 100), (500, 0)])
 
-        assert fs.trace(30, 500, 3) == fs.trace(0, 500, 3)
+        halfway = fs.trace(125, 500, 3)
+
+        assert halfway[0] == 0.5   # midway up the 0→100 stroke
+        assert halfway[1] == 0.5   # midway down the 100→0 stroke
 
     def test_past_the_end_of_the_script_the_picture_holds(self):
         fs = Funscript(actions=[(0, 0), (500, 40)])
