@@ -38,6 +38,13 @@ _QUIET_LEAD_IN_MS = 5000
 # short enough that it rests through nearly all of a long quiet stretch.
 _RISE_MS = 1000
 
+# How long the device takes to settle onto its park when whoever was driving
+# lets go — the interval the waypoint driver's park command carries (and the
+# broker's own park matches).  Public because the drive trace draws this glide:
+# a plan that dropped to park in one sample was a cliff the device then took
+# half a second to walk down.
+PARK_SETTLE_MS = 500
+
 
 @dataclass
 class Funscript:
@@ -149,11 +156,15 @@ class Funscript:
         contradicts (:meth:`position_at` holds the last position across gaps
         the device spends parked).
         """
-        if self.is_parked_at(position_ms):
-            return 0.0
         i = bisect.bisect_left(self._dense_times, position_ms)
         nxt = self._dense_times[i] if i < len(self._dense_times) else None
         prv = self._dense_times[i - 1] if i > 0 else None
+        if self.is_parked_at(position_ms):
+            if prv is not None and position_ms - prv < PARK_SETTLE_MS:
+                # The drop out of a cluster is the driver's own park glide,
+                # drawn: a straight descent from the last action onto the rest.
+                return self.position_at(prv) * (1 - (position_ms - prv) / PARK_SETTLE_MS)
+            return 0.0
         rising = (
             nxt is not None and position_ms < nxt
             and (prv is None or nxt - prv >= _QUIET_LEAD_IN_MS)

@@ -5,11 +5,12 @@ import time
 
 from .tcode import HandoffGlide, TCodeSink, format_tcode_command
 
-from .funscript import Funscript
+from .funscript import PARK_SETTLE_MS, Funscript
 
 _RESEND_INTERVAL = 0.1
 # Glide to the parked position over this long, matching the broker's own park.
-_PARK_INTERVAL_MS = 500
+# The funscript's plan draws this same descent, which is why the number is its.
+_PARK_INTERVAL_MS = PARK_SETTLE_MS
 # Sentinel "segment" for the parked state, distinct from -1 ("nothing sent yet").
 _PARK_SEGMENT = -2
 
