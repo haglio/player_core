@@ -33,6 +33,12 @@ _SNAP_TOLERANCE_MS = 1000
 # another (gap below this) is where it truly begins.
 _QUIET_LEAD_IN_MS = 5000
 
+# The same number, public: it is also how far ahead of a cluster the hybrid
+# handoff gives the device to the script (resting ends this far before the
+# onset), so a drawer reconstructing where a handoff fell reads it from here
+# rather than growing a second copy of the buffer.
+QUIET_LEAD_IN_MS = _QUIET_LEAD_IN_MS
+
 # How long the device takes to rise from its parked rest to a cluster's opening
 # action: long enough to read as a deliberate approach rather than a twitch,
 # short enough that it rests through nearly all of a long quiet stretch.
