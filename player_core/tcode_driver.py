@@ -33,16 +33,21 @@ class FunscriptTCodeDriver:
             now = time.monotonic()
 
         park_until = fs.first_real_event_ms
-        if park_until is not None and position_ms < park_until:
+        if park_until is not None and position_ms < park_until and fs.is_resting_at(position_ms):
             # A long quiet lead-in with no real action yet: rest at the closest
             # position instead of drifting toward an action still seconds away.
+            # Only while the script is resting — resting ends a buffer ahead of
+            # the action (the same rule the hybrid handoff hands the device over
+            # on), and that last stretch drives below, so the device glides to
+            # the script's opening position instead of sitting parked until the
+            # first stroke yanks it across the whole range.
             self.park(now=now)
             return
 
-        segment = max(0, bisect.bisect_right(fs._times, position_ms) - 1)
-        if self._should_send(segment, now):
-            self._send_waypoint(fs, segment, position_ms, speed, now)
-            self._mark_sent(segment, now)
+        next_index = bisect.bisect_right(fs._times, position_ms)
+        if self._should_send(next_index, now):
+            self._send_waypoint(fs, next_index, position_ms, speed, now)
+            self._mark_sent(next_index, now)
 
     def park(self, *, now: float | None = None) -> None:
         """Rest the OSR2 at its closest position (the same place the broker parks
@@ -72,10 +77,16 @@ class FunscriptTCodeDriver:
         self._last_send_time = now
 
     def _send_waypoint(
-        self, fs: Funscript, segment: int, position_ms: int, speed: float, now: float
+        self, fs: Funscript, next_index: int, position_ms: int, speed: float, now: float
     ) -> None:
-        if segment + 1 < len(fs.actions):
-            next_t, next_pos = fs.actions[segment + 1]
+        """Aim at ``fs.actions[next_index]``, the first action still ahead.
+
+        Ahead of the whole script that is the opening action itself, so a
+        playhead approaching the script's start glides to where the script
+        begins rather than skipping to where its first stroke ends.
+        """
+        if next_index < len(fs.actions):
+            next_t, next_pos = fs.actions[next_index]
             # ``next_t - position_ms`` is the gap to the waypoint in *media* time;
             # the OSR2 executes its move in wall-clock time, so at playback rate
             # ``speed`` the move must finish in that many wall-milliseconds.
