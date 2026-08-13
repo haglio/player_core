@@ -92,15 +92,18 @@ class TestFunscriptTCodeDriver:
 
         assert len(sink.sent) == 2
 
-    def test_past_last_action_holds_position(self):
+    def test_past_the_last_action_the_device_drops_to_its_park(self):
+        """The tail after a script's final action is a quiet stretch like any
+        other, and its neutral is the parked position — not the last position
+        held for as long as the video keeps running."""
         sink = FakeSink()
         driver = FunscriptTCodeDriver(sink)
         fs = Funscript(actions=[(0, 0), (1000, 50)])
 
-        driver.update(0, fs, now=0.0)   # spend the takeover glide first
+        driver.update(0, fs, now=0.0)
         driver.update(1500, fs, now=1.5)
 
-        assert sink.sent[-1] == "L05000I100"
+        assert sink.sent[-1] == "L00000I500"
 
     def test_periodic_resend_protects_against_packet_loss(self):
         sink = FakeSink()
@@ -189,33 +192,34 @@ class TestLeadInPark:
         # Isolated blip at t=0, then dense action from 60s: onset = 60000.
         return Funscript(actions=[(0, 50), (60000, 0), (60300, 100), (60600, 0)])
 
-    def test_the_last_stretch_of_the_lead_in_glides_to_the_opening_position(self):
-        """Resting ends a buffer ahead of the onset — the same rule the hybrid
-        handoff hands the device over on — and parking through that buffer is how
-        the OSR2 sat at the bottom while the script's opening, at the opposite
-        end, scrolled toward the playhead.  The buffer aims at the opening action
-        instead, so the device is where the script starts when it starts."""
+    def test_the_handed_over_buffer_rests_at_park_then_rises_to_the_opening(self):
+        """The neutral through the stretch between the drivers is the parked
+        position: the device rests there while the handoff buffer runs down, and
+        only a beat ahead of the onset does it rise — to the cluster's *opening*
+        action, so it is at the script's starting end as the action fires
+        rather than sitting at the bottom while the opening, at the opposite
+        end, scrolls toward the playhead."""
         sink = FakeSink()
         driver = FunscriptTCodeDriver(sink)
         fs = Funscript(actions=[(0, 50), (60000, 100), (60300, 0), (60600, 100)])
 
-        driver.update(56_000, fs, now=0.0)
+        driver.update(56_000, fs, now=0.0)   # buffer: still parked
+        driver.update(59_500, fs, now=1.0)   # the rise: aim at (60000, 100)
 
-        # Five seconds shy of the onset at (60000, 100): glide to the top over
-        # the 4000ms left, not a park at the bottom.
-        assert sink.sent == ["L09999I4000"]
+        assert sink.sent == ["L00000I500", "L09999I500"]
 
     def test_before_a_prompt_script_the_target_is_the_opening_action_itself(self):
-        """A script that starts promptly never parks, and its first target is
-        where the script *begins* — skipping to the first stroke's far end sent
-        the device the wrong way across the range before playback got there."""
+        """The rise's first target is where the script *begins* — skipping to
+        the first stroke's far end sent the device the wrong way across the
+        range before playback got there."""
         sink = FakeSink()
         driver = FunscriptTCodeDriver(sink)
         fs = Funscript(actions=[(3000, 100), (3300, 0)])
 
-        driver.update(0, fs, now=0.0)
+        driver.update(0, fs, now=0.0)      # short lead-in, still parked
+        driver.update(2_500, fs, now=1.0)  # rising: the opening action, not its far end
 
-        assert sink.sent == ["L09999I3000"]
+        assert sink.sent == ["L00000I500", "L09999I500"]
 
     def test_parks_at_closest_position_during_lead_in(self):
         sink = FakeSink()
