@@ -26,9 +26,30 @@ exercises the real thing.
 """
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from .libmpv_loader import add_libmpv_to_path
+
+logger = logging.getLogger(__name__)
+
+# mpv's severities onto Python's.  Only warnings and worse are asked for below,
+# so anything that arrives belongs in the host's log at face value.
+_MPV_LEVELS = {"fatal": logging.CRITICAL, "error": logging.ERROR, "warn": logging.WARNING}
+
+
+def _log_mpv(level: str, prefix: str, text: str) -> None:
+    """Write one of mpv's own messages to the host player's log.
+
+    Failures inside the engine are otherwise invisible from Python: a clip mpv
+    cannot open, a codec it cannot initialize, a hardware decoder it cannot
+    create — none of them raise, and playback carries on with an empty video
+    output.  What the host is left with is a black window over a healthy process
+    and nothing written down anywhere, which is the one state that cannot be
+    diagnosed afterwards.  mpv says why at the moment it happens; this keeps the
+    sentence, in the log file the player already writes.
+    """
+    logger.log(_MPV_LEVELS.get(level, logging.WARNING), "mpv %s: %s", prefix, text.strip())
 
 
 def _import_mpv():
@@ -43,8 +64,18 @@ def _shared_options(*, muted: bool, loop_file: bool, prefetch: bool) -> dict:
 
     The windowed player adds its ``wid``/``vo=gpu`` pair on top; the offscreen
     one (:mod:`player_core.render_player`) adds ``vo=libmpv`` instead.
+
+    ``log_handler`` and ``loglevel`` are python-mpv's own constructor keywords
+    rather than mpv options; they ride here because both players want them for
+    the same reason (:func:`_log_mpv`) and both hand this dict straight to
+    ``MPV()``.
     """
     options = dict(
+        log_handler=_log_mpv,
+        # Warnings and worse only.  At "info" mpv narrates every file it opens,
+        # which for a satellite walking a playlist is a line every few seconds —
+        # noise that would bury the one line that matters.
+        loglevel="warn",
         hwdec="auto-safe",
         # loop-1: the current file repeats (like the old primary VLC's
         # --repeat), so a video never ends on its own; [ ] navigates.
@@ -91,6 +122,22 @@ class _MpvControl:
         # jump/discard/filter navigation needs.
         self._mpv.playlist_clear()
 
+    # Everything below trims mpv's playlist down to the clip on screen, and each
+    # does it with ``playlist-clear`` — "clear the playlist, except the currently
+    # played file" — rather than by removing computed indices.
+    #
+    # Which entry is current is mpv's to know, and it changes underneath us: with
+    # prefetch on, mpv rolls onto the staged entry by itself at end-of-file, so an
+    # index read a moment earlier can already name the clip now playing.  Removing
+    # by that index takes the playing entry out from under mpv, which leaves it on
+    # an empty playlist — a black window for the rest of the session, with a
+    # healthy process, a running loop and nothing raised anywhere.  There is no
+    # window to lose here: ``playlist-clear`` resolves "current" inside mpv.
+    #
+    # (``playlist-pos`` also reports -1 for "no entry playing", which the old
+    # ``or 0`` read as entry zero — so the same removals would then walk the
+    # playlist to nothing.  Not computing an index at all retires that too.)
+
     def stage_next(self, path: Path) -> None:
         """Make *path* the single entry queued after the current clip.
 
@@ -98,32 +145,31 @@ class _MpvControl:
         current clip ends, so the end-of-file auto-advance onto it is seamless.
         Any previously-staged entry is replaced.
         """
-        pos = self._mpv.playlist_pos or 0
-        while (self._mpv.playlist_count or 0) > pos + 1:
-            self._mpv.playlist_remove(pos + 1)
+        self._mpv.playlist_clear()
         self._mpv.loadfile(str(path), "append")
 
     def clear_next(self) -> None:
         """Drop the staged next entry (used when a lock pins the current clip)."""
-        pos = self._mpv.playlist_pos or 0
-        while (self._mpv.playlist_count or 0) > pos + 1:
-            self._mpv.playlist_remove(pos + 1)
+        self._mpv.playlist_clear()
 
     @property
     def advanced_to_next(self) -> bool:
         """True once mpv has reached end-of-file and auto-advanced off the current
-        clip onto the staged next one (its playlist position moved past the head)."""
-        return (self._mpv.playlist_pos or 0) >= 1
+        clip onto the staged next one (its playlist position moved past the head).
+
+        -1 is mpv's "no entry playing", which is not past the head.
+        """
+        pos = self._mpv.playlist_pos
+        return pos is not None and pos >= 1
 
     def drop_consumed(self) -> None:
         """Remove the played-out head sitting ahead of the clip now playing.
 
-        After an auto-advance the spent clip still occupies index 0; removing it
-        shifts the now-playing entry back to the head (mpv keeps playing it
+        After an auto-advance the spent clip still occupies index 0; clearing
+        around the current entry shifts it back to the head (mpv keeps playing it
         uninterrupted), restoring the [current, next] window.
         """
-        while (self._mpv.playlist_pos or 0) > 0:
-            self._mpv.playlist_remove(0)
+        self._mpv.playlist_clear()
 
     @property
     def position_ms(self) -> float:
