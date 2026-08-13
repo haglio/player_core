@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import numpy as np
 
+from player_core.timeline import TIMELINE_HEIGHT
 from player_core.volume import (
     CHIP_H,
     CHIP_W,
     MARGIN,
+    ROW_H,
     SLOT_W,
     SPEAKER_W,
     VolumeHud,
@@ -42,16 +44,20 @@ class TestPlacement:
 
         assert x >= 0
 
-    def test_a_player_with_no_scrubber_keeps_the_chip_above_the_bottom_edge(self):
-        """Genau draws no timeline, and centring in a row of no height put the
-        chip's *top* on the bottom edge — the whole thing below the window, which
-        is how its volume control came out invisible.  With no row to sit in it
-        keeps the bottom margin it keeps at the right."""
-        x, y = chip_xy(win_w=1200, win_h=900, timeline_h=0)
+    def test_a_player_with_no_scrubber_puts_the_chip_where_one_with_a_scrubber_does(self):
+        """Genau draws no timeline, but its window IS the primary display in genau
+        mode — so reaching for the sound must not find the control somewhere other
+        than where the same session shows it in nau and hybrid, which is the row
+        Nau draws.  Measuring its own margin off the bottom edge instead put it
+        nine pixels above that."""
+        assert chip_xy(win_w=1200, win_h=900, timeline_h=0) == chip_xy(
+            win_w=1200, win_h=900, timeline_h=ROW_H)
 
-        assert y + CHIP_H <= 900, "the chip has to be inside the window"
-        assert 900 - (y + CHIP_H) == MARGIN, "a margin up from the bottom"
-        assert 1200 - (x + CHIP_W) == MARGIN, "the same margin as at the right"
+    def test_the_row_it_falls_back_to_is_the_one_the_scrubber_draws(self):
+        """ROW_H is restated rather than imported — timeline reads SLOT_W from
+        volume, so the dependency cannot run both ways — and a fallback row of a
+        different height would leave the chip off-centre in the real one."""
+        assert ROW_H == TIMELINE_HEIGHT
 
     def test_a_window_shorter_than_the_chip_still_places_it(self):
         """Clamped at the top for the reason the left edge is: still on screen,
