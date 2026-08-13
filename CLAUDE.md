@@ -20,6 +20,14 @@ installed editable:
 Always `--config-settings editable_mode=compat`; the README says why, and
 `tests/test_install.py` goes red if a venv is ever reinstalled without it.
 
+## Worktrees lack the DLL
+
+`vendor/libmpv-2.dll` is fetched, not tracked, so a fresh worktree has no
+`vendor/` and anything importing `MpvPlayer` through that worktree — a consumer
+suite pointed at it, or a fun_time verification session naming it in
+`genau_project_dirs` — dies on load. Copy the DLL in from the primary's
+`vendor/` first.
+
 ## What belongs here
 
 - **Only what a second repo needs.** A module earns a place here once both
