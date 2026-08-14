@@ -43,7 +43,6 @@ from .drive_layout import (  # noqa: F401 — this module's public face
 )
 from .drive_layout import fraction as _fraction
 from .file_channel import publish_whole
-from .funscript import QUIET_LEAD_IN_MS, QUIET_LEAD_OUT_MS
 from .hud_panel import (
     BLUE,
     GREEN,
@@ -80,22 +79,11 @@ _TRACE_INK = {
 }
 
 
-def trace_ink(driven: str):
-    """The color a trace driven by *driven* is drawn in."""
-    return _TRACE_INK[driven]
 
 
-# How close to the stroke's floor a waveform sample must come to count as
-# touching it.  The sample comb rarely lands exactly on a trough — at a
-# 100-150ms pitch the nearest sample can sit several percent above the true
-# bottom — and a tolerance that misses a trough entirely makes whoever trusted
-# it act one whole cycle late.  Shared by the trace that draws Genau's turn
-# ending on a touch and the arbiter that really ends it there, so both mean
-# the same touch.
-def stroke_floor(center: int, amplitude: int) -> float:
-    """The lowest point the stroke reaches, as a 0-1 height: where the climb out
-    of the park is headed, and where the waiting stroke opens."""
-    return max(0.0, (center - amplitude / 2) / 100)
+
+
+
 
 _SIZE_TINY = 8
 _TRACK = (56, 56, 62)  # the unfilled part of a bar — a shade off the slab
@@ -128,6 +116,11 @@ _DISABLED = (84, 84, 88, 255)
 # the line reads as a curve and slides instead of stepping.  The box is 120×96;
 # sixteen times the pixels is still far under a millisecond a repaint.
 _SUPERSAMPLE = 4
+
+
+def trace_ink(driven: str):
+    """The color a trace driven by *driven* is drawn in."""
+    return _TRACE_INK[driven]
 
 
 def label_pair_x(font, key: str, value: str, *,
@@ -199,6 +192,14 @@ class DriveHud:
     # Neither is published — Genau's own stroke slides by being resampled live.
     slide: float = 0.0
     edge: float | None = None
+    # The height (0-1) Genau last let the device go at, and None while Genau
+    # still holds it.  Latched by the sender at the instant it hands over —
+    # BEFORE it rests its phase, which destroys the number — and cleared when it
+    # takes the device back.  Published, because this is the one fact the trace
+    # cannot recompute: a paused Genau publishes the stroke it will resume with,
+    # not the position it stopped at, and reconstructing the height downstream
+    # from the console's laggy flip recorded the parked floor instead.
+    let_go: float | None = None
 
     @property
     def driving(self) -> bool:
@@ -400,21 +401,17 @@ class DriveSection:
 
             runs = hud.runs
             for run_no, (start, end, driven) in enumerate(runs):
-                # A leading blue run is Genau's *running* stroke: its content is
-                # the motion, republished live, so the knot-fraction shift that
-                # slides the script's fixed picture would ride on top of it — a
-                # sawtooth the eye reads as the glide speeding up and snapping
-                # back once per knot.  It draws on its own knots, and only its
-                # last point lands on the shifted seam, so the line stays joined.
-                live_stroke = run_no == 0 and driven == DRIVEN_BY_GENAU
-                shift = 0.0 if live_stroke else hud.slide
-                pts = [at(i, points[i], shift) for i in range(start, end + 1)]
-                if live_stroke and len(runs) > 1 and pts:
-                    pts[-1] = at(end, points[end], hud.slide)
+                # Every run shifts by the same knot fraction.  The live blue
+                # included: its values are read at fixed sample TIMES now (the
+                # composed trace compensates the publish's own advance), so the
+                # one uniform shift is the whole slide — the old per-run
+                # exemption, kept after the reads changed, made the two
+                # conventions disagree by the slide at every seam between them.
+                pts = [at(i, points[i], hud.slide) for i in range(start, end + 1)]
                 if run_no == len(runs) - 1 and hud.edge is not None:
                     # The knot just past the border, so the shifted line still
                     # reaches the box's edge instead of stopping short of it.
-                    pts.append(at(len(points), hud.edge, shift))
+                    pts.append(at(len(points), hud.edge, hud.slide))
                 if len(pts) >= 2:
                     draw.line(pts, fill=(*trace_ink(driven), 255), width=2 * s,
                               joint="curve")
@@ -461,6 +458,8 @@ def drive_text(hud: DriveHud) -> str:
     # the same stretch: Genau's stroke and the script have to be the same picture
     # for a handoff between them to read as one line changing color.
     lines.append(f"trace_seconds={hud.trace_seconds:.3f}")
+    if hud.let_go is not None:
+        lines.append(f"let_go={hud.let_go:.3f}")
     lines.append("waveform=" + ",".join(f"{value:.3f}" for value in hud.waveform))
     return "\n".join(lines) + "\n"
 
@@ -493,7 +492,19 @@ def read_drive(path: Path) -> DriveHud | None:
         shape=values["shape"].strip(),
         trace_seconds=_seconds(values.get("trace_seconds", "")),
         waveform=_waveform(values.get("waveform", "")),
+        let_go=_let_go(values.get("let_go")),
     )
+
+
+def _let_go(raw: str | None) -> float | None:
+    """The published let-go height, or None when Genau still has the device
+    (or an older publisher's file does not carry the field)."""
+    if raw is None:
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        return None
 
 
 def _seconds(raw: str) -> float:

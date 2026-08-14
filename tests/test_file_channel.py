@@ -113,13 +113,26 @@ def test_consume_skips_blank_lines(tmp_path: Path):
     assert result == ["RESUME", "HUD_ON"]
 
 
-def test_consume_clears_file_after_reading(tmp_path: Path):
+def test_consume_takes_the_queue_away(tmp_path: Path):
+    """Claimed by rename, not read-then-truncated: the truncate had a hole one
+    verb wide, and a handoff verb appended into it was erased unread."""
     path = tmp_path / "cmd.txt"
     path.write_text("NEXT", encoding="utf-8")
 
     consume_command_file(path)
 
-    assert path.read_text(encoding="utf-8") == ""
+    assert not path.exists()
+    assert not path.with_suffix(path.suffix + ".consuming").exists()
+
+
+def test_a_verb_appended_after_a_consume_is_read_by_the_next(tmp_path: Path):
+    path = tmp_path / "cmd.txt"
+    path.write_text("NEXT", encoding="utf-8")
+
+    assert consume_command_file(path) == ["NEXT"]
+    append_command(path, "PAUSE")
+
+    assert consume_command_file(path) == ["PAUSE"]
 
 
 def test_consume_uppercases_commands(tmp_path: Path):

@@ -206,7 +206,8 @@ class TestLeadInPark:
         driver.update(56_000, fs, now=0.0)   # buffer: still parked
         driver.update(59_500, fs, now=1.0)   # the rise: aim at (60000, 100)
 
-        assert sink.sent == ["L00000I500", "L09999I500"]
+        # The first park after a takeover IS the handoff ramp down.
+        assert sink.sent == ["L00000I2000", "L09999I500"]
 
     def test_before_a_prompt_script_the_target_is_the_opening_action_itself(self):
         """The rise's first target is where the script *begins* — skipping to
@@ -219,7 +220,7 @@ class TestLeadInPark:
         driver.update(0, fs, now=0.0)      # short lead-in, still parked
         driver.update(2_500, fs, now=1.0)  # rising: the opening action, not its far end
 
-        assert sink.sent == ["L00000I500", "L09999I500"]
+        assert sink.sent == ["L00000I2000", "L09999I500"]
 
     def test_parks_at_closest_position_during_lead_in(self):
         sink = FakeSink()
@@ -227,8 +228,9 @@ class TestLeadInPark:
 
         driver.update(10000, self._lead_in_fs(), now=0.0)
 
-        # Rest at position 0 (closest), the same place the broker parks on pause.
-        assert sink.sent == ["L00000I500"]
+        # Rest at position 0 (closest), reached over the handoff ramp: the
+        # fresh driver's device is wherever the last driver left it.
+        assert sink.sent == ["L00000I2000"]
 
     def test_resumes_normal_driving_at_first_real_event(self):
         sink = FakeSink()
@@ -239,7 +241,7 @@ class TestLeadInPark:
         driver.update(60000, fs, now=1.0)   # onset reached: drive normally
 
         # Park, then the next waypoint aims at (60300, 100). Remaining = 300ms.
-        assert sink.sent == ["L00000I500", "L09999I300"]
+        assert sink.sent == ["L00000I2000", "L09999I300"]
 
     def test_park_is_rate_limited_but_resends(self):
         sink = FakeSink()
@@ -250,7 +252,11 @@ class TestLeadInPark:
         driver.update(11000, fs, now=0.05)   # within resend interval: suppressed
         driver.update(12000, fs, now=0.15)   # past resend interval: resends
 
-        assert sink.sent == ["L00000I500", "L00000I500"]
+        # A resend carries the descent's REMAINING time, not a fresh interval:
+        # re-issued whole, each resend retargeted the in-flight glide from
+        # wherever the device was, and every drawn straight ramp became a fast
+        # exponential the picture never showed.
+        assert sink.sent == ["L00000I2000", "L00000I1850"]
 
 
 class TestPark:
@@ -258,14 +264,28 @@ class TestPark:
     an unscripted video.  It reuses the lead-in rest's waypoint and edge gating,
     so callers can hold the device parked without a script to drive from."""
 
+    def test_a_park_after_scripting_is_the_plan_s_own_settle(self):
+        """Only the FIRST park after a takeover is the long handoff ramp; once
+        this driver has been scripting, dropping out of a cluster is the plan's
+        half-second settle, exactly as drawn."""
+        sink = FakeSink()
+        driver = FunscriptTCodeDriver(sink)
+        fs = Funscript(actions=[(0, 100), (200, 0), (400, 100), (600, 0)])
+
+        driver.update(100, fs, now=0.0)     # mid-cluster: a waypoint
+        driver.update(10_000, fs, now=1.0)  # the tail: parked
+
+        assert sink.sent[-1] == "L00000I500"
+
     def test_sends_closest_position(self):
         sink = FakeSink()
         driver = FunscriptTCodeDriver(sink)
 
         driver.park(now=0.0)
 
-        # Position 0 (closest), the same place the broker parks on pause.
-        assert sink.sent == ["L00000I500"]
+        # Position 0 (closest), over the handoff ramp: a fresh driver's device
+        # is wherever whoever had it last left it.
+        assert sink.sent == ["L00000I2000"]
 
     def test_edge_gated_then_resends(self):
         sink = FakeSink()
@@ -275,4 +295,4 @@ class TestPark:
         driver.park(now=0.05)  # within the resend interval: suppressed
         driver.park(now=0.15)  # past the resend interval: resends
 
-        assert sink.sent == ["L00000I500", "L00000I500"]
+        assert sink.sent == ["L00000I2000", "L00000I1850"]
