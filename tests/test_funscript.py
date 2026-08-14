@@ -96,6 +96,55 @@ class TestIsRestingAt:
         assert fs.is_resting_at(15000) is True
 
 
+class TestTurnBoundsAt:
+    """Whose turn it is, is is_resting_at; this says where that turn begins and
+    ends.  Whoever draws the handoff needs the boundary itself: a ramp walking
+    the device between the park and a stroke has to be anchored to the moment
+    the device changed hands, and anchored to anything recomputed per frame it
+    slides around under its own picture."""
+
+    def _two_clusters(self):
+        return Funscript(actions=[
+            (10000, 0), (10300, 100), (10600, 0),   # cluster A
+            (40000, 0), (40300, 100), (40600, 0),   # cluster B
+        ])
+
+    def test_a_scripted_stretch_runs_a_buffer_either_side_of_its_cluster(self):
+        assert self._two_clusters().turn_bounds_at(10300) == (5000, 15600)
+
+    def test_the_buffer_itself_belongs_to_the_same_stretch(self):
+        """The device is already the script's through its lead-in, which is the
+        whole point of the buffer."""
+        assert self._two_clusters().turn_bounds_at(6000) == (5000, 15600)
+
+    def test_a_gap_runs_from_one_stretch_s_end_to_the_next_s_start(self):
+        assert self._two_clusters().turn_bounds_at(25000) == (15600, 35000)
+
+    def test_a_gap_before_the_first_cluster_has_no_beginning(self):
+        """It began before the video did — nothing to anchor a climb to, and
+        nothing that needs one: whoever has the device has had it all along."""
+        assert self._two_clusters().turn_bounds_at(1000) == (None, 5000)
+
+    def test_a_gap_after_the_last_cluster_has_no_end(self):
+        assert self._two_clusters().turn_bounds_at(50000) == (45600, None)
+
+    def test_clusters_close_enough_to_touch_are_one_stretch(self):
+        """Their buffers overlap, so the script never actually gives the device
+        back between them — one turn, not two with an impossible gap."""
+        fs = Funscript(actions=[
+            (10000, 0), (10300, 100),
+            (17000, 0), (17300, 100),               # 6.7s later: buffers overlap
+        ])
+
+        assert fs.is_resting_at(13500) is False
+        assert fs.turn_bounds_at(13500) == (5000, 22300)
+
+    def test_a_script_with_no_dense_action_is_one_long_gap(self):
+        fs = Funscript(actions=[(0, 0), (10000, 100), (20000, 0)])
+
+        assert fs.turn_bounds_at(5000) == (None, None)
+
+
 class TestNextActiveMs:
     def _two_clusters(self):
         return Funscript(actions=[

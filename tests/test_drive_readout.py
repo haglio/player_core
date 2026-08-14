@@ -25,6 +25,7 @@ from player_core.drive_readout import (
     TRACE_ONLY_SIZE,
     DriveHud,
     DriveSection,
+    floor_touch_ms,
     section_size,
     controls,
     label_pair_x,
@@ -498,6 +499,56 @@ class TestRuns:
         colors = {tuple(pixel) for row in rgb for pixel in row}
 
         assert _NEUTRAL_INK in colors
+
+
+class TestWhenTheStrokeComesDown:
+    """Genau's turn ends when its stroke touches its floor — the arbiter really
+    waits for it, and the trace draws the turn ending there — so both ask this
+    one question, and the answer has to be the same one every time it is
+    asked."""
+
+    @staticmethod
+    def _wave(offset: float) -> tuple[float, ...]:
+        """A slow stroke, sampled from *offset* samples into its cycle: what a
+        publisher re-rendering from a phase that has moved a fraction of a
+        sample sends next."""
+        return tuple(0.5 + 0.5 * np.cos((i + offset) / 5)
+                     for i in range(80))
+
+    def test_it_says_when_rather_than_which_sample(self):
+        touch = floor_touch_ms(self._wave(0.0), 0.0, pitch_ms=100)
+
+        assert touch is not None
+        # The stroke starts at the top of its swing and reaches the floor's
+        # tolerance partway through sample 13.
+        assert 1300 < touch < 1400
+
+    def test_the_answer_holds_still_while_the_stroke_runs_under_it(self):
+        """The waveform is re-rendered from a moving phase every publish, so
+        the first sample under the tolerance lands a sample earlier or later
+        frame to frame.  Snapped to that sample the answer jumped 100ms at a
+        time — a stutter in the line drawn from it, and a handoff scheduled
+        that far off."""
+        answers = []
+        for tick in range(10):
+            offset = tick * 0.4                    # 40ms of a 100ms sample
+            touch = floor_touch_ms(self._wave(offset), 0.0, pitch_ms=100)
+            answers.append(touch + offset * 100)   # the same absolute moment
+
+        assert max(answers) - min(answers) < 20
+
+    def test_a_stroke_already_on_its_floor_comes_down_now(self):
+        assert floor_touch_ms((0.0, 0.5, 1.0), 0.0, pitch_ms=100) == 0.0
+
+    def test_a_stroke_that_never_comes_down_says_so(self):
+        assert floor_touch_ms((0.9,) * 20, 0.0, pitch_ms=100) is None
+
+    def test_the_search_can_start_partway_in(self):
+        """The wait only opens when the script's rest ends, so a touch before
+        that is not the one the handoff is held for."""
+        wave = self._wave(0.0)
+
+        assert floor_touch_ms(wave, 0.0, pitch_ms=100, start_ms=2_000) > 2_000
 
 
 class TestPublishedSpan:
