@@ -43,6 +43,7 @@ from .drive_layout import (  # noqa: F401 — this module's public face
 )
 from .drive_layout import fraction as _fraction
 from .file_channel import publish_whole
+from .funscript import QUIET_LEAD_IN_MS, QUIET_LEAD_OUT_MS
 from .hud_panel import (
     BLUE,
     GREEN,
@@ -148,9 +149,13 @@ def floor_touch_ms(
 # takes the device back.  A stroke whose floor sits above the park (amplitude
 # under 100, a shifted centre) would otherwise start its swing a third of the
 # range above where the script left the device — a jump, at the one moment the
-# handoff is supposed to be smooth.  Longer than the settle down: the buffer has
-# room for it, and half a second read as very nearly instant.
-TAKEOVER_RISE_MS = 1500
+# handoff is supposed to be smooth.  It is the whole buffer, with not a moment
+# of it wasted: the script hands the device back as soon as its own park glide
+# is done (QUIET_LEAD_OUT_MS) and the stroke begins where it always did, at the
+# far end of the quiet lead-in, so the climb is exactly the stretch between
+# them.  Anything shorter left the device parked through the quiet and then
+# lunging at the end of it.
+TAKEOVER_RISE_MS = QUIET_LEAD_IN_MS - QUIET_LEAD_OUT_MS
 
 _SIZE_TINY = 8
 _TRACK = (56, 56, 62)  # the unfilled part of a bar — a shade off the slab

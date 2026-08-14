@@ -51,6 +51,17 @@ _RISE_MS = 1000
 # half a second to walk down.
 PARK_SETTLE_MS = 500
 
+# How long the script keeps the device AFTER a cluster's last action: only as
+# long as its own park glide, because once the device is parked the script is
+# doing nothing with it.  The lead-in is long — the next driver needs warning
+# and the device a run-up — but the lead-out is not, and holding the device
+# through it wasted the buffer: in Hybrid, Genau got the device back with the
+# quiet already spent and had to jump onto its stroke.  With the two sides
+# different, the buffer becomes a shape rather than a wait — park glide, then
+# the climb across the quiet, arriving exactly when the stroke used to start
+# cold.
+QUIET_LEAD_OUT_MS = PARK_SETTLE_MS
+
 # Past any real playhead, so a turn's start alone orders it against a position
 # in :meth:`Funscript.turn_bounds_at`'s bisect.
 _MS_MAX = 1 << 62
@@ -315,15 +326,21 @@ class Funscript:
         """The stretches the script holds the device for, in order.
 
         One per dense cluster, opened _QUIET_LEAD_IN_MS before its first action
-        and closed that long after its last — the same neighbourhood
-        :meth:`is_resting_at` answers from, merged where two clusters sit close
-        enough that their neighbourhoods overlap and the script never actually
-        gives the device back between them.
+        and closed QUIET_LEAD_OUT_MS after its last — long enough to park the
+        device, and no longer.
+
+        Two clusters merge when their _QUIET_LEAD_IN_MS neighbourhoods overlap,
+        which is the old rule and stays the old rule: whether the script gives
+        the device back between two clusters is about whether there is room for
+        the other driver to do anything, and that has not changed because the
+        lead-out shortened.  Measured on the short lead-out instead, a six-second
+        gap would open a turn of a few hundred milliseconds — a handoff there and
+        back before anything could happen.
         """
         turns: list[list[int]] = []
         for t in self._dense_times:
-            low, high = t - _QUIET_LEAD_IN_MS, t + _QUIET_LEAD_IN_MS
-            if turns and low <= turns[-1][1]:
+            low, high = t - _QUIET_LEAD_IN_MS, t + QUIET_LEAD_OUT_MS
+            if turns and low <= turns[-1][1] + (_QUIET_LEAD_IN_MS - QUIET_LEAD_OUT_MS):
                 turns[-1][1] = high
             else:
                 turns.append([low, high])
@@ -348,22 +365,20 @@ class Funscript:
         return (before, after)
 
     def is_resting_at(self, position_ms: int) -> bool:
-        """True when position_ms sits in a quiet stretch — no dense action
-        within _QUIET_LEAD_IN_MS on either side (a funscript's lead-in or an
-        interior gap).  In Hybrid the orchestrator hands these stretches to
-        Genau; scripted stretches (not resting) drive the OSR2 from the
-        funscript, and the buffer lets the script reclaim control before its
-        next action fires.
+        """True when position_ms sits outside every stretch the script holds the
+        device for — a funscript's lead-in, an interior gap, the tail.
+
+        In Hybrid the orchestrator hands these stretches to Genau; inside a turn
+        the funscript drives.  Read straight off :meth:`turn_bounds_at`'s own
+        turns rather than measured again here, because the two answers have to
+        be the same answer: the arbiter flips the device on this, and the trace
+        anchors its ramps to those bounds, so a rule stated twice is a seam that
+        can disagree with the handoff it is drawing.
         """
-        if not self._dense_times:
+        if not self._turns:
             return True
-        i = bisect.bisect_left(self._dense_times, position_ms)
-        nearest = min(
-            abs(self._dense_times[j] - position_ms)
-            for j in (i - 1, i)
-            if 0 <= j < len(self._dense_times)
-        )
-        return nearest > _QUIET_LEAD_IN_MS
+        index = bisect.bisect_right(self._turns, (position_ms, _MS_MAX)) - 1
+        return not (index >= 0 and position_ms <= self._turns[index][1])
 
 
 def snap_loop(fs: Funscript | None, in_ms: int, out_ms: int) -> tuple[int, int]:
