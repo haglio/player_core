@@ -51,16 +51,22 @@ _RISE_MS = 1000
 # half a second to walk down.
 PARK_SETTLE_MS = 500
 
-# How long the script keeps the device AFTER a cluster's last action: only as
-# long as its own park glide, because once the device is parked the script is
-# doing nothing with it.  The lead-in is long — the next driver needs warning
-# and the device a run-up — but the lead-out is not, and holding the device
-# through it wasted the buffer: in Hybrid, Genau got the device back with the
-# quiet already spent and had to jump onto its stroke.  With the two sides
-# different, the buffer becomes a shape rather than a wait — park glide, then
-# the climb across the quiet, arriving exactly when the stroke used to start
-# cold.
-QUIET_LEAD_OUT_MS = PARK_SETTLE_MS
+# How long the device takes to walk between one driver's last position and the
+# next one's first, at a hybrid handoff.  A couple of seconds: long enough to
+# read as a hand-over rather than a jump, short enough to leave the device
+# resting for most of the buffer.  Both directions use it — down onto the park
+# when the script takes over, up to the stroke's floor when Genau does — so the
+# two ramps are the same shape mirrored, which is what the buffer looks like.
+HANDOFF_RAMP_MS = 2000
+
+# When the script gives the device back, relative to its cluster's last action.
+# Not the same as the lead-in: the lead-in is long because the device needs a
+# run-up to the opening action, while at this end the script is done and only
+# has to be out of the way in time for the other driver's climb.  Sized so the
+# climb lands exactly at the far end of the quiet, where the stroke has always
+# resumed — the buffer keeps its shape (glide down, rest, climb) instead of
+# either being spent on nothing or eaten whole by the ramp.
+QUIET_LEAD_OUT_MS = QUIET_LEAD_IN_MS - HANDOFF_RAMP_MS
 
 # Past any real playhead, so a turn's start alone orders it against a position
 # in :meth:`Funscript.turn_bounds_at`'s bisect.
@@ -326,8 +332,9 @@ class Funscript:
         """The stretches the script holds the device for, in order.
 
         One per dense cluster, opened _QUIET_LEAD_IN_MS before its first action
-        and closed QUIET_LEAD_OUT_MS after its last — long enough to park the
-        device, and no longer.
+        and closed QUIET_LEAD_OUT_MS after its last — early enough that the next
+        driver's climb out of the park lands where the stroke has always
+        resumed.
 
         Two clusters merge when their _QUIET_LEAD_IN_MS neighbourhoods overlap,
         which is the old rule and stays the old rule: whether the script gives
