@@ -17,6 +17,7 @@ from player_core.drive_readout import (
     CENTER,
     DRIVEN_BY_FUNSCRIPT,
     DRIVEN_BY_GENAU,
+    DRIVEN_BY_NEUTRAL,
     DRIVEN_BY_NOTHING,
     SECTION_H,
     SECTION_W,
@@ -33,6 +34,7 @@ from player_core.drive_readout import (
     track_value,
     tracks,
 )
+from player_core.drive_readout import _DISABLED, _NEUTRAL_INK
 
 PAD = 10
 
@@ -46,7 +48,7 @@ def _hud(**overrides) -> DriveHud:
 
 def _rendered(hud: DriveHud) -> np.ndarray:
     panel = HudPanel(SECTION_W + 2 * PAD, SECTION_H + 2 * PAD)
-    DriveSection().draw(panel.draw, PAD, PAD, hud)
+    DriveSection().draw(panel.image, PAD, PAD, hud)
     return np.asarray(panel.image)
 
 
@@ -334,7 +336,7 @@ class TestTraceOnly:
         put there rather than what the panel under it already had."""
         bare = np.asarray(HudPanel(SECTION_W + 2 * PAD, SECTION_H + 2 * PAD).image)
         panel = HudPanel(SECTION_W + 2 * PAD, SECTION_H + 2 * PAD)
-        DriveSection().draw(panel.draw, PAD, PAD, _hud(), trace_only=True)
+        DriveSection().draw(panel.image, PAD, PAD, _hud(), trace_only=True)
         touched = (np.asarray(panel.image) != bare).any(axis=2)
         width, height = TRACE_ONLY_SIZE
 
@@ -385,6 +387,74 @@ class TestSwitchedOff:
         assert not (edge > 200).all(axis=2).any()
 
 
+class TestDimmedForTheScript:
+    """A funscript's turn leaves the controls in place — removing them resized
+    the panel and shifted the trace at every handoff — but nothing on them may
+    look live: levels, numbers and marks all drop to the faint disabled grey."""
+
+    @staticmethod
+    def _colors(hud: DriveHud) -> set[tuple[int, int, int]]:
+        rgb = _rendered(hud).astype(int)[:, :, :3]
+        return {tuple(pixel) for row in rgb for pixel in row} - {(0, 0, 0)}
+
+    def test_no_level_is_left_in_the_stroke_s_blue(self):
+        """The bars stayed bright blue through the script's stretch, which is
+        what made the dimmed marks beside them read as merely decorative."""
+        assert BLUE not in self._colors(_hud(driven=DRIVEN_BY_FUNSCRIPT))
+        assert BLUE in self._colors(_hud(driven=DRIVEN_BY_GENAU))
+
+    def test_the_dimmed_marks_are_dark_not_translucent(self):
+        """"Very dimmed" is the ask, and the first try got it backwards: muted
+        ink at part alpha let the video behind shine through, so the "disabled"
+        controls glowed bright white.  Disabled ink is a dark grey laid down
+        opaque — darker than the muted grey a live readout's key labels wear —
+        so it reads as switched off over any video."""
+        dimmed = _rendered(_hud(driven=DRIVEN_BY_FUNSCRIPT))
+        live = _rendered(_hud(driven=DRIVEN_BY_GENAU))
+        x, y, w, _h = controls(PAD, PAD, _hud(driven=DRIVEN_BY_FUNSCRIPT))[0].rect
+        top_middle = (y, x + w // 2)
+
+        assert dimmed[top_middle][3] == 255              # opaque: nothing shines through
+        assert tuple(dimmed[top_middle][:3]) == _DISABLED[:3]
+        assert max(_DISABLED[:3]) < min(TEXT_MUTED)      # darker than muted ink
+        assert tuple(live[top_middle][:3]) == TEXT_PRIMARY
+
+
+class TestSmoothTrace:
+    """Pillow's line has no antialiasing of its own: drawn at panel size the
+    wave was a hard-edged pixel staircase, and at low amplitude it scrolled as
+    chunks.  Supersampled and scaled back down, the edges come back as
+    intensity ramps and the motion as quarter-pixel steps."""
+
+    def test_the_line_s_edges_ramp_instead_of_stepping(self):
+        rgb = _rendered(_hud(driven=DRIVEN_BY_GENAU)).astype(int)[:, :, :3]
+        blue_family = {
+            tuple(pixel) for row in rgb for pixel in row
+            if pixel[2] > pixel[0] + 20 and pixel[2] > pixel[1] + 20
+        }
+
+        # A hard-edged line produced exactly one blue; the ramps produce many.
+        assert len(blue_family) > 5
+
+    def test_the_knot_shift_slides_the_scripts_line(self):
+        """The script's picture is fixed; the fraction of a knot the playhead
+        sits past its grid point translates the drawn line."""
+        still = _rendered(_hud(driven=DRIVEN_BY_FUNSCRIPT, slide=0.0, edge=0.5))
+        slid = _rendered(_hud(driven=DRIVEN_BY_FUNSCRIPT, slide=0.5, edge=0.5))
+
+        assert not np.array_equal(still, slid)
+
+    def test_the_live_stroke_ignores_the_scripts_knot_shift(self):
+        """A leading blue run is Genau's running stroke: republished live, its
+        content already carries the motion, and the script picture's shift on
+        top of it read as the glide speeding up and snapping back once per
+        knot — the stutter he caught."""
+        still = _rendered(_hud(driven=DRIVEN_BY_GENAU, slide=0.0, edge=0.5))
+        slid = _rendered(_hud(driven=DRIVEN_BY_GENAU, slide=0.5, edge=0.5))
+
+        assert np.array_equal(still, slid)
+
+
 class TestBorder:
     def test_the_trace_s_edge_is_opaque_so_it_reads_the_same_over_anything(self):
         """At part strength the video showed through it, so one quiet grey line
@@ -418,6 +488,16 @@ class TestRuns:
         colors = {tuple(pixel) for row in rgb for pixel in row}
 
         assert {GREEN, BLUE} <= colors
+
+    def test_the_neutral_buffer_wears_its_own_light_grey(self):
+        """The stretch belonging to neither driver is neither green nor blue —
+        a light grey between the script's turn and the stroke's."""
+        hud = _hud(segments=((0, DRIVEN_BY_FUNSCRIPT), (30, DRIVEN_BY_NEUTRAL),
+                             (50, DRIVEN_BY_GENAU)))
+        rgb = _rendered(hud).astype(int)[:, :, :3]
+        colors = {tuple(pixel) for row in rgb for pixel in row}
+
+        assert _NEUTRAL_INK in colors
 
 
 class TestPublishedSpan:
