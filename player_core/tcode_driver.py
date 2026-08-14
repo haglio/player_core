@@ -5,7 +5,7 @@ import time
 
 from .tcode import HandoffGlide, TCodeSink, format_tcode_command
 
-from .funscript import PARK_SETTLE_MS, Funscript
+from .funscript import HANDOFF_RAMP_MS, PARK_SETTLE_MS, Funscript
 
 _RESEND_INTERVAL = 0.1
 # Glide to the parked position over this long, matching the broker's own park.
@@ -26,6 +26,13 @@ class FunscriptTCodeDriver:
         # too: the first waypoint of a session starts from the broker's park.
         self._glide = HandoffGlide()
         self._glide.begin()
+        # The first PARK after a takeover is the handoff itself: the device is
+        # wherever the other driver left it — most of the range away, not a
+        # settle's width — and this driver owns walking it down.  Tracked here
+        # (armed with the glide) and consumed by :meth:`park`.
+        self._took_over = True
+        self._park_started: float | None = None
+        self._park_total_ms: int = _PARK_INTERVAL_MS
 
     def update(
         self, position_ms: int, fs: Funscript, *, now: float | None = None, speed: float = 1.0
@@ -47,20 +54,35 @@ class FunscriptTCodeDriver:
         if self._should_send(next_index, now):
             self._send_waypoint(fs, next_index, position_ms, speed, now)
             self._mark_sent(next_index, now)
+            self._took_over = False
 
     def park(self, *, now: float | None = None) -> None:
-        """Rest the OSR2 at its closest position (the same place the broker parks
-        it on pause), holding there.
+        """Walk the OSR2 down to its rest and hold it there.
 
         Drives the OSR2 when there is nothing to script from — an unscripted
-        video, or a funscript's quiet lead-in.  Edge-gated like a waypoint: sent
-        once on entry, then refreshed on the resend interval against packet loss.
+        video, or a funscript's quiet lead-in.  Sent on entry, then refreshed on
+        the resend interval against packet loss — but each refresh carries the
+        REMAINING time of the descent, not a fresh full interval.  A re-sent
+        full interval retargets the in-flight glide from wherever the device is,
+        which bends every drawn straight ramp into a fast exponential: the
+        device was effectively parked in a third of the time the picture showed.
+
+        The first park after a takeover descends over the handoff ramp — the
+        device is wherever the other driver left it, most of the range away, and
+        this glide IS the grey ramp the trace draws.  Every later park is the
+        plan's own settle.
         """
         if now is None:
             now = time.monotonic()
+        if self._last_segment != _PARK_SEGMENT:
+            self._park_started = now
+            self._park_total_ms = HANDOFF_RAMP_MS if self._took_over else _PARK_INTERVAL_MS
+            self._took_over = False
         if self._should_send(_PARK_SEGMENT, now):
-            # Already a glide, and a long one, so a takeover needs nothing extra.
-            self._sink.send(format_tcode_command("L0", 0, _PARK_INTERVAL_MS))
+            started = now if self._park_started is None else self._park_started
+            elapsed_ms = round((now - started) * 1000)
+            remaining = max(50, self._park_total_ms - elapsed_ms)
+            self._sink.send(format_tcode_command("L0", 0, remaining))
             self._mark_sent(_PARK_SEGMENT, now)
 
     def _should_send(self, segment: int, now: float) -> bool:
@@ -115,6 +137,7 @@ class FunscriptTCodeDriver:
         """
         self._last_segment = -1
         self._last_send_time = -1.0
+        self._took_over = True
         self._glide.begin()
 
     def close(self) -> None:

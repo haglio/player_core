@@ -115,16 +115,32 @@ def consume_command_file(
     *uppercase* folds the whole payload, which suits a player whose verbs carry
     no arguments.  A player whose commands take a case-sensitive argument (a
     path) passes ``uppercase=False`` and folds just the keyword itself.
+
+    The queue is CLAIMED by renaming it aside and read from the claimed copy.
+    Read-then-truncate had a hole exactly one verb wide: a writer appending
+    between the read and the ``write_text("")`` was erased unread, and because
+    the hybrid handoff is edge-triggered, an erased SET_TCODE_ENABLED or PAUSE
+    stayed lost — the split-brain where Genau is paused and the funscript never
+    enabled, everything idle for a whole scripted cluster.  A rename is atomic
+    against appenders: the writer lands either in the claimed file (drained now)
+    or in a fresh queue (drained next tick), never in between.
     """
+    claimed = path.with_suffix(path.suffix + ".consuming")
     try:
         if not path.exists():
             return []
-        text = path.read_text(encoding="utf-8").replace("﻿", "").strip()
+        try:
+            os.replace(path, claimed)
+        except OSError:
+            # A writer holds the file this instant (Windows sharing violation).
+            # The queue is intact; next tick is milliseconds away.
+            return []
+        text = claimed.read_text(encoding="utf-8").replace("﻿", "").strip()
+        claimed.unlink(missing_ok=True)
         if uppercase:
             text = text.upper()
         if not text:
             return []
-        path.write_text("", encoding="utf-8")
         return [line.strip() for line in text.splitlines() if line.strip()]
     except Exception:
         if logger is not None:

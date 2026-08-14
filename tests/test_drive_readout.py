@@ -444,15 +444,17 @@ class TestSmoothTrace:
 
         assert not np.array_equal(still, slid)
 
-    def test_the_live_stroke_ignores_the_scripts_knot_shift(self):
-        """A leading blue run is Genau's running stroke: republished live, its
-        content already carries the motion, and the script picture's shift on
-        top of it read as the glide speeding up and snapping back once per
-        knot — the stutter he caught."""
+    def test_the_live_stroke_slides_on_the_same_shift_as_everything_else(self):
+        """One convention for every run.  The composed trace reads the live
+        stroke at fixed sample TIMES now — the values compensate the publish's
+        own advance — so the painter's one shift is what slides the whole line,
+        blue included.  The old per-run exemption, kept after the reads
+        changed, made the blue and its neighbours disagree by the slide at
+        every seam between them."""
         still = _rendered(_hud(driven=DRIVEN_BY_GENAU, slide=0.0, edge=0.5))
         slid = _rendered(_hud(driven=DRIVEN_BY_GENAU, slide=0.5, edge=0.5))
 
-        assert np.array_equal(still, slid)
+        assert not np.array_equal(still, slid)
 
 
 class TestBorder:

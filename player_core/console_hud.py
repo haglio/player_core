@@ -131,6 +131,11 @@ _OSR2_COLORS = {
 _DRIVEN_BY_OSR2 = {OSR2_GENAU: DRIVEN_BY_GENAU, OSR2_FUNSCRIPT: DRIVEN_BY_FUNSCRIPT}
 
 
+# The modes whose drive readout is composed from the funscript's plan rather
+# than resampled from Genau's live stroke — see ConsolePainter._resolve.
+_COMPOSED_TRACE_MODES = ("nau", "hybrid")
+
+
 def _driven_by(osr2: str) -> str:
     return _DRIVEN_BY_OSR2.get(osr2, DRIVEN_BY_NOTHING)
 
@@ -343,7 +348,14 @@ class ConsolePainter:
         # picking up — held still there, the whole trace froze into one flat
         # grey at every handoff and came back only once something was being
         # sent again.
-        if not drive.live and not shares_the_device(hud.console.mode):
+        # Frozen ONLY when the trace is Genau's own resampled stroke — a
+        # motion nobody is sending, which must not keep animating.  A composed
+        # trace (nau and hybrid both) is the script's plan, computed fresh per
+        # frame from the playhead: it keeps sliding through every rest and
+        # every handoff whatever the OSR2 state says, because the rests ARE
+        # part of what it draws — freezing it on the round-tripped "idle"/"off"
+        # was the picture that stopped scrolling for the length of each gap.
+        if not drive.live and hud.console.mode not in _COMPOSED_TRACE_MODES:
             # Nothing is reaching the device, so there is no motion to draw.  Genau
             # goes on stroking regardless — it cannot see that the OSR2 is off — so
             # both the trace and the position it publishes keep moving, and either
