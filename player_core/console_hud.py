@@ -300,7 +300,7 @@ class ConsolePainter:
         self._asked = ""
         # The trace and the device's position, held still while nothing is being
         # sent — see :meth:`_resolve`.
-        self._still: tuple[tuple[float, ...], int] | None = None
+        self._still: tuple[tuple[float, ...], int, float, float | None] | None = None
 
     def bgra(self, hud: ConsoleHud, *, hover: tuple[int, int] | None = None) -> np.ndarray:
         """*hud* as an mpv overlay bitmap — what Nau composites into its video."""
@@ -341,10 +341,13 @@ class ConsolePainter:
             # both the trace and the position it publishes keep moving, and either
             # one left running is the last thing on a dead readout still claiming
             # to be live.
+            # The slide freezes with the picture, or the "still" trace would
+            # go on creeping left a fraction of a sample at a time.
             if self._still is None:
-                self._still = (drive.waveform, drive.position)
-            waveform, position = self._still
-            drive = replace(drive, waveform=waveform, position=position, segments=())
+                self._still = (drive.waveform, drive.position, drive.slide, drive.edge)
+            waveform, position, slide, edge = self._still
+            drive = replace(drive, waveform=waveform, position=position,
+                            segments=(), slide=slide, edge=edge)
         else:
             self._still = None
         return replace(hud, drive=drive)
@@ -491,7 +494,9 @@ class ConsolePainter:
 
         if drive is not None:
             y += _ROW_GAP
-            self._drive.draw(draw, _PAD, y, drive, trace_only=trace_only)
+            # The panel's image rather than its pen: the readout supersamples
+            # its trace and composites it back, which a pen cannot carry.
+            self._drive.draw(panel.image, _PAD, y, drive, trace_only=trace_only)
             # The readout draws its own arrows; the console only needs them as hit
             # targets, so they answer a press and name themselves on hover.
             for control in drive_controls(_PAD, y, drive, trace_only=trace_only):

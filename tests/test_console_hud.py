@@ -549,6 +549,15 @@ class TestTraceSources:
         assert all(t.dim for t in painter.tracks)
         assert painter.tracks
 
+    def test_the_panel_keeps_its_size_whoever_has_the_device(self):
+        """The controls dim for a funscript's turn rather than leave: removing
+        them resized the panel, so the trace shifted at every handoff and the
+        position marker jumped with it."""
+        genau_turn = self._painted("hybrid", "genau")
+        funscript_turn = self._painted("hybrid", "funscript")
+
+        assert genau_turn._image.size == funscript_turn._image.size
+
     def test_nau_shows_the_trace_alone(self):
         """No Genau behind that screen: its amplitude, centre and speed describe a
         stroke nothing is making, and no control on them could reach one."""

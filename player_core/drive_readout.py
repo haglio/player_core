@@ -23,6 +23,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from PIL import Image, ImageDraw
+
 from . import drive_layout
 from .direct_control import POSITION_MAX  # noqa: F401
 from .drive_layout import (  # noqa: F401 — this module's public face
@@ -58,16 +60,21 @@ from .hud_panel import (
 # anything at all.
 DRIVEN_BY_GENAU = "genau"
 DRIVEN_BY_FUNSCRIPT = "funscript"
+DRIVEN_BY_NEUTRAL = "neutral"
 DRIVEN_BY_NOTHING = "nothing"
 
 # Green means the funscripts everywhere else on these HUDs — the favorites and
 # the scripts — so it means one here too; blue is Genau's own stroke, the color
-# its bars already wear.  Nothing driving is the same muted grey a dead control
-# is drawn in, so the readout reads as one switched-off thing rather than as a
-# live trace surrounded by dead furniture.
+# its bars already wear.  The neutral buffers around a handoff are a light
+# grey: the stretch belonging to neither driver wears neither driver's color.
+# Nothing driving is the same muted grey a dead control is drawn in, so the
+# readout reads as one switched-off thing rather than as a live trace
+# surrounded by dead furniture.
+_NEUTRAL_INK = (168, 168, 174)
 _TRACE_INK = {
     DRIVEN_BY_GENAU: BLUE,
     DRIVEN_BY_FUNSCRIPT: GREEN,
+    DRIVEN_BY_NEUTRAL: _NEUTRAL_INK,
     DRIVEN_BY_NOTHING: TEXT_MUTED,
 }
 
@@ -85,12 +92,28 @@ _CTRL = drive_layout.CONTROL_SIZE
 _GAP = drive_layout.GAP
 _KEY_GAP = 6  # between a key and the value it names
 
-_KEY_GAP = 6  # between a key and the value it names
-
 # One pair of marks for every axis: the triangles that used to move amplitude and
 # centre said "up/down" where speed said "less/more", which read as two different
 # kinds of control for three things that are the same kind.
 _LESS, _MORE = "−", "+"
+
+# A disabled part's ink: a dark grey, laid down opaque.  While a funscript has
+# the device the controls stay put — removing them resized the panel, and the
+# trace shifting at every handoff is worse than dead furniture — so everything
+# unpressable is drawn in this instead.  Dark and opaque on purpose: the first
+# try was the muted grey at part alpha, and over a bright video a see-through
+# pixel is a *brighter* pixel — the "dimmed" controls glowed white, the exact
+# opposite of disabled.
+_DISABLED = (84, 84, 88, 255)
+
+# The trace is drawn this many times larger and scaled back down, which is what
+# smooths it: Pillow's line has no antialiasing of its own, so drawn at panel
+# size every segment was a hard-edged pixel staircase, and a wave at low
+# amplitude — a few pixel rows tall — scrolled as chunks.  Supersampled, the
+# edges come back as intensity ramps and positions land on quarter-pixels, so
+# the line reads as a curve and slides instead of stepping.  The box is 120×96;
+# sixteen times the pixels is still far under a millisecond a repaint.
+_SUPERSAMPLE = 4
 
 
 def label_pair_x(font, key: str, value: str, *,
@@ -153,6 +176,15 @@ class DriveHud:
     # that changes color at the join, which is the only way to see the seam
     # before it arrives rather than after it is over.
     segments: tuple[tuple[int, str], ...] = ()
+    # How far the drawn line is shifted left, as a fraction of one sample.  The
+    # script's samples sit on knots the playhead moves between; shifting the
+    # whole polyline by the leftover fraction slides a stable picture, where
+    # re-reading values at the shifted positions morphed the shape at fixed
+    # columns as it moved.  edge is the knot just past the right border,
+    # so the shifted line still reaches it; None when nothing is shifted.
+    # Neither is published — Genau's own stroke slides by being resampled live.
+    slide: float = 0.0
+    edge: float | None = None
 
     @property
     def driving(self) -> bool:
@@ -220,27 +252,34 @@ class DriveSection:
         self._tiny = load_font(_SIZE_TINY)
         self._glyph = load_font(_LABEL_H - 3, "seguisym.ttf")
 
-    def draw(self, draw, x: int, y: int, hud: DriveHud, *,
+    def draw(self, image: Image.Image, x: int, y: int, hud: DriveHud, *,
              trace_only: bool = False) -> None:
-        """Paint the readout with its top-left corner at ``(x, y)``.
+        """Paint the readout with its top-left corner at ``(x, y)`` of *image*.
+
+        Takes the hosting panel's image rather than a pen: the trace is
+        rendered supersampled and composited back (:meth:`_wave`), which no
+        pen can do.
 
         *trace_only* draws the picture and nothing else, which is the whole
         readout in Nau: Genau is not behind that screen, so its levels have
         nothing to say and no control there could reach them.
         """
+        draw = ImageDraw.Draw(image)
         if trace_only:
-            self._wave(draw, (x, y, _WAVE_W, _WAVE_H), hud)
+            self._wave(image, (x, y, _WAVE_W, _WAVE_H), hud)
             return
         g = drive_layout.geometry(x, y, _fraction(hud.center))
         # Blue is Genau's own stroke — the trace, the amplitude bar and the speed
-        # bar are all the same thing — and grey when nothing is reaching the
-        # device: a live blue level beside a dead control says the level is doing
-        # something.  Never the funscript's green: these are Genau's numbers, and
-        # a script driving does not make them the script's.
-        level_ink = BLUE if hud.live else TEXT_MUTED
-        value_ink = TEXT_PRIMARY if hud.live else TEXT_MUTED
+        # bar are all the same thing — and it is Genau's *turn* that keeps them
+        # lit: a stroke Genau is not sending cannot be adjusted, so the levels
+        # and their numbers go as faint as the dead marks beside them, whether a
+        # funscript has the device or nothing does.  Never the funscript's
+        # green: these are Genau's numbers, and a script driving does not make
+        # them the script's.
+        level_ink = (*BLUE, 255) if hud.driving else _DISABLED
+        value_ink = (*TEXT_PRIMARY, 255) if hud.driving else _DISABLED
 
-        self._wave(draw, g.wave, hud)
+        self._wave(image, g.wave, hud)
         self._amp_bar(draw, g.amp_bar, hud, color=level_ink)
         self._bar(draw, g.speed_bar, fill=_fraction(hud.speed), color=level_ink)
         for control in controls(x, y, hud):
@@ -266,27 +305,27 @@ class DriveSection:
         through here they are the same mark, not a second app's idea of one.
         """
         x, y, w, h = control.rect
-        ink = TEXT_MUTED if control.dim else TEXT_PRIMARY
+        ink = _DISABLED if control.dim else (*TEXT_PRIMARY, 255)
         draw.rounded_rectangle([x, y, x + w - 1, y + h - 1], radius=3,
-                               outline=(*ink, 255), width=1)
-        draw_glyph(draw, x + w / 2, y + h / 2, control.glyph, self._glyph, (*ink, 255))
+                               outline=ink, width=1)
+        draw_glyph(draw, x + w / 2, y + h / 2, control.glyph, self._glyph, ink)
 
     def _stacked(self, draw, y: int, key: str, value: str, *,
                  left: int | None = None, right: int | None = None,
-                 ink=TEXT_PRIMARY) -> None:
+                 ink=(*TEXT_PRIMARY, 255)) -> None:
         """A muted word with its number under it, in one narrow column.
 
         The pair side by side cost the width of both plus a gap on each flank of
         the trace; stacked, each column is only as wide as the wider of the two.
         """
-        for line_no, (text, text_ink) in enumerate(((key, TEXT_MUTED), (value, ink))):
+        for line_no, (text, fill) in enumerate(((key, (*TEXT_MUTED, 255)), (value, ink))):
             x = left if left is not None else (right or 0) - text_width(self._tiny, text)
             draw.text((x, y + line_no * _LABEL_H + _LABEL_H / 2), text, font=self._tiny,
-                      anchor="lm", fill=(*text_ink, 255))
+                      anchor="lm", fill=fill)
 
     def _value(self, draw, y: int, key: str, value: str, *,
                left: int | None = None, right: int | None = None,
-               center: int | None = None, ink=TEXT_PRIMARY) -> None:
+               center: int | None = None, ink=(*TEXT_PRIMARY, 255)) -> None:
         """A muted key with its value, placed as one unit."""
         if center is not None:
             span = text_width(self._tiny, key) + _KEY_GAP + text_width(self._tiny, value)
@@ -295,58 +334,89 @@ class DriveSection:
         draw.text((key_x, y + _LABEL_H / 2), key, font=self._tiny, anchor="lm",
                   fill=(*TEXT_MUTED, 255))
         draw.text((value_x, y + _LABEL_H / 2), value, font=self._tiny, anchor="lm",
-                  fill=(*ink, 255))
+                  fill=ink)
 
     @staticmethod
     def _bar(draw, rect: Rect, *, fill: float, color) -> None:
         x, y, w, h = rect
         draw.rectangle([x, y, x + w - 1, y + h - 1], fill=(*_TRACK, 255))
         filled = max(1, round(fill * w))
-        draw.rectangle([x, y, x + filled - 1, y + h - 1], fill=(*color, 255))
+        draw.rectangle([x, y, x + filled - 1, y + h - 1], fill=color)
 
-    def _wave(self, draw, rect: Rect, hud: DriveHud) -> None:
+    def _wave(self, image: Image.Image, rect: Rect, hud: DriveHud) -> None:
         """The stroke drawn as a trace, each stretch in the color of whoever
         drives it, with the centre marked across it and the device's position
         marked down the left edge.
+
+        Rendered at _SUPERSAMPLE scale and resized down, because that is
+        the whole of how the line gets its antialiasing — see the constant.
 
         The centre's ruler is Genau's own idea and belongs to Genau's stroke, so
         a funscript's trace is drawn without it — a dotted line saying "the
         stroke swings about here" is a claim about a stroke nobody is making.
         """
         x, y, w, h = rect
+        s = _SUPERSAMPLE
+        box = Image.new("RGBA", (w * s, h * s))
+        draw = ImageDraw.Draw(box)
         # Opaque, and the same grey whatever is behind it.  At part strength the
         # video showed through the border, so the one line that is supposed to be
         # a quiet edge read as a bright thick one over the picture and a thin dark
         # one over the letterbox — the same border looking like two.
-        draw.rectangle([x, y, x + w - 1, y + h - 1], fill=(*_TRACK, 255),
-                       outline=(*TEXT_MUTED, 255), width=1)
+        draw.rectangle([0, 0, w * s - 1, h * s - 1], fill=(*_TRACK, 255),
+                       outline=(*TEXT_MUTED, 255), width=s)
         # White, at the same part-strength it was drawn in before: the dotted line
         # is a ruler across the trace rather than a state of anything, and amber on
         # these HUDs is a warning's color, which this is not.
         if hud.driving:
-            centre_y = y + round((1 - _fraction(hud.center)) * (h - 1))
-            for dash in range(0, w, 6):
-                draw.line([(x + dash, centre_y), (min(x + dash + 3, x + w - 1), centre_y)],
-                          fill=(*WHITE, 150))
+            centre_y = round((1 - _fraction(hud.center)) * (h * s - 1))
+            for dash in range(0, w * s, 6 * s):
+                draw.line([(dash, centre_y), (min(dash + 3 * s, w * s - 1), centre_y)],
+                          fill=(*WHITE, 150), width=s)
         points = hud.waveform
         if len(points) >= 2:
-            def at(index: int) -> tuple[int, int]:
-                return (x + round(index / (len(points) - 1) * (w - 1)),
-                        y + round((1 - points[index]) * (h - 1)))
+            pitch = (w * s - 1) / (len(points) - 1)
 
-            for start, end, driven in hud.runs:
-                if end > start:
-                    draw.line([at(i) for i in range(start, end + 1)],
-                              fill=(*trace_ink(driven), 255), width=2, joint="curve")
+            def at(index: float, value: float, shift: float) -> tuple[int, int]:
+                # Shifted left by the leftover knot fraction: the values never
+                # change between knots, so this shift is what slides the stable
+                # shape (PIL clips what leaves the box).
+                return (round((index - shift) * pitch),
+                        round((1 - value) * (h * s - 1)))
+
+            runs = hud.runs
+            for run_no, (start, end, driven) in enumerate(runs):
+                # A leading blue run is Genau's *running* stroke: its content is
+                # the motion, republished live, so the knot-fraction shift that
+                # slides the script's fixed picture would ride on top of it — a
+                # sawtooth the eye reads as the glide speeding up and snapping
+                # back once per knot.  It draws on its own knots, and only its
+                # last point lands on the shifted seam, so the line stays joined.
+                live_stroke = run_no == 0 and driven == DRIVEN_BY_GENAU
+                shift = 0.0 if live_stroke else hud.slide
+                pts = [at(i, points[i], shift) for i in range(start, end + 1)]
+                if live_stroke and len(runs) > 1 and pts:
+                    pts[-1] = at(end, points[end], hud.slide)
+                if run_no == len(runs) - 1 and hud.edge is not None:
+                    # The knot just past the border, so the shifted line still
+                    # reaches the box's edge instead of stopping short of it.
+                    pts.append(at(len(points), hud.edge, shift))
+                if len(pts) >= 2:
+                    draw.line(pts, fill=(*trace_ink(driven), 255), width=2 * s,
+                              joint="curve")
+        image.alpha_composite(box.resize((w, h), Image.LANCZOS), (x, y))
         # The device's own position, in the color of whoever is putting it there —
         # and held with the trace while nobody is, because a dot still bobbing in
         # a readout that has stopped is the last thing on it claiming to be live.
+        # Its own little supersample, since it straddles the box's edge.
         dot_y = y + round((1 - hud.position / POSITION_MAX) * (h - 1))
         dot_ink = TEXT_PRIMARY if hud.live else TEXT_MUTED
-        draw.ellipse([x - 3, dot_y - 3, x + 3, dot_y + 3], fill=(*dot_ink, 255))
+        dot = Image.new("RGBA", (7 * s, 7 * s))
+        ImageDraw.Draw(dot).ellipse([0, 0, 7 * s - 1, 7 * s - 1], fill=(*dot_ink, 255))
+        image.alpha_composite(dot.resize((7, 7), Image.LANCZOS), (x - 3, dot_y - 3))
 
     @staticmethod
-    def _amp_bar(draw, rect: Rect, hud: DriveHud, *, color=BLUE) -> None:
+    def _amp_bar(draw, rect: Rect, hud: DriveHud, *, color=(*BLUE, 255)) -> None:
         """The stroke's extent as a bar: as tall as the amplitude, sitting where
         the centre puts it, so the pair reads as the range the device travels."""
         x, y, w, h = rect
@@ -354,7 +424,7 @@ class DriveSection:
         bar_h = max(2, round(_fraction(hud.amplitude) * h))
         top = y + round((1 - _fraction(hud.center)) * h - bar_h / 2)
         top = max(y, min(y + h - bar_h, top))
-        draw.rectangle([x, top, x + w - 1, top + bar_h - 1], fill=(*color, 255))
+        draw.rectangle([x, top, x + w - 1, top + bar_h - 1], fill=color)
 
 
 # --- publishing --------------------------------------------------------------
