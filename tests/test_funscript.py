@@ -109,16 +109,25 @@ class TestTurnBoundsAt:
             (40000, 0), (40300, 100), (40600, 0),   # cluster B
         ])
 
-    def test_a_scripted_stretch_runs_a_buffer_either_side_of_its_cluster(self):
-        assert self._two_clusters().turn_bounds_at(10300) == (5000, 15600)
+    def test_a_stretch_opens_a_long_buffer_ahead_of_its_cluster(self):
+        """Five seconds, so whoever had the device can put it down and the
+        script can walk it up to the cluster's opening action."""
+        assert self._two_clusters().turn_bounds_at(10300)[0] == 5000
+
+    def test_a_stretch_closes_as_soon_as_it_has_parked_the_device(self):
+        """The other side is not symmetric: once the park glide is done the
+        script is doing nothing with the device, and holding it through the
+        rest of the quiet spent the buffer the next driver needs to climb out
+        of the park — it got the device back with nowhere left to do it."""
+        assert self._two_clusters().turn_bounds_at(10300)[1] == 11100
 
     def test_the_buffer_itself_belongs_to_the_same_stretch(self):
         """The device is already the script's through its lead-in, which is the
         whole point of the buffer."""
-        assert self._two_clusters().turn_bounds_at(6000) == (5000, 15600)
+        assert self._two_clusters().turn_bounds_at(6000) == (5000, 11100)
 
     def test_a_gap_runs_from_one_stretch_s_end_to_the_next_s_start(self):
-        assert self._two_clusters().turn_bounds_at(25000) == (15600, 35000)
+        assert self._two_clusters().turn_bounds_at(25000) == (11100, 35000)
 
     def test_a_gap_before_the_first_cluster_has_no_beginning(self):
         """It began before the video did — nothing to anchor a climb to, and
@@ -126,18 +135,20 @@ class TestTurnBoundsAt:
         assert self._two_clusters().turn_bounds_at(1000) == (None, 5000)
 
     def test_a_gap_after_the_last_cluster_has_no_end(self):
-        assert self._two_clusters().turn_bounds_at(50000) == (45600, None)
+        assert self._two_clusters().turn_bounds_at(50000) == (41100, None)
 
     def test_clusters_close_enough_to_touch_are_one_stretch(self):
-        """Their buffers overlap, so the script never actually gives the device
-        back between them — one turn, not two with an impossible gap."""
+        """One turn, not two with an impossible gap between them.  Measured on
+        the long lead-in even though the lead-out is short: whether the script
+        gives the device back is about whether the other driver has room to do
+        anything, and a gap this size leaves none."""
         fs = Funscript(actions=[
             (10000, 0), (10300, 100),
-            (17000, 0), (17300, 100),               # 6.7s later: buffers overlap
+            (17000, 0), (17300, 100),               # 6.7s later: no room between
         ])
 
         assert fs.is_resting_at(13500) is False
-        assert fs.turn_bounds_at(13500) == (5000, 22300)
+        assert fs.turn_bounds_at(13500) == (5000, 17800)
 
     def test_a_script_with_no_dense_action_is_one_long_gap(self):
         fs = Funscript(actions=[(0, 0), (10000, 100), (20000, 0)])
