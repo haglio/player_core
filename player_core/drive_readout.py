@@ -83,6 +83,31 @@ def trace_ink(driven: str):
     """The color a trace driven by *driven* is drawn in."""
     return _TRACE_INK[driven]
 
+
+# How close to the stroke's floor a waveform sample must come to count as
+# touching it.  The sample comb rarely lands exactly on a trough — at a
+# 100-150ms pitch the nearest sample can sit several percent above the true
+# bottom — and a tolerance that misses a trough entirely makes whoever trusted
+# it act one whole cycle late.  Shared by the trace that draws Genau's turn
+# ending on a touch and the arbiter that really ends it there, so both mean
+# the same touch.
+FLOOR_TOUCH_TOLERANCE = 0.06
+
+
+def stroke_floor(center: int, amplitude: int) -> float:
+    """The lowest point the stroke reaches, as a 0-1 height: where a wind-down
+    sets the device before the park, and where the resume picture opens."""
+    return max(0.0, (center - amplitude / 2) / 100)
+
+
+def first_floor_touch(waveform, floor: float, *, start: int = 0) -> int | None:
+    """The first sample at or after *start* where *waveform* touches *floor*,
+    or None when it never comes down in the samples given."""
+    for index in range(start, len(waveform)):
+        if waveform[index] <= floor + FLOOR_TOUCH_TOLERANCE:
+            return index
+    return None
+
 _SIZE_TINY = 8
 _TRACK = (56, 56, 62)  # the unfilled part of a bar — a shade off the slab
 
