@@ -1,6 +1,8 @@
 """The main console painter: the top line, the controls, and the readout."""
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 from player_core.hud_panel import ICON_GRIDS, TEXT_MUTED, WHITE, load_font, text_width
 
@@ -578,33 +580,68 @@ class TestTraceSources:
 class TestNothingDriving:
     """With the OSR2 off there is nothing being sent, so there is no motion to
     trace — and a trace scrolling on in the middle of a readout whose every
-    control is dead is the one part still claiming to be live."""
+    control is dead is the one part still claiming to be live.
+
+    Genau's own mode, where the readout is a picture of one waveform and
+    nothing else.  Hybrid is the exception, below: there the readout is a
+    picture of a handoff, and the gaps are part of what it draws.
+    """
 
     @staticmethod
     def _scroll(painter: ConsolePainter, offset: float) -> None:
         painter.bgra(ConsoleHud(
-            console=ConsoleModel(mode="hybrid", osr2="off"),
+            console=ConsoleModel(mode="genau", osr2="off"),
             drive=_drive(offset)))
 
     def test_the_trace_stops_where_it_was_when_the_device_went_quiet(self):
         painter = ConsolePainter()
         self._scroll(painter, 0.0)
         first = painter.bgra(ConsoleHud(
-            console=ConsoleModel(mode="hybrid", osr2="off"), drive=_drive(0.0))).copy()
+            console=ConsoleModel(mode="genau", osr2="off"), drive=_drive(0.0))).copy()
 
         self._scroll(painter, 3.0)
 
         assert np.array_equal(painter.bgra(ConsoleHud(
-            console=ConsoleModel(mode="hybrid", osr2="off"),
+            console=ConsoleModel(mode="genau", osr2="off"),
             drive=_drive(3.0))), first)
 
     def test_it_moves_again_the_moment_something_is_driving(self):
         painter = ConsolePainter()
         self._scroll(painter, 0.0)
         still = painter.bgra(ConsoleHud(
-            console=ConsoleModel(mode="hybrid", osr2="off"), drive=_drive(0.0))).copy()
+            console=ConsoleModel(mode="genau", osr2="off"), drive=_drive(0.0))).copy()
 
         moving = painter.bgra(ConsoleHud(
-            console=ConsoleModel(mode="hybrid", osr2="genau"), drive=_drive(3.0)))
+            console=ConsoleModel(mode="genau", osr2="genau"), drive=_drive(3.0)))
 
         assert not np.array_equal(moving, still)
+
+
+class TestTheHandoffKeepsMoving:
+    """In hybrid the readout draws the device changing hands, and between the
+    two drivers is a gap where nothing is being sent at all — the OSR2 stops
+    answering on the wire and reads "off" for a moment.  Held still there, the
+    whole trace froze into one flat grey at every handoff and came back only
+    once something was driving again, which is what he kept watching happen as
+    the funscript's turn came up."""
+
+    def test_the_trace_goes_on_sliding_through_the_gap(self):
+        painter = ConsolePainter()
+        first = painter.bgra(ConsoleHud(
+            console=ConsoleModel(mode="hybrid", osr2="off"), drive=_drive(0.0))).copy()
+
+        later = painter.bgra(ConsoleHud(
+            console=ConsoleModel(mode="hybrid", osr2="off"), drive=_drive(3.0)))
+
+        assert not np.array_equal(later, first)
+
+    def test_the_line_keeps_the_colors_the_model_gave_it(self):
+        """Blanked segments fall back to one flat colour for the whole line —
+        the grey he saw.  The model says where the device changes hands, and
+        that has to survive the gap."""
+        painter = ConsolePainter()
+        hud = ConsoleHud(
+            console=ConsoleModel(mode="hybrid", osr2="off"),
+            drive=replace(_drive(0.0), segments=((0, "genau"), (40, "neutral"))))
+
+        assert painter._resolve(hud).drive.segments == ((0, "genau"), (40, "neutral"))

@@ -192,6 +192,17 @@ _MODE_BUTTONS = (
 )
 
 
+def shares_the_device(mode: str) -> bool:
+    """Whether the device changes hands during the mode — hybrid alone.
+
+    Only there do two drivers take turns on one OSR2, which is what makes the
+    drive readout a picture of a *handoff* rather than of one waveform: it
+    keeps moving through the gaps where neither side is sending, because those
+    gaps are part of what it is drawing.
+    """
+    return mode == "hybrid"
+
+
 def nau_displays(mode: str) -> bool:
     """Whether Nau's video is on the main slot — nau and hybrid.
 

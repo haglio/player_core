@@ -78,6 +78,7 @@ from .console import (
     place_rows,
     row_width,
     rows_height,
+    shares_the_device,
     tooltip_at,
 )
 
@@ -335,7 +336,14 @@ class ConsolePainter:
         # it: adjusting a stroke Genau is not sending is what woke it against the
         # funscript.
         drive = replace(drive, driven=_driven_by(hud.console.osr2))
-        if not drive.live:
+        # In hybrid the readout is not a picture of Genau's stroke: it is the
+        # picture of the handoff, and the device changes hands inside it.  The
+        # OSR2 reads "off" whenever nothing is answering on the wire, which is
+        # exactly the gap between Genau letting go and the script's driver
+        # picking up — held still there, the whole trace froze into one flat
+        # grey at every handoff and came back only once something was being
+        # sent again.
+        if not drive.live and not shares_the_device(hud.console.mode):
             # Nothing is reaching the device, so there is no motion to draw.  Genau
             # goes on stroking regardless — it cannot see that the OSR2 is off — so
             # both the trace and the position it publishes keep moving, and either

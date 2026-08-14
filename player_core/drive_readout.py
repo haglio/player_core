@@ -108,6 +108,50 @@ def first_floor_touch(waveform, floor: float, *, start: int = 0) -> int | None:
             return index
     return None
 
+
+# Long enough that a slow stroke gets its whole cycle to come down, short enough
+# that a handoff never feels stalled.  Shared, because the arbiter waits this
+# long and the trace has to draw a turn ending where the wait really ends.
+FLOOR_WAIT_CAP_MS = 2500
+
+
+def floor_touch_ms(
+    waveform, floor: float, *, pitch_ms: float, start_ms: float = 0.0,
+) -> float | None:
+    """When the stroke next comes down onto its floor, in ms from *waveform*'s
+    own first sample — or None when it never comes down within it.
+
+    Interpolated between the two samples the crossing falls between, because
+    the answer has to hold still.  The waveform is re-rendered from a phase
+    that moves every publish, so "the first sample under the tolerance" lands
+    one sample earlier or later frame to frame: anything pinned to that jitters
+    by half a sample, which is a visible stutter in the trace and a handoff
+    scheduled tens of milliseconds off in the arbiter.  The crossing itself
+    sits at a fixed moment in the stroke, and interpolating finds it there.
+    """
+    if pitch_ms <= 0 or len(waveform) < 2:
+        return None
+    start = max(0, int(start_ms // pitch_ms))
+    index = first_floor_touch(waveform, floor, start=start)
+    if index is None:
+        return None
+    if index == 0 or index == start:
+        return index * pitch_ms
+    above, below = waveform[index - 1], waveform[index]
+    threshold = floor + FLOOR_TOUCH_TOLERANCE
+    span = above - below
+    fraction = 1.0 if span <= 0 else min(1.0, max(0.0, (above - threshold) / span))
+    return (index - 1 + fraction) * pitch_ms
+
+
+# How long Genau's stroke takes to climb out of the park onto its floor when it
+# takes the device back.  A stroke whose floor sits above the park (amplitude
+# under 100, a shifted centre) would otherwise start its swing a third of the
+# range above where the script left the device — a jump, at the one moment the
+# handoff is supposed to be smooth.  Longer than the settle down: the buffer has
+# room for it, and half a second read as very nearly instant.
+TAKEOVER_RISE_MS = 1500
+
 _SIZE_TINY = 8
 _TRACK = (56, 56, 62)  # the unfilled part of a bar — a shade off the slab
 

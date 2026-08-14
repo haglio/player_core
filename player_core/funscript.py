@@ -51,6 +51,10 @@ _RISE_MS = 1000
 # half a second to walk down.
 PARK_SETTLE_MS = 500
 
+# Past any real playhead, so a turn's start alone orders it against a position
+# in :meth:`Funscript.turn_bounds_at`'s bisect.
+_MS_MAX = 1 << 62
+
 
 @dataclass
 class Funscript:
@@ -60,6 +64,7 @@ class Funscript:
         self._times = [a[0] for a in self.actions]
         self._dense_times = self._compute_dense_times()
         self._onsets = self._compute_onsets()
+        self._turns = self._compute_turns()
         # The script sampled on a fixed grid, for :meth:`trace` to take windows
         # of, and the device's plan sampled the same way for :meth:`planned_trace`.
         self._grid_step: float | None = None
@@ -305,6 +310,42 @@ class Funscript:
             if prev_close or next_close:
                 dense.append(t)
         return dense
+
+    def _compute_turns(self) -> list[tuple[int, int]]:
+        """The stretches the script holds the device for, in order.
+
+        One per dense cluster, opened _QUIET_LEAD_IN_MS before its first action
+        and closed that long after its last — the same neighbourhood
+        :meth:`is_resting_at` answers from, merged where two clusters sit close
+        enough that their neighbourhoods overlap and the script never actually
+        gives the device back between them.
+        """
+        turns: list[list[int]] = []
+        for t in self._dense_times:
+            low, high = t - _QUIET_LEAD_IN_MS, t + _QUIET_LEAD_IN_MS
+            if turns and low <= turns[-1][1]:
+                turns[-1][1] = high
+            else:
+                turns.append([low, high])
+        return [(low, high) for low, high in turns]
+
+    def turn_bounds_at(self, position_ms: int) -> tuple[int | None, int | None]:
+        """When the stretch holding *position_ms* begins and ends, in ms.
+
+        Whose stretch it is, is :meth:`is_resting_at` — this says only where it
+        starts and stops, and None at either end means it runs past the edge of
+        the video.  Whoever draws the handoff needs the *boundary*, not the
+        classification: a ramp that walks the device between the park and a
+        stroke has to be anchored to the moment the device changed hands, and
+        anchored to anything recomputed per frame it slides around under its
+        own picture.
+        """
+        index = bisect.bisect_right(self._turns, (position_ms, _MS_MAX)) - 1
+        if index >= 0 and position_ms <= self._turns[index][1]:
+            return self._turns[index]
+        before = self._turns[index][1] if index >= 0 else None
+        after = self._turns[index + 1][0] if index + 1 < len(self._turns) else None
+        return (before, after)
 
     def is_resting_at(self, position_ms: int) -> bool:
         """True when position_ms sits in a quiet stretch — no dense action
