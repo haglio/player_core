@@ -116,13 +116,17 @@ _REVISION = re.compile(r"\s*\(v\d+\)$")
 # nothing is, and the device's own pink when it is running itself in auto.
 OSR2_GENAU = "genau"  # the one state in which the drive readout can be pressed
 OSR2_FUNSCRIPT = "funscript"
+OSR2_BUFFER = "buffer"
+# The buffer pill wears the trace's own neutral grey, so the word and the line
+# under the dot are visibly the same state.
+_NEUTRAL_PILL = (168, 168, 174)
 _OSR2_LABELS = {
     "off": "Off", "auto": "Auto", OSR2_FUNSCRIPT: "FunScript",
-    OSR2_GENAU: "Genau", "idle": "Idle",
+    OSR2_GENAU: "Genau", "idle": "Idle", OSR2_BUFFER: "Buffer",
 }
 _OSR2_COLORS = {
     "funscript": GREEN, "genau": BLUE, "auto": PINK,
-    "off": TEXT_MUTED, "idle": TEXT_MUTED,
+    "off": TEXT_MUTED, "idle": TEXT_MUTED, OSR2_BUFFER: _NEUTRAL_PILL,
 }
 
 # What the OSR2 state means for the trace.  Auto is the device running itself and
@@ -296,6 +300,7 @@ class ConsolePainter:
         self._glyph = load_font(_SIZE_BODY, SYMBOL_FONT)
         self._drive = DriveSection()
         self._painted: tuple[ConsoleHud, tuple[int, int] | None] | None = None
+        self._composed_drive: DriveHud | None = None
         self._image: Image.Image | None = None
         self._bgra: np.ndarray | None = None
         self.buttons: list[tuple[Rect, Button]] = []
@@ -340,7 +345,15 @@ class ConsolePainter:
         # readout who has the device.  Anything but Genau dims every control on
         # it: adjusting a stroke Genau is not sending is what woke it against the
         # funscript.
-        drive = replace(drive, driven=_driven_by(hud.console.osr2))
+        if hud.console.mode in _COMPOSED_TRACE_MODES and drive.segments:
+            # A composed trace already names who has the device at the playhead
+            # — set by the same function that drew the line under the dot — so
+            # the folded osr2 state must not overwrite it: the round trip lags
+            # the arbiter, and the arbiter itself decides seconds before the
+            # device is done riding the blue.
+            pass
+        else:
+            drive = replace(drive, driven=_driven_by(hud.console.osr2))
         # In hybrid the readout is not a picture of Genau's stroke: it is the
         # picture of the handoff, and the device changes hands inside it.  The
         # OSR2 reads "off" whenever nothing is answering on the wire, which is
@@ -451,6 +464,12 @@ class ConsolePainter:
 
     def _paint(self, hud: ConsoleHud, hover: tuple[int, int] | None = None) -> "Image.Image":
         console, drive = hud.console, hud.drive
+        # Held for the OSR2 pill: with a composed trace on the panel the pill
+        # reads the trace's own answer to who has the device (see _osr2_state),
+        # and the width helpers need it before the pill is drawn.
+        self._composed_drive = (
+            drive if (drive is not None and drive.segments
+                      and console.mode in _COMPOSED_TRACE_MODES) else None)
         # Nau's own screen has no Genau behind it, so the readout there is the
         # trace alone: the levels describe a stroke nothing is making and no
         # control on them could reach one.  What is worth drawing is the picture
@@ -544,8 +563,24 @@ class ConsolePainter:
     def _osr2_controls_width(controls: list[Button]) -> int:
         return sum(b.width for b in controls) + GAP * (len(controls) - 1)
 
+    def _osr2_state(self, model: ConsoleModel) -> str:
+        """What the pill says has the device — the drawn line's own answer
+        when a composed trace is on the panel, so the pill flips exactly when
+        the line under the dot changes hands, and says Buffer through the grey
+        where the device belongs to neither driver.  The round-tripped osr2
+        stands in everywhere else, and for its own device-level states."""
+        drive = self._composed_drive
+        if drive is None:
+            return model.osr2
+        return {
+            DRIVEN_BY_GENAU: OSR2_GENAU,
+            DRIVEN_BY_FUNSCRIPT: OSR2_FUNSCRIPT,
+            DRIVEN_BY_NEUTRAL: OSR2_BUFFER,
+        }.get(drive.driven, model.osr2)
+
     def _osr2_pill_width(self, model: ConsoleModel) -> int:
-        return text_width(self._tiny, _OSR2_LABELS.get(model.osr2, model.osr2)) + 10
+        osr2 = self._osr2_state(model)
+        return text_width(self._tiny, _OSR2_LABELS.get(osr2, osr2)) + 10
 
     def _osr2_width(self, model: ConsoleModel) -> int:
         return (self._osr2_controls_width(osr2_row(model)) + _OSR2_GROUP_GAP
@@ -573,8 +608,9 @@ class ConsolePainter:
         label_x = x + self._osr2_controls_width(controls) + _OSR2_GROUP_GAP
         draw.text((label_x, y + _OSR2_H / 2), "OSR2", font=self._tiny, anchor="lm",
                   fill=(*TEXT_MUTED, 255))
-        state = _OSR2_LABELS.get(model.osr2, model.osr2)
-        color = _OSR2_COLORS.get(model.osr2, TEXT_PRIMARY)
+        osr2 = self._osr2_state(model)
+        state = _OSR2_LABELS.get(osr2, osr2)
+        color = _OSR2_COLORS.get(osr2, TEXT_PRIMARY)
         pill_x = label_x + text_width(self._tiny, "OSR2") + _OSR2_LABEL_GAP
         pill_w = self._osr2_pill_width(model)
         draw.rounded_rectangle([pill_x, y, pill_x + pill_w - 1, y + _OSR2_H - 1],
