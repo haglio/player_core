@@ -59,6 +59,15 @@ PARK_SETTLE_MS = 500
 # two ramps are the same shape mirrored, which is what the buffer looks like.
 HANDOFF_RAMP_MS = 2000
 
+# How long the arbiter will wait, past a turn boundary, for a stroke whose
+# floor rests ON the park to come down and touch it — the one case where the
+# handoff needs no ramp at all: the blue swings on to its touch-down and the
+# grey runs flat from there, so the device is set down exactly where the line
+# ends.  Long enough for a slow stroke's whole cycle, short enough that a
+# stroke that never comes down cannot stall the script.  Shared with the trace,
+# which scans the same span for the same touch it draws the blue ending on.
+PARK_TOUCH_WAIT_CAP_MS = 2500
+
 # When the script gives the device back, relative to its cluster's last action.
 # Not the same as the lead-in: the lead-in is long because the device needs a
 # run-up to the opening action, while at this end the script is done and only
