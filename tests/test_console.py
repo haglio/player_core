@@ -120,6 +120,42 @@ class TestTransport:
             assert action not in actions
 
 
+class TestReset:
+    """The way back out: drop everything narrowing what the main player plays."""
+
+    def test_the_main_player_can_be_reset_wherever_nau_is_on_screen(self):
+        """Each satellite's HUD carries this button; the main player's console had
+        no way to say "put it back" at all, so the length mode and F-mode could
+        only be lifted one at a time and only by name."""
+        for mode in ("nau", "hybrid"):
+            assert "main_reset" in _actions(ConsoleModel(mode=mode))
+
+    def test_it_is_not_offered_where_there_is_no_nau_playlist(self):
+        """In genau mode neither of the things it drops is narrowing what is on
+        screen — the same reason F-mode itself is not offered there."""
+        assert "main_reset" not in _actions(ConsoleModel(mode="genau"))
+
+    def test_it_is_a_thing_done_rather_than_a_state_held(self):
+        """Nothing lights it: the lock and F-mode are conditions the player sits
+        in, and a reset is over the moment it lands."""
+        for f_mode in (False, True):
+            button = _button(ConsoleModel(mode="nau", f_mode=f_mode), "main_reset")
+            assert button.lit is False
+            assert button.favorite is False
+
+    def test_it_stands_clear_of_the_switches_it_turns_off(self):
+        """It shares the transport's command prefix and would otherwise rejoin
+        that run and read as another step through the video — and it must not read
+        as a third switch either, since it is what takes the other two back off."""
+        placed = place_rows(console_rows(ConsoleModel(mode="nau")), x=0, y=0)
+        by_action = {b.action: rect for rect, b in placed}
+        fmode, reset = by_action["main_fmode"], by_action["main_reset"]
+        browse = by_action["browse_library"]
+
+        assert reset[0] - (fmode[0] + fmode[2]) == GROUP_GAP
+        assert browse[0] - (reset[0] + reset[2]) == GROUP_GAP
+
+
 class TestLock:
     """The padlock: whether the video repeats or plays on into the playlist."""
 
@@ -147,11 +183,11 @@ class TestLock:
         placed = place_rows(console_rows(ConsoleModel(mode="nau")), x=0, y=0)
         by_action = {b.action: rect for rect, b in placed}
         step, lock = by_action["main_next"], by_action["main_lock"]
-        fmode, browse = by_action["main_fmode"], by_action["browse_library"]
+        fmode, reset = by_action["main_fmode"], by_action["main_reset"]
 
         assert lock[0] - (step[0] + step[2]) == GROUP_GAP
         assert fmode[0] - (lock[0] + lock[2]) == GAP        # the pair runs together
-        assert browse[0] - (fmode[0] + fmode[2]) == GROUP_GAP
+        assert reset[0] - (fmode[0] + fmode[2]) == GROUP_GAP
 
 
 class TestPlaybackSpeed:

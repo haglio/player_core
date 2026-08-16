@@ -177,10 +177,16 @@ class TestPainter:
         assert muted_rows.max() > bright_rows.min()      # … the file name below it
 
     def test_a_longer_file_name_widens_the_panel(self):
-        """It is drawn, not truncated, so the slab grows to hold it."""
-        narrow = ConsolePainter().bgra(ConsoleHud(modes=ModeHud(video="Short")))
-        wide = ConsolePainter().bgra(
-            ConsoleHud(modes=ModeHud(video="A Much Much Longer Video Name Indeed")))
+        """It is drawn, not truncated, so the slab grows to hold it.
+
+        Both names have to outrun the button row for this to be measuring the
+        name at all: the panel is the widest of its parts, so a name shorter than
+        the buttons is held by the buttons and every such name gives one width.
+        """
+        narrow = ConsolePainter().bgra(ConsoleHud(modes=ModeHud(
+            video="A Much Much Longer Video Name Indeed")))
+        wide = ConsolePainter().bgra(ConsoleHud(modes=ModeHud(
+            video="A Much Much Longer Video Name Indeed, And Then Some More Of It")))
 
         assert wide.shape[1] > narrow.shape[1]
 
@@ -287,6 +293,32 @@ class TestPainter:
             ]
 
             assert drawn == list(grid), action
+
+    def test_the_typed_glyphs_all_come_out_of_the_face_that_has_them(self):
+        """Segoe UI Bold carries none of these marks and Pillow draws a ".notdef"
+        box for what a face lacks, so every glyph the console types has to be in
+        the symbol face — the reset arrow, the newest of them, included."""
+        from PIL import ImageFont
+
+        from player_core.console import _GLYPHS
+        from player_core.console_hud import SYMBOL_FONT
+
+        glyph_font: ImageFont.FreeTypeFont = load_font(11, SYMBOL_FONT)
+        notdef = glyph_font.getmask("").getbbox()
+
+        for name, glyph in _GLYPHS.items():
+            assert glyph_font.getmask(glyph).getbbox() != notdef, name
+
+    def test_reset_is_a_thing_done_so_nothing_ever_lights_it(self):
+        """The lock and F-mode fill their boxes while they are on; a reset is over
+        the moment it lands, and it is what turns those two back off — a lit reset
+        would read as a third state the player was sitting in."""
+        for model in (ConsoleModel(mode="nau"),
+                      ConsoleModel(mode="nau", locked=True, f_mode=True)):
+            box = self._button_box("main_reset", model)
+            filled = (box > 100).all(axis=2).sum()
+
+            assert filled < box.shape[0] * box.shape[1] // 2
 
     def test_minimize_is_drawn_as_a_bar_rather_than_left_to_a_font(self):
         """Windows' minimize mark lives in Segoe MDL2 Assets, which this HUD does
