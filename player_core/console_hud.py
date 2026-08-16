@@ -32,6 +32,7 @@ from PIL import Image
 from .drive_readout import (
     DRIVEN_BY_FUNSCRIPT,
     DRIVEN_BY_GENAU,
+    DRIVEN_BY_NEUTRAL,
     DRIVEN_BY_NOTHING,
     DriveHud,
     DriveSection,
