@@ -162,6 +162,10 @@ _GLYPHS = {
     "prev": "⏮", "next": "⏭", "back": "⏪", "fwd": "⏩",
     "open": "📂", "record": "⏺", "save": "💾", "trash": "🗑",
     "lock": "🔒", "quarter": "¼", "minus": "−", "plus": "+",
+    # Counterclockwise, which is what "put it back" looks like everywhere — and
+    # the same mark each satellite's HUD gives its own reset, so one gesture wears
+    # one face across the room.
+    "reset": "↺",
 }
 
 # The waveform control draws a curve rather than a glyph: ∿ is a small mark low
@@ -310,6 +314,15 @@ def _transport_row(model: ConsoleModel) -> list[Button]:
             Button("main_fmode", FMODE_ICON,
                    "F-Mode — play only the videos that have a funscript",
                    lit=model.f_mode, favorite=True),
+            # And the way back out of all of it, the same button each satellite's
+            # HUD carries: drop everything narrowing what plays — the length mode
+            # (with any compilation it was feeding) and F-mode together.  It sits
+            # past the two switches because it is the wider gesture: they each
+            # turn one thing on or off, this puts the lot back.  Only in this
+            # branch, like F-mode above — in genau mode there is no Nau playlist
+            # for either of them to be narrowing.
+            Button("main_reset", _GLYPHS["reset"],
+                   "Reset — the whole library back, with F-Mode off"),
             Button("browse_library", _GLYPHS["open"], "Browse the library"),
             # Recording a loop and saving what it caught are one job in two
             # presses, so they sit together and apart from the browser.  The
@@ -452,6 +465,12 @@ _CAPTURE_CONTROLS = frozenset({"nau_record_tap", "clipper_save"})
 # command prefix, and without this would have joined its run and read as another
 # step, which is the undifferentiated strip that opened these groups up.
 _SWITCH_CONTROLS = frozenset({"main_lock", "main_fmode"})
+# Reset stands alone between the switches and the browser.  It shares the
+# transport's command prefix and would otherwise have rejoined that run and read
+# as another step through the video; it is not one of the switches either, being
+# a thing done once where they are states held — and it is what turns them back
+# off, so a reader must be able to see it is not one of them.
+_RESET_CONTROLS = frozenset({"main_reset"})
 # The controls that act on the window rather than on anything inside it, so they
 # stand apart from whatever they share a row with.  Named rather than left to the
 # main_ prefix below: minimize sits beside the mode buttons and would otherwise
@@ -473,6 +492,8 @@ def _family(action: str) -> str:
         return "capture"
     if action in _SWITCH_CONTROLS:
         return "switch"
+    if action in _RESET_CONTROLS:
+        return "reset"
     # Stepping the video and nudging inside it are one run of four marks, so they
     # are one family: prev, back ten, forward ten, next, evenly spaced.
     for prefix in ("main_", "nau_speed", "genau_"):
