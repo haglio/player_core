@@ -577,6 +577,43 @@ class TestTraceSources:
         assert short._image.size[1] < tall._image.size[1]
 
 
+class TestEveryConsolePaints:
+    """One paint per (mode x driver) with a composed trace on the panel.
+
+    The pill's Buffer state shipped referencing a name this module never
+    imported, and no test painted a hybrid console with a composed drive — so
+    every suite was green while the real Nau crashed on its first console
+    frame and the session came up with no main player at all.  A paint smoke
+    over the whole grid makes that class of crash impossible to ship quietly.
+    """
+
+    def test_every_mode_and_driver_combination_paints(self):
+        wave = tuple(0.5 for _ in range(len(DriveHud().waveform) or 80))
+        segments = ((0, "genau"), (30, "neutral"), (50, "funscript"))
+        for mode in ("nau", "hybrid", "genau"):
+            for driven in ("genau", "funscript", "neutral", "nothing"):
+                hud = ConsoleHud(
+                    modes=ModeHud(video="clip one"),
+                    console=ConsoleModel(mode=mode, osr2="genau"),
+                    drive=DriveHud(waveform=wave, driven=driven,
+                                   segments=segments))
+                ConsolePainter().rgba(hud)
+
+    def test_the_buffer_pill_is_wider_than_nothing(self):
+        """The Buffer word really reaches the pill: its width is computed from
+        the same state the paint will draw."""
+        wave = tuple(0.5 for _ in range(80))
+        painter = ConsolePainter()
+        hud = ConsoleHud(
+            modes=ModeHud(video="clip one"),
+            console=ConsoleModel(mode="hybrid", osr2="genau"),
+            drive=DriveHud(waveform=wave, driven="neutral",
+                           segments=((0, "genau"), (30, "neutral"))))
+        painter.rgba(hud)
+
+        assert painter._osr2_state(hud.console) == "buffer"
+
+
 class TestNothingDriving:
     """With the OSR2 off there is nothing being sent, so there is no motion to
     trace — and a trace scrolling on in the middle of a readout whose every
