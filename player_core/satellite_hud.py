@@ -423,16 +423,19 @@ def ellipsis_rects(
 # The buttons the dashboard used to carry for this satellite, now on the
 # satellite itself: browse first (the pair reached for most), then the two that
 # act on the clip on screen, then F-mode — which acts on neither, but on the
-# library the browse draws from, so it sits past the ones that do.  Minimize
-# comes last, being about none of the video at all: it acts on the window the
-# whole panel is drawn in.  That window is borderless (``satellite.app`` opens it
-# NOFRAME so the video fills its slot), so it has no title bar to carry a
-# minimize box — the HUD is the only place the gesture can live, and without it
-# the one way to get a player off the screen is the dashboard's own minimize,
-# which takes the entire room with it.  Each name is also its command's verb, so
-# "portrait_prev" and "landscape_trash" fall out of the same tuple that draws
-# them and the button can never post a command it isn't labeled for.
-CONTROLS = ("prev", "next", "lock", "trash", "fmode", "minimize")
+# library the browse draws from, so it sits past the ones that do.  Reset follows
+# F-mode because it is the widest of them: it puts the side back to every default
+# at once, F-mode and the filter and the lock and the loop together, so it stands
+# past the single switches rather than among them.  Minimize comes last, being
+# about none of the video at all: it acts on the window the whole panel is drawn
+# in.  That window is borderless (``satellite.app`` opens it NOFRAME so the video
+# fills its slot), so it has no title bar to carry a minimize box — the HUD is the
+# only place the gesture can live, and without it the one way to get a player off
+# the screen is the dashboard's own minimize, which takes the entire room with it.
+# Each name is also its command's verb, so "portrait_prev" and "landscape_trash"
+# fall out of the same tuple that draws them and the button can never post a
+# command it isn't labeled for.
+CONTROLS = ("prev", "next", "lock", "trash", "fmode", "reset", "minimize")
 
 
 def control_button_rects(x: int, y: int,
@@ -617,8 +620,8 @@ def label_is_filtered(label: str, filter_query: str) -> bool:
     what the press reads to decide between narrowing and lifting.
 
     fun_time keeps a clip when the query appears as a *contiguous substring* of its
-    metadata (``media_metadata.matches_query``), so every act the query names has to
-    be one of the row's: filtered to "gamma", both a "POV Gamma" row and a "Gamma,
+    recorded act (``media_metadata.matches_query``), so every act the query names has
+    to be one of the row's: filtered to "gamma", both a "POV Gamma" row and a "Gamma,
     Theta" row are clips it keeps, while a plain "Alpha" row is *not* kept by an
     "alpha, beta" filter and must not read as though it were.
     Within a row an act still matches on a substring ("gamma" catching "theta
@@ -642,6 +645,7 @@ CONTROL_TOOLTIPS = {
     "lock": "Lock / unlock this clip",
     "trash": "Unfavorite it — or mark weird when it is not a favorite",
     "fmode": "F-Mode — browse only the favorites on this player",
+    "reset": "Reset — no filter, no lock, no loop, no F-Mode, shuffled from the top",
     "minimize": "Minimize this player — bring it back from the taskbar",
 }
 FAVORITE_TOOLTIP = "In the favorites"
