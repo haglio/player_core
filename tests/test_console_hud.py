@@ -63,18 +63,30 @@ class TestLine:
         slot whatever is feeding it."""
         assert _line(length_mode="") == "Locked · Shuffle"
 
-    def test_a_genau_primary_says_its_lock_and_the_pace_it_moves_at(self):
+    def test_a_genau_primary_says_its_order_and_the_pace_it_moves_at(self):
         """Genau has no library, no compilation and no filters.  What it has is the
-        same lock every player has and, while that lock is off, the seconds it
-        leaves each clip up — which is its browse order, so it sits where the
-        satellites put theirs, straight after the lock.  Held, there is no pace to
-        report: the clip stays until something moves it."""
+        same lock every player has, the same two browse orders, and — while that
+        lock is off — the seconds it leaves each clip up.  Order then pace, in the
+        slot the satellites put theirs in: the order says which clip is next, the
+        pace says when.  Held, there is no pace to report: the clip stays until
+        something moves it."""
         def line(**over) -> str:
             return ConsoleHud(console=ConsoleModel(mode="genau", **over),
                               drive=_drive(advance_interval=5)).status_line
 
-        assert line(locked=False) == "Unlocked · 5s"
-        assert line(locked=True) == "Locked"
+        assert line(locked=False) == "Unlocked · Shuffle · 5s"
+        assert line(locked=True) == "Locked · Shuffle"
+
+    def test_a_genau_primary_says_which_order_it_was_put_in(self):
+        """Genau browses in the same two orders every other player does, and asking
+        it for one used to leave the answer nowhere on screen: this slot printed the
+        pace instead, so "latest" changed the clips and said nothing."""
+        def line(**over) -> str:
+            return ConsoleHud(console=ConsoleModel(mode="genau", **over),
+                              drive=_drive(advance_interval=5)).status_line
+
+        assert line(locked=False, latest=True) == "Unlocked · Latest · 5s"
+        assert line(locked=True, latest=True) == "Locked · Latest"
 
     def test_the_pace_belongs_to_genau_and_is_not_claimed_while_nau_is_showing(self):
         """Hybrid draws the readout, so the pace is there to read — but Nau is on

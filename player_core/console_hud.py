@@ -251,9 +251,8 @@ class ConsoleHud:
 
         What fills the slots is the main player's own.  The compilation is its playing
         set — a fixed run it plays through rather than the browse it came from.
-        The order slot is empty under Nau, which has no Latest/Shuffle to report,
-        and carries Genau's advance pace under Genau, whose whole browse order is
-        how long it leaves a clip up.  The length mode is the filter, and "Mixed"
+        The order slot carries the browse order under either player, and Genau's
+        advance pace beside it.  The length mode is the filter, and "Mixed"
         prints nothing there: it is every length there is, so it narrows nothing —
         exactly as a satellite prints nothing where its act filter would go when it
         has none.
@@ -262,19 +261,19 @@ class ConsoleHud:
             f"{compilation_label(self.modes.compilation)}"
             f"{SEPARATOR}{self.modes.position}/{self.modes.total}"
         ) if self.modes.compilation else ""
-        # The order slot says something different for each player on this slot.
-        # Under Nau it is the browse order Fun Time built the playlist in, the same
-        # Latest/Shuffle a satellite reports.  Under Genau it is the pace an unheld
-        # clip moves on at, which is the whole of how Genau walks its clips — and
-        # only when Genau is the one showing, since hybrid draws the drive readout
-        # too while an unlocked Nau plays through its playlist rather than on a
-        # timer.  A held Genau clip has no pace at all: nothing is going to move it.
-        if nau_displays(self.console.mode):
-            order = LATEST_LABEL if self.console.latest else SHUFFLE_LABEL
-        elif not self.console.locked and self.advance_interval:
-            order = f"{self.advance_interval}s"
-        else:
-            order = ""
+        # The browse order, said the same way for whichever player is on this slot:
+        # both of them browse in these two orders, so a reader who has just asked
+        # for Latest reads the same word back wherever they asked it.  Genau used
+        # to print its advance pace here *instead*, which left the order it was in
+        # sayable but nowhere visible.
+        order = LATEST_LABEL if self.console.latest else SHUFFLE_LABEL
+        # The pace an unheld Genau clip moves on at, after the order rather than in
+        # place of it: the order says which clip is next, the pace says when.  Only
+        # while Genau is the one showing — hybrid draws the drive readout too, but
+        # an unlocked Nau there plays through a playlist rather than on a timer —
+        # and only unheld, since nothing is going to move a held clip.
+        if not nau_displays(self.console.mode) and not self.console.locked and self.advance_interval:
+            order = f"{order}{SEPARATOR}{self.advance_interval}s"
         return status_line(
             playing_set=compilation,
             locked=self.console.locked,
