@@ -13,6 +13,12 @@ name: merge gate (full suite)
 # Windows face the hud/volume/timeline tests measure real glyph geometry against;
 # it exists only on a Windows runner.
 #
+# shared_ui is checked out and installed: the HUD chrome draws the family's marks
+# from it (hud_panel.draw_mark -> shared_ui.icons_pil), so the bin on a HUD is the
+# bin on a toolbar. Importing it does NOT pull Qt into a player -- the geometry
+# and the Pillow renderer import neither -- but pip installs PyQt6 alongside it,
+# which costs a wheel on the runner and nothing at run time.
+#
 # libmpv is deliberately NOT provided here. import mpv loads mpv-2.dll at import
 # time, but the unit suite never triggers it: no test constructs MpvPlayer, and
 # player_core/__init__.py imports no submodule, so nothing on the tested paths
@@ -38,10 +44,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Check out shared_ui adjacent (the HUD marks come from it)
+        uses: actions/checkout@v4
+        with:
+          repository: haglio/shared_ui
+          path: shared_ui
       - name: Install (editable, compat mode)
         shell: bash
         run: |
           python -m pip install --upgrade pip
+          pip install -e ./shared_ui --config-settings editable_mode=compat
           pip install -e ".[dev]" --config-settings editable_mode=compat
       - name: Run the suite
         shell: bash

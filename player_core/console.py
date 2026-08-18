@@ -23,6 +23,8 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .hud_marks import shared_mark
+
 Rect = tuple[int, int, int, int]  # (x, y, w, h)
 
 BUTTON = 18   # a square control; the wider ones are multiples plus the gaps
@@ -153,32 +155,38 @@ def read_console(path: Path) -> ConsoleModel | None:
     )
 
 
-# The glyphs, all from Segoe UI Symbol — Segoe UI Bold has none of them, and
-# Pillow draws tofu where Qt used to fall back silently.
+# The typed glyphs, all from Segoe UI Symbol — Segoe UI Bold has none of them,
+# and Pillow draws tofu where Qt used to fall back silently.  What is not here is
+# drawn instead, above.
 _GLYPHS = {
     # The transport, in one family of marks: to the ends of the video with a bar,
     # ten seconds either way without one.  A bare −/+ said "less/more", which is
     # what the level controls say, not "back/forward through this".
     "prev": "⏮", "next": "⏭", "back": "⏪", "fwd": "⏩",
-    "open": "📂", "record": "⏺", "save": "💾", "trash": "🗑",
+    "open": "📂", "record": "⏺", "save": "💾",
     "lock": "🔒", "quarter": "¼", "minus": "−", "plus": "+",
-    # Counterclockwise, which is what "put it back" looks like everywhere — and
-    # the same mark each satellite's HUD gives its own reset, so one gesture wears
+    # These two are the family's own drawings rather than characters out of a
+    # symbol face: the bin is the very bin Origenerator's toolbar wears, and
+    # reset is a gear with a circular arrow at its corner — a bare circular
+    # arrow is an undo, which is a different act and lives elsewhere.  Each
+    # satellite's HUD gives its own reset the same mark, so one gesture wears
     # one face across the room.
-    "reset": "↺",
+    "trash": shared_mark("trash"),
+    "reset": shared_mark("reset"),
 }
 
-# The waveform control draws a curve rather than a glyph: ∿ is a small mark low
-# in a big box, so it read as a smudge in the corner of its button whatever the
-# centring.  The painter recognises this marker and draws a trace that fills the
-# button; nothing else on the console needs a bespoke icon.
-WAVE_ICON = "\x00wave"
+# The waveform control wears a drawn mark rather than a glyph: ∿ is a small mark
+# low in a big box, so it read as a smudge in the corner of its button whatever
+# the centring.  It is the family's sine now — the very one Origenerator's OSR2
+# switch wears — because from the outside the two are the same thing: motion the
+# app is sending the device.
+WAVE_ICON = shared_mark("wave")
 
 # The two controls that stand for an app rather than for an action, and so wear
 # that app's mark: the pink five-by-five letter its .ico carries.  The broker's
 # "B" sits on blue while the service is up and red while it is down; F-mode's "F"
-# on the green the funscripts own.  The painter knows these markers the way it
-# knows WAVE_ICON, so the console stays free of both colors and Pillow.
+# on the green the funscripts own.  These are app marks rather than family ones,
+# so they keep their own markers rather than naming a shared glyph.
 BROKER_ICON = "\x00broker"
 FMODE_ICON = "\x00fmode"
 

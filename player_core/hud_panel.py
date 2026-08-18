@@ -15,6 +15,8 @@ from __future__ import annotations
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
+from shared_ui.icons_pil import paste_glyph
+
 # Segoe UI Bold — every label on these HUDs is bold, because they are read at a
 # glance over moving video.  A caller wanting another face passes its filename.
 UI_FONT = "segoeuib.ttf"
@@ -107,6 +109,31 @@ def draw_glyph(draw: ImageDraw.ImageDraw, cx: float, cy: float, glyph: str,
     if offset is None:
         return
     draw.text((cx - offset[0], cy - offset[1]), glyph, font=font, fill=fill)
+
+
+# How much room a mark leaves inside its button, so it does not run into the
+# rounded border the button draws around it.
+MARK_INSET = 2
+
+
+def draw_mark(image: Image.Image, name: str, rect: tuple[int, int, int, int],
+              fill) -> None:
+    """One of the family's marks, centred in *rect*.
+
+    The same drawing the apps' Qt chrome paints -- shared_ui holds the geometry
+    and each side renders it -- so a trash can on a HUD is the trash can on
+    Origenerator's toolbar rather than whatever character a symbol font had.
+    Before this, a HUD mark was a typed glyph or a hand-drawn one, and the two
+    sides drifted apart exactly as you would expect.
+
+    Takes the panel's IMAGE rather than its pen, the way the drive readout does:
+    the mark is supersampled and composited back, which a pen cannot carry.
+    """
+    x, y, w, h = rect
+    paste_glyph(image, name,
+                (x + MARK_INSET, y + MARK_INSET, w - 2 * MARK_INSET,
+                 h - 2 * MARK_INSET),
+                fill)
 
 
 # The dot at the head of every HUD's status line, saying whether a bare, unaddressed
