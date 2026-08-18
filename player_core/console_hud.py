@@ -23,7 +23,6 @@ so every player says things the same way and from the same corner.
 """
 from __future__ import annotations
 
-import math
 import re
 from dataclasses import dataclass, field, replace
 
@@ -54,11 +53,13 @@ from .hud_panel import (
     HudPanel,
     draw_glyph,
     draw_icon,
+    draw_mark,
     draw_tooltip,
     load_font,
     text_width,
     to_bgra,
 )
+from .hud_marks import SHARED_MARK, shared_mark_name
 from .hud_status import LATEST_LABEL, SEPARATOR, SHUFFLE_LABEL, status_line
 
 from .console import (
@@ -525,10 +526,10 @@ class ConsolePainter:
 
         self.buttons, self.tracks = place_rows(rows, x=_PAD, y=y), []
         for rect, button in self.buttons:
-            self._button(draw, rect, button)
+            self._button(panel.image, draw, rect, button)
         y += rows_height(rows) + _ROW_GAP
 
-        self._osr2(draw, _PAD, y, console)
+        self._osr2(panel.image, draw, _PAD, y, console)
         y += _OSR2_H
 
         if drive is not None:
@@ -587,7 +588,7 @@ class ConsolePainter:
                 + text_width(self._tiny, "OSR2") + _OSR2_LABEL_GAP
                 + self._osr2_pill_width(model))
 
-    def _osr2(self, draw, x: int, y: int, model: ConsoleModel) -> None:
+    def _osr2(self, image, draw, x: int, y: int, model: ConsoleModel) -> None:
         """The device's own line: its two controls, then what has it.
 
         The broker and the takeover switch act on the OSR2 rather than on any
@@ -601,7 +602,7 @@ class ConsolePainter:
         run_x = x
         for button in controls:
             rect = (run_x, y, button.width, _OSR2_H)
-            self._button(draw, rect, button)
+            self._button(image, draw, rect, button)
             self.buttons.append((rect, button))
             run_x += button.width + GAP
 
@@ -618,7 +619,7 @@ class ConsolePainter:
         draw.text((pill_x + pill_w / 2, y + _OSR2_H / 2), state, font=self._tiny,
                   anchor="mm", fill=(*color, 255))
 
-    def _button(self, draw, rect: Rect, button: Button) -> None:
+    def _button(self, image, draw, rect: Rect, button: Button) -> None:
         """One control, in the one button shape this family's HUDs use: an outline
         when off, filled when on, faded when it cannot be pressed.
 
@@ -657,8 +658,8 @@ class ConsolePainter:
                else TEXT_MUTED if button.dim else TEXT_PRIMARY)
         if button.glyph in _APP_MARKS:
             draw_icon(draw, rect, _APP_MARKS[button.glyph])
-        elif button.glyph == WAVE_ICON:
-            self._wave_icon(draw, rect, ink)
+        elif button.glyph.startswith(SHARED_MARK):
+            draw_mark(image, shared_mark_name(button.glyph), rect, (*ink, 255))
         elif button.glyph == MINIMIZE_ICON:
             self._minimize_icon(draw, rect, ink)
         elif len(button.glyph) == 1 and not button.glyph.isalnum():
@@ -668,25 +669,6 @@ class ConsolePainter:
         else:
             draw.text((x + w / 2, y + h / 2), button.glyph, font=self._tiny,
                       anchor="mm", fill=(*ink, 255))
-
-    @staticmethod
-    def _wave_icon(draw, rect: Rect, ink) -> None:
-        """The waveform control's face: a trace drawn to the button's own bounds.
-
-        ∿ is a small mark sitting low in a tall box, so however it was centred it
-        read as a smudge in the corner of the button rather than as an icon.  A
-        curve drawn to fit says "waveform" at a glance and fills the square.
-        """
-        x, y, w, h = rect
-        pad = 3
-        x0, x1 = x + pad, x + w - pad - 1
-        cy, amp = y + h / 2, (h - 2 * pad) / 2
-        steps = 12
-        draw.line(
-            [(x0 + i * (x1 - x0) / steps, cy - amp * math.sin(2 * math.pi * i / steps))
-             for i in range(steps + 1)],
-            fill=(*ink, 255), width=2, joint="curve",
-        )
 
     @staticmethod
     def _minimize_icon(draw, rect: Rect, ink) -> None:
