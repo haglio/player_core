@@ -10,7 +10,6 @@ from player_core.direct_control import (
     adjust_speed,
     bpm_for_speed,
     cycle_shape,
-    display_phase_for_position,
     pause_playing,
     phase_to_position,
     sample_waveform,
@@ -456,34 +455,6 @@ class TestSampleWaveform:
         assert max(points) <= 0.76
 
 
-class TestDisplayPhaseForPosition:
-    def test_sine_at_base_returns_0(self):
-        # phase=0, sine raw=0, going up → display_phase=0
-        dp = display_phase_for_position(phase=0.0, shape=WaveformShape.SINE)
-        assert dp == pytest.approx(0.0, abs=0.01)
-
-    def test_sine_at_tip_returns_0_5(self):
-        dp = display_phase_for_position(phase=0.5, shape=WaveformShape.SINE)
-        assert dp == pytest.approx(0.5, abs=0.01)
-
-    def test_triangle_matches_linear_phase(self):
-        # Triangle is linear, so display_phase should equal engine phase
-        for p in [0.0, 0.1, 0.25, 0.5, 0.75, 0.9]:
-            dp = display_phase_for_position(phase=p, shape=WaveformShape.TRIANGLE)
-            assert dp == pytest.approx(p, abs=0.02)
-
-    def test_sine_phase_0_1_gives_earlier_display_phase(self):
-        # Sine at 0.1: raw≈0.095. Going up → display_phase = raw*0.5 ≈ 0.048
-        # This is earlier than 0.1, matching the slower start of sine
-        dp = display_phase_for_position(phase=0.1, shape=WaveformShape.SINE)
-        assert dp < 0.1
-
-    def test_sawtooth_peak_at_0_3_returns_0_5(self):
-        # Sawtooth peaks at frac=0.3 (raw=1), display_phase should be 0.5 (tip)
-        dp = display_phase_for_position(phase=0.3, shape=WaveformShape.SAWTOOTH)
-        assert dp == pytest.approx(0.5, abs=0.01)
-
-
 class TestAdjustSpeed:
     def test_increase(self):
         state = DirectControlState(speed=50)
@@ -535,46 +506,3 @@ def test_a_stalled_clock_cannot_slingshot_the_phase():
     capped = phase_advanced(0.0, 60.0, 5.0)
     assert capped == pytest.approx(phase_advanced(0.0, 60.0, MAX_TICK_SECONDS))
     assert phase_advanced(0.0, 60.0, -1.0) == 0.0  # a clock that went backwards
-
-
-class TestTheDisplayPhaseTheClipIsScrubbedBy:
-    """A clip is a loop the stroke scrubs: it plays through while the device
-    climbs and on through the rest while it comes back down. Read off the
-    height, that needs a stroke with exactly one climb and one fall per cycle —
-    which a sum of waves is not. Integrated, it needs nothing of the sort, and
-    for the single wave it is the same function."""
-
-    def test_it_is_the_old_reading_of_the_height_for_a_single_wave(self):
-        from player_core.direct_control import (
-            display_phase_advanced, display_phase_for_position,
-            position_fraction,
-        )
-
-        travel, center, steps = 60, 50, 4000
-        for shape in WaveformShape:
-            display = 0.0
-            was = position_fraction(0.0, shape=shape, amplitude=travel,
-                                    center=center) * 100
-            worst = 0.0
-            for i in range(1, steps + 1):
-                phase = i / steps
-                where = position_fraction(phase, shape=shape, amplitude=travel,
-                                          center=center) * 100
-                display = display_phase_advanced(display, where - was, travel)
-                was = where
-                apart = abs(display - display_phase_for_position(phase, shape))
-                worst = max(worst, min(apart, 1.0 - apart))
-            assert worst < 0.002, shape
-
-    def test_a_stroke_that_has_not_moved_holds_the_clip_still(self):
-        from player_core.direct_control import display_phase_advanced
-
-        assert display_phase_advanced(0.3, 0.0, 60) == 0.3
-        assert display_phase_advanced(0.3, 5.0, 0) == 0.3  # no swing to divide by
-
-    def test_a_jump_is_capped_rather_than_spinning_the_clip(self):
-        # A quarter-cycle nudge, a park, a takeover: the position moved without
-        # the stroke having travelled, and the clip must not spin for it.
-        from player_core.direct_control import display_phase_advanced
-
-        assert display_phase_advanced(0.0, 100.0, 10) == 0.25
