@@ -34,6 +34,18 @@ SHUFFLE_LABEL = "Shuffle"
 F_MODE_LABEL = "F-Mode"
 
 
+def looping_label(axis: str) -> str:
+    """What a player says while it is looping *axis* — "seed", "action".
+
+    The lit loop button on a HUD's map and this phrase are the same fact said
+    twice, once as a light and once in words, so a reader who saw the light on
+    one screen finds the same sentence on the other.  Named here because more
+    than one player draws that map now: a satellite looping a seed row, and a
+    hosted Origenerator's show, which IS a seed row played round and round.
+    """
+    return f"Looping {axis}s"
+
+
 def status_line(*, locked: bool, playing_set: str = "", order: str = "",
                 f_mode: bool = False, filter_label: str = "") -> str:
     """The line, from the slots a player fills.
