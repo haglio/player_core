@@ -254,6 +254,10 @@ class ConsoleHud:
         sentence, and a reader glancing between two screens is reading one sentence
         in two places.
 
+        F-mode is read from either place it can be set: Fun Time publishes it for
+        the playlist it owns, and a genau-mode host with a set of its own folds
+        in its own switch.  One word for one switch, whichever side turned it on.
+
         What fills the slots is the main player's own.  The compilation is its playing
         set — a fixed run it plays through rather than the browse it came from.
         The order slot carries the browse order under either player, and Genau's
@@ -283,7 +287,7 @@ class ConsoleHud:
             playing_set=compilation,
             locked=self.console.locked,
             order=order,
-            f_mode=self.modes.f_mode,
+            f_mode=self.modes.f_mode or bool(self.console.favorites_filter),
             filter_label=self._filter_label,
         )
 

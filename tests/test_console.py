@@ -120,6 +120,44 @@ class TestTransport:
             assert action not in actions
 
 
+class TestFavoritesFilter:
+    """The other narrowing switch a genau-mode host can have: its favorites."""
+
+    def test_no_button_where_the_host_has_no_such_filter(self):
+        """Genau's own clips are not a set anybody has bookmarked, and F-mode in
+        the nau branch is Fun Time's own — this is the genau branch's, and it
+        appears only where a host folded one in."""
+        assert "main_fmode" not in _actions(ConsoleModel(mode="genau"))
+
+    def test_the_button_appears_once_a_host_says_it_has_one(self):
+        assert "main_fmode" in _actions(
+            ConsoleModel(mode="genau", favorites_filter=False))
+
+    def test_it_lights_while_the_filter_is_on(self):
+        off = _button(ConsoleModel(mode="genau", favorites_filter=False), "main_fmode")
+        on = _button(ConsoleModel(mode="genau", favorites_filter=True), "main_fmode")
+
+        assert (off.lit, on.lit) == (False, True)
+        assert on.favorite is True   # green: the favorites own it across the family
+
+    def test_it_leads_the_switches_where_it_leads_them_in_the_other_branch(self):
+        """F holds one place on this console whichever branch drew it, and the
+        rest of the narrowing switches group behind it."""
+        row = next(row for row in console_rows(
+            ConsoleModel(mode="genau", favorites_filter=False, enhanced_filter=False))
+            if any(b.action == "main_fmode" for b in row))
+        actions = [b.action for b in row if b.action]
+
+        assert actions.index("main_fmode") == actions.index("main_lock") + 1
+        assert actions.index("genau_filter_enhanced") == actions.index("main_fmode") + 1
+
+    def test_the_nau_branchs_f_mode_is_untouched_by_it(self):
+        """Fun Time publishes that one for a playlist it owns; this field is the
+        genau branch's and must not reach across."""
+        assert "main_fmode" in _actions(ConsoleModel(mode="nau"))
+        assert _button(ConsoleModel(mode="nau", f_mode=True), "main_fmode").lit is True
+
+
 class TestEnhancedFilter:
     """Origenerator's own narrowing switch: keep only the pictures it enhanced."""
 
@@ -162,9 +200,11 @@ class TestEnhancedFilter:
         assert button.enhanced is True
         assert button.favorite is False
 
-    def test_it_sits_after_the_lock_where_the_other_filter_sits(self):
-        """F-mode rides straight after the padlock in the other branch: both say
-        what there is to step through rather than acting on what is on screen."""
+    def test_it_sits_with_the_switches_after_the_lock(self):
+        """The narrowing switches ride straight after the padlock, as they do in
+        the other branch: all of them say what there is to step through rather
+        than acting on what is on screen. Alone, with no favorites filter
+        beside it, it takes that first place itself."""
         row = next(row for row in console_rows(
             ConsoleModel(mode="genau", enhanced_filter=False))
             if any(b.action == "genau_filter_enhanced" for b in row))
@@ -181,7 +221,9 @@ class TestEnhancedFilter:
         path.write_text(json.dumps({"mode": "genau"}), encoding="utf-8")
 
         assert read_console(path).enhanced_filter is None
+        assert read_console(path).favorites_filter is None
         assert ConsoleModel().enhanced_filter is None
+        assert ConsoleModel().favorites_filter is None
 
 
 class TestReset:

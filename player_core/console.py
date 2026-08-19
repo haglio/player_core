@@ -145,6 +145,14 @@ class ConsoleModel:
     # filter nor hears about it — so the host that owns it folds it in the way
     # it folds in the pace.
     enhanced_filter: bool | None = None
+    # And whether it is showing only its favorites — the same shape, and the
+    # same reason: a genau-mode host with a set of its own to narrow has these
+    # switches, and one with no set has neither.  ``f_mode`` above is the nau
+    # branch's flag, published by Fun Time for a playlist IT owns; this one is
+    # the genau branch's, folded in by the host that owns the set.  Both light
+    # the same F, because a reader glancing between two screens is looking at
+    # one switch: play the favorites only.
+    favorites_filter: bool | None = None
 
 
 def read_console(path: Path) -> ConsoleModel | None:
@@ -380,10 +388,19 @@ def _transport_row(model: ConsoleModel) -> list[Button]:
                else "Unlocked — moving on every "
                     f"{model.advance_interval}s; press to hold this clip",
                lit=model.locked),
-        # The narrowing switch sits straight after the lock, where F-mode sits in
-        # the other branch: both say what there is to step through rather than
-        # acting on what is on screen or on where it ends.  Only where the host
-        # has such a filter at all — see ConsoleModel.enhanced_filter.
+        # The narrowing switches sit straight after the lock, in the order the
+        # other branch puts them in: both say what there is to step through
+        # rather than acting on what is on screen or on where it ends.  F leads,
+        # holding the place it holds over there, and the rest group behind it.
+        # Each appears only where the host has that filter at all — see
+        # ConsoleModel.favorites_filter and .enhanced_filter.
+        *([] if model.favorites_filter is None else [
+            Button("main_fmode", FMODE_ICON,
+                   "Showing the favorites only — press for all of them"
+                   if model.favorites_filter
+                   else "F-Mode — play only the favorites",
+                   lit=model.favorites_filter, favorite=True),
+        ]),
         *([] if model.enhanced_filter is None else [
             Button("genau_filter_enhanced", ENHANCE_FILTER_ICON,
                    "Showing the enhanced pictures only — press for all of them"
