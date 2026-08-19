@@ -118,3 +118,37 @@ class TestDangerIsRed:
         reddest = pixels[:, :, 0].astype(int) - pixels[:, :, 1].astype(int)
         assert reddest.max() > 60, "the mark is not red"
         assert pixels[:, :, 0].max() >= RED[0] - 40
+
+
+class TestButtonGrounds:
+    def test_a_resting_control_sits_on_the_familys_button_ground(self):
+        # It was an outline over the slab and nothing else, which read as a hole
+        # in the panel rather than as the raised button every window in this
+        # family offers for the same act.
+        from player_core.console import Button
+        from player_core.console_hud import ConsolePainter
+        from player_core.hud_panel import BG_BUTTON
+
+        panel = Image.new("RGBA", (18, 18), (0, 0, 0, 255))
+        ConsolePainter()._button(panel, ImageDraw.Draw(panel), (0, 0, 18, 18),
+                                 Button("x", _GLYPHS["lock"], ""))
+        middle = np.asarray(panel)[9, 3]
+
+        assert tuple(middle[:3]) == BG_BUTTON
+
+    def test_a_control_that_is_on_still_comes_forward(self):
+        # The ground is the resting state, not the lit one: a lit control fills
+        # white, and would say nothing if resting looked the same.
+        from player_core.console import Button
+        from player_core.console_hud import ConsolePainter
+        from player_core.hud_panel import BG_BUTTON
+
+        def ground(lit: bool):
+            panel = Image.new("RGBA", (18, 18), (0, 0, 0, 255))
+            ConsolePainter()._button(panel, ImageDraw.Draw(panel), (0, 0, 18, 18),
+                                     Button("x", _GLYPHS["lock"], "", lit=lit))
+            return tuple(int(v) for v in np.asarray(panel)[9, 3][:3])
+
+        assert ground(False) == BG_BUTTON
+        assert ground(True) != BG_BUTTON
+        assert sum(ground(True)) > sum(BG_BUTTON)
