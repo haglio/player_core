@@ -108,6 +108,18 @@ class TestLine:
         assert line(locked=False, enhanced_filter=True) == (
             "Unlocked · Shuffle · 5s · Enhanceds")
 
+    def test_a_genau_hosts_own_f_mode_says_so_in_the_same_word(self):
+        """One switch, one word, whichever side turned it on: Fun Time publishes
+        F-mode for the playlist it owns, and a genau host folds in its own."""
+        def line(**over) -> str:
+            return ConsoleHud(console=ConsoleModel(mode="genau", locked=True,
+                                                   **over)).status_line
+
+        assert line(favorites_filter=False) == "Locked · Shuffle"
+        assert line(favorites_filter=True) == "Locked · Shuffle · F-Mode"
+        assert line(favorites_filter=True, enhanced_filter=True) == (
+            "Locked · Shuffle · F-Mode · Enhanceds")
+
     def test_a_host_with_no_such_filter_says_nothing_there(self):
         """None is "this player has no such filter" — not "it is off" — and both
         print nothing, so the slot is free for the length mode Nau fills."""
