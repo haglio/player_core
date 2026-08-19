@@ -414,6 +414,33 @@ class TestPainter:
                                    return_counts=True)
         assert tuple(shades[counts.argmax()]) == amber                  # the fill
 
+    def test_the_slab_is_the_canvas_grey_unless_a_host_asks_for_another(self):
+        """Floating over a video the panel reads against the picture behind it,
+        so it is the canvas colour. A host drawing it on its own chrome has no
+        picture behind it — on a window painted that very grey the slab is
+        invisible and only its border shows — so it says which grey it wants."""
+        from player_core.hud_panel import BG_PRIMARY
+
+        default = _rgb(ConsolePainter().bgra(
+            ConsoleHud(console=ConsoleModel(mode="genau"))))
+        asked = _rgb(ConsolePainter().bgra(
+            ConsoleHud(console=ConsoleModel(mode="genau"), ground=(40, 40, 40))))
+
+        # A pixel of bare slab: just inside the border, clear of every control.
+        assert tuple(default[3, 3]) == BG_PRIMARY
+        assert tuple(asked[3, 3]) != BG_PRIMARY
+        assert asked[3, 3].min() > default[3, 3].min()
+
+    def test_the_ground_is_part_of_what_the_repaint_cache_compares(self):
+        """Everything else on this panel is; a ground that slipped past it would
+        leave the old slab on screen until something else moved."""
+        painter = ConsolePainter()
+        first = _rgb(painter.bgra(ConsoleHud(console=ConsoleModel(mode="genau"))))[3, 3]
+        second = _rgb(painter.bgra(ConsoleHud(console=ConsoleModel(mode="genau"),
+                                              ground=(40, 40, 40))))[3, 3]
+
+        assert tuple(first) != tuple(second)
+
     def test_a_lit_marks_ink_stays_white_over_a_colored_fill(self):
         """The Dash's mic keeps its white glyph while the panel under it goes
         blue.  A record button whose circle went dark while it recorded read as a
