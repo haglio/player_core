@@ -74,6 +74,11 @@ class Button:
     hold: bool = False
     dim: bool = False
     favorite: bool = False
+    # A control that takes something away.  Its mark is drawn red -- the color
+    # Origenerator's Delete wears -- so the one button on a panel worth stopping
+    # at before clicking says so before its tooltip does.  Red is otherwise this
+    # family's alarm, and nothing here is alarming enough to spend it on twice.
+    danger: bool = False
 
 
 @dataclass(frozen=True)
@@ -356,7 +361,8 @@ def _transport_row(model: ConsoleModel) -> list[Button]:
                else "Unlocked — moving on every "
                     f"{model.advance_interval}s; press to hold this clip",
                lit=model.locked),
-        Button("genau_weird_clip", _GLYPHS["trash"], "Mark weird — move it out"),
+        Button("genau_weird_clip", _GLYPHS["trash"], "Mark weird — move it out",
+               danger=True),
     ]
 
 

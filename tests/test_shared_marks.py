@@ -9,9 +9,9 @@ list of geometry out of shared_ui, and these hold the console to using it.
 from __future__ import annotations
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
-from player_core.console import WAVE_ICON, _GLYPHS
+from player_core.console import WAVE_ICON, _GLYPHS, console_rows
 from player_core.hud_marks import SHARED_MARK, shared_mark, shared_mark_name
 from player_core.hud_panel import MARK_INSET, draw_mark
 from shared_ui.icon_geometry import glyph_names
@@ -87,3 +87,34 @@ class TestDrawingThem:
 
         assert drawn("trash") != drawn("reset")
         assert drawn("reset") != drawn("wave")
+
+
+class TestDangerIsRed:
+    def test_the_control_that_takes_something_away_is_marked_dangerous(self):
+        # Origenerator's Delete is red because it is the one control in its bank
+        # that removes something. The console's is the weird-clip bin, and it is
+        # the same act, so it wears the same warning.
+        from player_core.console import ConsoleModel
+
+        bin_button = next(
+            button
+            for row in console_rows(ConsoleModel(mode="genau"))
+            for button in row
+            if button.action == "genau_weird_clip"
+        )
+        assert bin_button.danger
+
+    def test_a_dangerous_control_draws_its_mark_in_red(self):
+        from player_core.console import Button
+        from player_core.console_hud import ConsolePainter
+        from player_core.hud_panel import RED
+
+        panel = Image.new("RGBA", (18, 18), (0, 0, 0, 255))
+        draw = ImageDraw.Draw(panel)
+        ConsolePainter()._button(panel, draw, (0, 0, 18, 18),
+                                 Button("x", _GLYPHS["trash"], "", danger=True))
+        pixels = np.asarray(panel)
+
+        reddest = pixels[:, :, 0].astype(int) - pixels[:, :, 1].astype(int)
+        assert reddest.max() > 60, "the mark is not red"
+        assert pixels[:, :, 0].max() >= RED[0] - 40

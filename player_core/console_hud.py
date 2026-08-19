@@ -655,7 +655,8 @@ class ConsolePainter:
         # under it goes blue.  A record button whose circle went dark while it
         # recorded read as a different button, not as the same one recording.
         ink = (BG_PRIMARY if fill == WHITE else WHITE if fill
-               else TEXT_MUTED if button.dim else TEXT_PRIMARY)
+               else TEXT_MUTED if button.dim else RED if button.danger
+               else TEXT_PRIMARY)
         if button.glyph in _APP_MARKS:
             draw_icon(draw, rect, _APP_MARKS[button.glyph])
         elif button.glyph.startswith(SHARED_MARK):
