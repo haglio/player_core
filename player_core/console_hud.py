@@ -223,6 +223,10 @@ class ConsoleHud:
     modes: ModeHud = field(default_factory=ModeHud)
     console: ConsoleModel = field(default_factory=ConsoleModel)
     drive: DriveHud | None = None
+    # The grey the slab is made of, or None for the canvas colour every player
+    # floating this over a video wants (see hud_panel.HudPanel).  Part of the
+    # value compared for the repaint cache, like the rest.
+    ground: tuple[int, int, int] | None = None
     # Whether to draw the row that switches between the three players, and the
     # minimize button riding it.  A console drawn inside another app's window is
     # not one of those three and has no borderless window of its own to park, so
@@ -522,7 +526,7 @@ class ConsolePainter:
         if drive is not None:
             height += _ROW_GAP + drive_h
 
-        panel = HudPanel(width, height)
+        panel = HudPanel(width, height, ground=hud.ground or BG_PRIMARY)
         draw = panel.draw
 
         # Top block: the active-player dot and the status line — what is selecting

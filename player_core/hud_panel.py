@@ -255,14 +255,24 @@ class HudPanel:
 
     Callers draw through :attr:`draw` and :attr:`image` — the panel is a surface,
     not a layout — and finish with :meth:`to_bgra`.
+
+    *ground* is the grey the slab is made of.  It defaults to the canvas colour,
+    which is right where the panel floats over a video: the picture behind it is
+    what it reads against, and a HUD the colour of a dark frame still reads as a
+    panel over one.  A host that draws this on its own chrome instead has no
+    picture behind it, and on a window painted that very grey the slab vanishes
+    and leaves its one-pixel border outlining nothing — so it says which grey it
+    wants, and gets a panel that sits on that window the way the window's own
+    panels do.
     """
 
-    def __init__(self, width: int, height: int, *, alpha: int = PANEL_ALPHA) -> None:
+    def __init__(self, width: int, height: int, *, alpha: int = PANEL_ALPHA,
+                 ground: tuple[int, int, int] = BG_PRIMARY) -> None:
         self.image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
         self.draw = ImageDraw.Draw(self.image)
         self.draw.rounded_rectangle(
             [0, 0, width - 1, height - 1], radius=CORNER_RADIUS,
-            fill=(*BG_PRIMARY, alpha), outline=(*BORDER_PANEL, 255), width=1,
+            fill=(*ground, alpha), outline=(*BORDER_PANEL, 255), width=1,
         )
 
     def to_bgra(self) -> np.ndarray:
