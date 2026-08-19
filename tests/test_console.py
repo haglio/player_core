@@ -120,6 +120,70 @@ class TestTransport:
             assert action not in actions
 
 
+class TestEnhancedFilter:
+    """Origenerator's own narrowing switch: keep only the pictures it enhanced."""
+
+    def test_no_button_where_the_host_has_no_such_filter(self):
+        """An enhancement is a thing Origenerator makes, so no other player here
+        has a set to narrow — and a dead button nobody can explain is worse than
+        no button.  Genau's own console is the one this would otherwise grow."""
+        assert "genau_filter_enhanced" not in _actions(ConsoleModel(mode="genau"))
+        assert "genau_filter_enhanced" not in _actions(ConsoleModel(mode="nau"))
+
+    def test_the_button_appears_once_a_host_says_it_has_one(self):
+        assert "genau_filter_enhanced" in _actions(
+            ConsoleModel(mode="genau", enhanced_filter=False))
+
+    def test_it_lights_while_the_filter_is_on(self):
+        off = _button(ConsoleModel(mode="genau", enhanced_filter=False),
+                      "genau_filter_enhanced")
+        on = _button(ConsoleModel(mode="genau", enhanced_filter=True),
+                     "genau_filter_enhanced")
+
+        assert (off.lit, on.lit) == (False, True)
+
+    def test_it_says_which_way_the_press_goes(self):
+        """A toggle whose tooltip reads the same either way makes you press it to
+        find out what it was — which is the one thing a filter must not do."""
+        off = _button(ConsoleModel(mode="genau", enhanced_filter=False),
+                      "genau_filter_enhanced")
+        on = _button(ConsoleModel(mode="genau", enhanced_filter=True),
+                     "genau_filter_enhanced")
+
+        assert "Show only" in off.tooltip
+        assert "press for all of them" in on.tooltip
+
+    def test_it_keeps_the_yellow_an_enhancement_is_marked_with(self):
+        """Green is spoken for by the funscripts and the favorites; an enhanced
+        picture wears yellow, so the switch that keeps only those does too."""
+        button = _button(ConsoleModel(mode="genau", enhanced_filter=True),
+                         "genau_filter_enhanced")
+
+        assert button.enhanced is True
+        assert button.favorite is False
+
+    def test_it_sits_after_the_lock_where_the_other_filter_sits(self):
+        """F-mode rides straight after the padlock in the other branch: both say
+        what there is to step through rather than acting on what is on screen."""
+        row = next(row for row in console_rows(
+            ConsoleModel(mode="genau", enhanced_filter=False))
+            if any(b.action == "genau_filter_enhanced" for b in row))
+        actions = [b.action for b in row if b.action]
+
+        assert actions.index("genau_filter_enhanced") == actions.index("main_lock") + 1
+
+    def test_a_published_panel_leaves_it_alone(self, tmp_path: Path):
+        """The host owns this filter the way it owns the pace, so a console panel
+        read off Fun Time's file must leave it unset rather than answer False —
+        which would draw the button, unlit, on every player in the room."""
+        import json
+        path = tmp_path / "nau_console.json"
+        path.write_text(json.dumps({"mode": "genau"}), encoding="utf-8")
+
+        assert read_console(path).enhanced_filter is None
+        assert ConsoleModel().enhanced_filter is None
+
+
 class TestReset:
     """The way back out: drop everything narrowing what the main player plays."""
 
