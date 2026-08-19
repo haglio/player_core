@@ -397,12 +397,13 @@ def test_label_is_filtered_reads_a_filter_the_way_fun_time_applies_it():
     it keeps has to light even when its label is not the query exactly — "POV Gamma"
     and "Gamma, Theta" are both clips a "gamma" filter holds you to.
 
-    Checked against fun_time's own matcher, the authority this rule mirrors, so the
-    two cannot drift apart in silence.  The empty query is the one deliberate
-    difference: it matches every clip there, and lights no row here.
+    The cases below are the rule as this repo owns it.  That it still agrees with
+    fun_time's own matcher — the authority it mirrors — is pinned over THERE, in
+    fun_time's test_media_metadata, because only the wearer of this HUD can import
+    both sides; this suite runs with player_core alone on the path.  The empty query
+    is the one deliberate difference: it matches every clip there, and lights no row
+    here.
     """
-    from fun_time.media_metadata import matches_query
-
     cases = [
         ("Gamma", "gamma", True),               # the row that names it
         ("POV Gamma", "gamma", True),           # the query is one act of the row
@@ -415,7 +416,6 @@ def test_label_is_filtered_reads_a_filter_the_way_fun_time_applies_it():
     ]
     for label, query, expected in cases:
         assert label_is_filtered(label, query) is expected, (label, query)
-        assert matches_query({"video": {"action": label}}, query) is expected, (label, query)
 
     assert label_is_filtered("Gamma", "") is False
 
