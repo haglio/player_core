@@ -171,6 +171,32 @@ def display_phase_for_position(phase: float, shape: WaveformShape) -> float:
         return 1.0 - raw * 0.5
 
 
+def display_phase_advanced(display_phase: float, moved: float,
+                           travel: float) -> float:
+    """The clip's phase carried on by a stroke that moved *moved* points of the
+    axis, out of a swing *travel* wide.
+
+    A clip is a loop the stroke scrubs: it plays through while the device climbs
+    and on through the rest while it comes back down, so one round trip — twice
+    the travel — is one time through the clip. Asking how far the stroke *moved*
+    rather than where in its cycle it is means there does not have to be a
+    cycle. A stroke that is several waves summed
+    (:mod:`player_core.wave_stack`) turns around wherever the sum turns around,
+    and the clip simply goes on through its frames at the speed the device is
+    moving, with no jump anywhere. For a single wave this is exactly
+    :func:`display_phase_for_position`, integrated rather than read off the
+    height — which is why the clip does not change how it plays when nothing is
+    stacked.
+
+    One step is capped at a quarter of the clip, which no real tick comes near:
+    the cap is for the jumps — a quarter-cycle nudge, a park, a takeover — where
+    the position moved without the stroke having travelled.
+    """
+    if travel <= 0:
+        return display_phase
+    return (display_phase + min(0.25, abs(moved) / (2.0 * travel))) % 1.0
+
+
 def sample_waveform(
     shape: WaveformShape,
     amplitude: int,

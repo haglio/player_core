@@ -1,7 +1,19 @@
+"""Cruise control's waves — the dice, and what they are not allowed to do.
+
+Two techniques are on trial. Waves are summed, so the stroke is the pace you set
+with a much slower swell of its own size carrying it from base to tip and back;
+and every parameter of every wave is a ramp rather than a number, so the stroke
+is plainly somewhere different from where it was a minute ago. A ramp too small
+or too quick to feel is the failure this is tuned against, so the tests here
+measure how far things actually move, not merely that they moved.
+"""
 from __future__ import annotations
 
 import random
 
+import pytest
+
+from player_core import wave_stack
 from player_core.cruise_control import (
     CruiseControlState,
     disable_cruise_control,
@@ -9,208 +21,268 @@ from player_core.cruise_control import (
     tick_cruise_control,
     toggle_cruise_control,
 )
-from player_core.direct_control import DirectControlState, WaveformShape
+from player_core.direct_control import (
+    DirectControlState, WaveformShape, bpm_for_speed, set_amplitude,
+)
 
 
-class TestToggleCruiseControl:
-    def test_inactive_to_active(self):
-        state = CruiseControlState(rng=random.Random(42))
-        toggle_cruise_control(state)
-        assert state.active is True
-
-    def test_active_to_inactive(self):
-        state = CruiseControlState(active=True, rng=random.Random(42))
-        toggle_cruise_control(state)
-        assert state.active is False
-
-
-class TestEnableCruiseControl:
-    def test_activates_when_inactive(self):
-        state = CruiseControlState(rng=random.Random(42))
-        enable_cruise_control(state)
-        assert state.active is True
-
-    def test_stays_active_when_already_active(self):
-        state = CruiseControlState(active=True, rng=random.Random(42))
-        enable_cruise_control(state)
-        assert state.active is True
-
-
-class TestDisableCruiseControl:
-    def test_deactivates_when_active(self):
-        state = CruiseControlState(active=True, rng=random.Random(42))
-        disable_cruise_control(state)
-        assert state.active is False
-
-    def test_stays_inactive_when_already_inactive(self):
-        state = CruiseControlState(rng=random.Random(42))
-        disable_cruise_control(state)
-        assert state.active is False
-
-
-class TestTickCruiseControlInactive:
-    def test_does_not_change_direct_state_when_inactive(self):
-        dc = DirectControlState(speed=50, amplitude=80, intended_center=50)
-        auto = CruiseControlState(active=False, rng=random.Random(42))
-        tick_cruise_control(dc, auto, now=10.0)
-        assert dc.speed == 50
-        assert dc.amplitude == 80
-        assert dc.center == 50
-
-
-class TestTickCruiseControlPaused:
-    """Armed but not stroking — paused by hand, frozen under OmniPause, or sitting
-    out a funscript's turn in Hybrid.  Auto advance has always sat still then; this
-    used to go on moving the stroke, so a session came back from a pause to a
-    stroke it never asked for."""
-
-    def test_a_paused_hand_freezes_the_stroke(self):
-        dc = DirectControlState(speed=50, amplitude=80, intended_center=50,
-                                shape=WaveformShape.SINE, playing=False)
-        cc = CruiseControlState(active=True, rng=random.Random(42))
-
-        tick_cruise_control(dc, cc, now=0.0)
-        for i in range(200):
-            tick_cruise_control(dc, cc, now=0.1 * (i + 1))
-
-        assert (dc.speed, dc.amplitude, dc.center) == (50, 80, 50)
-        assert dc.shape is WaveformShape.SINE
-
-    def test_it_picks_up_where_it_left_off_rather_than_lurching_on_resume(self):
-        """The clock keeps up through the pause, so the first tick after it sees a
-        normal step — not the whole pause at once, and not a skipped tick."""
-        dc = DirectControlState(speed=50, amplitude=80, intended_center=50, playing=False)
-        cc = CruiseControlState(active=True, rng=random.Random(42))
-
-        for i in range(100):
-            tick_cruise_control(dc, cc, now=0.1 * i)
-
-        assert cc._last_tick == 0.1 * 99
-
-
-class TestTickCruiseControlActive:
-    def test_changes_parameters_over_time(self):
-        dc = DirectControlState(speed=50, amplitude=80, intended_center=50,
-                                shape=WaveformShape.SINE, playing=True)
-        auto = CruiseControlState(active=True, rng=random.Random(42))
-        # Initialize timing
-        tick_cruise_control(dc, auto, now=0.0)
-        original_speed = dc.speed
-        # Tick forward enough for all parameters to have changed
-        for i in range(200):
-            tick_cruise_control(dc, auto, now=0.1 * (i + 1))
-        # At least one parameter should have changed
-        changed = (
-            dc.speed != original_speed
-            or dc.amplitude != 80
-            or dc.center != 50
-            or dc.shape is not WaveformShape.SINE
-        )
-        assert changed
-
-    def test_amplitude_stays_in_range(self):
-        dc = DirectControlState(amplitude=50, playing=True)
-        auto = CruiseControlState(active=True, rng=random.Random(42))
-        tick_cruise_control(dc, auto, now=0.0)
-        for i in range(500):
-            tick_cruise_control(dc, auto, now=0.05 * (i + 1))
-        assert 0 <= dc.amplitude <= 100
-
-    def test_center_stays_in_range(self):
-        dc = DirectControlState(center=50, playing=True)
-        auto = CruiseControlState(active=True, rng=random.Random(42))
-        tick_cruise_control(dc, auto, now=0.0)
-        for i in range(500):
-            tick_cruise_control(dc, auto, now=0.05 * (i + 1))
-        assert 0 <= dc.center <= 100
-
-    def test_speed_stays_in_range(self):
-        dc = DirectControlState(speed=50, playing=True)
-        auto = CruiseControlState(active=True, rng=random.Random(42))
-        tick_cruise_control(dc, auto, now=0.0)
-        for i in range(500):
-            tick_cruise_control(dc, auto, now=0.05 * (i + 1))
-        assert 0 <= dc.speed <= 100
-
-    def test_shape_is_valid(self):
-        dc = DirectControlState(playing=True)
-        auto = CruiseControlState(active=True, rng=random.Random(42))
-        tick_cruise_control(dc, auto, now=0.0)
-        for i in range(200):
-            tick_cruise_control(dc, auto, now=0.1 * (i + 1))
-        assert dc.shape in list(WaveformShape)
-
-
-def _cruise_for(seconds, *, tick=0.025, seed=5):
-    """Run cruise control over a stroke for *seconds*, collecting every value
-    each dial took."""
-    from player_core.cruise_control import CruiseControlState, enable_cruise_control
-    from player_core.direct_control import DirectControlState
-
-    direct = DirectControlState()
-    direct.playing = True
+def _cruising(seed, **dials):
+    """A stroke running under cruise control, one tick in."""
+    direct = DirectControlState(playing=True, **dials)
     cc = CruiseControlState(rng=random.Random(seed))
     enable_cruise_control(cc)
-    seen = {"amplitude": set(), "center": set(), "speed": set(), "shape": set()}
-    now = 1000.0
-    for _ in range(int(seconds / tick)):
-        now += tick
+    tick_cruise_control(direct, cc, now=1000.0)
+    return direct, cc
+
+
+def _run(direct, cc, seconds, *, dt=0.05, start=1000.0, watch=None):
+    """Carry the stroke forward, handing each tick to *watch* if there is one."""
+    now = start
+    for _ in range(int(seconds / dt)):
+        now += dt
         tick_cruise_control(direct, cc, now)
-        for dial in seen:
-            seen[dial].add(getattr(direct, dial))
-    return seen
+        if watch is not None:
+            watch(direct, cc)
+    return now
 
 
-def test_cruise_control_moves_every_dial_it_claims_to():
-    # It moved only speed for years: a tick steps a dial by a twentieth of the
-    # gap to its target and the result was snapped to fives, so any target
-    # nearer than about fifty points rounded back to where it started. Speed
-    # steps a discrete five, so speed alone appeared to work.
-    seen = _cruise_for(40)
-    assert len(seen["amplitude"]) > 3
-    assert len(seen["center"]) > 3
-    assert len(seen["speed"]) > 1
-    assert len(seen["shape"]) > 1
+def _bpm(wave, cc):
+    return bpm_for_speed(wave.speed.at(cc.clock))
 
 
-def test_a_near_target_still_gets_there():
-    # The failure was worst close in: with amplitude at 100 and a target of 60,
-    # every step rounded away and the dial never left 100.
-    from player_core.cruise_control import CruiseControlState, enable_cruise_control
-    from player_core.direct_control import DirectControlState
+class TestArming:
+    def test_toggle_arms_and_disarms(self):
+        cc = CruiseControlState(rng=random.Random(42))
+        assert toggle_cruise_control(cc) is None
+        assert cc.active is True
+        toggle_cruise_control(cc)
+        assert cc.active is False
 
-    direct = DirectControlState()
-    direct.playing = True
-    cc = CruiseControlState()
-    enable_cruise_control(cc)
-    cc._amplitude_target = 60.0
-    cc._center_target = 50.0
-    cc._next_retarget = float("inf")   # hold the target still and watch the glide
-    cc._next_speed_change = float("inf")
-    cc._next_shape_change = float("inf")
-    now = 1000.0
-    for _ in range(400):
-        now += 0.025
-        tick_cruise_control(direct, cc, now)
-    assert direct.amplitude == 60
+    def test_enable_and_disable_are_idempotent(self):
+        cc = CruiseControlState(rng=random.Random(42))
+        enable_cruise_control(cc)
+        enable_cruise_control(cc)
+        assert cc.active is True
+        disable_cruise_control(cc)
+        disable_cruise_control(cc)
+        assert cc.active is False
+
+    def test_arming_alone_moves_nothing(self):
+        # The waves are drawn on the first tick, from whatever the dials say
+        # then — so arming against a parked device cannot change the stroke.
+        direct = DirectControlState(speed=50, amplitude=80, intended_center=50)
+        cc = CruiseControlState(rng=random.Random(42))
+        enable_cruise_control(cc)
+        assert not cc.stack
+        tick_cruise_control(direct, cc, now=10.0)  # not playing
+        assert (direct.speed, direct.amplitude, direct.center) == (50, 80, 50)
+        assert not cc.stack
+
+    def test_an_unarmed_tick_changes_nothing(self):
+        direct = DirectControlState(speed=50, amplitude=80, intended_center=50)
+        cc = CruiseControlState(active=False, rng=random.Random(42))
+        tick_cruise_control(direct, cc, now=10.0)
+        assert (direct.speed, direct.amplitude, direct.center) == (50, 80, 50)
 
 
-def test_a_dial_moved_by_hand_mid_cruise_is_glided_on_from():
-    from player_core.cruise_control import CruiseControlState, enable_cruise_control
-    from player_core.direct_control import DirectControlState, set_amplitude
+class TestTakingTheStrokeOver:
+    def test_the_takeover_cannot_be_felt(self):
+        # The dial's travel and center are divided evenly among the waves and
+        # every ramp is born already arrived, so the sum is the dials to the
+        # point — and with every wave at the phase the stroke is already at and
+        # running the same speed, the sum is the single wave. Anything else is a
+        # step on the wire the device has to lurch through.
+        for seed in range(8):
+            direct = DirectControlState(playing=True, speed=35, amplitude=70,
+                                        intended_center=40)
+            cc = CruiseControlState(rng=random.Random(seed))
+            enable_cruise_control(cc)
+            tick_cruise_control(direct, cc, now=1000.0, phase=0.42)
+            assert (direct.amplitude, direct.center) == (70, 40)
+            assert direct.speed == 35
+            assert all(wave.shape is WaveformShape.SINE
+                       for wave in cc.stack.waves)
+            assert all(wave.phase == 0.42 for wave in cc.stack.waves)
+            assert wave_stack.position(cc.stack, cc.clock) == pytest.approx(
+                100 * _single_wave_fraction(0.42, 70, 40))
 
-    direct = DirectControlState()
-    direct.playing = True
-    cc = CruiseControlState()
-    enable_cruise_control(cc)
-    cc._amplitude_target = 60.0
-    cc._next_retarget = float("inf")
-    now = 1000.0
-    for _ in range(40):
-        now += 0.025
-        tick_cruise_control(direct, cc, now)
-    set_amplitude(direct, 20)          # a hand on the dial
-    for _ in range(400):
-        now += 0.025
-        tick_cruise_control(direct, cc, now)
-    assert direct.amplitude == 60      # glided up from 20, not yanked back down
+    def test_handing_it_back_says_where_the_single_wave_picks_up(self):
+        direct, cc = _cruising(2)
+        _run(direct, cc, seconds=45)
+        expected = wave_stack.biggest(cc.stack, cc.clock).phase
+        assert toggle_cruise_control(cc) == expected
+        assert not cc.active and not cc.stack
+
+
+def _single_wave_fraction(phase, amplitude, center):
+    from player_core.direct_control import position_fraction
+    return position_fraction(phase, amplitude=amplitude, center=center)
+
+
+class TestTheStrokeItMakes:
+    def test_it_sits_and_swings_where_a_single_cruising_wave_did(self):
+        # The bias that makes summing safe. Drawn per wave from the ranges the
+        # whole stroke uses, two waves would average a center and a travel half
+        # again too big; dividing each draw by how many waves are sharing it is
+        # what keeps the sum where one wave has always sat.
+        centers, travels, positions = [], [], []
+
+        def watch(direct, cc):
+            centers.append(direct.center)
+            travels.append(direct.amplitude)
+            positions.append(wave_stack.position(cc.stack, cc.clock))
+
+        # Ten sessions of ten minutes: the center ramps are slow enough that a
+        # shorter sample is mostly noise rather than the average asked after.
+        for seed in range(10):
+            direct, cc = _cruising(seed)
+            _run(direct, cc, seconds=600, watch=watch)
+        assert sum(centers) / len(centers) == pytest.approx(50, abs=3)
+        assert sum(travels) / len(travels) == pytest.approx(55, abs=5)
+        assert all(0.0 <= where <= 100.0 for where in positions)
+        assert min(positions) < 5 and max(positions) > 95
+
+    def test_what_rides_the_stroke_is_a_swell_and_not_a_vibration(self):
+        # A quicker wave of small travel on top of the stroke is a vibration,
+        # which is the opposite of what is wanted: everything after the main
+        # wave runs much slower than it, so what it adds is the stroke being
+        # carried from base to tip and back while the stroking goes on.
+        ratios = []
+
+        def watch(direct, cc):
+            main, *under = cc.stack.waves
+            for wave in under:
+                assert _bpm(wave, cc) <= _bpm(main, cc)
+                ratios.append(_bpm(main, cc) / _bpm(wave, cc))
+
+        for seed in range(12):
+            direct, cc = _cruising(seed)
+            if len(cc.stack.waves) < 2:
+                continue
+            _run(direct, cc, seconds=200, dt=0.25, watch=watch)
+        assert sum(ratios) / len(ratios) > 2.0
+        assert max(ratios) > 4.0
+
+    def test_the_swell_is_as_often_the_bigger_wave(self):
+        swell_bigger = total = 0
+
+        def watch(direct, cc):
+            nonlocal swell_bigger, total
+            main, under = cc.stack.waves[:2]
+            swell_bigger += (under.amplitude.at(cc.clock)
+                             > main.amplitude.at(cc.clock))
+            total += 1
+
+        for seed in range(12):
+            direct, cc = _cruising(seed)
+            if len(cc.stack.waves) < 2:
+                continue
+            _run(direct, cc, seconds=300, dt=0.25, watch=watch)
+        assert 0.25 < swell_bigger / total < 0.75
+
+    def test_the_dials_move_far_enough_to_notice(self):
+        # The complaint this is tuned against: ramps that are there in the code
+        # and cannot be felt on the device. Over a few minutes the stroke has to
+        # open and close most of the axis, walk a good way from base to tip, and
+        # speed up and slow down by more than a nudge.
+        for seed in range(4):
+            direct, cc = _cruising(seed)
+            travels, centers, bpms = [], [], []
+
+            def watch(direct, cc, travels=travels, centers=centers, bpms=bpms):
+                travels.append(direct.amplitude)
+                centers.append(direct.center)
+                bpms.append(_bpm(cc.stack.waves[0], cc))
+
+            _run(direct, cc, seconds=400, watch=watch)
+            assert max(travels) - min(travels) > 50
+            assert max(centers) - min(centers) > 25
+            assert max(bpms) / min(bpms) > 2.0
+
+    def test_every_dial_it_claims_to_move_moves(self):
+        # It moved only speed for years: a tick stepped a dial by a twentieth of
+        # the gap to its target and the result was snapped to fives, so any
+        # target nearer than about fifty points rounded back to where it
+        # started.
+        seen = {"amplitude": set(), "center": set(), "speed": set(),
+                "shape": set()}
+
+        def watch(direct, cc):
+            for dial in seen:
+                seen[dial].add(getattr(direct, dial))
+
+        direct, cc = _cruising(5)
+        _run(direct, cc, seconds=300, watch=watch)
+        assert len(seen["amplitude"]) > 20
+        assert len(seen["center"]) > 20
+        assert len(seen["speed"]) > 5
+        assert len(seen["shape"]) > 1
+
+
+class TestPausing:
+    """Armed but not stroking — paused by hand, frozen under OmniPause, or
+    sitting out a funscript's turn in Hybrid. Auto advance has always sat still
+    then; this used to go on moving the stroke, so a session came back from a
+    pause to a stroke it never asked for."""
+
+    def test_a_paused_hand_freezes_the_stroke(self):
+        direct, cc = _cruising(3)
+        _run(direct, cc, seconds=30)
+        direct.playing = False
+        was = (cc.clock, wave_stack.position(cc.stack, cc.clock),
+               direct.amplitude, direct.center, direct.speed, direct.shape)
+        now = _run(direct, cc, seconds=60)
+        assert (cc.clock, wave_stack.position(cc.stack, cc.clock),
+                direct.amplitude, direct.center, direct.speed,
+                direct.shape) == was
+        assert cc._last_tick == pytest.approx(now)  # the wall clock kept up
+
+    def test_it_picks_up_where_it_left_off_rather_than_lurching_on_resume(self):
+        direct, cc = _cruising(3)
+        _run(direct, cc, seconds=30)
+        direct.playing = False
+        _run(direct, cc, seconds=300)   # five minutes of pause
+        held = cc.clock
+        direct.playing = True
+        _run(direct, cc, seconds=1)
+        assert cc.clock == pytest.approx(held + 1, abs=0.1)
+
+
+class TestAHandOnTheDials:
+    def test_a_dial_moved_by_hand_is_carried_on_from_not_yanked_back(self):
+        direct, cc = _cruising(5)
+        _run(direct, cc, seconds=20)
+        speeds = [wave.speed.at(cc.clock) for wave in cc.stack.waves]
+        parts = [wave.amplitude.at(cc.clock) for wave in cc.stack.waves]
+
+        set_amplitude(direct, 40)
+        direct.intended_center = 70
+        direct.speed += 10
+        turned_to = direct.speed
+        tick_cruise_control(direct, cc, now=1000.0 + 20 + 0.05)
+
+        assert direct.amplitude == 40
+        assert direct.center == 70
+        assert direct.speed == turned_to
+        assert [wave.speed.at(cc.clock) for wave in cc.stack.waves] == \
+            pytest.approx([speed + 10 for speed in speeds], abs=0.1)
+        # the travel was spread in proportion, so the balance survives the turn
+        # (to within the tick's own drift — every ramp moved on while it ran)
+        now = [wave.amplitude.at(cc.clock) for wave in cc.stack.waves]
+        assert [part / sum(parts) for part in parts] == \
+            pytest.approx([part / sum(now) for part in now], abs=0.01)
+
+
+class TestTheDialsStayInRange:
+    @pytest.mark.parametrize("seed", range(4))
+    def test_nothing_leaves_the_axis_or_the_dial(self, seed):
+        direct, cc = _cruising(seed)
+
+        def watch(direct, cc):
+            assert 0 <= direct.amplitude <= 100
+            assert 0 <= direct.center <= 100
+            assert 5 <= direct.speed <= 100
+            assert direct.shape in list(WaveformShape)
+            assert 0.0 <= wave_stack.position(cc.stack, cc.clock) <= 100.0
+
+        _run(direct, cc, seconds=300, watch=watch)
