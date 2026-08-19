@@ -339,9 +339,10 @@ class TestPainter:
         it is tall, which is the mark every Windows title bar uses."""
         box = self._button_box("main_minimize", ConsoleModel(mode="nau"))
         # The button's own rounded outline is its border, so only the interior
-        # holds the mark.
+        # holds the mark -- and the interior is the button's ground now, which is
+        # itself gray, so the mark is what is BRIGHTER than that ground.
         inside = box[2:-2, 2:-2]
-        ys, xs = np.nonzero((inside > 60).all(axis=2))
+        ys, xs = np.nonzero((inside > 150).all(axis=2))
 
         assert len(ys), "the minimize button drew no mark at all"
         assert xs.max() - xs.min() > ys.max() - ys.min()

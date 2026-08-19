@@ -42,6 +42,7 @@ from .drive_readout import (
 from .drive_readout import controls as drive_controls
 from .drive_readout import tracks as drive_tracks
 from .hud_panel import (
+    BG_BUTTON,
     BG_PRIMARY,
     BLUE,
     GREEN,
@@ -642,7 +643,11 @@ class ConsolePainter:
             return
         broker = button.glyph == BROKER_ICON
         lit = GREEN if button.favorite else WHITE
-        fill = lit if button.lit else RED if button.warn else BLUE if button.hold else None
+        # A control at rest sits on the family's button ground rather than on
+        # nothing: an outline over the slab read as a hole in it, and made these
+        # look like a different kind of control from the ones in the windows.
+        fill = (lit if button.lit else RED if button.warn else BLUE if button.hold
+                else BG_BUTTON)
         if broker:
             fill = BLUE if button.lit else RED
         edge = TEXT_MUTED if button.dim else (fill or TEXT_MUTED)
@@ -654,9 +659,10 @@ class ConsolePainter:
         # mark — the way the Dash's mic keeps its white glyph while the panel
         # under it goes blue.  A record button whose circle went dark while it
         # recorded read as a different button, not as the same one recording.
-        ink = (BG_PRIMARY if fill == WHITE else WHITE if fill
-               else TEXT_MUTED if button.dim else RED if button.danger
-               else TEXT_PRIMARY)
+        resting = fill == BG_BUTTON
+        ink = (BG_PRIMARY if fill == WHITE else TEXT_MUTED if button.dim
+               else RED if button.danger
+               else TEXT_PRIMARY if resting else WHITE)
         if button.glyph in _APP_MARKS:
             draw_icon(draw, rect, _APP_MARKS[button.glyph])
         elif button.glyph.startswith(SHARED_MARK):

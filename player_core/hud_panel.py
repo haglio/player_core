@@ -27,7 +27,9 @@ UI_FONT = "segoeuib.ttf"
 # one palette is that the HUDs look alike, and a player reaching for its own blue
 # is back to the ad-hoc literals this replaced.
 BG_PRIMARY = (24, 24, 24)
-BORDER_PANEL = (112, 119, 128)
+BG_BUTTON = (62, 62, 62)         # a control at rest
+BG_BUTTON_ACTIVE = (92, 92, 92)  # a control that is on
+BORDER_PANEL = (120, 120, 120)
 BLUE = (48, 128, 224)
 GREEN = (48, 160, 48)
 RED = (255, 60, 60)
