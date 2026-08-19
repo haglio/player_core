@@ -57,7 +57,11 @@ class Button:
     rather than green because across this family green means the favorites and
     the funscripts; a mode being selected or cruise being armed is neither.
     ``favorite`` names the controls that *are* one of those, so their on-state
-    keeps the green — F-mode is the only one so far.  ``dim`` is a control at the
+    keeps the green — F-mode is the only one so far.  ``enhanced`` is the same
+    idea in the other color this family spends on a meaning: an enhanced picture
+    wears a yellow plus in its corner in Origenerator, so the control that keeps
+    only those wears its mark in that yellow at rest and fills with it when it
+    is on.  ``dim`` is a control at the
     end of its range or with nothing to act on: drawn faded and left out of the
     hit targets, so a press that could do nothing is not offered.
 
@@ -74,6 +78,7 @@ class Button:
     hold: bool = False
     dim: bool = False
     favorite: bool = False
+    enhanced: bool = False
     # A control that takes something away.  Its mark is drawn red -- the color
     # Origenerator's Delete wears -- so the one button on a panel worth stopping
     # at before clicking says so before its tooltip does.  Red is otherwise this
@@ -132,6 +137,14 @@ class ConsoleModel:
     # Genau owns the pace and says it on the drive readout, which whoever draws
     # the console folds in here.
     advance_interval: int = 0
+    # Whether the host is showing only the pictures it has enhanced — and None
+    # where the host has no such filter at all, which is every one of these
+    # players but Origenerator: an enhancement is a thing IT makes, so nothing
+    # else has a set to narrow.  None draws no button rather than a dead one
+    # nobody could explain.  Not published either — Fun Time neither sets this
+    # filter nor hears about it — so the host that owns it folds it in the way
+    # it folds in the pace.
+    enhanced_filter: bool | None = None
 
 
 def read_console(path: Path) -> ConsoleModel | None:
@@ -179,6 +192,12 @@ _GLYPHS = {
     "trash": shared_mark("trash"),
     "reset": shared_mark("reset"),
 }
+
+# The switch that keeps only the enhanced pictures wears the family's own mark
+# for exactly that: the plus an enhanced picture carries in its corner, with a
+# funnel hung off it.  A bare plus is Enhance — the button that MAKES one, which
+# Origenerator's toolbar already has — so the funnel is what tells the two apart.
+ENHANCE_FILTER_ICON = shared_mark("enhance_filter")
 
 # The waveform control wears a drawn mark rather than a glyph: ∿ is a small mark
 # low in a big box, so it read as a smudge in the corner of its button whatever
@@ -361,6 +380,17 @@ def _transport_row(model: ConsoleModel) -> list[Button]:
                else "Unlocked — moving on every "
                     f"{model.advance_interval}s; press to hold this clip",
                lit=model.locked),
+        # The narrowing switch sits straight after the lock, where F-mode sits in
+        # the other branch: both say what there is to step through rather than
+        # acting on what is on screen or on where it ends.  Only where the host
+        # has such a filter at all — see ConsoleModel.enhanced_filter.
+        *([] if model.enhanced_filter is None else [
+            Button("genau_filter_enhanced", ENHANCE_FILTER_ICON,
+                   "Showing the enhanced pictures only — press for all of them"
+                   if model.enhanced_filter
+                   else "Show only the pictures that have been enhanced",
+                   lit=model.enhanced_filter, enhanced=True),
+        ]),
         Button("genau_weird_clip", _GLYPHS["trash"], "Mark weird — move it out",
                danger=True),
     ]

@@ -34,6 +34,13 @@ SHUFFLE_LABEL = "Shuffle"
 F_MODE_LABEL = "F-Mode"
 
 
+# What Origenerator's enhanced-only filter is called where a HUD names it.  A
+# plural of the thing itself, the way every other filter slot on these lines
+# names what it kept rather than what it dropped: the reader wants to know what
+# is on the screen, not what is missing from it.
+ENHANCED_LABEL = "Enhanceds"
+
+
 def looping_label(axis: str) -> str:
     """What a player says while it is looping *axis* — "seed", "action".
 

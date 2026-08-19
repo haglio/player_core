@@ -42,6 +42,7 @@ from .drive_readout import (
 from .drive_readout import controls as drive_controls
 from .drive_readout import tracks as drive_tracks
 from .hud_panel import (
+    AMBER,
     BG_BUTTON,
     BG_PRIMARY,
     BLUE,
@@ -61,7 +62,9 @@ from .hud_panel import (
     to_bgra,
 )
 from .hud_marks import SHARED_MARK, shared_mark_name
-from .hud_status import LATEST_LABEL, SEPARATOR, SHUFFLE_LABEL, status_line
+from .hud_status import (
+    ENHANCED_LABEL, LATEST_LABEL, SEPARATOR, SHUFFLE_LABEL, status_line,
+)
 
 from .console import (
     BROKER_ICON,
@@ -281,8 +284,23 @@ class ConsoleHud:
             locked=self.console.locked,
             order=order,
             f_mode=self.modes.f_mode,
-            filter_label=_LENGTH_LABELS.get(self.modes.length_mode, ""),
+            filter_label=self._filter_label,
         )
+
+    @property
+    def _filter_label(self) -> str:
+        """What has been cut out of what is playing, in the one slot for it.
+
+        Two players fill it and neither can fill it at once: Nau narrows a
+        library by length, and Origenerator keeps only the pictures it has
+        enhanced — a genau-mode console with no Nau playlist behind it, so the
+        length mode is empty there by construction.  One slot rather than two
+        because a reader glancing between screens is reading one sentence, and
+        the answer to "what is left" is one phrase wherever it is asked.
+        """
+        if self.console.enhanced_filter:
+            return ENHANCED_LABEL
+        return _LENGTH_LABELS.get(self.modes.length_mode, "")
 
 
 class ConsolePainter:
@@ -624,10 +642,12 @@ class ConsolePainter:
         """One control, in the one button shape this family's HUDs use: an outline
         when off, filled when on, faded when it cannot be pressed.
 
-        On is white, except where green applies: green across this family is kept
-        for the favorites and the funscripts, so F-mode — which narrows the
-        playlist to what has a funscript — lights green and a mode, cruise or auto
-        advance does not.  Two controls wear an app mark instead of a glyph and
+        On is white, except where a color already means something: green across
+        this family is kept for the favorites and the funscripts, so F-mode —
+        which narrows the playlist to what has a funscript — lights green and a
+        mode, cruise or auto advance does not; and yellow is what an enhanced
+        picture is marked with, so the switch that keeps only those wears its
+        mark in yellow at rest and fills with it when it is on.  Two controls wear an app mark instead of a glyph and
         keep its pink whatever the button is doing: F-mode's "F", and the broker's
         "B" on blue or red, the face it wore on the dashboard — the broker being
         the room's own service and not one of these controls at all.
@@ -642,7 +662,7 @@ class ConsolePainter:
                       fill=(*ink, 255))
             return
         broker = button.glyph == BROKER_ICON
-        lit = GREEN if button.favorite else WHITE
+        lit = (GREEN if button.favorite else AMBER if button.enhanced else WHITE)
         # A control at rest sits on the family's button ground rather than on
         # nothing: an outline over the slab read as a hole in it, and made these
         # look like a different kind of control from the ones in the windows.
@@ -660,8 +680,9 @@ class ConsolePainter:
         # under it goes blue.  A record button whose circle went dark while it
         # recorded read as a different button, not as the same one recording.
         resting = fill == BG_BUTTON
-        ink = (BG_PRIMARY if fill == WHITE else TEXT_MUTED if button.dim
+        ink = (BG_PRIMARY if fill in (WHITE, AMBER) else TEXT_MUTED if button.dim
                else RED if button.danger
+               else AMBER if button.enhanced
                else TEXT_PRIMARY if resting else WHITE)
         if button.glyph in _APP_MARKS:
             draw_icon(draw, rect, _APP_MARKS[button.glyph])

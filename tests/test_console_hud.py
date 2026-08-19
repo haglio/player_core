@@ -95,6 +95,26 @@ class TestLine:
         assert ConsoleHud(console=ConsoleModel(mode="hybrid", locked=False),
                           drive=_drive(advance_interval=5)).status_line == "Unlocked · Shuffle"
 
+    def test_an_enhanced_only_host_says_so_in_the_filter_slot(self):
+        """Origenerator narrows a show to the pictures it has enhanced, and that
+        is the same kind of fact as Nau's length mode — what has been cut out of
+        what is playing — so it takes the same slot, at the end of the line."""
+        def line(**over) -> str:
+            return ConsoleHud(console=ConsoleModel(mode="genau", **over),
+                              drive=_drive(advance_interval=5)).status_line
+
+        assert line(locked=True, enhanced_filter=False) == "Locked · Shuffle"
+        assert line(locked=True, enhanced_filter=True) == "Locked · Shuffle · Enhanceds"
+        assert line(locked=False, enhanced_filter=True) == (
+            "Unlocked · Shuffle · 5s · Enhanceds")
+
+    def test_a_host_with_no_such_filter_says_nothing_there(self):
+        """None is "this player has no such filter" — not "it is off" — and both
+        print nothing, so the slot is free for the length mode Nau fills."""
+        assert ConsoleHud(console=ConsoleModel(mode="genau")).status_line == (
+            "Locked · Shuffle")
+        assert _line(length_mode=SHORTS) == "Locked · Shuffle · Shorts"
+
     def test_names_the_compilation_and_where_you_are_in_it(self):
         """A compilation is the main player's loop — a fixed set it plays through
         rather than the browse it came from — so it leads the line the way a
@@ -366,6 +386,21 @@ class TestPainter:
 
         shades, counts = np.unique(box.reshape(-1, 3), axis=0, return_counts=True)
         assert tuple(shades[counts.argmax()]) == (48, 160, 48)
+
+    def test_the_enhanced_filter_wears_yellow_off_and_on(self):
+        """An enhanced picture wears a yellow plus in its corner, so the switch
+        that keeps only those is yellow wherever you find it: the mark at rest,
+        and the whole button once it is on."""
+        amber = (255, 200, 120)
+        off = self._button_box("genau_filter_enhanced",
+                               ConsoleModel(mode="genau", enhanced_filter=False))
+        on = self._button_box("genau_filter_enhanced",
+                              ConsoleModel(mode="genau", enhanced_filter=True))
+
+        assert (np.abs(off.astype(int) - amber).sum(axis=2) < 30).any()  # the mark
+        shades, counts = np.unique(on.astype(int).reshape(-1, 3), axis=0,
+                                   return_counts=True)
+        assert tuple(shades[counts.argmax()]) == amber                  # the fill
 
     def test_a_lit_marks_ink_stays_white_over_a_colored_fill(self):
         """The Dash's mic keeps its white glyph while the panel under it goes
