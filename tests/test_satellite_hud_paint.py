@@ -635,14 +635,19 @@ def test_the_filtered_actions_label_is_lit(thumb):
 
 
 def _filter_button_fill(rendered, action: str) -> int:
-    """How much white the *action* row's filter button carries — its lit state.
+    """How much ACTIVE ground the *action* row's filter button carries — lit.
 
-    White, not green: green across these HUDs means the favorites and the
-    funscripts, and a filter is neither.  Only the lock keeps the color.
+    The family's lighter gray, not white and not green: green across these HUDs
+    means the favorites and the funscripts, and a filter is neither, while white
+    was the loudest thing on the panel for a control that is merely engaged.
+    Only the lock keeps a color.
     """
+    from shared_ui.colors import BG_BUTTON_ACTIVE
+
+    want = (BG_BUTTON_ACTIVE.red(), BG_BUTTON_ACTIVE.green(), BG_BUTTON_ACTIVE.blue())
     x, y, w, h = dict((name, rect) for rect, name in rendered.targets.filter)[action]
     rgb = _rgb(rendered.bgra)[y:y + h, x:x + w].astype(int)
-    return int((rgb > 240).all(axis=2).sum())
+    return int((abs(rgb - want).max(axis=2) <= 2).sum())
 
 
 def test_the_filter_button_lights_on_the_act_the_side_is_filtered_to(thumb):

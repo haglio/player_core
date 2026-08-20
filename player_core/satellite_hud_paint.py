@@ -19,7 +19,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from player_core.hud_marks import SHARED_MARK, shared_mark, shared_mark_name
 from player_core.hud_panel import (
-    BG_BUTTON,
+    BG_BUTTON, BG_BUTTON_ACTIVE,
     BG_PRIMARY,
     GREEN,
     RED,
@@ -614,7 +614,7 @@ class HudRenderer:
             row(ay, ah, model.actions[i].label if i < len(model.actions) else "")
 
     def _button_box(self, draw, rect: Rect, *, on: bool,
-                    on_color=WHITE, ink=None) -> tuple[int, int, int, int]:
+                    on_color=BG_BUTTON_ACTIVE, ink=None) -> tuple[int, int, int, int]:
         """The panel's square button, and the color to draw its mark in — the
         single button shape every control on this HUD is drawn with, so a new one
         cannot invent its own look.
@@ -625,22 +625,34 @@ class HudRenderer:
         gray the rest of the chrome uses, and the MARK is full-strength -- the same way the main player's console
         draws its own.  Both were muted here, which left these panels reading as
         dim and half-disabled beside the console's, for controls that were
-        neither.  On, the box fills *on_color* and the mark reverses out of it.
-        That fill is white for everything here except the lock: green across this
-        family means favorites and the funscripts, and the lock is the gesture
-        that favorites a clip, so it is the one control that earns the color.
+        neither.  On, the box fills *on_color*: the family's ACTIVE ground, one
+        step up from the resting one, which is the step Origenerator's checked
+        buttons take and now the step every HUD here takes with them.  It used to
+        fill white, the loudest thing on the panel for a control whose whole news
+        is that it is on.  The lock is the exception: green across this family
+        means favorites and the funscripts, and the lock is the gesture that
+        favorites a clip, so it is the one control that earns the color.
 
         *ink* overrides the off-state mark -- the bin takes red, the color
         Origenerator's Delete wears, since it is the one control here that takes
         something away.
         """
         bx, by, bw, bh = rect
+        fill = on_color if on else BG_BUTTON
+        # The edge is the family's muted gray over either gray ground, and the
+        # fill's own color only where that fill carries a meaning (the lock's
+        # green).  A gray-on-gray edge would be no edge at all.
+        edge = TEXT_MUTED if fill in (BG_BUTTON, BG_BUTTON_ACTIVE) else fill
         draw.rounded_rectangle(
             [bx, by, bx + bw - 1, by + bh - 1], radius=3,
-            fill=(*(on_color if on else BG_BUTTON), 255),
-            outline=(*(on_color if on else TEXT_MUTED), 255), width=1,
+            fill=(*fill, 255), outline=(*edge, 255), width=1,
         )
-        return (*(BG_PRIMARY if on else (ink or TEXT_PRIMARY)), 255)
+        # A mark reverses out of a light fill; over either gray ground it keeps
+        # its own ink, which is what makes an on/off pair read as one button
+        # changing ground rather than as two different controls.
+        if fill in (BG_BUTTON, BG_BUTTON_ACTIVE):
+            return (*(ink or TEXT_PRIMARY), 255)
+        return (*BG_PRIMARY, 255)
 
     def _glyph_button(self, image, draw, rect: Rect, glyph: str, *, on: bool = False,
                       on_color=WHITE, ink=None) -> None:

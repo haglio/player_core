@@ -43,7 +43,7 @@ from .drive_readout import controls as drive_controls
 from .drive_readout import tracks as drive_tracks
 from .hud_panel import (
     AMBER,
-    BG_BUTTON,
+    BG_BUTTON, BG_BUTTON_ACTIVE,
     BG_PRIMARY,
     BLUE,
     GREEN,
@@ -670,7 +670,16 @@ class ConsolePainter:
                       fill=(*ink, 255))
             return
         broker = button.glyph == BROKER_ICON
-        lit = (GREEN if button.favorite else AMBER if button.enhanced else WHITE)
+        # A plain toggle lights the family's ACTIVE ground -- a step up from the
+        # resting one, the same step Origenerator's checked buttons take.  It
+        # used to fill white, which is the loudest thing on the panel for a
+        # control whose whole news is "this is on", and it left the console
+        # reading as a different app from the windows beside it.  Where a color
+        # already MEANS something it still wins: green is the favorites and the
+        # funscripts, amber is an enhanced picture, and those say more than
+        # "engaged".
+        lit = (GREEN if button.favorite else AMBER if button.enhanced
+               else BG_BUTTON_ACTIVE)
         # A control at rest sits on the family's button ground rather than on
         # nothing: an outline over the slab read as a hole in it, and made these
         # look like a different kind of control from the ones in the windows.
@@ -678,7 +687,13 @@ class ConsolePainter:
                 else BG_BUTTON)
         if broker:
             fill = BLUE if button.lit else RED
-        edge = TEXT_MUTED if button.dim else (fill or TEXT_MUTED)
+        # And it carries the family's thin edge whatever it is doing.  The edge
+        # used to be the fill's own color at rest, which is no edge at all --
+        # the satellite HUDs beside this one draw theirs in the muted gray the
+        # rest of the chrome uses, and these read as borderless slabs next to
+        # them.
+        edge = TEXT_MUTED if (button.dim or fill in (BG_BUTTON, BG_BUTTON_ACTIVE)) else (
+            fill or TEXT_MUTED)
         draw.rounded_rectangle([x, y, x + w - 1, y + h - 1], radius=3,
                                fill=(*fill, 255) if fill else None,
                                outline=(*edge, 255), width=1)
@@ -687,7 +702,9 @@ class ConsolePainter:
         # mark — the way the Dash's mic keeps its white glyph while the panel
         # under it goes blue.  A record button whose circle went dark while it
         # recorded read as a different button, not as the same one recording.
-        resting = fill == BG_BUTTON
+        # The gray grounds are both dark, so a mark on either keeps its own ink
+        # rather than reversing -- only a light fill (white, amber) reverses.
+        resting = fill in (BG_BUTTON, BG_BUTTON_ACTIVE)
         ink = (BG_PRIMARY if fill in (WHITE, AMBER) else TEXT_MUTED if button.dim
                else RED if button.danger
                else AMBER if button.enhanced

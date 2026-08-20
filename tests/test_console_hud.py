@@ -292,10 +292,17 @@ class TestPainter:
         green = (rgb[:, :, 1] > 130) & (rgb[:, :, 0] < 110) & (rgb[:, :, 2] < 110)
         assert green.any()
 
-    def test_a_control_that_is_on_fills_white_rather_than_green(self):
+    def test_a_control_that_is_on_lights_the_active_ground_not_green(self):
         """Green means the favorites and the funscripts everywhere in this
         family — the OSR2 pill says FunScript in it, and that is the only thing on
-        the console entitled to it.  The mode you are in is not one of them."""
+        the console entitled to it.  The mode you are in is not one of them.
+
+        Nor is it white, which is what this filled before: the family's ACTIVE
+        ground is one step up from the resting one, the step Origenerator's
+        checked buttons take, and the console taking a different one is what made
+        it read as a different app from the windows beside it."""
+        from shared_ui.colors import BG_BUTTON, BG_BUTTON_ACTIVE
+
         painter = ConsolePainter()
         rgb = _rgb(painter.bgra(ConsoleHud(console=ConsoleModel(mode="hybrid"))))
         (bx, by, bw, bh), _b = next(
@@ -303,9 +310,30 @@ class TestPainter:
         box = rgb[by:by + bh, bx:bx + bw].astype(int)
 
         shades, counts = np.unique(box.reshape(-1, 3), axis=0, return_counts=True)
-        assert tuple(shades[counts.argmax()]) == (255, 255, 255)
+        active = (BG_BUTTON_ACTIVE.red(), BG_BUTTON_ACTIVE.green(), BG_BUTTON_ACTIVE.blue())
+        assert tuple(shades[counts.argmax()]) == active
+        # And it is visibly a step up from a control at rest, or "on" says nothing.
+        assert active != (BG_BUTTON.red(), BG_BUTTON.green(), BG_BUTTON.blue())
         green = (box[:, :, 1] > 130) & (box[:, :, 0] < 110) & (box[:, :, 2] < 110)
         assert not green.any()
+
+    def test_a_control_at_rest_still_carries_the_familys_thin_edge(self):
+        """The edge used to be the resting fill's own color, which is no edge at
+        all — the satellite HUDs beside this one draw theirs in the muted gray the
+        rest of the chrome uses, and the console read as borderless slabs."""
+        from shared_ui.colors import TEXT_MUTED
+
+        painter = ConsolePainter()
+        rgb = _rgb(painter.bgra(ConsoleHud(console=ConsoleModel(mode="hybrid"))))
+        (bx, by, bw, bh), _b = next(
+            (rect, b) for rect, b in painter.buttons
+            if b.action and b.action != "hybrid_activate")
+        box = rgb[by:by + bh, bx:bx + bw].astype(int)
+        muted = (TEXT_MUTED.red(), TEXT_MUTED.green(), TEXT_MUTED.blue())
+
+        # Along the top edge, between the rounded corners.
+        edge = box[0, 4:bw - 4]
+        assert (abs(edge - np.array(muted)).max(axis=1) <= 2).any()
 
     def test_the_broker_wears_the_face_it_had_on_the_dashboard(self):
         """Its own pink mark on blue while the service is up and red while it is
