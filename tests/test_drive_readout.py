@@ -369,12 +369,26 @@ class TestSwitchedOff:
         assert not ((row[:, 2] > 150) & (row[:, 0] < 120)).any()
 
     def test_the_numbers_go_grey_too(self):
-        """They read as the live value of a stroke otherwise."""
-        off = _rendered(_hud(driven=DRIVEN_BY_NOTHING, waveform=()))
-        on = _rendered(_hud(driven=DRIVEN_BY_GENAU, waveform=()))
+        """They read as the live value of a stroke otherwise.
 
-        assert TEXT_PRIMARY in self._colors(_hud(driven=DRIVEN_BY_GENAU, waveform=()))
-        assert not np.array_equal(off, on)
+        Read off the number's own pixels — the ones that move when the number does,
+        under the bar that moves with it as well — rather than off the section's set
+        of colours.  At this size the digits are all edge: no pixel of them lands on
+        the ink exactly, so a set of colours never saw them at all.
+        """
+        _x, bar_y, _w, bar_h = next(track.rect for track in tracks(PAD, PAD, _hud())
+                                    if track.axis == SPEED)
+        muted = max(TEXT_MUTED)
+
+        def brightest_digit(driven: str) -> int:
+            fifty = _rendered(_hud(driven=driven, speed=50, waveform=()))
+            fifty_one = _rendered(_hud(driven=driven, speed=51, waveform=()))
+            digits = (fifty != fifty_one).any(axis=2)
+            digits[:bar_y + bar_h] = False
+            return int(fifty[digits][:, :3].max())
+
+        assert brightest_digit(DRIVEN_BY_GENAU) > muted  # brighter than its own key
+        assert brightest_digit(DRIVEN_BY_NOTHING) < muted  # and now darker than it
 
     def test_the_position_marker_is_not_left_white(self):
         """It bobbed on: Genau keeps publishing a position it cannot know is going
