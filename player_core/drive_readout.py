@@ -107,17 +107,13 @@ def trace_ink(driven: str):
     return _TRACE_INK[driven]
 
 
-def label_pair_x(font, key: str, value: str, *,
-                 left: int | None = None, right: int | None = None) -> tuple[int, int]:
-    """Where a "key value" pair's two words start, placed as one unit.
+def label_pair_x(font, key: str, value: str, *, left: int) -> tuple[int, int]:
+    """Where a "key value" pair's two words start, running right from *left*.
 
     Measured together and positioned together, so a value can never be dropped
-    onto its own key.  Give *left* to run the pair rightwards from there, or
-    *right* to end it at that edge.
+    onto its own key.
     """
-    span = text_width(font, key) + _KEY_GAP + text_width(font, value)
-    start = left if left is not None else (right or 0) - span
-    return start, start + text_width(font, key) + _KEY_GAP
+    return left, left + text_width(font, key) + _KEY_GAP
 
 
 @dataclass(frozen=True)
@@ -227,7 +223,7 @@ def controls(x: int, y: int, hud: DriveHud, *,
             amp_at_min=hud.amp_at_min, amp_at_max=hud.amp_at_max,
             ctr_at_min=hud.ctr_at_min, ctr_at_max=hud.ctr_at_max,
         ),
-        dim=not hud.driving, prefix="genau_", trace_only=trace_only)
+        dim=not hud.driving, trace_only=trace_only)
 
 
 def tracks(x: int, y: int, hud: DriveHud, *,
@@ -323,13 +319,10 @@ class DriveSection:
                       anchor="lm", fill=fill)
 
     def _value(self, draw, y: int, key: str, value: str, *,
-               left: int | None = None, right: int | None = None,
-               center: int | None = None, ink=(*TEXT_PRIMARY, 255)) -> None:
-        """A muted key with its value, placed as one unit."""
-        if center is not None:
-            span = text_width(self._tiny, key) + _KEY_GAP + text_width(self._tiny, value)
-            left = center - span // 2
-        key_x, value_x = label_pair_x(self._tiny, key, value, left=left, right=right)
+               center: int, ink=(*TEXT_PRIMARY, 255)) -> None:
+        """A muted key with its value, placed as one unit centred on *center*."""
+        span = text_width(self._tiny, key) + _KEY_GAP + text_width(self._tiny, value)
+        key_x, value_x = label_pair_x(self._tiny, key, value, left=center - span // 2)
         draw.text((key_x, y + _LABEL_H / 2), key, font=self._tiny, anchor="lm",
                   fill=(*TEXT_MUTED, 255))
         draw.text((value_x, y + _LABEL_H / 2), value, font=self._tiny, anchor="lm",

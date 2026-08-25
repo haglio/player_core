@@ -169,7 +169,7 @@ ICON_GRIDS = {
 
 
 def draw_icon(draw: ImageDraw.ImageDraw, rect: tuple[int, int, int, int],
-              letter: str, fill=PINK) -> None:
+              letter: str) -> None:
     """Draw the app mark for *letter*, centred in *rect* and sized to fill it.
 
     The grid's blank cells are left alone rather than painted, so whatever is
@@ -184,7 +184,7 @@ def draw_icon(draw: ImageDraw.ImageDraw, rect: tuple[int, int, int, int],
             if painted != "#":
                 continue
             cx, cy = left + column * cell, top + row * cell
-            draw.rectangle([cx, cy, cx + cell - 1, cy + cell - 1], fill=(*fill, 255))
+            draw.rectangle([cx, cy, cx + cell - 1, cy + cell - 1], fill=(*PINK, 255))
 
 
 # The tooltip box: the room around its words, how round its corner is, and how
@@ -266,13 +266,13 @@ class HudPanel:
     panels do.
     """
 
-    def __init__(self, width: int, height: int, *, alpha: int = PANEL_ALPHA,
+    def __init__(self, width: int, height: int, *,
                  ground: tuple[int, int, int] = BG_PRIMARY) -> None:
         self.image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
         self.draw = ImageDraw.Draw(self.image)
         self.draw.rounded_rectangle(
             [0, 0, width - 1, height - 1], radius=CORNER_RADIUS,
-            fill=(*ground, alpha), outline=(*BORDER_PANEL, 255), width=1,
+            fill=(*ground, PANEL_ALPHA), outline=(*BORDER_PANEL, 255), width=1,
         )
 
     def to_bgra(self) -> np.ndarray:

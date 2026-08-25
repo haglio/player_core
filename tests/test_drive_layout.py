@@ -75,9 +75,10 @@ def test_every_mark_is_hit_by_a_press_in_its_own_middle_and_by_no_other():
 
 def test_a_mark_at_the_end_of_its_range_is_dimmed_and_only_that_one():
     marks = _by_action(layout.controls(0, 0, 50, layout.Limits(amp_at_max=True)))
-    assert marks["amplitude_up"].dim
-    assert not marks["amplitude_down"].dim
-    assert not any(m.dim for a, m in marks.items() if not a.startswith("amplitude"))
+    assert marks["genau_amplitude_up"].dim
+    assert not marks["genau_amplitude_down"].dim
+    assert not any(m.dim for a, m in marks.items()
+                   if not a.startswith("genau_amplitude"))
 
 
 def test_nothing_driving_dims_every_mark_and_every_band():
@@ -86,13 +87,15 @@ def test_nothing_driving_dims_every_mark_and_every_band():
     assert all(track.dim for track in layout.tracks(0, 0, 50, dim=True))
 
 
-def test_the_prefix_names_the_action_each_mark_posts():
-    # Genau's marks post commands Fun Time routes on; a panel calling its own
-    # driver wants the bare verb.
-    posted = _by_action(layout.controls(0, 0, 50, layout.Limits(), prefix="genau_"))
-    assert "genau_speed_up" in posted
-    bare = _by_action(layout.controls(0, 0, 50, layout.Limits()))
-    assert "speed_up" in bare
+def test_every_mark_posts_the_command_fun_time_routes_to_genau():
+    # The verbs are the wire, so they are written out here rather than composed:
+    # a rename has to be findable from the dispatch end as well as this one.
+    posted = _by_action(layout.controls(0, 0, 50, layout.Limits()))
+    assert set(posted) == {
+        "genau_speed_down", "genau_speed_up",
+        "genau_amplitude_down", "genau_amplitude_up",
+        "genau_center_down", "genau_center_up",
+    }
 
 
 def test_the_trace_alone_has_nothing_to_press():

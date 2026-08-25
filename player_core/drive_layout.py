@@ -173,17 +173,15 @@ class Limits:
 
 
 def controls(x: int, y: int, center: int, limits: Limits, *,
-             dim: bool = False, prefix: str = "",
-             trace_only: bool = False) -> list[DriveControl]:
+             dim: bool = False, trace_only: bool = False) -> list[DriveControl]:
     """The readout's marks at ``(x, y)`` — a −/+ pair for each of speed,
-    amplitude and centre — each carrying the action it posts and whether it is
+    amplitude and centre — each carrying the command it posts and whether it is
     dimmed at the end of its range.
 
-    *prefix* goes in front of every action name: Genau's marks post commands Fun
-    Time routes on (``genau_speed_up``), while a panel that calls its own driver
-    directly wants the bare verb. *dim* dims all of them at once, which is what
-    a readout nobody can adjust looks like — a funscript has the device, or the
-    stroke is not running.
+    The commands are the ones Fun Time routes to Genau, written out so a verb
+    can be grepped from either end.  *dim* dims all of them at once, which is
+    what a readout nobody can adjust looks like — a funscript has the device, or
+    the stroke is not running.
 
     None at all when only the trace is drawn: in Nau there is no engine behind
     the screen for a mark to reach.
@@ -192,12 +190,12 @@ def controls(x: int, y: int, center: int, limits: Limits, *,
         return []
     g = geometry(x, y, fraction(center))
     return [
-        DriveControl(g.speed_down, f"{prefix}speed_down", LESS, dim or limits.spd_at_min),
-        DriveControl(g.speed_up, f"{prefix}speed_up", MORE, dim or limits.spd_at_max),
-        DriveControl(g.amp_up, f"{prefix}amplitude_up", MORE, dim or limits.amp_at_max),
-        DriveControl(g.amp_down, f"{prefix}amplitude_down", LESS, dim or limits.amp_at_min),
-        DriveControl(g.center_up, f"{prefix}center_up", MORE, dim or limits.ctr_at_max),
-        DriveControl(g.center_down, f"{prefix}center_down", LESS, dim or limits.ctr_at_min),
+        DriveControl(g.speed_down, "genau_speed_down", LESS, dim or limits.spd_at_min),
+        DriveControl(g.speed_up, "genau_speed_up", MORE, dim or limits.spd_at_max),
+        DriveControl(g.amp_up, "genau_amplitude_up", MORE, dim or limits.amp_at_max),
+        DriveControl(g.amp_down, "genau_amplitude_down", LESS, dim or limits.amp_at_min),
+        DriveControl(g.center_up, "genau_center_up", MORE, dim or limits.ctr_at_max),
+        DriveControl(g.center_down, "genau_center_down", LESS, dim or limits.ctr_at_min),
     ]
 
 
