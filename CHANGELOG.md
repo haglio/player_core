@@ -67,11 +67,41 @@ kept the invariant a war story was protecting and dropped the story.
 | `funscript`'s three bounds explained by the incident that set them | 0.7590 → 0.7579 |
 | `HudRenderer.render`'s section headings became `_draw_status_band` and `_draw_mode_row` | 0.7579 → 0.7528 |
 | `ConsolePainter._paint`'s top block became `_draw_top_block` (CC 18 → 15) | 0.7528 → 0.7525 |
+| The console's eight histories cut to the rules they guarded | 0.7525 → 0.7439 |
+| The drive readout's five attempts, and `drive_layout`'s and `tcode`'s | 0.7439 → 0.7403 |
+| The satellite explaining itself by the dashboard it replaced, thirteen times | 0.7403 → 0.7364 |
+| Seventeen more across nine files with one war story each | 0.7364 → 0.7267 |
 
-Both painter extractions were verified as pure moves rather than argued: 22
-rendered panels — three console modes with and without hover, both satellite
-sides across the mode row and the subtitle, and both empty shells — compare
-byte-identical before and after.
+**Where it ended: 0.7692 → 0.7267 over 3,626 SLOC.** The audit counted 21 "used
+to" lines across seven modules; four remain, and three of those are on the
+retained list or state a live fact about Qt rather than about this code.
+
+Every rendered panel is byte-identical to `bb4c790`, the commit the audit
+measured: 22 of them — three console modes with and without hover, both
+satellite sides across the mode row and the subtitle, and both empty shells.
+Every comment-only commit was checked by parsing the file before and after and
+comparing the syntax trees with docstrings stripped, so no expression, constant
+or branch moved in any of them.
+
+**The floor held, with four deliberate exceptions.** Of the 278 retained ranges,
+269 are word-for-word what they were. Four were reworded because a *different*
+finding in the same bundle required it, and each keeps its mechanism:
+
+- `drive_layout.py:11-15` — "kept apart from the painters" is singular now, and
+  "both toolkits' panels" is gone, because `dead/011` established there is one
+  painter. The reason the layout is kept apart — a wrong hit target still looks
+  right — is untouched.
+- `drive_layout.py:182-189` — the `prefix` paragraph went with the parameter
+  (`dead/008`); the rest of the docstring stands.
+- `direct_control.py:33` — the "A T-Code stroke position" note moved to
+  `tcode.py` with `POSITION_MAX` itself (`design/010`).
+- `wave_stack.py:142-147` — the reference to `player_core`'s own
+  `_recompute_center` from inside `player_core` went (`dead/013`); what it
+  described, the centre giving way as the amplitude opens past it, stays.
+
+The other five the checker flags are boundary artifacts: a range that begins
+mid-sentence in a narrative the audit separately asked to delete, or one whose
+note already said *first sentence* or *minus the genau reference*.
 
 ### Defects found and not fixed
 
@@ -85,3 +115,13 @@ runs `main()` — every fixture pre-creates the file. Under `--detach` stderr go
 to `DEVNULL`, so a harvest fired at startup fails silently and no list is ever
 produced. Not fixed here: it needs sign-off, and the fix has to land in all
 eleven copies of `tools/` at once.
+
+### Still open from this item
+
+The ratio is reported here, not gated, and `player_core` still has no dead-code
+scan, by design. What this arc did not take from the bundle: the test-suite
+findings beyond the seven mutation survivors — the private names asserted on
+across seven files, the near-duplicate tests, the missing `tests/conftest.py`,
+and the two guard tests coupled to the real checkout. Those are the suite's
+shape rather than its trustworthiness; the seven probes that could not fail
+now do.
