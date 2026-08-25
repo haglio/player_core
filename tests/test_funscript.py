@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import json
 
-from player_core.funscript import Funscript, load, snap_loop
+from player_core.funscript import (
+    PARK_SETTLE_MS,
+    QUIET_LEAD_IN_MS,
+    Funscript,
+    load,
+    snap_loop,
+)
 
 
 class TestLoad:
@@ -54,6 +60,16 @@ class TestFirstRealEventMs:
         fs = Funscript(actions=[(4000, 0), (4300, 100), (4600, 0), (4900, 100)])
 
         assert fs.first_real_event_ms is None
+
+    def test_a_lead_in_of_exactly_the_threshold_is_long_enough_to_park(self):
+        # "At least this far in" — the boundary itself parks, and the millisecond
+        # under it does not, which is the whole of what the threshold decides.
+        def onset_at(start: int) -> int | None:
+            return Funscript(actions=[(start, 0), (start + 300, 100),
+                                      (start + 600, 0)]).first_real_event_ms
+
+        assert onset_at(QUIET_LEAD_IN_MS) == QUIET_LEAD_IN_MS
+        assert onset_at(QUIET_LEAD_IN_MS - 1) is None
 
 
 class TestIsRestingAt:
@@ -400,6 +416,18 @@ class TestPlan:
 
         assert fs.is_parked_at(30_000) is True
         assert fs.planned_position_at(30_000) == 0.0
+
+    def test_the_drop_out_of_a_cluster_glides_down_onto_the_park(self):
+        """The device walks onto its rest over PARK_SETTLE_MS, so the plan walks
+        with it — dropping in one sample drew a cliff the device then spent half a
+        second not taking."""
+        fs = self._gapped()
+        last = 1000  # the first cluster's closing action
+
+        assert fs.is_parked_at(last + PARK_SETTLE_MS // 2) is True
+        assert fs.planned_position_at(last + PARK_SETTLE_MS // 2) == (
+            fs.position_at(last) / 2)
+        assert fs.planned_position_at(last + PARK_SETTLE_MS) == 0.0
 
     def test_the_rise_starts_a_beat_ahead_and_lands_on_the_opening_action(self):
         fs = self._gapped()
