@@ -405,6 +405,21 @@ class TestAdjustCenter:
         assert state.intended_center == 60
         assert state.center == 60
 
+    def test_half_step_when_5_from_the_low_edge(self):
+        # The low side is the same rule mirrored, and nothing was asking it —
+        # amplitude=80, range [40, 60]. intended=45, try -10 → would be 35 < 40,
+        # and 45 is 5 clear of the edge, so accept half → intended=40.
+        state = DirectControlState(amplitude=80, intended_center=45)
+        adjust_center(state, -10)
+        assert state.intended_center == 40
+        assert state.center == 40
+
+    def test_ignored_when_at_the_low_edge(self):
+        state = DirectControlState(amplitude=80, intended_center=40)
+        adjust_center(state, -10)
+        assert state.intended_center == 40
+        assert state.center == 40
+
     def test_center_never_affects_amplitude(self):
         state = DirectControlState(amplitude=80, intended_center=50)
         adjust_center(state, 10)

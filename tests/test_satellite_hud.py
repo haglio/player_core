@@ -5,6 +5,7 @@ import json
 
 from player_core.satellite_hud import (
     CTRL_BTN,
+    DOUBLE_CLICK_S,
     ELLIPSIS,
     FILTER_BTN,
     LOOP_BTN,
@@ -527,6 +528,18 @@ def test_single_click_switches_and_double_click_locks():
     assert clicks.press(targets, 10, 10, now=10.0) == ""
     assert clicks.press(targets, 10, 10, now=10.2) == "landscape_lock_video|C:/v/pick.mp4"
     assert clicks.due(now=11.0) == ""                         # the single was cancelled
+
+
+def test_a_second_click_past_the_window_is_another_single_click():
+    """The window is what makes the second press a double.  Past it, the same
+    cell pressed again is someone picking that clip a second time — it defers
+    like any other single press rather than locking what it lands on."""
+    clicks = HudClicks("landscape")
+    targets = _targets(click=[((0, 0, 30, 30), "C:/v/pick.mp4")])
+
+    assert clicks.press(targets, 10, 10, now=0.0) == ""
+    assert clicks.press(targets, 10, 10, now=DOUBLE_CLICK_S * 4) == ""
+    assert clicks.due(now=DOUBLE_CLICK_S * 8) == "landscape_play_video|C:/v/pick.mp4"
 
 
 def test_clicking_a_side_control_posts_that_sides_command():
