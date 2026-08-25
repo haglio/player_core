@@ -29,6 +29,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+import numpy as np
+
 from .libmpv_loader import add_libmpv_to_path
 
 logger = logging.getLogger(__name__)
@@ -254,8 +256,6 @@ class _MpvControl:
         loop) without disturbing playback — mpv renders the video itself.
         Returns None if no frame is available yet.
         """
-        import numpy as np
-
         img = self._mpv.screenshot_raw()  # PIL Image
         if img is None or img.height == 0:
             return None
@@ -265,8 +265,6 @@ class _MpvControl:
 
     def overlay(self, ident: int, x: int, y: int, rgba) -> None:
         """Composite an (H, W, 4) BGRA uint8 array at (x, y) over the video."""
-        import numpy as np
-
         arr = np.ascontiguousarray(rgba, dtype=np.uint8)
         h, w = arr.shape[:2]
         self._mpv.overlay_add(

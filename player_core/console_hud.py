@@ -373,14 +373,11 @@ class ConsolePainter:
         # readout who has the device.  Anything but Genau dims every control on
         # it: adjusting a stroke Genau is not sending is what woke it against the
         # funscript.
-        if hud.console.mode in _COMPOSED_TRACE_MODES and drive.segments:
-            # A composed trace already names who has the device at the playhead
-            # — set by the same function that drew the line under the dot — so
-            # the folded osr2 state must not overwrite it: the round trip lags
-            # the arbiter, and the arbiter itself decides seconds before the
-            # device is done riding the blue.
-            pass
-        else:
+        # Not where a composed trace already names who has the device at the
+        # playhead — set by the same function that drew the line under the dot —
+        # since the round trip lags the arbiter, and the arbiter itself decides
+        # seconds before the device is done riding the blue.
+        if not (hud.console.mode in _COMPOSED_TRACE_MODES and drive.segments):
             drive = replace(drive, driven=_driven_by(hud.console.osr2))
         # In hybrid the readout is not a picture of Genau's stroke: it is the
         # picture of the handoff, and the device changes hands inside it.  The
