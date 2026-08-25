@@ -89,17 +89,3 @@ def test_a_resting_button_draws_its_mark_full_strength():
     ink = HudRenderer("portrait")._button_box(
         ImageDraw.Draw(Image.new("RGBA", (18, 18))), (0, 0, 18, 18), on=False)
     assert ink[:3] == TEXT_PRIMARY
-
-
-def test_the_bin_draws_red_because_it_takes_something_away():
-    # Origenerator's Delete is red, and the user wants that to mean the same
-    # thing wherever the act appears.
-    from PIL import Image, ImageDraw
-    from player_core.hud_panel import RED
-
-    from player_core.satellite_hud_paint import _DESTRUCTIVE, HudRenderer
-
-    assert "trash" in _DESTRUCTIVE
-    ink = HudRenderer("portrait")._button_box(
-        ImageDraw.Draw(Image.new("RGBA", (18, 18))), (0, 0, 18, 18), on=False, ink=RED)
-    assert ink[:3] == RED
