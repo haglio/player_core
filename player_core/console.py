@@ -23,9 +23,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from .geometry import Rect, contains
 from .hud_marks import shared_mark
-
-Rect = tuple[int, int, int, int]  # (x, y, w, h)
 
 BUTTON = 18   # a square control; the wider ones are multiples plus the gaps
 VALUE_W = 22  # a value read-out between a pair of buttons (the playback rate)
@@ -569,10 +568,10 @@ def hit_test(placed: list[tuple[Rect, Button]], px: int, py: int) -> str:
     A dimmed control is skipped: it is at its limit or has nothing to act on, so
     the press it would post is one Fun Time would ignore.
     """
-    for (bx, by, bw, bh), button in placed:
+    for rect, button in placed:
         if button.dim or not button.action:
             continue
-        if bx <= px < bx + bw and by <= py < by + bh:
+        if contains(rect, px, py):
             return button.action
     return ""
 
