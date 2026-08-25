@@ -1,9 +1,8 @@
 """Draw the satellite's lock HUD as a bitmap mpv composites into the video.
 
-A straight port of the HUD fun_time used to paint into its own always-on-top Qt
-window.  Drawing it into the frame instead is the whole point: an mpv overlay has
-no z-order, so it can neither fall behind the video nor float above the desktop —
-the two failure modes the separate window kept oscillating between.
+Drawing it into the frame rather than into a window of its own is the whole
+point: an mpv overlay has no z-order, so it can neither fall behind the video nor
+float above the desktop.
 
 The slab it is drawn on — the rounded translucent panel, the palette, the Segoe
 face sized the way Qt sized it, the BGRA hand-off — comes from
@@ -113,9 +112,8 @@ _EXPAND_GLYPH = shared_mark("expand_horizontal")
 # arrows, so they cannot be read as "step along the map"; a padlock and a bin for
 # the two that act on the clip on screen.  The bin and the reset are the family's
 # own drawings -- the bin is the very bin Origenerator's toolbar wears, and reset
-# is a gear with a circular arrow at its corner, where a bare counterclockwise
-# arrow read as an undo, which is a different act.  Skip-track and the padlock
-# stay typed: the family has no drawing of either.
+# is a gear with a circular arrow at its corner.  Skip-track and the padlock stay
+# typed: the family has no drawing of either.
 _CONTROL_GLYPHS = {
     "prev": "⏮", "next": "⏭", "lock": "🔒",
     "trash": shared_mark("trash"), "reset": shared_mark("reset"),
@@ -280,8 +278,7 @@ class HudRenderer:
             min_width=max((text_width(self._tiny, line) for line in counts), default=0) + MAP_GAP,
         )
         # Windowed before the panel is measured, so the panel is measured around
-        # the cells that won: measuring first and windowing into what was left is
-        # what fitted two wide clips across a row where three go.
+        # the cells that won rather than the cells fitting what was left.
         model, seed_win, action_win = self._window(model)
         corner_thumb, seed_thumbs, action_thumbs = self._map_thumbnails(model)
         row = ([corner_thumb.width] + [thumb.width for thumb in seed_thumbs]
@@ -445,13 +442,12 @@ class HudRenderer:
         """*model* narrowed to the cells actually drawn, plus each axis's window.
 
         An axis can hold far more clips than the map draws — a loop's group
-        especially.  Rather than draw the first few and leave the clip on screen off
-        the map once playback moves past them (which showed as the highlight
-        vanishing onto an unrecognisable video), each axis is drawn through a window
-        of MAP_CELLS that keeps the playing cell near the middle.  Narrowing the
-        model here means everything downstream — rects, labels, hit targets, the
-        bright cell, and the panel measured around them — works off the drawn cells
-        alone.
+        especially — so each axis is drawn through a window of MAP_CELLS that keeps
+        the playing cell near the middle, rather than drawing the first few and
+        leaving the clip on screen off the map once playback moves past them.
+        Narrowing the model here means everything downstream — rects, labels, hit
+        targets, the bright cell, and the panel measured around them — works off the
+        drawn cells alone.
         """
         if model.corner is None:
             return model, None, None
@@ -600,13 +596,12 @@ class HudRenderer:
         single button shape every control on this HUD is drawn with, so a new one
         cannot invent its own look.
 
-        Off, the box sits on the family's own button ground -- an outline over
-        the slab and nothing else read as a hole cut in the panel rather than as
-        the raised button every window here offers -- with an edge in the muted
-        gray the rest of the chrome uses, and the MARK is full-strength -- the same way the main player's console
-        draws its own.  Both were muted here, which left these panels reading as
-        dim and half-disabled beside the console's, for controls that were
-        neither.  On, the box fills *on_color* and the mark reverses out of it.
+        Off, the box sits on the family's own button ground -- an outline over the
+        slab and nothing else reads as a hole cut in the panel rather than as the
+        raised button every window here offers -- with an edge in the muted gray the
+        rest of the chrome uses, and the mark at full strength, the same way the
+        main player's console draws its own.  On, the box fills *on_color* and the
+        mark reverses out of it.
         That fill is white for everything here except the lock: green across this
         family means favorites and the funscripts, and the lock is the gesture
         that favorites a clip, so it is the one control that earns the color.
