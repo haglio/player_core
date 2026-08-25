@@ -41,3 +41,26 @@ the number's own pixels instead.
 | Three spellings of the T-Code position range, **adopted** into `tcode.POSITION_MAX` and `tcode.to_tcode_position` | +8 | 0.7658 → 0.7646 |
 | Both hand-written BOM strips in `file_channel`, **adopted** into `_read_command_text` | +2 | 0.7646 → 0.7656 |
 | An unreachable fallback return, an empty `pass` branch and two function-local `numpy` imports | −6 | 0.7656 → 0.7669 |
+
+Net: 3,661 → 3,616 SLOC, 0.7692 → 0.7669. Two helpers the audit called
+unadopted were adopted rather than deleted, which is why the line count moves
+less than the deletion list suggests.
+
+`tools/` is untouched throughout, and stays that way for the rest of this item:
+`sanitize_guard.py`, `harvest_blocklist.py` and `githooks/install.py` are
+maintained byte-identical across eleven checkouts, so their stale `noqa`, their
+duplicated import and their comment ratios (0.55 / 0.43 / 0.31) belong to the
+cross-repo consolidation rather than to this repo on its own.
+
+### Defects found and not fixed
+
+**`harvest_blocklist.main` raises on a first harvest** (`tools/harvest_blocklist.py:342`;
+audit `player_core/all/dead/025`). With the roots file written and no
+`sanitize/blocklist.local.txt` yet, `main()` calls `load_blocklist(blocklist_path(repo))`
+unconditionally and `read_text` raises `FileNotFoundError` instead of writing the
+first list. `blocklist_path` is documented to return a path that need not exist,
+and `sanitize_guard.main` does check `.exists()`; harvest's does not, and no test
+runs `main()` — every fixture pre-creates the file. Under `--detach` stderr goes
+to `DEVNULL`, so a harvest fired at startup fails silently and no list is ever
+produced. Not fixed here: it needs sign-off, and the fix has to land in all
+eleven copies of `tools/` at once.
