@@ -131,19 +131,17 @@ def cycle_shape(state: DirectControlState, step: int = 1) -> None:
 def _waveform_raw(phase: float, shape: WaveformShape) -> float:
     """Return 0-1 normalized waveform value for one round trip per cycle."""
     frac = phase % 1.0
-    if shape is WaveformShape.SINE:
-        return (1 - math.cos(2 * math.pi * phase)) / 2
-    elif shape is WaveformShape.TRIANGLE:
+    if shape is WaveformShape.TRIANGLE:
         return 1 - abs(2 * frac - 1)
-    elif shape is WaveformShape.ROUNDED_SQUARE:
+    if shape is WaveformShape.ROUNDED_SQUARE:
         k = 3.0
         return (1 - math.tanh(k * math.cos(2 * math.pi * frac)) / math.tanh(k)) / 2
-    elif shape is WaveformShape.SAWTOOTH:
+    if shape is WaveformShape.SAWTOOTH:
         rise = 0.3
         if frac < rise:
             return frac / rise
-        else:
-            return 1 - (frac - rise) / (1 - rise)
+        return 1 - (frac - rise) / (1 - rise)
+    # SINE, and the fall-through with it: an unhandled shape strokes.
     return (1 - math.cos(2 * math.pi * phase)) / 2
 
 
