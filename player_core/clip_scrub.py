@@ -75,9 +75,9 @@ def scrub_clip(state: ClipScrub, height: float, frame_count: int) -> float:
     on its axis, which is the number the readout's dot draws, so the picture and
     the dot cannot disagree.
 
-    The returned phase is what
-    :func:`genau.refresh_logic.display_index_for_phase` takes: 0 and 1 are the A
-    end of the loop, 0.5 the B end, and the halves are the two ways between.
+    The returned phase is a place around the loop: 0 and 1 are its A end, 0.5 the
+    B end, and the halves are the two ways between. Whoever is showing the clip
+    turns that into a frame.
     """
     height = min(1.0, max(0.0, height))
     span = 2.0 / frame_count if frame_count > 0 else 0.0

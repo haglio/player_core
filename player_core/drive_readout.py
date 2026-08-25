@@ -278,7 +278,7 @@ class DriveSection:
         self._amp_bar(draw, g.amp_bar, hud, color=level_ink)
         self._bar(draw, g.speed_bar, fill=_fraction(hud.speed), color=level_ink)
         for control in controls(x, y, hud):
-            self.draw_control(draw, control)
+            self._draw_control(draw, control)
 
         # Each number beside the controls that move it: centre out to the left,
         # amplitude out to the right, speed under its own row.  The two side
@@ -290,15 +290,8 @@ class DriveSection:
         self._value(draw, g.speed_label_y, "Speed", str(hud.speed),
                     center=g.speed_label_x, ink=value_ink)
 
-    def draw_control(self, draw, control: DriveControl) -> None:
-        """One integrated mark: an outline box with its glyph, dimmed at a limit.
-
-        Public because a caller can have marks of its own beside these — the
-        readout is a block, and what surrounds it differs per player.  Fun Time
-        puts cruise control and the waveform in the console around it;
-        Origenerator has no console and puts them in a row underneath.  Drawn
-        through here they are the same mark, not a second app's idea of one.
-        """
+    def _draw_control(self, draw, control: DriveControl) -> None:
+        """One integrated mark: an outline box with its glyph, dimmed at a limit."""
         x, y, w, h = control.rect
         ink = _DISABLED if control.dim else (*TEXT_PRIMARY, 255)
         draw.rounded_rectangle([x, y, x + w - 1, y + h - 1], radius=3,

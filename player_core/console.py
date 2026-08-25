@@ -8,8 +8,8 @@ console is the same in every mode, so the mode switch and the drive controls do
 not move as you flip between them; only the transport changes, because prev/next
 step Nau's video in nau/hybrid and Genau's clips in genau.
 
-Kept free of Pillow, like ``satellite.hud`` is, so the rows, the geometry and the
-hit-testing are testable without a font.  :mod:`player_core.console_hud` paints them; the
+Kept free of Pillow, as :mod:`player_core.satellite_hud` is, so the rows, the
+geometry and the hit-testing are testable without a font.  :mod:`player_core.console_hud` paints them; the
 drive readout's own arrows come from :mod:`player_core.drive_readout`.
 
 The action on each button is a Fun Time dashboard command verbatim, because that
