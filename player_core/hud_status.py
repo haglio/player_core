@@ -28,9 +28,8 @@ UNLOCKED_LABEL = "Unlocked"
 LATEST_LABEL = "Latest"
 SHUFFLE_LABEL = "Shuffle"
 
-# What F-mode is called.  One Fun Time key toggles it for every player at once, so
-# a reader seeing it lit on one screen and named differently on another would have
-# to work out they are the same switch.
+# What F-mode is called.  Every player has one of its own, and a reader glancing
+# between two screens is comparing the same switch, so it is named once here.
 F_MODE_LABEL = "F-Mode"
 
 

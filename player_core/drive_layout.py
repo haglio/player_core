@@ -1,18 +1,16 @@
 """Where the drive readout's parts sit, and what a press on one of them asks for.
 
 The readout — the trace of the stroke with Centre down its left, Amplitude down
-its right and Speed under it — is drawn by two different toolkits: Pillow, into
-the video overlay Genau and Nau composite, and QPainter, into the widget
-Origenerator floats over its slideshows. What the two share is not the painting
-but everything in front of it: how big the block is, where each mark and band
-lands, which marks are dead at the end of their range, and what value a press at
-a point is asking for. That is this module, and it draws nothing.
+its right and Speed under it — is placed here and painted in
+:mod:`player_core.drive_readout`. This module draws nothing: it says how big the
+block is, where each mark and band lands, which marks are dead at the end of
+their range, and what value a press at a point is asking for.
 
-Kept apart from the painters because the halves fail differently. A painter can
+Kept apart from the painter because the halves fail differently. A painter can
 be wrong and look wrong; this can be wrong and look right — a hit target that
 has drifted a few pixels from the mark over it is invisible until a press lands
-on the wrong thing. So it is plain functions over plain numbers, and both
-toolkits' panels are thin painters over one tested layout.
+on the wrong thing. So it is plain functions over plain numbers, and every panel
+showing the readout is a thin painter over one tested layout.
 """
 from __future__ import annotations
 

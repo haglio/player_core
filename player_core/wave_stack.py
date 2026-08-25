@@ -142,9 +142,9 @@ def room(travel: float, center: float) -> float:
     """*center*, moved in far enough that a swing of *travel* still fits.
 
     A stroke 90 wide cannot sit at 25 — a quarter of it would be under the floor
-    — so the center gives way, exactly as player_core's ``_recompute_center``
-    makes it give way on the dials. Here it gives way continuously, because
-    every ramp under it moves on its own schedule and none waits for the others.
+    — so the center gives way, the same way it gives way on the dials when the
+    amplitude opens past it. Here it gives way continuously, because every ramp
+    under it moves on its own schedule and none waits for the others.
     """
     half = travel / 2
     return min(100.0 - half, max(half, center))

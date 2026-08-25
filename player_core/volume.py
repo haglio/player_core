@@ -15,7 +15,7 @@ level the speaker chose.  So the mute rides alongside the level, and the fill
 stays put under it.
 
 Geometry and hit-testing are pure functions with no Pillow, the way
-:mod:`satellite.hud` keeps its layout testable without a font.
+:mod:`player_core.satellite_hud` keeps its layout testable without a font.
 """
 from __future__ import annotations
 
