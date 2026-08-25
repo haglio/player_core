@@ -27,6 +27,7 @@ from player_core.hud_panel import (
     TEXT_PRIMARY,
     WHITE,
     HudPanel,
+    draw_active_dot,
     draw_glyph,
     draw_icon,
     draw_mark,
@@ -55,7 +56,6 @@ from .satellite_hud import (
     PAD,
     STATUS_BAND_H,
     STATUS_BASELINE,
-    STATUS_DOT,
     STATUS_TEXT_X,
     SUBTITLE_GAP,
     HudCell,
@@ -325,12 +325,7 @@ class HudRenderer:
         image, draw = panel.image, panel.draw
 
         x, y = PAD, PAD
-        # The dot at the head of the band: white while a bare "lock" or "next" would
-        # land on this side, the palette's gray otherwise.  Always drawn, never
-        # hidden — an absent dot and an idle dot look the same, and then only the
-        # player that *has* the floor says anything, which is half an answer.
-        draw.ellipse([x, y + 2, x + STATUS_DOT, y + 2 + STATUS_DOT],
-                     fill=(*(WHITE if model.active else TEXT_MUTED), 255))
+        draw_active_dot(draw, x, y + 2, model.active)
         # The status itself, composed by fun_time: it already holds the lock, what is
         # looping, the browse order, F-mode and the filter, so there is nothing else
         # to lay out up here.  Drawn full-strength whatever it says — dimming it when
