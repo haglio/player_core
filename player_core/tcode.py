@@ -12,6 +12,16 @@ from __future__ import annotations
 import socket
 from typing import Protocol
 
+# The top of the linear axis's range; 0 is the bottom of it.  Every position on
+# the wire is one of these, so whatever a driver measures a stroke in has to
+# arrive here as a number between the two.
+POSITION_MAX = 9999
+
+
+def to_tcode_position(percent: float) -> int:
+    """A 0-100 stroke position as the 0-9999 one the wire carries."""
+    return round(percent * POSITION_MAX / 100)
+
 
 # How long the device is given to arrive at the incoming driver's stroke when it
 # changes hands.
@@ -75,7 +85,7 @@ class HandoffGlide:
 
 
 def format_tcode_command(axis: str, position: int, interval_ms: int) -> str:
-    position = max(0, min(9999, position))
+    position = max(0, min(POSITION_MAX, position))
     interval_ms = max(0, interval_ms)
     return f"{axis}{position:04d}I{interval_ms}"
 

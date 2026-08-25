@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from player_core.tcode import UdpTCodeSink, format_tcode_command
+from player_core.tcode import (
+    POSITION_MAX,
+    UdpTCodeSink,
+    format_tcode_command,
+    to_tcode_position,
+)
 
 
 class FakeSock:
@@ -50,3 +55,16 @@ class TestFormatTcodeCommand:
 
     def test_clamps_position_below_zero(self):
         assert format_tcode_command("L0", -5, 33) == "L00000I33"
+
+
+class TestToTcodePosition:
+    """Funscripts and the console both measure a stroke 0-100; the wire is 0-9999,
+    and both ends of the range have to land exactly on it."""
+
+    def test_the_ends_of_the_range_are_the_ends_of_the_range(self):
+        assert to_tcode_position(0) == 0
+        assert to_tcode_position(100) == POSITION_MAX
+
+    def test_a_position_between_them_scales(self):
+        assert to_tcode_position(50) == 5000
+        assert to_tcode_position(1) == 100
