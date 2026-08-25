@@ -278,7 +278,7 @@ class TestLabelPair:
     def test_a_pair_is_placed_as_one_unit(self):
         font = load_font(8)
 
-        key_x, value_x = label_pair_x(font, "Speed", "62", left=10)
+        key_x, value_x = label_pair_x(font, "Speed", left=10)
 
         assert key_x == 10
         assert value_x >= key_x + text_width(font, "Speed")

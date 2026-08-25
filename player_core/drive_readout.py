@@ -102,11 +102,10 @@ def trace_ink(driven: str):
     return _TRACE_INK[driven]
 
 
-def label_pair_x(font, key: str, value: str, *, left: int) -> tuple[int, int]:
+def label_pair_x(font, key: str, *, left: int) -> tuple[int, int]:
     """Where a "key value" pair's two words start, running right from *left*.
 
-    Measured together and positioned together, so a value can never be dropped
-    onto its own key.
+    Placed together, so a value can never be dropped onto its own key.
     """
     return left, left + text_width(font, key) + _KEY_GAP
 
@@ -310,7 +309,7 @@ class DriveSection:
                center: int, ink=(*TEXT_PRIMARY, 255)) -> None:
         """A muted key with its value, placed as one unit centred on *center*."""
         span = text_width(self._tiny, key) + _KEY_GAP + text_width(self._tiny, value)
-        key_x, value_x = label_pair_x(self._tiny, key, value, left=center - span // 2)
+        key_x, value_x = label_pair_x(self._tiny, key, left=center - span // 2)
         draw.text((key_x, y + _LABEL_H / 2), key, font=self._tiny, anchor="lm",
                   fill=(*TEXT_MUTED, 255))
         draw.text((value_x, y + _LABEL_H / 2), value, font=self._tiny, anchor="lm",
