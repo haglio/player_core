@@ -1,28 +1,23 @@
 """libmpv-backed playback engine, shared by every player in this family.
 
-mpv hardware-decodes on the GPU end-to-end (d3d11va), so it plays HD/4K
-smoothly where the old OpenCV-on-the-render-thread pipeline dropped frames.
-It also owns audio (A/V sync for free), precise seeking (click-to-seek), and
-native A/B looping — so this one object replaces the former VideoStream +
-AudioPlayer + PlaybackClock trio.  ``MpvPlayer`` renders directly into a pygame
-window the caller owns (via ``wid``); its offscreen twin
-(:mod:`player_core.render_player`) renders into a caller-supplied framebuffer
-instead, sharing the ``_MpvControl`` surface below.  Overlays go on top through
-``overlay_add`` in both.
+mpv hardware-decodes on the GPU end to end (d3d11va), owns audio and so gets A/V
+sync for free, seeks precisely enough to click on a timeline, and loops A-B
+natively — which is why one object here does what a video/audio/clock trio did.
+``MpvPlayer`` renders into a pygame window the caller owns (via ``wid``); its
+offscreen twin (:mod:`player_core.render_player`) renders into a framebuffer the
+caller supplies.  Both drive the ``_MpvControl`` surface below, and both put
+overlays on top through ``overlay_add``.
 
-The interface is deliberately a superset of what any one player needs, because
-the two use it differently: Nau opens on one file at a time (``loop_file="inf"``)
-and navigates explicitly, while a satellite opens letting end-of-file walk a
-prefetched playlist.  Each can be told to behave like the other — that is what a
-lock is on either — so the constructor's option is the *default*, not the rule.
-The comments below name which caller drives which option — that is
-documentation of the two usage patterns, not knowledge the code acts on.  No
-method branches on who is calling, and nothing here imports an application.
+The interface is a superset of what any one player needs, because the two use it
+differently: Nau opens one file at a time (``loop_file="inf"``) and navigates
+explicitly, while a satellite opens letting end-of-file walk a prefetched
+playlist.  Either can be told to behave like the other — that is what a lock is
+on either — so a constructor option is a *default* and never a rule: no method
+branches on who is calling, and nothing here imports an application.
 
-Not unit-tested: it needs the libmpv DLL and a real window.  The pure control
-logic that drives it lives in each app's own session class, tested against a
-fake exposing this same interface; Fun Time's hidden-desktop integration suite
-exercises the real thing.
+``_MpvControl`` is driven against a fake in ``tests/test_mpv_control.py``.  What
+needs the DLL and a real window is constructing an ``MpvPlayer``, and Fun Time's
+hidden-desktop integration suite is what exercises that.
 """
 from __future__ import annotations
 

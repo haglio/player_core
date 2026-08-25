@@ -2,30 +2,37 @@
 
 The shared playback core behind the video players in this project family.
 
-Three standalone applications embed a video player and are driven by an
-orchestrator through files on disk:
+Six players and hosts across three repos read it. Four of them embed a video
+player and are driven by an orchestrator through files on disk; the other two
+take the HUDs and the stroke without the player.
 
-| App | Repo | Launched as |
+| Consumer | Repo | What it takes |
 | --- | --- | --- |
-| Nau | `../genau` | `python -m nau` |
-| Genau | `../genau` | `python -m genau` |
-| Fun Time's satellites | `../fun_time` | `python -m satellite` |
+| Nau | `../genau` | the player, the console, the drive readout, the T-Code driver |
+| Genau | `../genau` | the console, the drive readout, the stroke |
+| Fun Time's satellites | `../fun_time` | the player, the satellite HUD |
+| Fun Time's VR player | `../fun_time` | the offscreen player, the T-Code driver |
+| Fun Time itself | `../fun_time` | the file channel, the playlist, the status line |
+| Origenerator | `../origenerator` | the console and the drive readout, over its slideshows |
 
 Everything they had to agree on lives here, so none of them has to import
-another application's internals to get it:
+another application's internals to get it. By what it is:
 
-- **`mpv_player`** — `MpvPlayer`, the libmpv wrapper. GPU-decoded playback
-  rendered into a window the caller owns (`wid`), plus the playlist lookahead,
-  A/B looping and BGRA overlay compositing the players drive.
-- **`libmpv_loader`** — puts the vendored `libmpv-2.dll` on `%PATH%` before
-  `import mpv`, which is the only way python-mpv finds it on Windows.
-- **`playlist`** — the playlist file format Fun Time writes and both players read.
-- **`file_channel`** — the command file and paused flag file an orchestrator
-  steers a player through.
-- **`status`** — the throttled status file a player publishes back.
-- **`hud_panel`** — the chrome the players' in-video HUDs are drawn on: the
-  rounded translucent slab, the palette, the point-sized Segoe face, and the
-  RGBA -> BGRA hand-off. What each HUD *says* stays with the app that says it.
+- **the engine** — `mpv_player`, its offscreen twin `render_player`, and the
+  `libmpv_loader` that puts the vendored DLL on `%PATH%` first, which is the
+  only way python-mpv finds it on Windows.
+- **the files an orchestrator steers through** — `playlist`, `file_channel`
+  (the command queue and the paused flag), `status` (what a player publishes
+  back).
+- **the device** — `tcode` and `tcode_driver` for the wire, `funscript` for a
+  script and the questions asked of one, and `direct_control` / `wave_stack` /
+  `cruise_control` / `clip_scrub` for a stroke of this family's own.
+- **the chrome and what is drawn on it** — `hud_panel`, `hud_marks`,
+  `geometry`, `timeline`, `volume`, `hud_status`, and then a model and a
+  painter per HUD: `console` / `console_hud`, `drive_layout` / `drive_readout`,
+  `satellite_hud` / `satellite_hud_paint`.
+- **the window** — `sdl_hints` and `taskbar`, the two Win32 facts every player
+  here has to get right before it opens one.
 
 Nothing app-specific belongs here. A module earns a place only once a second
 repo needs it; until then it stays with the app that owns it.
@@ -70,7 +77,8 @@ into `vendor/`.
 ".venv/Scripts/python.exe" -m pytest tests/
 ```
 
-There is no venv in this repo — run the suite with either consumer's venv, both
-of which have this package installed. `MpvPlayer` itself is not unit-tested: it
-needs the DLL and a real window, and is exercised by Fun Time's hidden-desktop
+There is no venv in this repo — run the suite with a consumer's venv, each of
+which has this package installed. The half of `mpv_player` that drives an mpv
+handle is unit-tested against a fake; what needs the DLL and a real window is
+constructing an `MpvPlayer`, and that is exercised by Fun Time's hidden-desktop
 integration suite, which launches the real player.
