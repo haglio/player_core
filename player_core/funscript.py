@@ -91,10 +91,8 @@ class Funscript:
         self._dense_times = self._compute_dense_times()
         self._onsets = self._compute_onsets()
         self._turns = self._compute_turns()
-        # The script sampled on a fixed grid, for :meth:`trace` to take windows
-        # of, and the device's plan sampled the same way for :meth:`planned_trace`.
-        self._grid_step: float | None = None
-        self._grid_values: tuple[float, ...] = ()
+        # The device's plan sampled on a fixed grid, for
+        # :meth:`planned_trace_window` to take windows of.
         self._planned_grid_step: float | None = None
         self._planned_grid_values: tuple[float, ...] = ()
 
@@ -113,52 +111,6 @@ class Funscript:
         onset = self._onsets[0]
         return onset if onset >= _QUIET_LEAD_IN_MS else None
 
-    def trace(self, start_ms: int, span_ms: int, count: int) -> tuple[float, ...]:
-        """*count* samples of the script covering *span_ms* from *start_ms*, as
-        0-1 heights — the picture of what the device is about to be asked to do.
-
-        The same shape a stroke engine's own samples make, so a HUD can draw
-        either one on the same trace and a handoff between them reads as one
-        continuous line rather than two unrelated pictures.  Between two actions
-        the value is interpolated, which is what the driver makes the device do
-        (it is sent "be at the next one in this long"); before the first and
-        after the last it holds, because that is where the device holds too.
-
-        Sampled on a grid fixed to the script rather than to *start_ms*, and
-        cached: a whole script sampled once, and a window of it read per frame.
-        Resampling from the playhead put the sample points at a new offset every
-        frame, so every peak and trough landed somewhere slightly different and
-        the line boiled in place instead of sliding.  The window sits on whole
-        knots; a drawer that wants to move between them takes the fraction from
-        :meth:`trace_window` and shifts the stable picture itself.
-        """
-        values, _slide = self.trace_window(start_ms, span_ms, count)
-        return values[:count]
-
-    def trace_window(self, start_ms: int, span_ms: int, count: int,
-                     ) -> tuple[tuple[float, ...], float]:
-        """*count* + 1 knot samples from the knot at or before *start_ms*, and
-        how far past that knot *start_ms* sits as a fraction of one.
-
-        The values are the fixed grid's own, never resampled and never blended
-        — the script does not change while it plays, so its picture is computed
-        once and reread — and the fraction is for the drawer: shift the whole
-        polyline left by it and a stable shape slides across the screen, the
-        way he asked for it.  Reading the grid *at* the shifted positions
-        instead morphed the heights at fixed columns every frame — the shape
-        visibly changed while it moved.  The extra trailing sample is the knot
-        just past the span's far edge, so the shifted line still reaches the
-        border.
-        """
-        if count <= 0 or not self.actions:
-            return (), 0.0
-        step = span_ms / max(1, count - 1)
-        grid = self._grid(step)
-        # Past the end of the script the device holds at the last action, so
-        # the picture does too.
-        return self._window(grid, start_ms, step, count + 1,
-                            grid[-1] if grid else 0.0)
-
     @staticmethod
     def _window(grid: tuple[float, ...], start_ms: int, step: float,
                 count: int, tail: float) -> tuple[tuple[float, ...], float]:
@@ -174,20 +126,6 @@ class Funscript:
             grid[first + i] if 0 <= first + i < len(grid) else tail
             for i in range(count)
         ), frac
-
-    def _grid(self, step_ms: float) -> tuple[float, ...]:
-        """The whole script at one sample every *step_ms*, from zero, memoized.
-
-        One grid per step, because the step follows the trace's span and that is
-        published by whoever owns the stroke — it can change, but hardly ever.
-        """
-        if self._grid_step != step_ms:
-            last = self.actions[-1][0]
-            count = int(last / step_ms) + 2 if step_ms > 0 else 1
-            self._grid_step = step_ms
-            self._grid_values = tuple(
-                self.position_at(round(i * step_ms)) / 100 for i in range(count))
-        return self._grid_values
 
     def is_parked_at(self, position_ms: int) -> bool:
         """Whether the device's plan at *position_ms* is its parked position.
@@ -241,24 +179,26 @@ class Funscript:
             return self.position_at(nxt) * (1 - (nxt - position_ms) / _RISE_MS)
         return self.position_at(position_ms)
 
-    def planned_trace(self, start_ms: int, span_ms: int, count: int) -> tuple[float, ...]:
-        """*count* samples of the device's plan covering *span_ms* from
-        *start_ms*, as 0-1 heights — :meth:`trace` for what the driver will
-        actually send: parked through the quiet stretches, rising to meet each
-        cluster, the script's own shape inside one.
-
-        Sampled and cached on the same script-fixed grid as :meth:`trace`, for
-        the same reason: resampled from the playhead, the picture boiled in
-        place instead of sliding.
-        """
-        values, _slide = self.planned_trace_window(start_ms, span_ms, count)
-        return values[:count]
-
     def planned_trace_window(self, start_ms: int, span_ms: int, count: int,
                              ) -> tuple[tuple[float, ...], float]:
-        """:meth:`trace_window` for the device's plan: *count* + 1 whole-knot
-        samples and the knot fraction to shift the drawn line by.  Past the end
-        of the script the device rests at its park, so the picture does too."""
+        """The device's plan as a picture: *count* + 1 knot samples covering
+        *span_ms* from the knot at or before *start_ms*, as 0-1 heights, and how
+        far past that knot *start_ms* sits as a fraction of one.
+
+        The plan rather than the script's own interpolated line — parked through
+        the quiet stretches, rising to meet each cluster, the script's shape
+        inside one — so a trace drawn from it is the device's coming motion
+        rather than a picture the device contradicts.
+
+        The values are the fixed grid's own, never resampled and never blended:
+        the script does not change while it plays, so its picture is computed
+        once and reread, and the fraction goes to the drawer, which shifts the
+        whole polyline left by it.  Reading the grid *at* the shifted positions
+        instead morphed the heights at fixed columns every frame, so the shape
+        changed while it moved.  The extra trailing sample is the knot just past
+        the span's far edge, so the shifted line still reaches the border.  Past
+        the end of the script the device rests at its park, so the picture does
+        too."""
         if count <= 0 or not self.actions:
             return (), 0.0
         step = span_ms / max(1, count - 1)
