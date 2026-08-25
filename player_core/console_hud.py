@@ -72,7 +72,6 @@ from .console import (
     FMODE_ICON,
     GAP,
     MINIMIZE_ICON,
-    WAVE_ICON,
     Button,
     ConsoleModel,
     Rect,
@@ -84,7 +83,6 @@ from .console import (
     place_rows,
     row_width,
     rows_height,
-    shares_the_device,
     tooltip_at,
 )
 

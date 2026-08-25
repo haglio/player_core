@@ -20,7 +20,7 @@ player the mode says owns it.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 from .hud_marks import shared_mark
@@ -234,17 +234,6 @@ _MODE_BUTTONS = (
     ("hybrid_activate", "Hybrid", "hybrid"),
     ("genau_activate", "Genau", "genau"),
 )
-
-
-def shares_the_device(mode: str) -> bool:
-    """Whether the device changes hands during the mode — hybrid alone.
-
-    Only there do two drivers take turns on one OSR2, which is what makes the
-    drive readout a picture of a *handoff* rather than of one waveform: it
-    keeps moving through the gaps where neither side is sending, because those
-    gaps are part of what it is drawing.
-    """
-    return mode == "hybrid"
 
 
 def nau_displays(mode: str) -> bool:
