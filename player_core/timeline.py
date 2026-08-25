@@ -50,12 +50,6 @@ def bar_track_x(width: int) -> tuple[int, int]:
     return inset, max(inset + 1, width - _VOLUME_SLOT_W)
 
 
-def rgba_to_bgra(rgba):
-    """(H, W, 4) RGBA uint8 -> BGRA (mpv's overlay format), contiguous."""
-    bgra = rgba[:, :, [2, 1, 0, 3]]
-    return np.ascontiguousarray(bgra, dtype=np.uint8)
-
-
 def paint_rect(bgra, x0, x1, y0, y1, color):
     """Fill rows [y0:y1], cols [x0:x1] with an RGBA ``color``, clamped to the
     array (stored BGRA for mpv)."""
