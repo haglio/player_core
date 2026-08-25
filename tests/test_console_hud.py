@@ -354,7 +354,7 @@ class TestPainter:
         from PIL import ImageFont
 
         from player_core.console import _GLYPHS
-        from player_core.console_hud import SYMBOL_FONT
+        from player_core.hud_panel import SYMBOL_FONT
 
         glyph_font: ImageFont.FreeTypeFont = load_font(11, SYMBOL_FONT)
         notdef = glyph_font.getmask("").getbbox()

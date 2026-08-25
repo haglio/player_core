@@ -21,6 +21,11 @@ from shared_ui.icons_pil import paste_glyph
 # glance over moving video.  A caller wanting another face passes its filename.
 UI_FONT = "segoeuib.ttf"
 
+# Segoe UI Symbol, for the marks these HUDs type rather than draw.  Segoe UI Bold
+# carries none of them, and Pillow draws a ".notdef" box for a codepoint a face
+# lacks where Qt used to fall back silently — so anything typed names this face.
+SYMBOL_FONT = "seguisym.ttf"
+
 # Palette, matching the shared_ui tokens the Qt HUDs drew with (RGB).  Mirrored
 # rather than imported: shared_ui is Qt, so its tokens are QColors and these HUDs
 # are Pillow.  Carried whole rather than trimmed to today's callers — the point of

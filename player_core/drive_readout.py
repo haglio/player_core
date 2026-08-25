@@ -43,6 +43,7 @@ from .hud_panel import (
     GREEN,
     TEXT_MUTED,
     TEXT_PRIMARY,
+    SYMBOL_FONT,
     WHITE,
     draw_glyph,
     load_font,
@@ -245,7 +246,7 @@ class DriveSection:
 
     def __init__(self) -> None:
         self._tiny = load_font(_SIZE_TINY)
-        self._glyph = load_font(_LABEL_H - 3, "seguisym.ttf")
+        self._glyph = load_font(_LABEL_H - 3, SYMBOL_FONT)
 
     def draw(self, image: Image.Image, x: int, y: int, hud: DriveHud, *,
              trace_only: bool = False) -> None:
