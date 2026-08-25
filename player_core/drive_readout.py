@@ -1,19 +1,14 @@
 """The drive readout itself — the stroke being sent, drawn.
 
-The block that used to be hand-drawn with ``pygame.draw`` calls straight into
-Genau's own layered window, then became a Pillow block on
-:mod:`player_core.hud_panel`'s slab, and is now every player's.  Each axis is
-one object: its controls, its bar and its number together.  Centre sits down the
-left — its number, then a −/+ pair beside the dotted line it moves.  Amplitude
-sits down the right — a −/+ pair at the ends of its bar, then its number.  Speed
-sits under the trace, out of the way of the other two.
+Each axis is one object: its controls, its bar and its number together.  Centre
+sits down the left — its number, then a −/+ pair beside the dotted line it moves.
+Amplitude sits down the right — a −/+ pair at the ends of its bar, then its
+number.  Speed sits under the trace, out of the way of the other two.
 
-It moved here whole rather than being copied because a second app draws it.
-Origenerator floats this over its slideshows, and a Qt repaint of the same
-design is not the same picture: it had its own font, its own slab and its own
-trace, and read as another app's idea of this one.  So the painter is shared
-and the toolkit is not — a caller with no Pillow surface of its own renders
-this into one (:class:`player_core.hud_panel.HudPanel`) and blits the result.
+Origenerator floats this over its slideshows: the painter is shared and the
+toolkit is not — a caller with no Pillow surface of its own renders this into
+one (:class:`player_core.hud_panel.HudPanel`) and blits the result, so a second
+app shows this picture instead of its own idea of it.
 
 It is a block, not a panel: it hosts inside whatever slab is showing it rather
 than carrying one of its own, so a console is one HUD and not two stacked.
@@ -87,10 +82,9 @@ _KEY_GAP = 6  # between a key and the value it names
 # A disabled part's ink: a dark grey, laid down opaque.  While a funscript has
 # the device the controls stay put — removing them resized the panel, and the
 # trace shifting at every handoff is worse than dead furniture — so everything
-# unpressable is drawn in this instead.  Dark and opaque on purpose: the first
-# try was the muted grey at part alpha, and over a bright video a see-through
-# pixel is a *brighter* pixel — the "dimmed" controls glowed white, the exact
-# opposite of disabled.
+# unpressable is drawn in this instead.  Dark and opaque on purpose: over a
+# bright video a see-through pixel is a *brighter* pixel, so muted ink at part
+# alpha glows rather than dims.
 _DISABLED = (84, 84, 88, 255)
 
 # The trace is drawn this many times larger and scaled back down, which is what
@@ -345,10 +339,8 @@ class DriveSection:
         s = _SUPERSAMPLE
         box = Image.new("RGBA", (w * s, h * s))
         draw = ImageDraw.Draw(box)
-        # Opaque, and the same grey whatever is behind it.  At part strength the
-        # video showed through the border, so the one line that is supposed to be
-        # a quiet edge read as a bright thick one over the picture and a thin dark
-        # one over the letterbox — the same border looking like two.
+        # Opaque, and the same grey whatever is behind it: a part-strength edge
+        # takes its brightness from the video and reads as two different borders.
         draw.rectangle([0, 0, w * s - 1, h * s - 1], fill=(*_TRACK, 255),
                        outline=(*TEXT_MUTED, 255), width=s)
         # White, at the same part-strength it was drawn in before: the dotted line
@@ -372,12 +364,10 @@ class DriveSection:
 
             runs = hud.runs
             for run_no, (start, end, driven) in enumerate(runs):
-                # Every run shifts by the same knot fraction.  The live blue
-                # included: its values are read at fixed sample TIMES now (the
-                # composed trace compensates the publish's own advance), so the
-                # one uniform shift is the whole slide — the old per-run
-                # exemption, kept after the reads changed, made the two
-                # conventions disagree by the slide at every seam between them.
+                # Every run shifts by the same knot fraction, the live blue
+                # included: its values are read at fixed sample TIMES (the
+                # composed trace compensates the publish's own advance), so this
+                # one uniform shift is the whole slide.
                 pts = [at(i, points[i], hud.slide) for i in range(start, end + 1)]
                 if run_no == len(runs) - 1 and hud.edge is not None:
                     # The knot just past the border, so the shifted line still

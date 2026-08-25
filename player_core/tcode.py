@@ -12,9 +12,7 @@ from __future__ import annotations
 import socket
 from typing import Protocol
 
-# The top of the linear axis's range; 0 is the bottom of it.  Every position on
-# the wire is one of these, so whatever a driver measures a stroke in has to
-# arrive here as a number between the two.
+# The top of the linear axis's range; 0 is the bottom of it.
 POSITION_MAX = 9999
 
 
