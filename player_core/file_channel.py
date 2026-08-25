@@ -107,6 +107,16 @@ def append_command(
     return False
 
 
+def _read_command_text(path: Path) -> str:
+    """*path*'s text, trimmed and without a leading byte-order mark.
+
+    These files are written by whatever tool is nearest — a shell here, an AHK
+    script there — and a Windows one that writes UTF-8 leads with a BOM, which
+    would otherwise be part of the first verb.
+    """
+    return path.read_text(encoding="utf-8").replace("\ufeff", "").strip()
+
+
 def consume_command_file(
     path: Path, *, logger: logging.Logger | None = None, uppercase: bool = True
 ) -> list[str]:
@@ -135,7 +145,7 @@ def consume_command_file(
             # A writer holds the file this instant (Windows sharing violation).
             # The queue is intact; next tick is milliseconds away.
             return []
-        text = claimed.read_text(encoding="utf-8").replace("﻿", "").strip()
+        text = _read_command_text(claimed)
         claimed.unlink(missing_ok=True)
         if uppercase:
             text = text.upper()
@@ -153,7 +163,7 @@ def read_paused_state(path: Path, *, logger: logging.Logger | None = None) -> bo
     try:
         if not path.exists():
             return False
-        return path.read_text(encoding="utf-8").replace("﻿", "").strip() == "1"
+        return _read_command_text(path) == "1"
     except Exception:
         if logger is not None:
             logger.exception("Failed to read paused state file %s", path)
