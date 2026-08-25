@@ -3,8 +3,7 @@
 The reverse leg of :mod:`player_core.file_channel`: commands and the paused flag
 go in, this comes back out.  Fun Time polls it to know what each player is
 showing — the current clip, the playhead, and whatever else that player's
-features need — which is what the retired VLC players needed an HTTP
-``status.xml`` poll for.
+features need.
 
 Writes are throttled because the playhead changes every tick, while a poller
 only ever samples a few times a second.

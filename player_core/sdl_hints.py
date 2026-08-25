@@ -3,8 +3,7 @@
 SDL reads these from the environment at the moment it acts, not at import, so
 each has to be in place before the window is created — which for every player in
 this family means before ``pygame.init()``.  They live here rather than in each
-player because each player has otherwise found them one at a time, the hard way,
-by shipping the bug they prevent.
+player.
 
 Nothing here imports pygame: these are SDL's own environment hints, and this
 package deliberately stays clear of the window toolkit (``MpvPlayer`` takes a
@@ -30,11 +29,8 @@ def deliver_the_focusing_click() -> None:
     (``focus_click_pending``), and ``WIN_CheckWParamMouseButton`` then drops the
     press that follows unless this hint is set.
 
-    That is the "click once to wake it, then again to do the thing" every HUD in
-    this family has had: the first press is spent on the window instead of on the
-    button under the cursor.  The satellites hit it and fixed it in place; the
-    main console then went on having it, because the fix was a line in one app
-    rather than a thing this family does.  Hence here.
+    Without it the first press is spent on the window instead of on the button
+    under the cursor: click once to wake the window, again to do the thing.
 
     The hint changes nothing about focus itself — Windows activates the window on
     that click either way — only whether SDL tells the app about the press.

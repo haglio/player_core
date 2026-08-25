@@ -11,9 +11,7 @@ Pause rides its own file rather than the command channel so that being paused is
 a *state* the player converges on, not an event it can miss: a player that
 starts late, restarts, or drops a verb still reads the flag and lands correctly.
 
-The other direction of that best-effort contract is :func:`publish_whole`: a
-file one side polls has to be written aside and renamed over, never truncated in
-place, or the poller reads a blank and cannot tell it from an empty state.
+The other direction of that best-effort contract is :func:`publish_whole`.
 """
 from __future__ import annotations
 
@@ -66,16 +64,14 @@ def append_command(
     """Queue one verb on *path*, keeping whatever is already waiting there.
 
     The channel is a queue and this is how a verb joins it.  Writing the file
-    whole instead — the obvious way, and the one several callers reached for —
-    silently drops any verb queued since the last drain, which is how an
-    edge-triggered command that fires once and is never re-asserted goes missing
-    for good.
+    whole instead silently drops any verb queued since the last drain, which is
+    how an edge-triggered command that fires once and is never re-asserted goes
+    missing for good.
 
     The verb is put on a line of its own even when what is already queued does not
     end in a newline.  A writer that replaces the file whole rarely bothers with a
     trailing one, and appending straight onto that welds the two into a single word
-    matching neither, which loses both — a "NEXT" written whole and a flag appended
-    behind it left a player sitting on the video it was told to leave.
+    matching neither, which loses both.
 
     The reader drains this ~20x/s by rewriting it, so a write that overlaps a
     drain hits a transient Windows sharing violation.  Retrying briefly turns
@@ -127,13 +123,8 @@ def consume_command_file(
     path) passes ``uppercase=False`` and folds just the keyword itself.
 
     The queue is CLAIMED by renaming it aside and read from the claimed copy.
-    Read-then-truncate had a hole exactly one verb wide: a writer appending
-    between the read and the ``write_text("")`` was erased unread, and because
-    the hybrid handoff is edge-triggered, an erased SET_TCODE_ENABLED or PAUSE
-    stayed lost — the split-brain where Genau is paused and the funscript never
-    enabled, everything idle for a whole scripted cluster.  A rename is atomic
-    against appenders: the writer lands either in the claimed file (drained now)
-    or in a fresh queue (drained next tick), never in between.
+    A rename is atomic against appenders: the writer lands either in the claimed
+    file (drained now) or in a fresh queue (drained next tick), never in between.
     """
     claimed = path.with_suffix(path.suffix + ".consuming")
     try:
