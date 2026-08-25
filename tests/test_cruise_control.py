@@ -22,7 +22,7 @@ from player_core.cruise_control import (
     toggle_cruise_control,
 )
 from player_core.direct_control import (
-    DirectControlState, WaveformShape, bpm_for_speed, set_amplitude,
+    MAX_TICK_SECONDS, DirectControlState, WaveformShape, bpm_for_speed, set_amplitude,
 )
 
 
@@ -246,6 +246,20 @@ class TestPausing:
         direct.playing = True
         _run(direct, cc, seconds=1)
         assert cc.clock == pytest.approx(held + 1, abs=0.1)
+
+    def test_a_stalled_clock_comes_back_by_one_capped_step_not_by_the_gap(self):
+        """A pause is a clock that keeps up while the stroke stands still; a stall
+        is one that stops arriving at all — the app blocked, the machine suspended
+        — and it comes back owing an hour.  The stroke's clock takes the same cap
+        the phase takes, so the waves and every ramp under them move by a step
+        rather than landing wherever an hour would have put them."""
+        direct, cc = _cruising(3)
+        now = _run(direct, cc, seconds=30)
+        held = cc.clock
+
+        tick_cruise_control(direct, cc, now + 3600)
+
+        assert cc.clock - held == pytest.approx(MAX_TICK_SECONDS)
 
 
 class TestAHandOnTheDials:
