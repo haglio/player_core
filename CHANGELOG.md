@@ -34,3 +34,4 @@ the number's own pixels instead.
 | `console.shares_the_device`, with three imports ruff F401 flagged | −13 | 0.7656 → 0.7648 |
 | `timeline.rgba_to_bgra`, a third copy of a swizzle with no reference at all | −4 | 0.7648 → 0.7654 |
 | `drive_readout._LESS`/`_MORE`, five unread re-exports, a stale `noqa`, a seven-line blank hole | −16 | 0.7654 → 0.7659 |
+| Four keyword parameters no caller varies: `HudPanel(alpha=)`, `draw_icon(fill=)`, `_value(left=, right=)` with `label_pair_x(right=)`, `drive_layout.controls(prefix=)` | −9 | 0.7659 → 0.7668 |
