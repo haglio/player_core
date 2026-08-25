@@ -104,13 +104,11 @@ class HudModel:
     # any HUD that says where those words are going.
     active: bool = False
 
-    # Whether the clip on screen is one of the favorites.  The dashboard said
-    # this by turning the side's panel green; the HUD marks it in the control
+    # Whether the clip on screen is one of the favorites — marked in the control
     # band, beside the buttons that act on that clip.
     is_favorite: bool = False
-    # Whether THIS side is in F-mode — its browse narrowed to the favorites.  The
-    # dashboard carried one light for the whole room; each player has its own now,
-    # so it lights this side's own button in the control band.
+    # Whether THIS side is in F-mode — its browse narrowed to the favorites.  Each
+    # player has its own, so it lights this side's own button in the control band.
     f_mode: bool = False
     corner: HudCell | None = None
     seeds: tuple[HudCell, ...] = ()
@@ -252,11 +250,8 @@ def map_window(total: int, playing: int, limit: int = MAP_CELLS) -> MapWindow:
     the middle — which is what stops the lit cell walking off the end of the map and
     leaving nothing highlighted at all.
 
-    A count, not a measurement.  This used to take the cells' widths and the room
-    they had to share, which made the map as wide as the panel happened to allow —
-    two cells for a row of the wider portrait clips, three for the narrower ones.
-    The panel is measured around the run instead now, so what the map shows no
-    longer depends on the shape of the clips that are in it.
+    A count, not a measurement: the panel is measured around the run that wins, so
+    what the map shows never depends on the shape of the clips in it.
     """
     if total <= 0 or limit <= 0:
         return MapWindow(0, 0, False, False)
@@ -423,18 +418,17 @@ def ellipsis_rects(
 
 
 # --- the side's own controls -------------------------------------------------
-# The buttons the dashboard used to carry for this satellite, now on the
-# satellite itself: browse first (the pair reached for most), then the two that
-# act on the clip on screen, then F-mode — which acts on neither, but on the
-# library the browse draws from, so it sits past the ones that do.  Reset follows
+# The buttons this satellite carries for itself, in the order they sit in the
+# band: browse first (the pair reached for most), then the two that act on the
+# clip on screen, then F-mode — which acts on neither, but on the library the
+# browse draws from, so it sits past the ones that do.  Reset follows
 # F-mode because it is the widest of them: it puts the side back to every default
 # at once, F-mode and the filter and the lock and the loop together, so it stands
 # past the single switches rather than among them.  Minimize comes last, being
 # about none of the video at all: it acts on the window the whole panel is drawn
 # in.  That window is borderless (``satellite.app`` opens it NOFRAME so the video
 # fills its slot), so it has no title bar to carry a minimize box — the HUD is the
-# only place the gesture can live, and without it the one way to get a player off
-# the screen is the dashboard's own minimize, which takes the entire room with it.
+# only place the gesture can live.
 # Each name is also its command's verb, so "portrait_prev" and "landscape_trash"
 # fall out of the same tuple that draws them and the button can never post a
 # command it isn't labeled for.
@@ -460,10 +454,10 @@ def control_button_rects(x: int, y: int,
 # on the other switching to it.  Each action is the dispatch command verbatim —
 # side-less, because the mode belongs to the whole satellite side.  Like the
 # console's, the mode row is a row of its own, leading the bands, and minimize
-# rides it: minimize is about the window the panel is drawn in rather than the
-# clip on screen, so it belongs beside the buttons that are about the side as a
-# whole, not among the transport.  (Without a hosted Origenerator there is no
-# mode row, and minimize stays at the end of the control band.)
+# rides it: it is about the side as a whole rather than the clip on screen, so it
+# sits with the mode pair rather than among the transport.  (Without a hosted
+# Origenerator there is no mode row, and minimize stays at the end of the control
+# band.)
 MODE_BUTTONS = (
     ("players_activate", "Player", "player"),
     ("origenerator_activate", "Origenerator", "origenerator"),
@@ -490,9 +484,8 @@ def mode_button_rects(x: int, y: int, label_widths: list[int]) -> list[tuple[Rec
 def favorite_mark_rect(right: int, y: int) -> Rect:
     """The favorite mark, at the far end of the control band.
 
-    A readout, not a button: the dashboard said this with a green panel, and the
-    star says it in the space the panel used to occupy.  It keeps the row's far
-    end rather than following the buttons, so it does not move when they change.
+    A readout, not a button.  It keeps the row's far end rather than following the
+    buttons, so it does not move when they change.
     """
     return (right - CTRL_BTN, y, CTRL_BTN, CTRL_BTN)
 
@@ -578,9 +571,8 @@ def filter_button_rects(
 
     One button per row, at the gutter's left edge and as tall as its row: the same
     shape the seed-loop button has beside the seed row, because it stands to its row
-    the same way.  Filtering used to be a click on the action name itself, which
-    nothing on the panel said was clickable — so the button is the whole affordance
-    now, and the name beside it is only a label again.
+    the same way.  The button is the whole affordance; the name beside it is only a
+    label.
 
     A row with no action name gets no button: there is nothing to filter to.
     """
@@ -734,11 +726,10 @@ class HudClicks:
             return f"{self._side}_more_seeds"
         action = hit_test_targets(targets.filter, px, py)
         if action:
-            # Narrow before you lift.  A press on a row the filter only partly keeps
+            # Narrow before you lift: a press on a row the filter only partly keeps
             # ("POV Gamma" under "gamma") moves the filter onto that whole row, and
-            # only a press on the row the filter already *is* turns it off — so a
-            # broad filter can be tightened from the map, which lifting on the first
-            # press made impossible.
+            # only a press on the row the filter already *is* turns it off, so a
+            # broad filter can be tightened from the map.
             query = _norm_act(action)
             if query == _norm_act(self.active_filter):
                 self.active_filter = ""
