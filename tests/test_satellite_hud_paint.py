@@ -828,14 +828,19 @@ def test_a_tooltip_longer_than_the_panel_is_wide_stays_on_the_panel(thumb):
     renderer = HudRenderer("portrait")
     model = _model(corner=HudCell(path="c.mp4", thumb=thumb))
     plain = _rgb(renderer.render(model).bgra)
-    tipped = _rgb(renderer.render(model, hover_tip=CONTROL_TOOLTIPS["trash"],
-                                 hover_pos=(33, 44)).bgra)
 
-    def edge_ink(rgb) -> int:
-        return int((rgb[:, -2:] > 200).all(axis=2).sum())
+    def tooltip_box(text: str) -> tuple[int, int, int]:
+        """(top, bottom, right) of what hovering with *text* added to the panel."""
+        tipped = _rgb(renderer.render(model, hover_tip=text, hover_pos=(33, 44)).bgra)
+        rows, cols = np.nonzero((tipped != plain).any(axis=2))
+        assert len(rows), f"hovering with {text!r} drew nothing"
+        return rows.min(), rows.max(), cols.max()
 
-    assert not np.array_equal(plain, tipped)  # it drew something
-    assert edge_ink(tipped) == edge_ink(plain) == 0
+    top, bottom, right = tooltip_box(CONTROL_TOOLTIPS["trash"])
+    short_top, short_bottom, _ = tooltip_box("Bin")
+
+    assert right < plain.shape[1] - 1  # it stopped short of the far edge
+    assert bottom - top > short_bottom - short_top  # having wrapped to fit
 
 
 def test_the_button_glyphs_are_not_tofu():
