@@ -5,14 +5,10 @@ loop is one action and back: through its front half the clip travels from A to
 B, through its back half from B to A, and the two ends are the one place a jump
 between halves is invisible, because the frame there serves both.
 
-What the frame means is the whole question, and there are three answers. It
-could be timed off the stroke's turning points, stretching a whole A-to-B into
-whatever stretch of seconds lies between two of them — which shows the full
-action for a twitch that barely moved the device, and is a lie about what the
-motor did. It could be carried along by how far the stroke has travelled, which
-is smooth and needs no notion of a cycle, but leaves the frame with no standing
-relationship to where the device actually is: after a while the clip is simply
-somewhere, and the picture and the machine have nothing to say to each other.
+What the frame means is the whole question, and there are three answers. Two of
+them — timing it off the stroke's turning points, and carrying it along by how
+far the stroke has travelled — tie the frame to the motion but not to where the
+device actually is.
 
 This module is the third answer, and the only one where the picture is *of* the
 device: the frame is where the device is. Parked shows A, fully retracted shows

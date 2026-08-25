@@ -2,18 +2,16 @@
 
 mpv hardware-decodes on the GPU end to end (d3d11va), owns audio and so gets A/V
 sync for free, seeks precisely enough to click on a timeline, and loops A-B
-natively — which is why one object here does what a video/audio/clock trio did.
-``MpvPlayer`` renders into a pygame window the caller owns (via ``wid``); its
-offscreen twin (:mod:`player_core.render_player`) renders into a framebuffer the
-caller supplies.  Both drive the ``_MpvControl`` surface below, and both put
-overlays on top through ``overlay_add``.
+natively.  ``MpvPlayer`` renders into a pygame window the caller owns (via
+``wid``); its offscreen twin (:mod:`player_core.render_player`) renders into a
+framebuffer the caller supplies.  Both drive the ``_MpvControl`` surface below,
+and both put overlays on top through ``overlay_add``.
 
 The interface is a superset of what any one player needs, because the two use it
 differently: Nau opens one file at a time (``loop_file="inf"``) and navigates
 explicitly, while a satellite opens letting end-of-file walk a prefetched
 playlist.  Either can be told to behave like the other — that is what a lock is
-on either — so a constructor option is a *default* and never a rule: no method
-branches on who is calling, and nothing here imports an application.
+on either — so a constructor option is a *default* and never a rule.
 
 ``_MpvControl`` is driven against a fake in ``tests/test_mpv_control.py``.  What
 needs the DLL and a real window is constructing an ``MpvPlayer``, and Fun Time's
@@ -74,11 +72,10 @@ def _shared_options(*, muted: bool, loop_file: bool, prefetch: bool) -> dict:
         # noise that would bury the one line that matters.
         loglevel="warn",
         hwdec="auto-safe",
-        # loop-1: the current file repeats (like the old primary VLC's
-        # --repeat), so a video never ends on its own; [ ] navigates.
-        # Nau opens on this; a satellite constructs with loop_file=False
-        # ("no") so end-of-file advances its playlist.  Both toggle it at
-        # runtime, which is what a lock is on either (see set_loop_file).
+        # loop-1: the current file repeats, so a video never ends on its own;
+        # [ ] navigates.  Nau opens on this; a satellite constructs with
+        # loop_file=False ("no") so end-of-file advances its playlist.  Both
+        # toggle it at runtime (see set_loop_file).
         loop_file="inf" if loop_file else "no",
         keep_open="yes",
         mute="yes" if muted else "no",
@@ -130,10 +127,6 @@ class _MpvControl:
     # an empty playlist — a black window for the rest of the session, with a
     # healthy process, a running loop and nothing raised anywhere.  There is no
     # window to lose here: ``playlist-clear`` resolves "current" inside mpv.
-    #
-    # (``playlist-pos`` also reports -1 for "no entry playing", which the old
-    # ``or 0`` read as entry zero — so the same removals would then walk the
-    # playlist to nothing.  Not computing an index at all retires that too.)
 
     def stage_next(self, path: Path) -> None:
         """Make *path* the single entry queued after the current clip.

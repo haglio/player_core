@@ -146,11 +146,9 @@ def tick_cruise_control(
     *phase* is where the stroke is, used only when this is the tick that draws
     the waves — they all start there, so taking over cannot be felt.
 
-    Nothing moves while the stroke is not running. Auto advance has always sat
-    still then; this used to go on quietly moving amplitude, center, speed and
-    shape, so a session came back from a pause to a stroke it never asked for.
-    The wall clock keeps up so resuming picks up where it left off, but the
-    stroke's own clock — the one every ramp is timed against — does not.
+    Nothing moves while the stroke is not running: the wall clock keeps up so
+    resuming picks up where it left off, but the stroke's own clock — the one
+    every ramp is timed against — does not.
     """
     if not cc.active:
         return

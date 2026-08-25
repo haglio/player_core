@@ -69,11 +69,7 @@ def chip_xy(*, win_w: int, win_h: int, timeline_h: int) -> tuple[int, int]:
 
     A player with no scrubber passes ``timeline_h=0`` and is centred in
     :data:`ROW_H` regardless, so its chip lands exactly where a player with the
-    row puts one.  Two earlier answers to "no row" both moved the control instead:
-    centring in a row of no height put the chip's *top* on the bottom edge — the
-    whole thing below the window, which is how Genau's came out invisible — and
-    measuring a margin up from the bottom fixed that by inventing a second
-    position, nine pixels above the one nau and hybrid show in the same session.
+    row puts one.
     """
     row_h = timeline_h if timeline_h > 0 else ROW_H
     return (

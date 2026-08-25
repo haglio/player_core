@@ -2,8 +2,7 @@
 
 Every player in this family paints its HUD into the video as a BGRA bitmap mpv
 composites, rather than into a window of its own: an mpv overlay has no z-order,
-so it can neither fall behind the video nor float above the desktop — the two
-failure modes a separate always-on-top window kept oscillating between.
+so it can neither fall behind the video nor float above the desktop.
 
 What the HUDs share is the look, not the contents: a rounded translucent slab,
 the Segoe UI face sized the way Qt sized it, and the RGBA -> BGRA hand-off mpv
@@ -130,8 +129,6 @@ def draw_mark(image: Image.Image, name: str, rect: tuple[int, int, int, int],
     The same drawing the apps' Qt chrome paints -- shared_ui holds the geometry
     and each side renders it -- so a trash can on a HUD is the trash can on
     Origenerator's toolbar rather than whatever character a symbol font had.
-    Before this, a HUD mark was a typed glyph or a hand-drawn one, and the two
-    sides drifted apart exactly as you would expect.
 
     Takes the panel's IMAGE rather than its pen, the way the drive readout does:
     the mark is supersampled and composited back, which a pen cannot carry.
@@ -192,8 +189,6 @@ def draw_icon(draw: ImageDraw.ImageDraw, rect: tuple[int, int, int, int],
             draw.rectangle([cx, cy, cx + cell - 1, cy + cell - 1], fill=(*PINK, 255))
 
 
-# The tooltip box: the room around its words, how round its corner is, and how
-# solid it sits over the slab it covers.
 TOOLTIP_PAD = 5
 TOOLTIP_RADIUS = 4
 TOOLTIP_ALPHA = 240
