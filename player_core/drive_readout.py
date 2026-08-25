@@ -32,12 +32,12 @@ from .drive_layout import (
     TRACE_SAMPLES,  # noqa: F401 — re-exported: genau reads it from here
     DriveControl,
     DriveTrack,
-    Rect,
     section_size,  # noqa: F401 — re-exported: the console painter reads it here
     track_value,
 )
 from .drive_layout import fraction as _fraction
 from .file_channel import publish_whole
+from .geometry import Rect
 from .hud_panel import (
     BLUE,
     GREEN,

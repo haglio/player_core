@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-Rect = tuple[int, int, int, int]  # (x, y, w, h)
+from .geometry import Rect
 
 # The three axes, named as the numeric set commands name them (``genau_amp_57``).
 AMPLITUDE, CENTER, SPEED = "amp", "center", "speed"
@@ -244,12 +244,6 @@ def track_value(track: DriveTrack, px: int, py: int) -> int:
     if track.axis == CENTER:
         return percent(height)
     return percent(2 * abs(height - track.center))
-
-
-def hit(rect: Rect, px: int, py: int) -> bool:
-    """Whether ``(px, py)`` falls inside *rect*."""
-    x, y, w, h = rect
-    return x <= px < x + w and y <= py < y + h
 
 
 def fraction(percent_value: int) -> float:

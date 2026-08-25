@@ -6,6 +6,7 @@ these press the rects the geometry hands out, rather than trusting them.
 """
 
 from player_core import drive_layout as layout
+from player_core.geometry import contains
 
 
 def _by_action(controls):
@@ -70,7 +71,8 @@ def test_every_mark_is_hit_by_a_press_in_its_own_middle_and_by_no_other():
     for mark in marks:
         x, y, w, h = mark.rect
         px, py = x + w // 2, y + h // 2
-        assert [m.action for m in marks if layout.hit(m.rect, px, py)] == [mark.action]
+        assert [m.action for m in marks
+                if contains(m.rect, px, py)] == [mark.action]
 
 
 def test_a_mark_at_the_end_of_its_range_is_dimmed_and_only_that_one():

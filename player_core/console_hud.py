@@ -28,6 +28,7 @@ from dataclasses import dataclass, field, replace
 
 import numpy as np
 from PIL import Image
+
 from .drive_readout import (
     DRIVEN_BY_FUNSCRIPT,
     DRIVEN_BY_GENAU,
@@ -41,6 +42,7 @@ from .drive_readout import (
 )
 from .drive_readout import controls as drive_controls
 from .drive_readout import tracks as drive_tracks
+from .geometry import Rect, contains
 from .hud_panel import (
     AMBER,
     BG_BUTTON,
@@ -74,7 +76,6 @@ from .console import (
     MINIMIZE_ICON,
     Button,
     ConsoleModel,
-    Rect,
     console_rows,
     genau_drives,
     hit_test,
@@ -470,8 +471,7 @@ class ConsolePainter:
         nothing is not offered.
         """
         for track in self.tracks:
-            x, y, w, h = track.rect
-            if not track.dim and x <= px < x + w and y <= py < y + h:
+            if not track.dim and contains(track.rect, px, py):
                 self._held = track
                 self._asked = track_command(track, px, py)
                 return self._asked

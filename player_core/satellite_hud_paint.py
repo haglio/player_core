@@ -35,6 +35,7 @@ from player_core.hud_panel import (
     text_width,
 )
 
+from .geometry import Rect
 from .satellite_hud import (
     ACT_GAP,
     COL_LABEL_GAP,
@@ -61,7 +62,6 @@ from .satellite_hud import (
     HudModel,
     HudTargets,
     MapWindow,
-    Rect,
     act_is_filtered,
     action_label_blocks,
     build_click_targets,

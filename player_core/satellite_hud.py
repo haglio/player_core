@@ -23,6 +23,8 @@ from shared_ui.spacing import BUTTON_SIZE_HUD
 import json
 from dataclasses import dataclass, field
 
+from .geometry import Rect, contains
+
 # --- layout constants (px) ---------------------------------------------------
 # Inset of the HUD from the player window's top-left corner.
 MARGIN = 12
@@ -74,7 +76,6 @@ STATUS_BASELINE = 11      # the status line's baseline, down from the band's top
 # which has the face; this is only the gap between the two lines.
 SUBTITLE_GAP = 2
 
-Rect = tuple[int, int, int, int]  # (x, y, w, h)
 Cell = tuple[str, int]            # ("corner", 0) | ("seed", i) | ("action", i)
 
 
@@ -659,10 +660,7 @@ MODE_TOOLTIPS = {
 
 
 def _in(rect: Rect | None, px: int, py: int) -> bool:
-    if rect is None:
-        return False
-    x, y, w, h = rect
-    return x <= px < x + w and y <= py < y + h
+    return rect is not None and contains(rect, px, py)
 
 
 def button_tooltip(targets: HudTargets, px: int, py: int) -> str:
