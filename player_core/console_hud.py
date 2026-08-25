@@ -483,6 +483,31 @@ class ConsolePainter:
         left, top = hud_xy()
         return mx - left, my - top
 
+    def _draw_top_block(self, draw, y: int, status: str, filename: str,
+                        active: bool) -> int:
+        """The active-player dot and the status line — what is selecting this
+        playlist — with the file on screen muted under it, and the y the next band
+        starts at.
+
+        The same shape each satellite's HUD leads with, so a glance between two
+        screens finds the same answer in the same corner.  Both are empty in genau
+        mode, and the block is then only the dot.
+        """
+        ascent, descent = self._body.getmetrics()
+        text_x = _PAD + ACTIVE_DOT + DOT_GAP
+        draw_active_dot(draw, _PAD, y + (ascent + descent) // 2 - ACTIVE_DOT // 2,
+                        active)
+        if status:
+            draw.text((text_x, y + ascent), status, font=self._body,
+                      anchor="ls", fill=(*TEXT_PRIMARY, 255))
+        y += ascent + descent
+        if filename:
+            y += _SUBTITLE_GAP
+            draw.text((text_x, y), filename, font=self._tiny, anchor="la",
+                      fill=(*TEXT_MUTED, 255))
+            y += sum(self._tiny.getmetrics())
+        return y
+
     def _paint(self, hud: ConsoleHud, hover: tuple[int, int] | None = None) -> "Image.Image":
         console, drive = hud.console, hud.drive
         # Held for the OSR2 pill: with a composed trace on the panel the pill
@@ -505,7 +530,6 @@ class ConsolePainter:
         top_h = body_ascent + body_descent
         tiny_h = sum(self._tiny.getmetrics())
         filename_h = (_SUBTITLE_GAP + tiny_h) if filename else 0
-        text_x = _PAD + ACTIVE_DOT + DOT_GAP
 
         width = 2 * _PAD + max(
             row_width(rows), drive_w, self._osr2_width(console),
@@ -522,22 +546,7 @@ class ConsolePainter:
         panel = HudPanel(width, height, ground=hud.ground or BG_PRIMARY)
         draw = panel.draw
 
-        # Top block: the active-player dot and the status line — what is selecting
-        # this playlist — in the body face, with the file on screen as a muted line
-        # under it.  Same shape as each satellite's HUD, which leads with its
-        # status and not with a file name.  Both empty in genau mode.
-        y = _PAD
-        dot_cy = y + top_h // 2
-        draw_active_dot(draw, _PAD, dot_cy - ACTIVE_DOT // 2, console.active)
-        if status:
-            draw.text((text_x, y + body_ascent), status, font=self._body,
-                      anchor="ls", fill=(*TEXT_PRIMARY, 255))
-        y += top_h
-        if filename:
-            y += _SUBTITLE_GAP
-            draw.text((text_x, y), filename, font=self._tiny, anchor="la",
-                      fill=(*TEXT_MUTED, 255))
-            y += tiny_h
+        y = self._draw_top_block(draw, _PAD, status, filename, console.active)
         y += _ROW_GAP
 
         self.buttons, self.tracks = place_rows(rows, x=_PAD, y=y), []
@@ -561,11 +570,10 @@ class ConsolePainter:
                     Button(control.action, "", _DRIVE_TIPS.get(control.action, ""),
                            dim=control.dim),
                 ))
-            # The bands are set by pressing in them rather than by posting a fixed
-            # command, so they are their own targets (:meth:`_grab`) — but they
-            # join the buttons as read-outs too, with no action to post, purely so
-            # each one names what it sets when the cursor rests on it.  A bar that
-            # can be dragged says so nowhere else on a HUD drawn into the video.
+            # A band takes its value from where you press in it, so it is its own
+            # target (:meth:`_grab`) — and joins the buttons with no action to
+            # post, purely so it names what it sets on hover.  Nothing else on a
+            # HUD in a video says a bar can be dragged.
             self.tracks = drive_tracks(_PAD, y, drive, trace_only=trace_only)
             for track in self.tracks:
                 self.buttons.append((track.rect, Button("", "", track.tooltip)))
