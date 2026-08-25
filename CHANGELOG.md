@@ -33,3 +33,4 @@ the number's own pixels instead.
 | `Funscript._window` and its now-constant `tail`, left behind by the above | −7 | 0.7663 → 0.7656 |
 | `console.shares_the_device`, with three imports ruff F401 flagged | −13 | 0.7656 → 0.7648 |
 | `timeline.rgba_to_bgra`, a third copy of a swizzle with no reference at all | −4 | 0.7648 → 0.7654 |
+| `drive_readout._LESS`/`_MORE`, five unread re-exports, a stale `noqa`, a seven-line blank hole | −16 | 0.7654 → 0.7659 |

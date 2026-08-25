@@ -26,19 +26,14 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 from . import drive_layout
-from .direct_control import POSITION_MAX  # noqa: F401
-from .drive_layout import (  # noqa: F401 — this module's public face
-    AMPLITUDE,
-    CENTER,
-    SECTION_H,
-    SECTION_W,
-    SPEED,
+from .direct_control import POSITION_MAX
+from .drive_layout import (
     TRACE_ONLY_SIZE,
-    TRACE_SAMPLES,
+    TRACE_SAMPLES,  # noqa: F401 — re-exported: genau reads it from here
     DriveControl,
     DriveTrack,
     Rect,
-    section_size,
+    section_size,  # noqa: F401 — re-exported: the console painter reads it here
     track_value,
 )
 from .drive_layout import fraction as _fraction
@@ -79,12 +74,6 @@ _TRACE_INK = {
 }
 
 
-
-
-
-
-
-
 _SIZE_TINY = 8
 _TRACK = (56, 56, 62)  # the unfilled part of a bar — a shade off the slab
 
@@ -93,11 +82,6 @@ _LABEL_H = drive_layout.LABEL_H
 _CTRL = drive_layout.CONTROL_SIZE
 _GAP = drive_layout.GAP
 _KEY_GAP = 6  # between a key and the value it names
-
-# One pair of marks for every axis: the triangles that used to move amplitude and
-# centre said "up/down" where speed said "less/more", which read as two different
-# kinds of control for three things that are the same kind.
-_LESS, _MORE = "−", "+"
 
 # A disabled part's ink: a dark grey, laid down opaque.  While a funscript has
 # the device the controls stay put — removing them resized the panel, and the

@@ -13,7 +13,8 @@ from player_core.hud_panel import (
     text_width,
 )
 
-from player_core.drive_readout import AMPLITUDE, CENTER, SPEED, DriveHud
+from player_core.drive_layout import AMPLITUDE, CENTER, SPEED
+from player_core.drive_readout import DriveHud
 from player_core.console import ConsoleModel
 from player_core.console_hud import (
     ConsoleHud,
