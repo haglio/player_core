@@ -21,9 +21,8 @@ from .geometry import Rect
 # The three axes, named as the numeric set commands name them (``genau_amp_57``).
 AMPLITUDE, CENTER, SPEED = "amp", "center", "speed"
 
-# One pair of marks for every axis: the triangles that used to move amplitude
-# and centre said "up/down" where speed said "less/more", which read as two
-# different kinds of control for three things that are the same kind.
+# One pair of marks for every axis: speed, amplitude and centre are the same
+# kind of control, so the same − and + step all three.
 LESS, MORE = "−", "+"
 
 _LABEL_H = 14        # a "key value" line
