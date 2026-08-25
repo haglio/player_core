@@ -279,11 +279,9 @@ class HudRenderer:
             self._row, model.current_action, tuple(cell.label for cell in model.actions),
             min_width=max((text_width(self._tiny, line) for line in counts), default=0) + MAP_GAP,
         )
-        # Then the map is windowed, and the panel measured around the cells that won
-        # — the width from the gutter and the row's real cells, or from the status
-        # line where that is the longer of the two, and the height from how many rows
-        # the column has.  Measuring first and windowing into what was left is what
-        # made a row of wide clips two cells instead of three.
+        # Windowed before the panel is measured, so the panel is measured around
+        # the cells that won: measuring first and windowing into what was left is
+        # what fitted two wide clips across a row where three go.
         model, seed_win, action_win = self._window(model)
         corner_thumb, seed_thumbs, action_thumbs = self._map_thumbnails(model)
         row = ([corner_thumb.width] + [thumb.width for thumb in seed_thumbs]
@@ -317,54 +315,23 @@ class HudRenderer:
         image, draw = panel.image, panel.draw
 
         x, y = PAD, PAD
-        draw_active_dot(draw, x, y + 2, model.active)
-        # The status itself, composed by fun_time: it already holds the lock, what is
-        # looping, the browse order, F-mode and the filter, so there is nothing else
-        # to lay out up here.  Drawn full-strength whatever it says — dimming it when
-        # the side happened to be unlocked hid it in the case where it carries most —
-        # and on one line always, in the room the panel was widened above to leave
-        # it.  All five at once outruns a row of portrait clips, and the two other
-        # answers to that are both worse: Pillow clips the tail away in silence,
-        # which reads as the states that ran out of room being *off*, and a second
-        # line reads as two states rather than one side's.
-        draw.text((STATUS_TEXT_X, y + STATUS_BASELINE), model.lock_label,
-                  font=self._body, anchor="ls", fill=(*TEXT_PRIMARY, 255))
-        # The file on screen, muted, hung off that line's own descender so the two
-        # read as one block — what the main player's console leads with, in the same
-        # corner, so a glance across the screens finds each player's answer to "what
-        # is this?" in the same place.  Muted because the status is what the side is
-        # *doing* and the name only says which clip it is doing it to.
-        if video:
-            _ascent, descent = self._body.getmetrics()
-            draw.text((STATUS_TEXT_X, y + STATUS_BASELINE + descent + SUBTITLE_GAP), video,
-                      font=self._tiny, anchor="la", fill=(*TEXT_MUTED, 255))
+        self._draw_status_band(draw, y, model, video)
         y += STATUS_BAND_H + subtitle_h
 
-        # The mode row, when the session has an Origenerator to switch to: the
-        # satellite side's counterpart of the main console's Nau/Hybrid/Genau
-        # row, and like the console's it is a row of its own with minimize
-        # riding it — minimize is about the side's window, not the clip, so it
-        # belongs up here with the other whole-side buttons.
         modes: list[tuple[Rect, str]] = []
         row_names = CONTROLS
         if mode_widths:
-            modes = mode_button_rects(x, y, mode_widths)
-            self._draw_modes(draw, modes, model)
-            last_x, _my, last_w, _mh = modes[-1][0]
-            minimize_rect = (last_x + last_w + MAP_GAP, y, CTRL_BTN, CTRL_BTN)
-            self._minimize_button(draw, minimize_rect)
+            modes, minimize_rect = self._draw_mode_row(draw, y, model, mode_widths)
             row_names = tuple(n for n in CONTROLS if n != "minimize")
             y += CTRL_BAND_H
-        # The side's own controls, above the map: they act on the satellite and
-        # the clip on screen, not on anything the map draws, so they are laid out
-        # against the panel rather than against the map — and are there whether or
-        # not there is a map to draw.
+        # Laid out against the panel rather than against the map: they act on the
+        # side and the clip on screen, and are there whether or not there is a map.
         controls = control_button_rects(x, y, row_names)
         favorite = favorite_mark_rect(width - PAD, y)
         self._draw_controls(image, draw, controls, favorite, model)
         if mode_widths:
-            # Hit-tested like any control: HudClicks prefixes the side, so the
-            # button posts the same portrait_/landscape_minimize from either row.
+            # HudClicks prefixes the side, so minimize posts the same verb from
+            # whichever row it is riding.
             controls = controls + [(minimize_rect, "minimize")]
         y += CTRL_BAND_H
 
@@ -376,15 +343,12 @@ class HudRenderer:
 
         self._draw_counts(draw, x, y, counts)
         right, bottom = width - PAD, height - PAD
-        # Both axes keep room at each end for the "…" that says the map runs on past
-        # what is drawn.  That room is kept unconditionally — looping or not, more to
-        # show or not — so nothing on the map ever moves: not as a window slides, not
-        # when a mark appears, and not when a loop is switched on or off.
+        # Room for the "…" at each end whether or not there is more to show, so
+        # nothing on the map moves when a window slides or a loop goes on.
         map_x = x + gutter_w + ELLIPSIS_ROOM
         map_y = y + COL_LABEL_H + COL_LABEL_GAP + ELLIPSIS_ROOM
-        # The panel was measured to leave exactly this map here, so these bounds are
-        # where the map already ends; they are what keeps painting and hit-testing
-        # from drifting apart, not a second answer to how many cells fit.
+        # Where the panel's own measurement already put the map's far edges — read
+        # back rather than answered again, so painting and hit-testing cannot drift.
         map_right = right - MAP_RIGHT_RESERVE - ELLIPSIS_ROOM
         map_bottom = bottom - MAP_BOTTOM_RESERVE - ELLIPSIS_ROOM
         corner_rect, seed_rects, action_rects = thumbnail_rects(
@@ -394,9 +358,8 @@ class HudRenderer:
             action_sizes=[thumb.size for thumb in action_thumbs],
             playing=model.playing,
         )
-        # The row cell the action column hangs under — the playing cell while it
-        # is out along the row.  The column's own chrome (loop button, box, "…")
-        # follows it.
+        # The row cell the column and its own chrome hang under: the playing one
+        # while it is out along the row.
         column_rect = column_anchor_rect(model.playing, corner_rect, seed_rects)
 
         self._draw_thumbnails(image, model, corner_rect, seed_rects, action_rects,
@@ -443,6 +406,38 @@ class HudRenderer:
             modes=modes,
         )
         return RenderedHud(panel.to_bgra(), targets)
+
+    def _draw_status_band(self, draw, y: int, model: HudModel, video: str) -> None:
+        """The active-side dot, the status line, and the file on screen under it.
+
+        The status is fun_time's own sentence — lock, loop, browse order, F-mode,
+        filter — drawn full strength on one line always, in the room the panel was
+        widened to leave it.  Pillow clips an overrun tail away in silence, which
+        reads as the states that ran out of room being *off*, and a second line
+        reads as two states rather than one side's.  The file name hangs off that
+        line's descender, muted: the status is what the side is doing, and the
+        name only says which clip it is doing it to.
+        """
+        draw_active_dot(draw, PAD, y + 2, model.active)
+        draw.text((STATUS_TEXT_X, y + STATUS_BASELINE), model.lock_label,
+                  font=self._body, anchor="ls", fill=(*TEXT_PRIMARY, 255))
+        if video:
+            _ascent, descent = self._body.getmetrics()
+            draw.text((STATUS_TEXT_X, y + STATUS_BASELINE + descent + SUBTITLE_GAP), video,
+                      font=self._tiny, anchor="la", fill=(*TEXT_MUTED, 255))
+
+    def _draw_mode_row(self, draw, y: int, model: HudModel,
+                       mode_widths: list[int]) -> tuple[list[tuple[Rect, str]], Rect]:
+        """The row switching this side to the Origenerator hosted beside it, with
+        minimize riding it — a button about the side's window rather than about the
+        clip, so it belongs up here with the other whole-side ones.
+        """
+        modes = mode_button_rects(PAD, y, mode_widths)
+        self._draw_modes(draw, modes, model)
+        last_x, _my, last_w, _mh = modes[-1][0]
+        minimize_rect = (last_x + last_w + MAP_GAP, y, CTRL_BTN, CTRL_BTN)
+        self._minimize_button(draw, minimize_rect)
+        return modes, minimize_rect
 
     def _window(
         self, model: HudModel
