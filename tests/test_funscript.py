@@ -305,60 +305,10 @@ class TestSnapLoop:
         assert snap_loop(None, 30000, 30100) == (30000, 30500)
 
 
-class TestTrace:
-    """The script as a picture, for a HUD to draw the same way it draws a stroke
-    engine's own samples — so a handoff between the two reads as one line."""
-
-    def test_it_samples_the_span_evenly_from_where_it_is_asked(self):
-        fs = Funscript(actions=[(0, 0), (1000, 100)])
-
-        assert fs.trace(0, 1000, 3) == (0.0, 0.5, 1.0)
-
-    def test_the_shape_slides_rather_than_being_resampled(self):
-        """Sampling from the playhead put the points at a new offset every frame,
-        so every peak landed somewhere slightly different and the line boiled in
-        place.  On a grid fixed to the script, moving along it is a window
-        sliding: the values a window drops are the ones the last one had."""
-        fs = Funscript(actions=[(0, 0), (250, 100), (500, 0), (750, 100), (1000, 0)])
-
-        first = fs.trace(0, 1000, 5)
-        stepped = fs.trace(250, 1000, 5)
-
-        assert stepped[:3] == first[1:4]
-
-    def test_a_window_between_two_grid_points_keeps_the_same_values(self):
-        """The script never changes while it plays, so its picture is computed
-        once: a playhead between two knots reads the same values as the knot
-        behind it, and the leftover fraction is handed to the drawer to shift
-        the stable shape by.  Reading blended values instead morphed the wave's
-        heights at fixed columns every frame — the shape visibly changed as it
-        moved, which is the regression he caught."""
-        fs = Funscript(actions=[(0, 0), (250, 100), (500, 0)])
-
-        at_knot, none_over = fs.trace_window(0, 500, 3)
-        halfway, half_over = fs.trace_window(125, 500, 3)
-
-        assert halfway == at_knot
-        assert none_over == 0.0
-        assert half_over == 0.5
-
-    def test_the_window_carries_one_knot_past_the_far_edge(self):
-        """The drawer shifts the line left by the fraction, so without a spare
-        knot the line would fall short of the border by up to a sample."""
-        fs = Funscript(actions=[(0, 0), (250, 100), (500, 0)])
-
-        values, _over = fs.trace_window(0, 500, 3)
-
-        assert len(values) == 4
-
-    def test_past_the_end_of_the_script_the_picture_holds(self):
-        fs = Funscript(actions=[(0, 0), (500, 40)])
-
-        assert fs.trace(4000, 500, 3) == (0.4, 0.4, 0.4)
-
+class TestPositionAt:
     def test_between_two_actions_it_reads_the_move_the_device_is_making(self):
         """The driver sends "be at the next one in this long", so between two
-        actions the device really is on its way — a picture that stepped would be
+        actions the device really is on its way — a value that stepped would be
         a picture of something else."""
         fs = Funscript(actions=[(0, 0), (400, 80)])
 
@@ -371,18 +321,13 @@ class TestTrace:
         assert fs.position_at(0) == 20.0
         assert fs.position_at(9000) == 60.0
 
-    def test_an_unscripted_video_traces_nothing(self):
-        assert Funscript(actions=[]).trace(0, 1000, 4) == ()
 
-    def test_it_gives_back_as_many_samples_as_asked_for(self):
-        fs = Funscript(actions=[(0, 0), (5000, 100)])
-
-        assert len(fs.trace(1000, 12000, 80)) == 80
-
-    def test_every_sample_is_a_height_the_trace_can_draw(self):
-        fs = Funscript(actions=[(0, 0), (250, 100), (500, 0), (750, 100)])
-
-        assert all(0.0 <= value <= 1.0 for value in fs.trace(0, 1000, 40))
+def _gapped() -> Funscript:
+    # A dense cluster, a 20s interior gap, then a second cluster whose opening
+    # action sits high — so the rise's target is visible — and a tail.
+    first = [(i * 200, 100 if i % 2 else 0) for i in range(6)]
+    second = [(21_000 + i * 200, 0 if i % 2 else 80) for i in range(6)]
+    return Funscript(actions=first + second)
 
 
 class TestPlan:
@@ -390,15 +335,8 @@ class TestPlan:
     interpolates: through every quiet stretch the neutral is the parked
     position, with a timed rise back to each cluster's opening action."""
 
-    def _gapped(self) -> Funscript:
-        # A dense cluster, a 20s interior gap, then a second cluster whose
-        # opening action sits high — so the rise's target is visible — and a tail.
-        first = [(i * 200, 100 if i % 2 else 0) for i in range(6)]
-        second = [(21_000 + i * 200, 0 if i % 2 else 80) for i in range(6)]
-        return Funscript(actions=first + second)
-
     def test_inside_a_cluster_the_plan_is_the_script(self):
-        fs = self._gapped()
+        fs = _gapped()
 
         assert fs.is_parked_at(300) is False
         assert fs.planned_position_at(300) == fs.position_at(300)
@@ -406,13 +344,13 @@ class TestPlan:
     def test_a_gap_rests_at_park_not_at_the_last_position(self):
         """position_at drifts across a gap toward the far cluster; the device
         does not follow it — its neutral between clusters is the park."""
-        fs = self._gapped()
+        fs = _gapped()
 
         assert fs.is_parked_at(10_000) is True
         assert fs.planned_position_at(10_000) == 0.0
 
     def test_the_tail_after_the_last_action_rests_at_park(self):
-        fs = self._gapped()
+        fs = _gapped()
 
         assert fs.is_parked_at(30_000) is True
         assert fs.planned_position_at(30_000) == 0.0
@@ -421,7 +359,7 @@ class TestPlan:
         """The device walks onto its rest over PARK_SETTLE_MS, so the plan walks
         with it — dropping in one sample drew a cliff the device then spent half a
         second not taking."""
-        fs = self._gapped()
+        fs = _gapped()
         last = 1000  # the first cluster's closing action
 
         assert fs.is_parked_at(last + PARK_SETTLE_MS // 2) is True
@@ -430,7 +368,7 @@ class TestPlan:
         assert fs.planned_position_at(last + PARK_SETTLE_MS) == 0.0
 
     def test_the_rise_starts_a_beat_ahead_and_lands_on_the_opening_action(self):
-        fs = self._gapped()
+        fs = _gapped()
 
         assert fs.is_parked_at(19_999) is True   # still parked
         assert fs.is_parked_at(20_000) is False  # the rise begins
@@ -455,15 +393,53 @@ class TestPlan:
 
         assert fs.is_parked_at(10_000) is True
 
-    def test_planned_trace_slides_on_the_same_fixed_grid(self):
-        fs = self._gapped()
 
-        first = fs.planned_trace(0, 1000, 5)
-        stepped = fs.planned_trace(250, 1000, 5)
+class TestThePlanAsAPicture:
+    """The plan sampled for a HUD to draw — whole knots off a grid fixed to the
+    script, and the fraction of a knot the playhead sits past the first of them."""
+
+    def test_the_picture_slides_rather_than_being_resampled(self):
+        """Sampling from the playhead put the points at a new offset every frame,
+        so every peak landed somewhere slightly different and the line boiled in
+        place.  On a grid fixed to the script, moving along it is a window
+        sliding: the values a window drops are the ones the last one had."""
+        fs = _gapped()
+
+        first, _slide = fs.planned_trace_window(0, 1000, 5)
+        stepped, _slide = fs.planned_trace_window(250, 1000, 5)
 
         assert stepped[:3] == first[1:4]
 
-    def test_past_the_end_planned_trace_rests_on_the_park(self):
+    def test_a_playhead_between_two_knots_reads_the_knot_behind_it(self):
+        """The script does not change while it plays, so its picture is computed
+        once and reread, and the leftover fraction goes to the drawer to shift the
+        stable shape by.  Reading blended values instead morphed the heights at
+        fixed columns every frame — the shape changed while it moved."""
+        fs = _gapped()
+
+        at_knot, none_over = fs.planned_trace_window(0, 500, 3)
+        halfway, half_over = fs.planned_trace_window(125, 500, 3)
+
+        assert halfway == at_knot
+        assert none_over == 0.0
+        assert half_over == 0.5
+
+    def test_it_carries_one_knot_past_the_far_edge(self):
+        """The drawer shifts the line left by the fraction, so without a spare
+        knot the line would fall short of the border by up to a sample."""
+        values, _slide = _gapped().planned_trace_window(0, 500, 3)
+
+        assert len(values) == 4
+
+    def test_every_sample_is_a_height_the_trace_can_draw(self):
+        values, _slide = _gapped().planned_trace_window(0, 1000, 40)
+
+        assert all(0.0 <= value <= 1.0 for value in values)
+
+    def test_past_the_end_of_the_script_it_rests_on_the_park(self):
         fs = Funscript(actions=[(0, 0), (200, 100), (400, 40)])
 
-        assert fs.planned_trace(50_000, 500, 3) == (0.0, 0.0, 0.0)
+        assert fs.planned_trace_window(50_000, 500, 3)[0] == (0.0, 0.0, 0.0, 0.0)
+
+    def test_an_unscripted_video_has_no_picture_at_all(self):
+        assert Funscript(actions=[]).planned_trace_window(0, 1000, 4) == ((), 0.0)
