@@ -45,10 +45,9 @@ QUIET_LEAD_IN_MS = _QUIET_LEAD_IN_MS
 _RISE_MS = 1000
 
 # How long the device takes to settle onto its park when whoever was driving
-# lets go — the interval the waypoint driver's park command carries (and the
-# broker's own park matches).  Public because the drive trace draws this glide:
-# a plan that dropped to park in one sample was a cliff the device then took
-# half a second to walk down.
+# lets go — the interval the waypoint driver's park command carries, and the one
+# the broker's own park matches.  Public because the drive trace draws the walk
+# down over it rather than dropping to park in one sample.
 PARK_SETTLE_MS = 500
 
 # How long the device takes to walk between one driver's last position and the
@@ -278,13 +277,12 @@ class Funscript:
         driver's climb out of the park lands where the stroke has always
         resumed.
 
-        Two clusters merge when their _QUIET_LEAD_IN_MS neighbourhoods overlap,
-        which is the old rule and stays the old rule: whether the script gives
-        the device back between two clusters is about whether there is room for
-        the other driver to do anything, and that has not changed because the
-        lead-out shortened.  Measured on the short lead-out instead, a six-second
-        gap would open a turn of a few hundred milliseconds — a handoff there and
-        back before anything could happen.
+        Two clusters merge when their _QUIET_LEAD_IN_MS neighbourhoods overlap:
+        whether the script gives the device back between two is about whether
+        there is room for the other driver to do anything, which is the long
+        lead-in and not the short lead-out.  Measured on the lead-out, a
+        six-second gap would open a turn of a few hundred milliseconds — a
+        handoff there and back before anything could happen.
         """
         turns: list[list[int]] = []
         for t in self._dense_times:
@@ -334,12 +332,10 @@ def snap_loop(fs: Funscript | None, in_ms: int, out_ms: int) -> tuple[int, int]:
     """The marked range as a loop: ordered, at least _MIN_LOOP_MS long, and each
     end pulled outward onto a nearby stroke base so the seam is not mid-stroke.
 
-    A boundary with no base within _SNAP_TOLERANCE_MS keeps the time it was marked
-    at.  Snapping was unbounded once, walking to whatever base came next and
-    falling back to the script's own first and last action when a script never
-    reached _BASE_THRESHOLD at all — so a five-second mark came back as a
-    minutes-long range on about a fifth of a real library, and a range that long
-    plays as no loop at all.
+    A boundary with no base within _SNAP_TOLERANCE_MS keeps the time it was
+    marked at: unbounded, a snap walks to whatever base comes next, and on a
+    script that rarely reaches _BASE_THRESHOLD that turns a five-second mark into
+    a range too long to play as a loop at all.
     """
     lo, hi = min(in_ms, out_ms), max(in_ms, out_ms)
     # Widen before snapping: both snaps only ever move a boundary outward, so a
