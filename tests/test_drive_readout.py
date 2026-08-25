@@ -12,17 +12,20 @@ from player_core.hud_panel import (
     text_width,
 )
 
-from player_core.drive_readout import (
+from player_core.drive_layout import (
     AMPLITUDE,
     CENTER,
-    DRIVEN_BY_FUNSCRIPT,
-    DRIVEN_BY_GENAU,
-    DRIVEN_BY_NEUTRAL,
-    DRIVEN_BY_NOTHING,
     SECTION_H,
     SECTION_W,
     SPEED,
     TRACE_ONLY_SIZE,
+)
+
+from player_core.drive_readout import (
+    DRIVEN_BY_FUNSCRIPT,
+    DRIVEN_BY_GENAU,
+    DRIVEN_BY_NEUTRAL,
+    DRIVEN_BY_NOTHING,
     DriveHud,
     DriveSection,
     section_size,
