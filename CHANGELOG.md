@@ -52,6 +52,27 @@ maintained byte-identical across eleven checkouts, so their stale `noqa`, their
 duplicated import and their comment ratios (0.55 / 0.43 / 0.31) belong to the
 cross-repo consolidation rather than to this repo on its own.
 
+**Comments.** Worked file by file against the retained-comments list in
+`audit/findings/player_core.md`, which is the floor: every range it marks *keep*
+is still there, whole. Nothing was stripped off opaque code — each cut either
+corrected a statement that was false, deleted a second copy of a rule stated
+elsewhere, replaced a section-heading comment with a function of that name, or
+kept the invariant a war story was protecting and dropped the story.
+
+| what changed | comment ratio |
+|---|---|
+| Stale docs: `mpv_player` "not unit-tested", "three applications", the README's six-of-27 module list | 0.7669 → 0.7658 |
+| Six comments describing things that are not there (see the commit for each) | 0.7658 → 0.7630 |
+| The symbol face named once in `hud_panel` instead of three times, and the glyph notes that named the wrong glyphs | 0.7630 → 0.7590 |
+| `funscript`'s three bounds explained by the incident that set them | 0.7590 → 0.7579 |
+| `HudRenderer.render`'s section headings became `_draw_status_band` and `_draw_mode_row` | 0.7579 → 0.7528 |
+| `ConsolePainter._paint`'s top block became `_draw_top_block` (CC 18 → 15) | 0.7528 → 0.7525 |
+
+Both painter extractions were verified as pure moves rather than argued: 22
+rendered panels — three console modes with and without hover, both satellite
+sides across the mode row and the subtitle, and both empty shells — compare
+byte-identical before and after.
+
 ### Defects found and not fixed
 
 **`harvest_blocklist.main` raises on a first harvest** (`tools/harvest_blocklist.py:342`;
