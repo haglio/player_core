@@ -1,21 +1,17 @@
 """The main console — the HUD the player on the main slot draws.
 
-Fun Time's dashboard used to draw a schematic of the two monitors and hang the
-main player's controls off it.  The main player draws them itself now, and the
-same console is drawn whichever player holds the slot: Nau over its video in nau
-and hybrid, Genau into its own window in genau.  So the mode switch and the drive
-controls keep their places as you flip between modes — only the transport changes,
-because it steps Nau's video in one and Genau's clips in the other.
+The same console is drawn whichever player holds the slot: Nau over its video in
+nau and hybrid, Genau into its own window in genau.  So the mode switch and the
+drive controls keep their places as you flip between modes — only the transport
+changes, because it steps Nau's video in one and Genau's clips in the other.
 
 Its top block is Nau's own answer to "what am I playing?" — the status line (the
 length mode, or the compilation and your place in it) beside the active-player
 dot, with the file on screen as a muted line under it, the same shape each
 satellite's HUD leads with.  Both are empty in genau mode, where there is no Nau
-playlist behind the screen.  The file name used to sit in a chip of its own below
-the console; it belongs to this block now, so there is one HUD and not a panel
-with a tag under it.  Everything else is the console the orchestrator publishes
-(:mod:`player_core.console`) plus, while Genau is driving, the drive readout
-(:mod:`player_core.drive_readout`) with its own controls.
+playlist behind the screen.  Everything else is the console the orchestrator
+publishes (:mod:`player_core.console`) plus, while Genau is driving, the drive
+readout (:mod:`player_core.drive_readout`) with its own controls.
 
 The wording and shape are pure functions; the drawing goes onto the slab
 :mod:`player_core.hud_panel` owns, the same slab the satellites' HUD is drawn on,
@@ -90,16 +86,10 @@ from .console import (
     tooltip_at,
 )
 
-# What the length modes are called on screen.  The library names them for what it
-# filters on; the HUD names them for what the user asked for.
-#
-# MIXED is deliberately absent: it applies no length filter at all, so it narrows
-# nothing and there is nothing to report — the same silence a satellite keeps where
-# its act filter would go when it has none.  It could not say much anyway now that
-# the library holds three kinds of thing rather than two: "a mix" names none of
-# them, where "Shorts" and "Full length" each name what they kept.
-# Nau's two length modes, named here because the console prints them and
-# nothing else in this package cares what they are.
+# Nau's two length modes, named here because the console prints them and nothing
+# else in this package cares what they are.  MIXED is deliberately absent: it
+# applies no length filter at all, so it narrows nothing and prints nothing — the
+# same silence a satellite keeps where its act filter would go when it has none.
 FULL, SHORTS = "full", "shorts"
 _LENGTH_LABELS = {FULL: "Full length", SHORTS: "Shorts"}
 
@@ -168,8 +158,7 @@ class ModeHud:
     """Nau's own answer to "what am I playing?" — the console's top block.
 
     *video* is the name of the clip on screen, drawn as the muted line beneath the
-    status; it used to live in a chip of its own below the console, and now it
-    heads the console instead.  The rest is what the status line is built from:
+    status.  The rest is what the status line is built from:
     *length_mode* is the library's filter, empty when there is no library behind
     the playlist; *compilation* is the volume holding the playlist, with
     *position*/*total* placing the current video in it; *f_mode* is Fun Time's
@@ -273,9 +262,7 @@ class ConsoleHud:
         ) if self.modes.compilation else ""
         # The browse order, said the same way for whichever player is on this slot:
         # both of them browse in these two orders, so a reader who has just asked
-        # for Latest reads the same word back wherever they asked it.  Genau used
-        # to print its advance pace here *instead*, which left the order it was in
-        # sayable but nowhere visible.
+        # for Latest reads the same word back wherever they asked it.
         order = LATEST_LABEL if self.console.latest else SHUFFLE_LABEL
         # The pace an unheld Genau clip moves on at, after the order rather than in
         # place of it: the order says which clip is next, the pace says when.  Only
@@ -380,9 +367,7 @@ class ConsolePainter:
         # picture of the handoff, and the device changes hands inside it.  The
         # OSR2 reads "off" whenever nothing is answering on the wire, which is
         # exactly the gap between Genau letting go and the script's driver
-        # picking up — held still there, the whole trace froze into one flat
-        # grey at every handoff and came back only once something was being
-        # sent again.
+        # picking up.
         # Frozen ONLY when the trace is Genau's own resampled stroke — a
         # motion nobody is sending, which must not keep animating.  A composed
         # trace (nau and hybrid both) is the script's plan, computed fresh per
@@ -391,13 +376,11 @@ class ConsolePainter:
         # part of what it draws — freezing it on the round-tripped "idle"/"off"
         # was the picture that stopped scrolling for the length of each gap.
         if not drive.live and hud.console.mode not in _COMPOSED_TRACE_MODES:
-            # Nothing is reaching the device, so there is no motion to draw.  Genau
-            # goes on stroking regardless — it cannot see that the OSR2 is off — so
-            # both the trace and the position it publishes keep moving, and either
-            # one left running is the last thing on a dead readout still claiming
-            # to be live.
-            # The slide freezes with the picture, or the "still" trace would
-            # go on creeping left a fraction of a sample at a time.
+            # Genau goes on stroking regardless — it cannot see that the OSR2 is
+            # off — so both the trace and the position it publishes keep moving,
+            # and either one left running is a dead readout still claiming to be
+            # live.  The slide freezes with them, or the "still" trace would go on
+            # creeping left a fraction of a sample at a time.
             if self._still is None:
                 self._still = (drive.waveform, drive.position, drive.slide, drive.edge)
             waveform, position, slide, edge = self._still
@@ -682,8 +665,7 @@ class ConsolePainter:
         # The mark stays white over a colored fill and reverses out of a white
         # one, so a control that changes state changes only what is behind its
         # mark — the way the Dash's mic keeps its white glyph while the panel
-        # under it goes blue.  A record button whose circle went dark while it
-        # recorded read as a different button, not as the same one recording.
+        # under it goes blue.
         resting = fill == BG_BUTTON
         ink = (BG_PRIMARY if fill in (WHITE, AMBER) else TEXT_MUTED if button.dim
                else RED if button.danger

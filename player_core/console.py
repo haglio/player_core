@@ -1,12 +1,9 @@
 """The controls on the main console, and where they sit.
 
-Fun Time's dashboard used to draw a schematic of the two monitors with a little
-box per player, and the main player's box carried these controls.  The player on the
-player draws its own HUD now, so they live on it — and whichever player holds the
-main slot draws that HUD: Nau in nau and hybrid, Genau in genau mode.  The
-console is the same in every mode, so the mode switch and the drive controls do
-not move as you flip between them; only the transport changes, because prev/next
-step Nau's video in nau/hybrid and Genau's clips in genau.
+Whichever player holds the main slot draws it: Nau in nau and hybrid, Genau in
+genau mode.  The console is the same in every mode, so the mode switch and the
+drive controls do not move as you flip between them; only the transport changes,
+because prev/next step Nau's video in nau/hybrid and Genau's clips in genau.
 
 Kept free of Pillow, as :mod:`player_core.satellite_hud` is, so the rows, the
 geometry and the hit-testing are testable without a font.  :mod:`player_core.console_hud` paints them; the
@@ -183,8 +180,7 @@ def read_console(path: Path) -> ConsoleModel | None:
 # The glyphs this console types, as against the marks it draws above.
 _GLYPHS = {
     # The transport, in one family of marks: to the ends of the video with a bar,
-    # ten seconds either way without one.  A bare −/+ said "less/more", which is
-    # what the level controls say, not "back/forward through this".
+    # ten seconds either way without one.
     "prev": "⏮", "next": "⏭", "back": "⏪", "fwd": "⏩",
     "open": "📂", "record": "⏺", "save": "💾",
     "lock": "🔒", "quarter": "¼", "minus": "−", "plus": "+",
@@ -419,10 +415,8 @@ def _clip_seconds_row(model: ConsoleModel) -> list[Button]:
     fast it does move.  Shaped like the playback-speed row above, and named for the
     same reason: a bare −/+ pair beside a number says "less/more" of nothing.
 
-    This used to be the face of an "auto advance" button that also armed the
-    moving, which is why the pace and the lock were two controls that could
-    disagree.  The padlock in the transport row is the only switch now; this is
-    just its speed.
+    The padlock in the transport row is the only switch; this row is just its
+    pace.
     """
     return [
         Button("", "Clip seconds", "", width=PLAYBACK_LABEL_W),
@@ -447,9 +441,7 @@ def osr2_row(model: ConsoleModel) -> list[Button]:
     """The control that sits beside the OSR2 read-out.
 
     The broker is the service that talks to the OSR2 at all, so it acts on the
-    device rather than on a player and shares the device's line.  It was a
-    dashboard button before this HUD existed and wears its dashboard face again:
-    the pink "B", blue while the service is up and red while it is down.
+    device rather than on a player and shares the device's line.
     """
     return [
         Button("broker_panel", BROKER_ICON,
@@ -495,25 +487,19 @@ def _group_break(row: list[Button], index: int) -> bool:
     return _family(previous.action) != _family(current.action)
 
 
-# Genau controls whose command name does not begin with genau_.  Without this the
-# ¼ offset fell out of the group it belongs to and opened a gap mid-row.
+# Genau controls whose command name does not begin with genau_.
 _GENAU_CONTROLS = frozenset({"quarter_button"})
-# Recording a loop and saving what it caught: one job, two presses, and neither
-# of them the library browser they used to be spaced alongside.
+# Recording a loop and saving what it caught: one job, two presses.
 _CAPTURE_CONTROLS = frozenset({"nau_record_tap", "clipper_save"})
 # The two switches: the lock holds what is on screen against moving on, F-mode
 # narrows what there is to play at all.  Both are states the player sits *in*,
-# where everything around them does its thing once and is over — the marks step
-# the video or the clip, the browser and the capture pair act on files — so the
-# pair groups together and apart from both.  The lock also shares the transport's
-# command prefix, and without this would have joined its run and read as another
-# step, which is the undifferentiated strip that opened these groups up.
+# where everything around them does its thing once and is over.  The lock also
+# shares the transport's command prefix, so it has to be named here to leave
+# that run.
 _SWITCH_CONTROLS = frozenset({"main_lock", "main_fmode"})
-# Reset stands alone between the switches and the browser.  It shares the
-# transport's command prefix and would otherwise have rejoined that run and read
-# as another step through the video; it is not one of the switches either, being
-# a thing done once where they are states held — and it is what turns them back
-# off, so a reader must be able to see it is not one of them.
+# Reset stands alone between the switches and the browser: it shares the
+# transport's command prefix but is not one of that run, and it is what turns
+# the two switches back off, so it must not read as a third one.
 _RESET_CONTROLS = frozenset({"main_reset"})
 # The controls that act on the window rather than on anything inside it, so they
 # stand apart from whatever they share a row with.  Named rather than left to the
@@ -524,8 +510,8 @@ _WINDOW_CONTROLS = frozenset({"main_minimize"})
 
 def _family(action: str) -> str:
     """Which group of controls *action* belongs to."""
-    # The three mode buttons are one group; genau_activate happens to start with
-    # the Genau controls' prefix, which used to split the row after Hybrid.
+    # The three mode buttons are one group; genau_activate would otherwise fall
+    # to the Genau controls' prefix below.
     if action.endswith("_activate"):
         return "mode"
     if action in _WINDOW_CONTROLS:
