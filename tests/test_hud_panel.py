@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from player_core import hud_panel
 from player_core.hud_panel import (
     BG_PRIMARY,
     ICON_GRIDS,
@@ -20,6 +21,30 @@ from player_core.hud_panel import (
     px,
     text_width,
 )
+
+# Every colour the palette mirrors, named as shared_ui names it.  Written out so
+# that dropping one is a deliberate edit here rather than a token going quietly
+# missing from a HUD.
+MIRRORED = (
+    "BG_PRIMARY", "BG_BUTTON", "BG_BUTTON_ACTIVE", "BORDER_PANEL", "BLUE",
+    "GREEN", "RED", "AMBER", "PINK", "TEXT_MUTED", "TEXT_PRIMARY",
+)
+
+
+def test_every_mirrored_colour_is_the_shared_ui_token_of_the_same_name():
+    """The palette is a mirror rather than an import — shared_ui's tokens are
+    QColors and these HUDs are Pillow — so the numbers are typed out twice and can
+    drift apart. This is what stops them, and it is what keeps a token nothing
+    draws with yet from reading as dead: the palette is carried whole so a HUD and
+    a window looking at the same state look alike.
+
+    WHITE is not in it: it is plain white, and shared_ui has no token for it.
+    """
+    from shared_ui import colors
+
+    for name in MIRRORED:
+        token = getattr(colors, name)
+        assert getattr(hud_panel, name) == (token.red(), token.green(), token.blue()), name
 
 
 def test_panel_is_a_translucent_rounded_slab_of_the_asked_size():
