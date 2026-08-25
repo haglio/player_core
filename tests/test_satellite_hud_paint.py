@@ -344,16 +344,18 @@ def test_the_minimize_button_wears_a_bar_rather_than_a_font_glyph():
     assert xs.max() - xs.min() > ys.max() - ys.min()  # a bar, not a box or a glyph
 
 
+def _lit_ink(rect, rendered) -> int:
+    """How many pixels inside *rect* are the green a lit control fills with."""
+    x, y, w, h = rect
+    rgb = _rgb(rendered.bgra)[y:y + h, x:x + w].astype(int)
+    green = (rgb[:, :, 1] > 100) & (rgb[:, :, 0] < 100) & (rgb[:, :, 2] < 100)
+    return int(green.sum())
+
+
 def test_the_state_controls_and_favorite_mark_light_up_when_they_apply():
     """Green is what the dashboard's panel used, so everything that is a *state*
     keeps it: the lock button while the side is locked, the F button while the
     side is in F-mode, the star while the clip is a favorite."""
-    def ink(rect, rendered) -> int:
-        x, y, w, h = rect
-        rgb = _rgb(rendered.bgra)[y:y + h, x:x + w].astype(int)
-        green = (rgb[:, :, 1] > 100) & (rgb[:, :, 0] < 100) & (rgb[:, :, 2] < 100)
-        return int(green.sum())
-
     def rendered_with(**overrides):
         return HudRenderer("landscape").render(
             HudModel(side="landscape", lock_label="Unlocked", **overrides))
@@ -362,9 +364,9 @@ def test_the_state_controls_and_favorite_mark_light_up_when_they_apply():
     on = rendered_with(locked=True, is_favorite=True, f_mode=True)
     rects = {name: rect for rect, name in on.targets.control}
 
-    assert ink(rects["lock"], on) > ink(rects["lock"], off)
-    assert ink(rects["fmode"], on) > ink(rects["fmode"], off)
-    assert ink(on.targets.favorite, on) > ink(off.targets.favorite, off)
+    assert _lit_ink(rects["lock"], on) > _lit_ink(rects["lock"], off)
+    assert _lit_ink(rects["fmode"], on) > _lit_ink(rects["fmode"], off)
+    assert _lit_ink(on.targets.favorite, on) > _lit_ink(off.targets.favorite, off)
 
 
 def test_the_bin_draws_red_because_it_takes_something_away():
@@ -888,17 +890,17 @@ def test_the_reset_button_is_never_lit():
     """The lock and F-mode are states the side sits in, so they light while they
     are on; a reset is over the moment it lands, and a button that stayed lit
     would say the side was sitting in one."""
-    for locked, f_mode in ((False, False), (True, True)):
-        rendered = HudRenderer("landscape").render(
-            HudModel(side="landscape", lock_label="Locked",
-                     locked=locked, f_mode=f_mode))
-        rects = {name: rect for rect, name in rendered.targets.control}
-        x, y, w, h = rects["reset"]
-        box = _rgb(rendered.bgra)[y:y + h, x:x + w]
-        # A lit button fills its box, so most of it would be the on-color.
-        filled = (box > 100).all(axis=2).sum()
+    def rendered_with(**overrides):
+        return HudRenderer("landscape").render(
+            HudModel(side="landscape", lock_label="Locked", **overrides))
 
-        assert filled < w * h // 2, (locked, f_mode)
+    resting = rendered_with()
+    lit = rendered_with(locked=True, f_mode=True)
+    rects = {name: rect for rect, name in lit.targets.control}
+
+    assert _lit_ink(rects["lock"], lit)  # the states that do light are alight
+    assert _lit_ink(rects["reset"], lit) == 0
+    assert _lit_ink(rects["reset"], resting) == 0
 
 
 def test_column_labels_are_clipped_to_their_column(thumb):
