@@ -367,6 +367,24 @@ def test_the_state_controls_and_favorite_mark_light_up_when_they_apply():
     assert ink(on.targets.favorite, on) > ink(off.targets.favorite, off)
 
 
+def test_the_bin_draws_red_because_it_takes_something_away():
+    """Origenerator's Delete is red and the act reads the same wherever it
+    appears, so the drawn button is what has to be red — a table saying which
+    control is destructive says nothing about what came out on the panel."""
+    rendered = HudRenderer("landscape").render(
+        HudModel(side="landscape", lock_label="Unlocked"))
+    rects = {name: rect for rect, name in rendered.targets.control}
+
+    def red_ink(name: str) -> int:
+        """How far the reddest pixel of *name*'s button leads its own green."""
+        x, y, w, h = rects[name]
+        box = _rgb(rendered.bgra)[y:y + h, x:x + w].astype(int)
+        return int((box[:, :, 0] - box[:, :, 1]).max())
+
+    assert red_ink("trash") > 60
+    assert red_ink("prev") == 0  # and the red is the bin's, not the whole band's
+
+
 def test_f_mode_wears_its_own_badge_rather_than_a_typed_letter():
     """`fmode_icon.ico` is a pink five-by-five "F" — the mark the mode has on the
     taskbar and on the main console — and a letter set in the body face is a
