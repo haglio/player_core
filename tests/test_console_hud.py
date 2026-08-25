@@ -4,7 +4,14 @@ from __future__ import annotations
 from dataclasses import replace
 
 import numpy as np
-from player_core.hud_panel import ICON_GRIDS, TEXT_MUTED, WHITE, load_font, text_width
+from player_core.hud_panel import (
+    ICON_GRIDS,
+    TEXT_MUTED,
+    TOOLTIP_PAD,
+    WHITE,
+    load_font,
+    text_width,
+)
 
 from player_core.drive_readout import AMPLITUDE, CENTER, SPEED, DriveHud
 from player_core.console import ConsoleModel
@@ -171,10 +178,10 @@ class TestCompilationLabel:
 
 class TestPainter:
     def test_a_tooltip_longer_than_the_panel_is_wide_stays_on_the_panel(self):
-        """The lock button's tooltip wants 354px of box on a 238px console, so it
-        used to be drawn straight off the right edge and lose its tail.  Fitting it
-        is player_core's job — this guards that the console hands it the panel's own
-        bounds, since passing anything wider puts the box back over the edge."""
+        """The widest tooltip on the console wants a box wider than the console
+        itself, so it was drawn straight off the right edge and lost its tail.
+        Fitting it is player_core's job — this guards that the console hands it the
+        panel's own bounds, since anything wider puts the box back over the edge."""
         painter = ConsolePainter()
         hud = ConsoleHud(console=ConsoleModel(mode="nau", locked=False))
         plain = _rgb(painter.bgra(hud))  # also lays the buttons out, so one can be hovered
@@ -184,11 +191,12 @@ class TestPainter:
             key=lambda pair: text_width(tiny, pair[1].tooltip))
         tipped = _rgb(ConsolePainter().bgra(hud, hover=(x + w // 2, y + h // 2)))
 
-        def edge_ink(rgb) -> int:
-            return int((rgb[:, -2:] > 200).all(axis=2).sum())
+        rows, cols = np.nonzero((tipped != plain).any(axis=2))
+        one_line_box = sum(tiny.getmetrics()) + 2 * TOOLTIP_PAD
 
-        assert not np.array_equal(plain, tipped)  # it drew something
-        assert edge_ink(tipped) == edge_ink(plain) == 0
+        assert len(cols)  # it drew something
+        assert cols.max() < plain.shape[1] - 1  # and stopped short of the far edge
+        assert rows.max() - rows.min() + 1 > one_line_box  # having wrapped to fit
 
     def test_the_top_line_sits_tight_to_the_top(self):
         """The old console left a tall empty band above its first line; the status
