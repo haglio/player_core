@@ -209,6 +209,15 @@ def test_the_dot_lights_up_only_on_the_active_side(thumb):
     assert np.allclose(dot(False).reshape(-1, 3).mean(axis=0), TEXT_MUTED, atol=40)
 
 
+def test_the_side_leaves_room_for_the_dot_the_chrome_actually_draws():
+    """satellite_hud is kept free of Pillow, so it cannot read the chrome's own
+    size for the dot it measures STATUS_TEXT_X against — it keeps its own copy of
+    the number, and this is what holds the two together."""
+    from player_core.hud_panel import ACTIVE_DOT
+
+    assert STATUS_DOT == ACTIVE_DOT
+
+
 def test_the_status_text_starts_clear_of_the_dot(thumb):
     """Drawn over each other they would be illegible, and the width the line asks
     the panel for is measured from the room the dot leaves, not from the far edge."""

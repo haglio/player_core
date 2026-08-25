@@ -44,6 +44,7 @@ from .drive_readout import controls as drive_controls
 from .drive_readout import tracks as drive_tracks
 from .geometry import Rect, contains
 from .hud_panel import (
+    ACTIVE_DOT,
     AMBER,
     BG_BUTTON,
     BG_PRIMARY,
@@ -55,6 +56,7 @@ from .hud_panel import (
     TEXT_PRIMARY,
     WHITE,
     HudPanel,
+    draw_active_dot,
     draw_glyph,
     draw_icon,
     draw_mark,
@@ -193,8 +195,7 @@ class ModeHud:
 _SIZE_BODY = 11
 _SIZE_TINY = 8
 _PAD = 10
-DOT = 10       # the active-player dot at the head of the top line
-DOT_GAP = 8    # …and the room between it and the words
+DOT_GAP = 8  # the room between the active-player dot and the words beside it
 _MARGIN = 8    # inset from the window's top-left corner
 _ROW_GAP = 4   # between the top block, the buttons, the OSR2 row, the readout
 _SUBTITLE_GAP = 2  # between the status line and the file name under it
@@ -510,12 +511,12 @@ class ConsolePainter:
         top_h = body_ascent + body_descent
         tiny_h = sum(self._tiny.getmetrics())
         filename_h = (_SUBTITLE_GAP + tiny_h) if filename else 0
-        text_x = _PAD + DOT + DOT_GAP
+        text_x = _PAD + ACTIVE_DOT + DOT_GAP
 
         width = 2 * _PAD + max(
             row_width(rows), drive_w, self._osr2_width(console),
-            DOT + DOT_GAP + text_width(self._body, status),
-            DOT + DOT_GAP + text_width(self._tiny, filename),
+            ACTIVE_DOT + DOT_GAP + text_width(self._body, status),
+            ACTIVE_DOT + DOT_GAP + text_width(self._tiny, filename),
         )
         height = (
             2 * _PAD + top_h + filename_h + _ROW_GAP + rows_height(rows)
@@ -532,12 +533,8 @@ class ConsolePainter:
         # under it.  Same shape as each satellite's HUD, which leads with its
         # status and not with a file name.  Both empty in genau mode.
         y = _PAD
-        # White while a bare, player-less command lands here, the palette's grey
-        # otherwise — the same dot, in the same corner and colour, as each
-        # satellite's, so the main player reads as one of the family.
         dot_cy = y + top_h // 2
-        draw.ellipse([_PAD, dot_cy - DOT // 2, _PAD + DOT, dot_cy - DOT // 2 + DOT],
-                     fill=(*(WHITE if console.active else TEXT_MUTED), 255))
+        draw_active_dot(draw, _PAD, dot_cy - ACTIVE_DOT // 2, console.active)
         if status:
             draw.text((text_x, y + body_ascent), status, font=self._body,
                       anchor="ls", fill=(*TEXT_PRIMARY, 255))
