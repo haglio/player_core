@@ -46,11 +46,12 @@ Net: 3,661 → 3,616 SLOC, 0.7692 → 0.7669. Two helpers the audit called
 unadopted were adopted rather than deleted, which is why the line count moves
 less than the deletion list suggests.
 
-`tools/` is untouched throughout, and stays that way for the rest of this item:
-`sanitize_guard.py`, `harvest_blocklist.py` and `githooks/install.py` are
-maintained byte-identical across eleven checkouts, so their stale `noqa`, their
-duplicated import and their comment ratios (0.55 / 0.43 / 0.31) belong to the
-cross-repo consolidation rather than to this repo on its own.
+`tools/` was untouched throughout the item itself: `sanitize_guard.py` and
+`githooks/install.py` are maintained byte-identical across eleven checkouts, so
+their stale `noqa` and their comment ratios (0.55 / 0.31) belong to the
+cross-repo consolidation rather than to this repo on its own. The third file
+there, `harvest_blocklist.py`, was deleted afterwards on the owner's
+instruction — see below.
 
 **Comments.** Worked file by file against the retained-comments list in
 `audit/findings/player_core.md`, which is the floor: every range it marks *keep*
@@ -103,18 +104,27 @@ The other five the checker flags are boundary artifacts: a range that begins
 mid-sentence in a narrative the audit separately asked to delete, or one whose
 note already said *first sentence* or *minus the genau reference*.
 
-### Defects found and not fixed
+### The blocklist harvester, removed
 
-**`harvest_blocklist.main` raises on a first harvest** (`tools/harvest_blocklist.py:342`;
-audit `player_core/all/dead/025`). With the roots file written and no
-`sanitize/blocklist.local.txt` yet, `main()` calls `load_blocklist(blocklist_path(repo))`
-unconditionally and `read_text` raises `FileNotFoundError` instead of writing the
-first list. `blocklist_path` is documented to return a path that need not exist,
-and `sanitize_guard.main` does check `.exists()`; harvest's does not, and no test
-runs `main()` — every fixture pre-creates the file. Under `--detach` stderr goes
-to `DEVNULL`, so a harvest fired at startup fails silently and no list is ever
-produced. Not fixed here: it needs sign-off, and the fix has to land in all
-eleven copies of `tools/` at once.
+`tools/harvest_blocklist.py` and `tests/test_harvest_blocklist.py` are gone, on
+the owner's instruction and outside the scope of item 13.
+
+The blocklist is a curated list of domain terms, written by hand to keep the
+nature of this suite out of a public repo. The harvester learned terms off the
+media library instead and merged them in, which is how the machine-generated
+list now sitting in these checkouts came to exist — and that list is why
+publication is frozen. A tool that rewrites a hand-curated secret is not a tool
+whose first-run crash wants fixing.
+
+That crash was `player_core/all/dead/025`, filed in the audit's bugs register
+and recorded here as found-and-not-fixed while the item ran. It is moot: the
+file is gone. The finding should be closed as withdrawn rather than carried into
+the cross-repo consolidation, and item 44's plan to publish `tools/` from
+`app_support` should drop `app_support/app_support/sanitize/harvest.py` with it.
+
+`tools/sanitize_guard.py` is untouched and unweakened. It never referenced the
+harvester: it reads the blocklist and refuses a staged term, which is the half
+that does the protecting.
 
 ### Still open from this item
 
