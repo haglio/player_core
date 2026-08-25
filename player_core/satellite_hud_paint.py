@@ -23,6 +23,7 @@ from player_core.hud_panel import (
     BG_PRIMARY,
     GREEN,
     RED,
+    SYMBOL_FONT,
     TEXT_MUTED,
     TEXT_PRIMARY,
     WHITE,
@@ -97,10 +98,6 @@ _DOT = 1        # radius of one dot in a "…" mark — small, so three read as 
 _DOT_GAP = 4    # center-to-center spacing of those dots along the axis
 _COUNT_LINE_H = 11  # line pitch of the axis counts in the map's top-left corner
 
-# The loop (U+21BB) and expand (U+2194) glyphs on the buttons: Segoe UI has no
-# U+21BB, and Pillow — unlike Qt, which fell back silently — would draw a tofu
-# box.  Segoe UI Symbol covers both, so the buttons keep their icons.
-_SYMBOL_FONT = "seguisym.ttf"
 _SIZE_BODY = 11
 _SIZE_TINY = 8
 _ROW_LABEL_PT = 7
@@ -114,16 +111,11 @@ _LOOP_GLYPH = shared_mark("loop")
 _EXPAND_GLYPH = shared_mark("expand_horizontal")
 # The side's own controls.  Skip-track for the browse pair rather than bare
 # arrows, so they cannot be read as "step along the map"; a padlock and a bin for
-# the two that act on the clip on screen.  Reset wears the loop's own mark run
-# backwards (U+21BA against the loop's U+21BB): counterclockwise is what "put it
-# back" looks like everywhere, and the two never share a band — the loop buttons
-# stand on the map's edges and this one in the control row above it.  They come
-# from the same symbol face as the loop glyph — Segoe UI Bold has none of them.
-# The bin and the reset are the family's own drawings: the bin is the very bin
-# Origenerator's toolbar wears, and reset is a gear with a circular arrow at its
-# corner -- a bare counterclockwise arrow read as an undo, which is a different
-# act.  Skip-track and the padlock stay typed: the family has no drawing of
-# either, and the symbol face carries both cleanly.
+# the two that act on the clip on screen.  The bin and the reset are the family's
+# own drawings -- the bin is the very bin Origenerator's toolbar wears, and reset
+# is a gear with a circular arrow at its corner, where a bare counterclockwise
+# arrow read as an undo, which is a different act.  Skip-track and the padlock
+# stay typed: the family has no drawing of either.
 _CONTROL_GLYPHS = {
     "prev": "⏮", "next": "⏭", "lock": "🔒",
     "trash": shared_mark("trash"), "reset": shared_mark("reset"),
@@ -216,7 +208,7 @@ class HudRenderer:
         self._body = load_font(_SIZE_BODY)
         self._tiny = load_font(_SIZE_TINY)
         self._row = load_font(_ROW_LABEL_PT)
-        self._glyph = load_font(_SIZE_BODY, _SYMBOL_FONT)
+        self._glyph = load_font(_SIZE_BODY, SYMBOL_FONT)
         self._thumbs: dict[str, Image.Image] = {}
 
     def _thumbnail(self, cell: HudCell) -> Image.Image:
@@ -434,7 +426,6 @@ class HudRenderer:
                 self._draw_ellipses(draw, corner_rect, column_rect, seed_rects,
                                     action_rects, axis, window)
         if expand_rect is not None:
-            # "↔" reads as expanding — the seed row widening.
             self._glyph_button(image, draw, expand_rect, _EXPAND_GLYPH)
         if hover_tip:
             draw_tooltip(draw, self._tiny, hover_tip, hover_pos, (width, height))

@@ -55,6 +55,7 @@ from .hud_panel import (
     TEXT_MUTED,
     TEXT_PRIMARY,
     WHITE,
+    SYMBOL_FONT,
     HudPanel,
     draw_active_dot,
     draw_glyph,
@@ -88,10 +89,6 @@ from .console import (
     rows_height,
     tooltip_at,
 )
-
-# The glyphs the console's buttons are drawn with come from Segoe UI Symbol;
-# Segoe UI Bold has none of them and Pillow draws tofu rather than falling back.
-SYMBOL_FONT = "seguisym.ttf"
 
 # What the length modes are called on screen.  The library names them for what it
 # filters on; the HUD names them for what the user asked for.

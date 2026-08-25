@@ -180,9 +180,7 @@ def read_console(path: Path) -> ConsoleModel | None:
     )
 
 
-# The typed glyphs, all from Segoe UI Symbol — Segoe UI Bold has none of them,
-# and Pillow draws tofu where Qt used to fall back silently.  What is not here is
-# drawn instead, above.
+# The glyphs this console types, as against the marks it draws above.
 _GLYPHS = {
     # The transport, in one family of marks: to the ends of the video with a bar,
     # ten seconds either way without one.  A bare −/+ said "less/more", which is
@@ -221,11 +219,8 @@ WAVE_ICON = shared_mark("wave")
 BROKER_ICON = "\x00broker"
 FMODE_ICON = "\x00fmode"
 
-# The minimize control draws a bar rather than typing one, for the reason the
-# waveform does: Windows' own minimize mark is U+E921 of Segoe MDL2 Assets, which
-# is not the face these buttons load, and Pillow draws tofu for a codepoint a face
-# does not carry.  A bar across the button is also the one mark here nobody has to
-# be taught — it is what every title bar in Windows uses for the same gesture.
+# A marker rather than a glyph, because the minimize bar is drawn: the painters
+# say why, each beside the rectangle it draws.
 MINIMIZE_ICON = "\x00minimize"
 
 _MODE_BUTTONS = (

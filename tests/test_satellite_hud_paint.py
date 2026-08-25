@@ -877,16 +877,15 @@ def test_the_button_glyphs_are_not_tofu():
     ".notdef" box.  Qt fell back to Segoe UI Symbol silently; Pillow does not, so
     the glyph font must cover every button icon itself — the map's two and each of
     the side's own controls, reset's backwards loop included."""
-    from player_core.hud_panel import load_font
+    from player_core.hud_panel import SYMBOL_FONT, load_font
 
     from player_core.satellite_hud_paint import (
         _CONTROL_GLYPHS,
         _EXPAND_GLYPH,
         _LOOP_GLYPH,
-        _SYMBOL_FONT,
     )
 
-    glyph_font = load_font(11, _SYMBOL_FONT)
+    glyph_font = load_font(11, SYMBOL_FONT)
     notdef = glyph_font.getmask("").getbbox()
 
     assert glyph_font.getmask(_LOOP_GLYPH).getbbox() != notdef
