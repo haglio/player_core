@@ -111,22 +111,6 @@ class Funscript:
         onset = self._onsets[0]
         return onset if onset >= _QUIET_LEAD_IN_MS else None
 
-    @staticmethod
-    def _window(grid: tuple[float, ...], start_ms: int, step: float,
-                count: int, tail: float) -> tuple[tuple[float, ...], float]:
-        """*count* whole-knot samples of *grid* from the knot at or before
-        *start_ms*, plus the leftover fraction of a knot.  Whole knots only:
-        the values a window returns for one anchor knot never change, whatever
-        fraction the playhead sits past it."""
-        if step <= 0 or not grid:
-            return tuple(tail for _ in range(count)), 0.0
-        whole, frac = divmod(start_ms / step, 1)
-        first = int(whole)
-        return tuple(
-            grid[first + i] if 0 <= first + i < len(grid) else tail
-            for i in range(count)
-        ), frac
-
     def is_parked_at(self, position_ms: int) -> bool:
         """Whether the device's plan at *position_ms* is its parked position.
 
@@ -202,7 +186,16 @@ class Funscript:
         if count <= 0 or not self.actions:
             return (), 0.0
         step = span_ms / max(1, count - 1)
-        return self._window(self._planned_grid(step), start_ms, step, count + 1, 0.0)
+        samples = count + 1
+        if step <= 0:
+            return (0.0,) * samples, 0.0
+        grid = self._planned_grid(step)
+        whole, frac = divmod(start_ms / step, 1)
+        first = int(whole)
+        return tuple(
+            grid[first + i] if 0 <= first + i < len(grid) else 0.0
+            for i in range(samples)
+        ), frac
 
     def _planned_grid(self, step_ms: float) -> tuple[float, ...]:
         """The whole plan at one sample every *step_ms*, from zero, memoized."""

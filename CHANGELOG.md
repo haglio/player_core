@@ -30,3 +30,4 @@ the number's own pixels instead.
 | what went | source lines | comment ratio |
 |---|---:|---|
 | `Funscript.trace` / `trace_window` / `_grid` / `planned_trace` | −60 | 0.7692 → 0.7663 |
+| `Funscript._window` and its now-constant `tail`, left behind by the above | −7 | 0.7663 → 0.7656 |

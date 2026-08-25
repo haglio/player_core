@@ -443,3 +443,8 @@ class TestThePlanAsAPicture:
 
     def test_an_unscripted_video_has_no_picture_at_all(self):
         assert Funscript(actions=[]).planned_trace_window(0, 1000, 4) == ((), 0.0)
+
+    def test_a_span_of_no_time_is_all_park_rather_than_a_division_by_zero(self):
+        """A player stopped dead publishes a span of nothing — the trace's seconds
+        scaled by a playback speed of zero — and asks for a picture of it anyway."""
+        assert _gapped().planned_trace_window(0, 0, 3) == ((0.0,) * 4, 0.0)
