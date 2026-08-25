@@ -3,7 +3,12 @@ from __future__ import annotations
 import bisect
 import time
 
-from .tcode import HandoffGlide, TCodeSink, format_tcode_command
+from .tcode import (
+    HandoffGlide,
+    TCodeSink,
+    format_tcode_command,
+    to_tcode_position,
+)
 
 from .funscript import HANDOFF_RAMP_MS, PARK_SETTLE_MS, Funscript
 
@@ -112,11 +117,11 @@ class FunscriptTCodeDriver:
             # the OSR2 executes its move in wall-clock time, so at playback rate
             # ``speed`` the move must finish in that many wall-milliseconds.
             remaining = max(1, round((next_t - position_ms) / speed))
-            tcode_pos = round(next_pos * 9999 / 100)
+            tcode_pos = to_tcode_position(next_pos)
             self._send(tcode_pos, remaining, now)
         else:
             _, pos = fs.actions[-1]
-            tcode_pos = round(pos * 9999 / 100)
+            tcode_pos = to_tcode_position(pos)
             self._send(tcode_pos, 100, now)
 
     def _send(self, position: int, interval_ms: int, now: float) -> None:

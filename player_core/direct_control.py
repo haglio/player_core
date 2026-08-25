@@ -18,6 +18,8 @@ import math
 from dataclasses import dataclass
 from enum import Enum
 
+from .tcode import POSITION_MAX
+
 
 class WaveformShape(Enum):
     SINE = "sine"
@@ -29,9 +31,6 @@ MIN_BPM = 5.0
 MAX_BPM = 200.0
 MIN_SPEED = 5
 MAX_SPEED = 100
-
-# A T-Code stroke position, 0 at the bottom of the range.
-POSITION_MAX = 9999
 
 # The most wall time one tick of a caller's clock may move the phase — see
 # :func:`phase_advanced`.
