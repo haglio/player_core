@@ -12,8 +12,8 @@ ones that already had no consumer when the gate went in; the set has to match it
 exactly, so a name that gains a consumer takes its line out of the file and a
 new name with no consumer cannot be added quietly.
 
-**What it costs.** The answer depends on three other repos as they sit on disk,
-which is why the file is a snapshot and not a rule. A checkout that is absent,
+**What it costs.** The answer depends on the sibling checkouts as they sit on
+disk, which is why the file is a snapshot and not a rule. One that is absent,
 or one on a branch that has dropped an import, moves names into the unreferenced
 set and turns this red -- with the checkouts it read named in the message, so
 the cause is in front of whoever sees it. A tree with no consumer beside it at
@@ -163,11 +163,16 @@ def test_every_public_name_has_a_consumer():
         + "\n".join(f"  {name}  ({', '.join(published[name])})" for name in unrecorded)
     )
 
-    now_reached = sorted(recorded - without_a_consumer)
-    assert not now_reached, (
-        f"{BASELINE.name} lists names a consumer now imports (read from: "
-        f"{', '.join(consumers)}). Delete these lines -- the file is the list of "
-        "what is still waiting for one, and an entry that has stopped being true "
-        "hides the next name that stops being true:\n"
-        + "\n".join(f"  {name}" for name in now_reached)
+    settled = sorted(recorded - without_a_consumer)
+    assert not settled, (
+        f"{BASELINE.name} lists names that are no longer waiting for a consumer "
+        f"(read from: {', '.join(consumers)}). Delete these lines -- the file is "
+        "the list of what is still waiting, and a line that has stopped being "
+        "true is what hides the next one:\n"
+        + "\n".join(
+            f"  {name}  -- "
+            + ("a consumer imports it now" if name in published
+               else "no longer published here")
+            for name in settled
+        )
     )
