@@ -1,0 +1,237 @@
+# Public names in player_core that no sibling checkout imports.
+#
+# The snapshot this repo's consumer-import gate started from, not a list of
+# things that are fine. Every line is a name published out of a module for
+# nobody: it wants a consumer, a leading underscore, or deletion, and clearing
+# them is what backlog item 51 is. The gate holds the set exactly, so a name
+# that gains a consumer has to lose its line here and a new name without one
+# cannot be added quietly.
+#
+# Grouped by the module that defines the name. A name defined in more than one
+# module is listed once, with the others in its comment -- the scan matches on
+# the bare name.
+#
+# Recorded 2026-08-30 against fun_time, genau and origenerator: 290 public
+# names, 105 with a consumer, 185 without.
+
+
+# --- clip_scrub.py ---
+A_END
+B_END
+
+# --- console.py ---
+BROKER_ICON
+BUTTON
+Button
+ENHANCE_FILTER_ICON
+FMODE_ICON
+GAP  # also drive_layout.py
+GROUP_GAP
+MINIMIZE_ICON
+PLAYBACK_LABEL_W
+ROW_GAP  # also satellite_hud.py
+Rect  # also drive_layout.py, satellite_hud.py
+VALUE_W
+WAVE_ICON
+hit_test
+nau_displays
+osr2_row
+place_rows
+rows_height
+shape_label
+shares_the_device
+tooltip_at
+
+# --- console_hud.py ---
+DOT
+DOT_GAP
+OSR2_BUFFER
+OSR2_FUNSCRIPT
+OSR2_GENAU
+SYMBOL_FONT
+compilation_label
+
+# --- direct_control.py ---
+MAX_BPM
+MAX_TICK_SECONDS
+pause_playing
+
+# --- drive_layout.py ---
+CONTROL_SIZE
+DriveControl
+DriveTrack
+Geometry
+LABEL_H
+SECTION_H
+SECTION_W
+TRACE_ONLY_SIZE
+clamp01
+controls  # also drive_readout.py
+fraction
+geometry
+hit
+percent
+section_size
+track_value
+tracks  # also drive_readout.py
+
+# --- drive_readout.py ---
+DriveSection
+drive_text
+label_pair_x
+trace_ink
+track_command
+
+# --- funscript.py ---
+PARK_SETTLE_MS
+QUIET_LEAD_IN_MS
+QUIET_LEAD_OUT_MS
+
+# --- hud_marks.py ---
+SHARED_MARK
+shared_mark
+shared_mark_name
+
+# --- hud_panel.py ---
+ACTIVE_DOT
+AMBER  # also timeline.py
+BG_BUTTON
+BG_BUTTON_ACTIVE
+BG_PRIMARY
+BLUE
+BORDER_PANEL
+CORNER_RADIUS
+GREEN
+HudPanel
+ICON_GRIDS
+MARK_INSET
+PANEL_ALPHA
+PINK
+RED  # also timeline.py
+TEXT_MUTED
+TEXT_PRIMARY
+TOOLTIP_ALPHA
+TOOLTIP_PAD
+TOOLTIP_RADIUS
+UI_FONT
+WHITE
+draw_active_dot
+draw_glyph
+draw_icon
+draw_mark
+draw_tooltip
+load_font
+px
+text_width
+to_bgra
+
+# --- hud_status.py ---
+ENHANCED_LABEL
+LOCKED_LABEL
+SEPARATOR
+UNLOCKED_LABEL
+
+# --- libmpv_loader.py ---
+add_libmpv_to_path
+libmpv_dir
+
+# --- mpv_player.py ---
+logger
+
+# --- satellite_hud.py ---
+ACT_GAP
+CELL_W
+COL_LABEL_GAP
+COL_LABEL_H
+CONTROLS
+CONTROL_TOOLTIPS
+CTRL_BAND_H
+CTRL_BTN
+Cell
+DOUBLE_CLICK_S
+ELLIPSIS
+ELLIPSIS_ROOM
+EXPAND_TOOLTIP
+FAVORITE_TOOLTIP
+FILTER_BTN
+FILTER_ROOM
+FILTER_TOOLTIP
+LOOP_BTN
+LOOP_TOOLTIPS
+MAP_BOTTOM_RESERVE
+MAP_CELLS
+MAP_GAP
+MAP_RIGHT_RESERVE
+MAP_THUMB_H
+MAX_GUTTER
+MIN_GUTTER
+MODE_BUTTONS
+MODE_LABEL_PAD
+MODE_TOOLTIPS
+MapWindow
+PAD  # also volume.py
+STATUS_BAND_H
+STATUS_BASELINE
+STATUS_DOT
+STATUS_TEXT_X
+SUBTITLE_GAP
+act_is_filtered
+action_label_blocks
+build_click_targets
+cell_width
+column_anchor_rect
+control_button_rects
+ellipsis_rects
+expand_button_rect
+favorite_mark_rect
+filter_button_rects
+friendly_action_label
+loop_button_rects
+looped_group_box
+map_column_height
+map_reach
+map_row_width
+map_window
+mode_button_rects
+panel_height
+panel_width
+playing_rect
+seed_column_label
+split_acts
+thumbnail_rects
+
+# --- satellite_hud_paint.py ---
+RenderedHud
+gutter_width_for
+
+# --- sdl_hints.py ---
+FOCUS_CLICKTHROUGH_HINT
+
+# --- timeline.py ---
+BAR_EDGE
+BAR_FILL
+BAR_INSET_X
+CURSOR
+CURSOR_W
+MARK_W
+paint_rect
+rgba_to_bgra
+
+# --- volume.py ---
+MAX_VOLUME
+MIN_VOLUME
+ROW_H
+SLOT_W
+SPEAKER_W
+TRACK_H
+
+# --- wave_stack.py ---
+Dials
+Fit
+Ramp
+Wave
+WaveStack
+advance
+biggest
+fit
+room
