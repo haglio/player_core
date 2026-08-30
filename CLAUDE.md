@@ -47,11 +47,15 @@ suite pointed at it, or a fun_time verification session naming it in
 - **Run all three suites before merging**: this one, genau's unit suite, and
   fun_time's unit *and* hidden-desktop integration suites (the last is what
   actually launches `MpvPlayer` against the real DLL).
-- **No dead-code scan here, on purpose.** Every caller of this package lives in
-  another repo, so vulture flags the entire public API and the whitelist needed
-  to silence it would just restate that API — a guard that can never fail.
-  "Is this still used?" is answered by the consumers' own scans; don't add one
-  back.
+- **No vulture scan here, on purpose — the gate reads the consumers instead.**
+  Every caller of this package lives in another repo, so vulture flags the entire
+  public API and the whitelist needed to silence it would just restate that API:
+  a guard that can never fail. Don't add one back.
+  `tests/test_consumer_imports.py` asks the question the consumers can answer —
+  every public name must be imported by some sibling checkout, with
+  `tests/no_consumer_imports.txt` holding the ones that are not yet. It needs
+  those checkouts on disk and skips rather than passes without them, so a public
+  clone and CI both skip it and this machine is where it bites.
 
 ## libmpv changes: mandatory pre-flight
 
