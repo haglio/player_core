@@ -88,6 +88,16 @@ def _names_reached_from(source: str) -> set[str]:
     and what is read off a module bound by `from player_core import x` or
     `import player_core.x` -- the second is how most of the geometry and the
     format helpers are reached.
+
+    A name reached only through a string -- `patch("player_core.taskbar.set…")`
+    -- is not counted, on purpose. Reading those would mean matching
+    `player_core.x.name` anywhere in the text, which is also how these repos
+    *write about* each other in docstrings, and counting a mention as a use is
+    the silent failure. Missing a genuine one is the loud failure: the name
+    lands in the report with the checkouts that were read named beside it.
+    Checked when the gate went in -- the only two names spelled that way across
+    the three consumers are `set_app_user_model_id`, imported directly as well,
+    and `time`, which is not one of ours.
     """
     # Most of a consumer's tree has nothing to do with this package, and parsing
     # it all costs more than the whole rest of this suite.
