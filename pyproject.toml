@@ -24,5 +24,5 @@ dev = [
 include = ["player_core*"]
 
 [tool.pytest.ini_options]
-addopts = "-p no:cacheprovider"
+addopts = "-p no:cacheprovider -p app_support.sanitize.pytest_plugin"
 testpaths = ["tests"]
