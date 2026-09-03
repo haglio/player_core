@@ -25,13 +25,17 @@ dev = [
 include = ["player_core*"]
 
 [tool.pytest.ini_options]
-# A ceiling on a hang, not a performance budget. The slowest test on a
-# developer machine is the tracked-tree content scan, but it is not the
-# slowest on a runner: it returns early when no blocklist is reachable, and
+# The content guard's tracked-tree check comes from app_support, not a copy
+# kept here; a `-p` that cannot be imported fails the run outright, which is
+# the answer wanted from a checkout that has stopped being guarded.
+#
+# The timeout is a ceiling on a hang, not a performance budget. The slowest
+# test on a developer machine is that tracked-tree content scan, but it is not
+# the slowest on a runner: it returns early when no blocklist is reachable, and
 # the blocklist is git-ignored, so a fresh checkout has none. What CI does run
 # longest here is a cruise-control simulation at about a second.
 # --timeout-method=thread is the half that pays for itself: it dumps the hung
 # stack, which turns a stalled required check into a one-line diagnosis.
 # tests/test_timeouts.py holds all three halves of it.
-addopts = "-p no:cacheprovider --timeout=60 --timeout-method=thread"
+addopts = "-p no:cacheprovider -p app_support.sanitize.pytest_plugin --timeout=60 --timeout-method=thread"
 testpaths = ["tests"]

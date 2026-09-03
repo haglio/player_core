@@ -4,25 +4,33 @@
 # Separate from pre-commit because a pre-commit hook never sees the message, and
 # the message is where terms have actually landed: a commit that sanitizes a file
 # tends to describe what it took out.
+#
+# Same contract as pre-commit, for the same reason: no `exit 0` here, so a guard
+# this hook cannot import fails the commit instead of waving it through.
 set -e
 
 repo=$(git rev-parse --show-toplevel)
 common=$(git rev-parse --git-common-dir)
 primary=$(cd "$(dirname "$common")" && pwd)
 
+# This repo has no venv of its own (see CLAUDE.md), so after its own paths the
+# hook tries the two consumers' venvs beside the primary: both install this
+# package and app_support editable, so either can run the guard. A bare
+# `python` on this machine is a Store stub with neither.
 for candidate in \
     "$repo/.venv/Scripts/python.exe" \
     "$repo/.venv/bin/python" \
     "$primary/.venv/Scripts/python.exe" \
-    "$primary/.venv/bin/python"
+    "$primary/.venv/bin/python" \
+    "$(dirname "$primary")/genau/.venv/Scripts/python.exe" \
+    "$(dirname "$primary")/fun_time/.venv/Scripts/python.exe"
 do
     if [ -x "$candidate" ]; then python="$candidate"; break; fi
 done
-if [ -z "${python:-}" ]; then
-    python=$(command -v python3 || command -v python || true)
-fi
-[ -n "$python" ] || exit 0
+# An unresolved name is itself the loud failure: the exec below fails and the
+# commit stops, rather than a branch here deciding to let it through.
+python=${python:-$(command -v python3 || command -v python || echo python3)}
 
 message=$1
 cd "$repo"
-exec "$python" -m tools.sanitize_guard --message "$message"
+exec "$python" -m app_support.sanitize --message "$message"
