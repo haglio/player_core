@@ -1021,3 +1021,61 @@ def test_the_unlit_mode_keeps_its_ordinary_ink(thumb):
     rgb = _rgb(rendered.bgra)[y:y + h, x:x + w].astype(int)
 
     assert (abs(rgb - np.array(TEXT_PRIMARY)).max(axis=2) <= 2).any()
+
+
+def test_the_enhanced_switch_is_drawn_only_for_a_side_that_has_the_filter():
+    """fun_time's own players have no enhanced pictures to keep, and their bands
+    are as they were.  A hosted Origenerator's show names the filter — on or off
+    — and its band grows the switch, right after F-mode: the same kind of thing,
+    a cut over the library rather than an act on the clip."""
+    def names(**overrides):
+        rendered = HudRenderer("landscape").render(
+            HudModel(side="landscape", lock_label="Unlocked", **overrides))
+        return [name for _rect, name in rendered.targets.control]
+
+    assert names() == ["prev", "next", "lock", "trash", "fmode", "reset", "minimize"]
+    assert names(enhanced_filter=False) == names(enhanced_filter=True) == [
+        "prev", "next", "lock", "trash", "fmode", "enhanced", "reset", "minimize",
+    ]
+
+
+def _amber_ink(rect, rendered) -> int:
+    """How many pixels inside *rect* are the amber an enhanced mark is drawn in."""
+    x, y, w, h = rect
+    rgb = _rgb(rendered.bgra)[y:y + h, x:x + w].astype(int)
+    amber = (rgb[:, :, 0] > 200) & (rgb[:, :, 1] > 150) & (rgb[:, :, 2] < 160) & (rgb[:, :, 1] < rgb[:, :, 0])
+    return int(amber.sum())
+
+
+def test_the_enhanced_switch_wears_amber_and_fills_with_it_when_on():
+    """Amber is what an enhanced picture is marked with across this family, so
+    the switch that keeps only those wears its mark in amber at rest and its
+    whole ground in amber while it is on — never the favorites' green, which
+    would say the wrong thing about what was kept."""
+    def rendered_with(on: bool):
+        return HudRenderer("landscape").render(
+            HudModel(side="landscape", lock_label="Unlocked", enhanced_filter=on))
+
+    off, on = rendered_with(False), rendered_with(True)
+    rect = {name: rect for rect, name in on.targets.control}["enhanced"]
+
+    assert _amber_ink(rect, off) > 0                      # the mark itself, at rest
+    assert _amber_ink(rect, on) > _amber_ink(rect, off)   # the ground, when on
+    assert _lit_ink(rect, on) == 0                        # and no green anywhere in it
+
+
+def test_the_enhanced_switch_keeps_its_place_under_a_mode_row(thumb):
+    """With the mode pair leading the panel, the switch stays on the control band
+    between F-mode and reset, and the band is measured with it — so a portrait
+    panel, whose map is narrower than its controls, still holds the whole row
+    and the star at its end."""
+    rendered = HudRenderer("portrait").render(
+        _model(corner=HudCell(path="c.mp4", thumb=thumb),
+               satellites_mode="origenerator", enhanced_filter=False))
+    by_name = {name: rect for rect, name in rendered.targets.control}
+    width = rendered.bgra.shape[1]
+
+    assert by_name["enhanced"][1] == by_name["fmode"][1] == by_name["reset"][1]
+    assert by_name["fmode"][0] < by_name["enhanced"][0] < by_name["reset"][0]
+    assert by_name["reset"][0] + by_name["reset"][2] + MAP_GAP <= rendered.targets.favorite[0]
+    assert rendered.targets.favorite[0] + rendered.targets.favorite[2] <= width - PAD

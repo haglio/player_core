@@ -132,6 +132,13 @@ _ICON_CONTROLS = {"fmode": "F"}
 # before pressing says so before its tooltip does.
 _DESTRUCTIVE = {"trash"}
 _FAVORITE_GLYPH = shared_mark("star")
+# The enhanced-only switch wears the family's own mark for exactly that â€” the
+# plus an enhanced picture carries in its corner, with a funnel hung off it â€”
+# the same mark the main console's copy of the switch wears, so the two are one
+# control in two places.  Its color is the family's enhanced amber, at rest and
+# lit alike, the way F-mode keeps its favorites green: the color says what the
+# switch is about before the tooltip does.
+_ENHANCED_GLYPH = shared_mark("enhance_filter")
 
 # The filter mark, drawn rather than typed: Segoe UI Symbol — the face the other
 # buttons take their icons from — carries no funnel at any codepoint, and this is
@@ -151,6 +158,24 @@ _FUNNEL_NECK = 3  # width of the stem the mouth narrows to
 # funnel's mouth, so the two drawn marks are built to one size.
 _MINIMIZE_W = 9
 _MINIMIZE_H = 2
+
+
+def _row_names(model: HudModel, *, mode_row: bool) -> tuple[str, ...]:
+    """Which controls the band carries for *model*, in order.
+
+    :data:`CONTROLS`, with the enhanced-only switch slotted in after F-mode for a
+    side that has one (``enhanced_filter`` not None â€” a hosted Origenerator's
+    show; fun_time's own players have no enhanced pictures to keep, so their
+    bands are as they were), and minimize taken off where the mode row above
+    carries it (see :data:`MODE_BUTTONS`).  One answer for both the row's
+    measurement and its drawing, so a widened band cannot be measured short.
+    """
+    names = list(CONTROLS)
+    if model.enhanced_filter is not None:
+        names.insert(names.index("fmode") + 1, "enhanced")
+    if mode_row:
+        names.remove("minimize")
+    return tuple(names)
 
 
 def gutter_width_for(font: ImageFont.FreeTypeFont, current_action: str,
@@ -297,10 +322,10 @@ class HudRenderer:
         # silence.  The control row keeps room for the favorite star at its far
         # end the same way.
         mode_widths = self._mode_label_widths(model)
+        row_names = _row_names(model, mode_row=bool(mode_widths))
         band_width = 0
         if mode_widths:
-            band_names = tuple(n for n in CONTROLS if n != "minimize")
-            controls_end = control_button_rects(PAD, 0, band_names)[-1][0][0] + CTRL_BTN
+            controls_end = control_button_rects(PAD, 0, row_names)[-1][0][0] + CTRL_BTN
             pair = sum(w + 2 * MODE_LABEL_PAD for w in mode_widths) + MAP_GAP
             band_width = max(
                 PAD + pair + MAP_GAP + CTRL_BTN,        # the mode row, minimize riding it
@@ -319,10 +344,8 @@ class HudRenderer:
         y += STATUS_BAND_H + subtitle_h
 
         modes: list[tuple[Rect, str]] = []
-        row_names = CONTROLS
         if mode_widths:
             modes, minimize_rect = self._draw_mode_row(draw, y, model, mode_widths)
-            row_names = tuple(n for n in CONTROLS if n != "minimize")
             y += CTRL_BAND_H
         # Laid out against the panel rather than against the map: they act on the
         # side and the clip on screen, and are there whether or not there is a map.
@@ -717,18 +740,28 @@ class HudRenderer:
         """The side's own buttons, and the mark saying whether the clip on screen
         is one of the favorites.
 
-        The lock and F-mode are states, so they light while they are on; the
-        others do a thing rather than be in one.  The star is a readout, not a
-        button, so it gets no box: a box would invite a press that does nothing.
+        The lock, F-mode and the enhanced-only switch are states, so they light
+        while they are on; the others do a thing rather than be in one.  The
+        star is a readout, not a button, so it gets no box: a box would invite a
+        press that does nothing.
 
         Both lit states are green rather than white, and so is the star: locking a
         clip puts it in the favorites and F-mode is the filter over them, so all
         three are the same fact and read as one color.  F-mode's button carries
         its own pink mark on top of that green, the same badge it wears on the
-        main console and on the taskbar.
+        main console and on the taskbar.  The enhanced switch is the one control
+        here in another color: amber is what an enhanced picture is marked with
+        across this family, so its mark is amber at rest and its ground amber
+        while it is on â€” a lit one reading as "the enhanced ones", not as "the
+        favorites".
         """
-        lit = {"lock": model.locked, "fmode": model.f_mode}
+        lit = {"lock": model.locked, "fmode": model.f_mode,
+               "enhanced": bool(model.enhanced_filter)}
         for rect, name in controls:
+            if name == "enhanced":
+                self._glyph_button(image, draw, rect, _ENHANCED_GLYPH,
+                                   on=lit[name], on_color=AMBER, ink=AMBER)
+                continue
             if name in _ICON_CONTROLS:
                 self._button_box(draw, rect, on=lit.get(name, False), on_color=GREEN)
                 draw_icon(draw, rect, _ICON_CONTROLS[name])

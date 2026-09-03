@@ -48,3 +48,18 @@ def test_the_two_browse_orders_are_named_once_for_every_player():
     """Each player browses newest-first or shuffled, and says so in this slot — so
     the words belong here rather than in each app, where they drifted before."""
     assert (LATEST_LABEL, SHUFFLE_LABEL) == ("Latest", "Shuffle")
+
+
+def test_the_enhanced_narrowing_has_a_slot_of_its_own_after_f_mode():
+    """Origenerator's shows keep only the pictures they have enhanced the way a
+    player keeps only its favorites — the same kind of cut, said in the same
+    sentence — so the slot is a flag here, and the HUD carrying the switch never
+    has to own the word for it.  Coarse before fine: F-mode, then this, then
+    whatever act filter is left."""
+    from player_core.hud_status import ENHANCED_LABEL
+
+    assert status_line(locked=False, order=SHUFFLE_LABEL, enhanced=True) == (
+        f"{UNLOCKED_LABEL} · Shuffle · {ENHANCED_LABEL}")
+    assert status_line(locked=True, f_mode=True, enhanced=True, filter_label="alpha") == (
+        f"{LOCKED_LABEL} · {F_MODE_LABEL} · {ENHANCED_LABEL} · alpha")
+    assert status_line(locked=True, enhanced=False) == LOCKED_LABEL

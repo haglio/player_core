@@ -53,7 +53,8 @@ def looping_label(axis: str) -> str:
 
 
 def status_line(*, locked: bool, playing_set: str = "", order: str = "",
-                f_mode: bool = False, filter_label: str = "") -> str:
+                f_mode: bool = False, enhanced: bool = False,
+                filter_label: str = "") -> str:
     """The line, from the slots a player fills.
 
     Read left to right, the slots answer a reader's questions in the order they
@@ -61,7 +62,10 @@ def status_line(*, locked: bool, playing_set: str = "", order: str = "",
     compilation), whether it is being held (*locked*), how it moves on (*order* —
     Latest/Shuffle, or the seconds an unheld clip stays up), and what has been cut
     out of it — *f_mode* first, cutting the whole library to the funscripted
-    videos, then *filter_label*, narrowing what is left.
+    videos, then *enhanced*, keeping only the pictures Origenerator has enhanced
+    (a slot of its own, so the HUD that carries the switch for it has the word
+    for it too without owning the label), then *filter_label*, narrowing what is
+    left.
 
     Every slot but the lock is optional and an empty one takes no room, so a player
     with nothing to say in it prints nothing rather than an empty phrase.  The one
@@ -79,6 +83,8 @@ def status_line(*, locked: bool, playing_set: str = "", order: str = "",
         parts.append(order)
     if f_mode:
         parts.append(F_MODE_LABEL)
+    if enhanced:
+        parts.append(ENHANCED_LABEL)
     if filter_label:
         parts.append(filter_label)
     return SEPARATOR.join(parts)
