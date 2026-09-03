@@ -15,7 +15,7 @@ from player_core.hud_panel import (
 
 from player_core.drive_layout import AMPLITUDE, CENTER, SPEED
 from player_core.drive_readout import DriveHud
-from player_core.console import ConsoleModel
+from player_core.console import ConsoleModel, _ROW_LABELS
 from player_core.console_hud import (
     ConsoleHud,
     ConsolePainter,
@@ -301,20 +301,64 @@ class TestPainter:
         green = (rgb[:, :, 1] > 130) & (rgb[:, :, 0] < 110) & (rgb[:, :, 2] < 110)
         assert green.any()
 
-    def test_a_control_that_is_on_fills_white_rather_than_green(self):
-        """Green means the favorites and the funscripts everywhere in this
-        family — the OSR2 pill says FunScript in it, and that is the only thing on
-        the console entitled to it.  The mode you are in is not one of them."""
+    def _busiest_shade(self, action: str, model: ConsoleModel):
+        painter = ConsolePainter()
+        rgb = _rgb(painter.bgra(ConsoleHud(console=model)))
+        (bx, by, bw, bh), _b = next(
+            (rect, b) for rect, b in painter.buttons if b.action == action)
+        box = rgb[by:by + bh, bx:bx + bw].astype(int)
+        shades, counts = np.unique(box.reshape(-1, 3), axis=0, return_counts=True)
+        return tuple(shades[counts.argmax()]), box
+
+    def test_the_mode_you_are_in_lights_blue(self):
+        """Every button carries a lit ground now, so one shade lighter was too
+        small a difference to find the selected mode at a glance.  Blue — the
+        one the broker wears — and the satellite HUD's Player/Origenerator pair
+        lights the same, because it is the same question about the other half
+        of the room.
+
+        Not green: green means the favorites and the funscripts everywhere in
+        this family, and the mode you are in is neither."""
+        from player_core.hud_panel import BLUE
+
+        shade, box = self._busiest_shade("hybrid_activate", ConsoleModel(mode="hybrid"))
+
+        assert shade == BLUE
+        green = (box[:, :, 1] > 130) & (box[:, :, 0] < 110) & (box[:, :, 2] < 110)
+        assert not green.any()
+
+    def test_an_ordinary_toggle_that_is_on_lights_the_active_ground(self):
+        """What every other lit control takes: the family's ACTIVE ground, one
+        step up from the resting one — the step Origenerator's checked buttons
+        take.  It used to fill white, which is what made the console read as a
+        different app from the windows beside it."""
+        from shared_ui.colors import BG_BUTTON, BG_BUTTON_ACTIVE
+
+        active = (BG_BUTTON_ACTIVE.red(), BG_BUTTON_ACTIVE.green(), BG_BUTTON_ACTIVE.blue())
+        shade, _box = self._busiest_shade(
+            "genau_toggle_cruise", ConsoleModel(mode="genau", cruise=True))
+
+        assert shade == active
+        # And visibly a step up from a control at rest, or "on" says nothing.
+        assert active != (BG_BUTTON.red(), BG_BUTTON.green(), BG_BUTTON.blue())
+
+    def test_a_control_at_rest_still_carries_the_familys_thin_edge(self):
+        """The edge used to be the resting fill's own color, which is no edge at
+        all — the satellite HUDs beside this one draw theirs in the muted gray the
+        rest of the chrome uses, and the console read as borderless slabs."""
+        from shared_ui.colors import TEXT_MUTED
+
         painter = ConsolePainter()
         rgb = _rgb(painter.bgra(ConsoleHud(console=ConsoleModel(mode="hybrid"))))
         (bx, by, bw, bh), _b = next(
-            (rect, b) for rect, b in painter.buttons if b.action == "hybrid_activate")
+            (rect, b) for rect, b in painter.buttons
+            if b.action and b.action != "hybrid_activate")
         box = rgb[by:by + bh, bx:bx + bw].astype(int)
+        muted = (TEXT_MUTED.red(), TEXT_MUTED.green(), TEXT_MUTED.blue())
 
-        shades, counts = np.unique(box.reshape(-1, 3), axis=0, return_counts=True)
-        assert tuple(shades[counts.argmax()]) == (255, 255, 255)
-        green = (box[:, :, 1] > 130) & (box[:, :, 0] < 110) & (box[:, :, 2] < 110)
-        assert not green.any()
+        # Along the top edge, between the rounded corners.
+        edge = box[0, 4:bw - 4]
+        assert (abs(edge - np.array(muted)).max(axis=1) <= 2).any()
 
     def test_the_broker_wears_the_face_it_had_on_the_dashboard(self):
         """Its own pink mark on blue while the service is up and red while it is
@@ -810,3 +854,79 @@ class TestTheHandoffKeepsMoving:
             drive=replace(_drive(0.0), segments=((0, "genau"), (40, "neutral"))))
 
         assert painter._resolve(hud).drive.segments == ((0, "genau"), (40, "neutral"))
+
+
+class TestTheLockIsGreen:
+    """A lock puts the clip in the favorites, so it wears the color this family
+    spends on them — the same green the satellite HUDs' lock has always lit."""
+
+    def test_a_held_clip_lights_the_lock_green(self):
+        from player_core.hud_panel import GREEN
+
+        painter = ConsolePainter()
+        rgb = _rgb(painter.bgra(ConsoleHud(console=ConsoleModel(mode="nau", locked=True))))
+        (bx, by, bw, bh), _b = next(
+            (rect, b) for rect, b in painter.buttons if b.action == "main_lock")
+        box = rgb[by:by + bh, bx:bx + bw].astype(int)
+        shades, counts = np.unique(box.reshape(-1, 3), axis=0, return_counts=True)
+
+        assert tuple(shades[counts.argmax()]) == GREEN
+
+    def test_an_unheld_lock_sits_on_the_resting_ground(self):
+        from shared_ui.colors import BG_BUTTON
+
+        painter = ConsolePainter()
+        rgb = _rgb(painter.bgra(ConsoleHud(console=ConsoleModel(mode="nau", locked=False))))
+        (bx, by, bw, bh), _b = next(
+            (rect, b) for rect, b in painter.buttons if b.action == "main_lock")
+        box = rgb[by:by + bh, bx:bx + bw].astype(int)
+        shades, counts = np.unique(box.reshape(-1, 3), axis=0, return_counts=True)
+
+        assert tuple(shades[counts.argmax()]) == (
+            BG_BUTTON.red(), BG_BUTTON.green(), BG_BUTTON.blue())
+
+
+class TestARowsNameLinesUpWithItsControls:
+    """A word naming its row starts on the same left edge as every box below
+    it, and its cell is wide enough to hold it.
+
+    Both halves are one bug.  The cell was a fixed 66px while "Playback speed"
+    measures 80, so centered the word began 7px LEFT of that column -- the
+    "missing margin" -- and left-aligned it ran PAST its cell, putting the "d"
+    of "speed" under the minus button beside it.
+    """
+
+    def _rows(self, mode: str):
+        painter = ConsolePainter()
+        painter.bgra(ConsoleHud(console=ConsoleModel(mode=mode)))
+        rows: dict[int, list] = {}
+        for rect, button in painter.buttons:
+            rows.setdefault(rect[1], []).append((rect[0], rect[2], button))
+        return painter, {y: sorted(items) for y, items in rows.items()}
+
+    def test_the_name_starts_where_the_controls_start(self):
+        from player_core.console_hud import _PAD, _ROW_LABEL_INSET
+
+        for mode in ("nau", "genau"):
+            _painter, rows = self._rows(mode)
+            for items in rows.values():
+                x, _w, button = items[0]
+                assert x == _PAD          # every row opens on the one column
+            assert _ROW_LABEL_INSET == 0  # and the word is not indented off it
+
+    def test_the_name_does_not_run_under_the_button_beside_it(self):
+        from player_core.hud_panel import text_width
+
+        for mode in ("nau", "genau"):
+            painter, rows = self._rows(mode)
+            for items in rows.values():
+                x, width, button = items[0]
+                if button.action or len(items) < 2:
+                    continue
+                assert text_width(painter._tiny, button.glyph) <= width
+                assert x + width <= items[1][0]
+
+    def test_both_named_rows_take_the_same_cell_so_they_line_up(self):
+        painter = ConsolePainter()
+        assert painter._row_label_width() >= max(
+            text_width(painter._tiny, label) for label in _ROW_LABELS)

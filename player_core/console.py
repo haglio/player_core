@@ -25,7 +25,15 @@ from .hud_marks import shared_mark
 
 BUTTON = 18   # a square control; the wider ones are multiples plus the gaps
 VALUE_W = 22  # a value read-out between a pair of buttons (the playback rate)
-PLAYBACK_LABEL_W = 66  # the words naming that pair
+# The words naming that pair.  A FLOOR, not the width: the cell is widened to
+# whatever the row's own label measures (console_rows takes the measurement,
+# since this module is font-free by design -- see mode_button_rects for the
+# same split).  Fixed at 66 it was narrower than "Playback speed" is at 80, so
+# the words ran out of their cell and the "d" sat under the - button beside it.
+PLAYBACK_LABEL_W = 66
+# The words those cells carry, named here so whoever CAN measure text sizes the
+# cell to them rather than to a number that drifts from the font.
+_ROW_LABELS = ("Playback speed", "Clip seconds")
 GAP = 4       # between buttons along a row
 ROW_GAP = 5   # between rows
 GROUP_GAP = 12  # between groups of buttons that mean different things
@@ -80,6 +88,16 @@ class Button:
     # at before clicking says so before its tooltip does.  Red is otherwise this
     # family's alarm, and nothing here is alarming enough to spend it on twice.
     danger: bool = False
+    # One of a set of mutually exclusive modes -- Nau/Hybrid/Genau here, the
+    # satellite side's Player/Origenerator on its own HUD.  Lit, it fills the
+    # family's BLUE rather than the active gray every other toggle takes: with
+    # every button now carrying a lit ground, one shade lighter was too small a
+    # difference to find the mode you are in at a glance.
+    choice: bool = False
+    # Start a new group here: the row opens a GROUP_GAP before this button
+    # instead of the ordinary one, so a control that is about something else
+    # than its neighbours reads as separate without a rule drawn between them.
+    group_break: bool = False
 
 
 @dataclass(frozen=True)
@@ -250,7 +268,8 @@ def _format_rate(rate: float) -> str:
     return f"{rate:g}×"
 
 
-def console_rows(model: ConsoleModel, *, modes: bool = True) -> list[list[Button]]:
+def console_rows(model: ConsoleModel, *, modes: bool = True,
+                 label_width: int = PLAYBACK_LABEL_W) -> list[list[Button]]:
     """The console's buttons, row by row, for the mode Fun Time says it is in.
 
     The mode row leads, so it holds the same place in every mode.  Then the
@@ -270,7 +289,7 @@ def console_rows(model: ConsoleModel, *, modes: bool = True) -> list[list[Button
         [
             *(
                 Button(action, label, f"{label} mode", width=BUTTON * 2 + GAP,
-                       lit=model.mode == mode)
+                       lit=model.mode == mode, choice=True)
                 for action, label, mode in _MODE_BUTTONS
             ),
             # Minimize rides the mode row because it is about the main *slot*
@@ -281,14 +300,15 @@ def console_rows(model: ConsoleModel, *, modes: bool = True) -> list[list[Button
             # no title bar to carry this; the only other way to put it away is the
             # dashboard's own minimize, which takes the whole room.
             Button("main_minimize", MINIMIZE_ICON,
-                   "Minimize this player — bring it back from the taskbar"),
+                   "Minimize this player — bring it back from the taskbar",
+                   group_break=True),
         ],
     ]
     rows.append(_transport_row(model))
     if nau_displays(model.mode):
-        rows.append(_playback_speed_row(model))
+        rows.append(_playback_speed_row(model, label_width))
     else:
-        rows.append(_clip_seconds_row(model))
+        rows.append(_clip_seconds_row(model, label_width))
     if genau_drives(model.mode):
         rows.append(_control_row(model))
     return rows
@@ -324,7 +344,11 @@ def _transport_row(model: ConsoleModel) -> list[Button]:
                    "playlist" if model.locked
                    else "Unlocked — plays on through the playlist; press to hold "
                         "this video",
-                   lit=model.locked),
+                   # Green, like the satellite HUDs' lock: a lock puts the clip
+                   # in the favorites, and green is what this family spends on
+                   # the favorites and the funscripts.  On the ordinary active
+                   # gray it was indistinguishable from every other toggle.
+                   lit=model.locked, favorite=True),
             # F-mode is per player now — Fun Time's dashboard used to carry one
             # switch for the room and every player carries its own instead.  Here
             # it narrows the playlist to the videos that have a funscript, so it
@@ -366,7 +390,7 @@ def _transport_row(model: ConsoleModel) -> list[Button]:
                f"{model.advance_interval}s" if model.locked
                else "Unlocked — moving on every "
                     f"{model.advance_interval}s; press to hold this clip",
-               lit=model.locked),
+               lit=model.locked, favorite=True),
         # The narrowing switches sit straight after the lock, in the order the
         # other branch puts them in: both say what there is to step through
         # rather than acting on what is on screen or on where it ends.  F leads,
@@ -392,21 +416,21 @@ def _transport_row(model: ConsoleModel) -> list[Button]:
     ]
 
 
-def _playback_speed_row(model: ConsoleModel) -> list[Button]:
+def _playback_speed_row(model: ConsoleModel, label_width: int = PLAYBACK_LABEL_W) -> list[Button]:
     """Nau's video playback rate: slower, the rate itself, faster.
 
     Named, because "Speed" already means the *stroke* rate down on the drive
     readout and an unlabelled −/+ pair beside a number said neither.
     """
     return [
-        Button("", "Playback speed", "", width=PLAYBACK_LABEL_W),
+        Button("", "Playback speed", "", width=label_width),
         Button("nau_speed_down", _GLYPHS["minus"], "Play the video slower"),
         Button("", _format_rate(model.playback_speed), "", width=VALUE_W),
         Button("nau_speed_up", _GLYPHS["plus"], "Play the video faster"),
     ]
 
 
-def _clip_seconds_row(model: ConsoleModel) -> list[Button]:
+def _clip_seconds_row(model: ConsoleModel, label_width: int = PLAYBACK_LABEL_W) -> list[Button]:
     """How long an unlocked Genau leaves each clip on screen: fewer, the number
     itself, more.
 
@@ -419,7 +443,7 @@ def _clip_seconds_row(model: ConsoleModel) -> list[Button]:
     pace.
     """
     return [
-        Button("", "Clip seconds", "", width=PLAYBACK_LABEL_W),
+        Button("", "Clip seconds", "", width=label_width),
         Button("genau_advance_down", _GLYPHS["minus"], "Move on sooner"),
         Button("", f"{model.advance_interval}s", "", width=VALUE_W),
         Button("genau_advance_up", _GLYPHS["plus"], "Leave each clip longer"),
@@ -478,6 +502,8 @@ def _group_break(row: list[Button], index: int) -> bool:
     as one long undifferentiated strip.
     """
     previous, current = row[index - 1], row[index]
+    if current.group_break:
+        return True  # the button says so itself (the mode row's minimize)
     if not current.action or not previous.action:
         # A word naming the row stands apart from the controls; a value sitting
         # between a pair of them belongs with them, and pushing the − and + that

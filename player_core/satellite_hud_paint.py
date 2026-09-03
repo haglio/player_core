@@ -17,9 +17,12 @@ from dataclasses import dataclass, replace
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from player_core.hud_marks import SHARED_MARK, shared_mark, shared_mark_name
+from shared_ui.spacing import BUTTON_GROUP_GAP
 from player_core.hud_panel import (
-    BG_BUTTON,
+    BG_BUTTON, BG_BUTTON_ACTIVE,
     BG_PRIMARY,
+    AMBER,
+    BLUE,
     GREEN,
     RED,
     SYMBOL_FONT,
@@ -432,7 +435,10 @@ class HudRenderer:
         modes = mode_button_rects(PAD, y, mode_widths)
         self._draw_modes(draw, modes, model)
         last_x, _my, last_w, _mh = modes[-1][0]
-        minimize_rect = (last_x + last_w + MAP_GAP, y, CTRL_BTN, CTRL_BTN)
+        # A GROUP apart from the pair, not the ordinary gap: minimize is about
+        # the window this panel is drawn in rather than about which mode the
+        # side is in, and the console spaces its own the same way.
+        minimize_rect = (last_x + last_w + BUTTON_GROUP_GAP, y, CTRL_BTN, CTRL_BTN)
         self._minimize_button(draw, minimize_rect)
         return modes, minimize_rect
 
@@ -591,32 +597,50 @@ class HudRenderer:
             row(ay, ah, model.actions[i].label if i < len(model.actions) else "")
 
     def _button_box(self, draw, rect: Rect, *, on: bool,
-                    on_color=WHITE, ink=None) -> tuple[int, int, int, int]:
+                    on_color=BG_BUTTON_ACTIVE, ink=None) -> tuple[int, int, int, int]:
         """The panel's square button, and the color to draw its mark in — the
         single button shape every control on this HUD is drawn with, so a new one
         cannot invent its own look.
 
-        Off, the box sits on the family's own button ground -- an outline over the
-        slab and nothing else reads as a hole cut in the panel rather than as the
-        raised button every window here offers -- with an edge in the muted gray the
-        rest of the chrome uses, and the mark at full strength, the same way the
-        main player's console draws its own.  On, the box fills *on_color* and the
-        mark reverses out of it.
-        That fill is white for everything here except the lock: green across this
-        family means favorites and the funscripts, and the lock is the gesture
-        that favorites a clip, so it is the one control that earns the color.
+        Off, the box sits on the family's own button ground -- an outline over
+        the slab and nothing else read as a hole cut in the panel rather than as
+        the raised button every window here offers -- with an edge in the muted
+        gray the rest of the chrome uses, and the MARK is full-strength -- the same way the main player's console
+        draws its own.  Both were muted here, which left these panels reading as
+        dim and half-disabled beside the console's, for controls that were
+        neither.  On, the box fills *on_color*: the family's ACTIVE ground, one
+        step up from the resting one, which is the step Origenerator's checked
+        buttons take and now the step every HUD here takes with them.  It used to
+        fill white, the loudest thing on the panel for a control whose whole news
+        is that it is on.  The lock is the exception: green across this family
+        means favorites and the funscripts, and the lock is the gesture that
+        favorites a clip, so it is the one control that earns the color.
 
         *ink* overrides the off-state mark -- the bin takes red, the color
         Origenerator's Delete wears, since it is the one control here that takes
         something away.
         """
         bx, by, bw, bh = rect
+        fill = on_color if on else BG_BUTTON
+        # The edge is the family's muted gray over either gray ground, and the
+        # fill's own color only where that fill carries a meaning (the lock's
+        # green).  A gray-on-gray edge would be no edge at all.
+        edge = TEXT_MUTED if fill in (BG_BUTTON, BG_BUTTON_ACTIVE) else fill
         draw.rounded_rectangle(
             [bx, by, bx + bw - 1, by + bh - 1], radius=3,
-            fill=(*(on_color if on else BG_BUTTON), 255),
-            outline=(*(on_color if on else TEXT_MUTED), 255), width=1,
+            fill=(*fill, 255), outline=(*edge, 255), width=1,
         )
-        return (*(BG_PRIMARY if on else (ink or TEXT_PRIMARY)), 255)
+        # A mark reverses only out of a LIGHT fill.  Over either gray ground it
+        # keeps its own ink -- what makes an on/off pair read as one button
+        # changing ground rather than as two different controls -- and over a
+        # colored one it stays white, exactly as the main console's does: dark
+        # ink on the mode pair's blue turned those labels black while the
+        # console's stayed white for the same state.
+        if fill in (WHITE, AMBER):
+            return (*BG_PRIMARY, 255)
+        if fill in (BG_BUTTON, BG_BUTTON_ACTIVE):
+            return (*(ink or TEXT_PRIMARY), 255)
+        return (*WHITE, 255)
 
     def _glyph_button(self, image, draw, rect: Rect, glyph: str, *, on: bool = False,
                       on_color=WHITE, ink=None) -> None:
@@ -677,7 +701,13 @@ class HudRenderer:
             model.satellites_mode, "")
         labels = {action: label for action, label, _mode in MODE_BUTTONS}
         for rect, action in modes:
-            ink = self._button_box(draw, rect, on=action == lit_action)
+            # Blue, not the active gray every other toggle takes: with every
+            # button carrying a lit ground now, one shade lighter was too small
+            # a difference to find the mode you are in at a glance.  The same
+            # blue the console's Nau/Hybrid/Genau row lights, because it is the
+            # same question asked about the other half of the room.
+            ink = self._button_box(draw, rect, on=action == lit_action,
+                                   on_color=BLUE)
             bx, by, bw, bh = rect
             draw.text((bx + bw / 2, by + bh / 2), labels[action],
                       font=self._tiny, anchor="mm", fill=ink)

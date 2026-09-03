@@ -24,7 +24,7 @@ from dataclasses import dataclass, field, replace
 
 import numpy as np
 from PIL import Image
-
+from shared_ui.spacing import BUTTON_GAP, BUTTON_PAD_H_TIGHT
 from .drive_readout import (
     DRIVEN_BY_FUNSCRIPT,
     DRIVEN_BY_GENAU,
@@ -42,7 +42,7 @@ from .geometry import Rect, contains
 from .hud_panel import (
     ACTIVE_DOT,
     AMBER,
-    BG_BUTTON,
+    BG_BUTTON, BG_BUTTON_ACTIVE,
     BG_PRIMARY,
     BLUE,
     GREEN,
@@ -68,6 +68,8 @@ from .hud_status import (
 )
 
 from .console import (
+    PLAYBACK_LABEL_W,
+    _ROW_LABELS,
     BROKER_ICON,
     BUTTON,
     FMODE_ICON,
@@ -181,6 +183,14 @@ class ModeHud:
 _SIZE_BODY = 11
 _SIZE_TINY = 8
 _PAD = 10
+# How far in a word NAMING its row starts: not at all.  Its cell begins on the
+# same left edge as every box in the rows above and below it, so the word lines
+# up with that column -- which is what "the margin everything else has" means
+# here, the panel's own _PAD.  Anything added on top of that reads as an indent.
+# (What made the label look unindented in the first place was its cell being too
+# narrow for it: centered, an 80px word in a 66px cell started 7px LEFT of the
+# column.  _row_label_width fixes that at the source.)
+_ROW_LABEL_INSET = 0
 DOT_GAP = 8  # the room between the active-player dot and the words beside it
 _MARGIN = 8    # inset from the window's top-left corner
 _ROW_GAP = 4   # between the top block, the buttons, the OSR2 row, the readout
@@ -504,7 +514,8 @@ class ConsolePainter:
         # control on them could reach one.  What is worth drawing is the picture
         # of what the device is being sent, which is the funscript.
         trace_only = drive is not None and not genau_drives(console.mode)
-        rows = console_rows(console, modes=hud.modes_row)
+        rows = console_rows(console, modes=hud.modes_row,
+                            label_width=self._row_label_width())
         status = hud.status_line
         filename = hud.modes.video
         drive_w, drive_h = (
@@ -626,6 +637,18 @@ class ConsolePainter:
         draw.text((pill_x + pill_w / 2, y + _OSR2_H / 2), state, font=self._tiny,
                   anchor="mm", fill=(*color, 255))
 
+    def _row_label_width(self) -> int:
+        """How wide a cell holding a row's NAME has to be.
+
+        Measured, because the words do not fit the fixed 66px the layout used:
+        "Playback speed" is 80 at this font, so it ran out of its cell and its
+        last letter sat under the button beside it.  Both named rows take one
+        width so their controls line up under each other, and the family's own
+        floor keeps a short label from pulling the pair in tight.
+        """
+        widest = max(text_width(self._tiny, label) for label in _ROW_LABELS)
+        return max(PLAYBACK_LABEL_W, widest + _ROW_LABEL_INSET + BUTTON_GAP)
+
     def _button(self, image, draw, rect: Rect, button: Button) -> None:
         """One control, in the one button shape this family's HUDs use: an outline
         when off, filled when on, faded when it cannot be pressed.
@@ -646,11 +669,30 @@ class ConsolePainter:
         x, y, w, h = rect
         if not button.action:
             ink = TEXT_MUTED if button.glyph.replace(" ", "").isalpha() else TEXT_PRIMARY
+            if x == _PAD:
+                # A word NAMING its row, at the panel's left edge.  Centered in
+                # its cell it started hard against that edge while every other
+                # row opens with a box whose mark is inset -- so the one row
+                # that leads with a word read as unindented beside them.  Left
+                # aligned on the family's tight button pad, it lines up with
+                # them instead.
+                draw.text((x + _ROW_LABEL_INSET, y + h / 2), button.glyph,
+                          font=self._tiny, anchor="lm", fill=(*ink, 255))
+                return
             draw.text((x + w / 2, y + h / 2), button.glyph, font=self._tiny, anchor="mm",
                       fill=(*ink, 255))
             return
         broker = button.glyph == BROKER_ICON
-        lit = (GREEN if button.favorite else AMBER if button.enhanced else WHITE)
+        # A plain toggle lights the family's ACTIVE ground -- a step up from the
+        # resting one, the same step Origenerator's checked buttons take.  It
+        # used to fill white, which is the loudest thing on the panel for a
+        # control whose whole news is "this is on", and it left the console
+        # reading as a different app from the windows beside it.  Where a color
+        # already MEANS something it still wins: green is the favorites and the
+        # funscripts, amber is an enhanced picture, and those say more than
+        # "engaged".
+        lit = (GREEN if button.favorite else AMBER if button.enhanced
+               else BLUE if button.choice else BG_BUTTON_ACTIVE)
         # A control at rest sits on the family's button ground rather than on
         # nothing: an outline over the slab read as a hole in it, and made these
         # look like a different kind of control from the ones in the windows.
@@ -658,15 +700,23 @@ class ConsolePainter:
                 else BG_BUTTON)
         if broker:
             fill = BLUE if button.lit else RED
-        edge = TEXT_MUTED if button.dim else (fill or TEXT_MUTED)
+        # And it carries the family's thin edge whatever it is doing.  The edge
+        # used to be the fill's own color at rest, which is no edge at all --
+        # the satellite HUDs beside this one draw theirs in the muted gray the
+        # rest of the chrome uses, and these read as borderless slabs next to
+        # them.
+        edge = TEXT_MUTED if (button.dim or fill in (BG_BUTTON, BG_BUTTON_ACTIVE)) else (
+            fill or TEXT_MUTED)
         draw.rounded_rectangle([x, y, x + w - 1, y + h - 1], radius=3,
                                fill=(*fill, 255) if fill else None,
                                outline=(*edge, 255), width=1)
         # The mark stays white over a colored fill and reverses out of a white
         # one, so a control that changes state changes only what is behind its
         # mark — the way the Dash's mic keeps its white glyph while the panel
-        # under it goes blue.
-        resting = fill == BG_BUTTON
+        # under it goes blue.  The gray grounds are both dark, so a mark on
+        # either keeps its own ink rather than reversing -- only a light fill
+        # (white, amber) reverses.
+        resting = fill in (BG_BUTTON, BG_BUTTON_ACTIVE)
         ink = (BG_PRIMARY if fill in (WHITE, AMBER) else TEXT_MUTED if button.dim
                else RED if button.danger
                else AMBER if button.enhanced
