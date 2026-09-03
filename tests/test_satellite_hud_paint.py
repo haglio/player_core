@@ -664,14 +664,19 @@ def test_the_filtered_actions_label_is_lit(thumb):
 
 
 def _filter_button_fill(rendered, action: str) -> int:
-    """How much white the *action* row's filter button carries — its lit state.
+    """How much ACTIVE ground the *action* row's filter button carries — lit.
 
-    White, not green: green across these HUDs means the favorites and the
-    funscripts, and a filter is neither.  Only the lock keeps the color.
+    The family's lighter gray, not white and not green: green across these HUDs
+    means the favorites and the funscripts, and a filter is neither, while white
+    was the loudest thing on the panel for a control that is merely engaged.
+    Only the lock keeps a color.
     """
+    from shared_ui.colors import BG_BUTTON_ACTIVE
+
+    want = (BG_BUTTON_ACTIVE.red(), BG_BUTTON_ACTIVE.green(), BG_BUTTON_ACTIVE.blue())
     x, y, w, h = dict((name, rect) for rect, name in rendered.targets.filter)[action]
     rgb = _rgb(rendered.bgra)[y:y + h, x:x + w].astype(int)
-    return int((rgb > 240).all(axis=2).sum())
+    return int((abs(rgb - want).max(axis=2) <= 2).sum())
 
 
 def test_the_filter_button_lights_on_the_act_the_side_is_filtered_to(thumb):
@@ -983,3 +988,36 @@ def test_without_a_mode_row_minimize_keeps_the_control_band(thumb):
     )
     by_name = {name: rect for rect, name in rendered.targets.control}
     assert by_name["minimize"][1] == by_name["prev"][1]  # one band, as ever
+
+
+def test_a_mode_label_stays_white_on_its_blue(thumb):
+    """The mark reverses out of a LIGHT fill only.  Dark ink on the mode pair's
+    blue turned those labels black while the main console's stayed white for
+    the same state, which is the inconsistency the shared dressing exists to
+    prevent."""
+    from player_core.hud_panel import BLUE, WHITE
+
+    renderer = HudRenderer("portrait")
+    rendered = renderer.render(_model(
+        corner=HudCell(path="c.mp4", thumb=thumb), satellites_mode="origenerator",
+    ))
+    rect = dict((name, r) for r, name in rendered.targets.modes)["origenerator_activate"]
+    x, y, w, h = rect
+    rgb = _rgb(rendered.bgra)[y:y + h, x:x + w].astype(int)
+
+    assert (abs(rgb - np.array(BLUE)).max(axis=2) <= 2).any()   # it is on blue
+    assert (abs(rgb - np.array(WHITE)).max(axis=2) <= 2).any()  # the word is white
+
+
+def test_the_unlit_mode_keeps_its_ordinary_ink(thumb):
+    from player_core.hud_panel import TEXT_PRIMARY
+
+    renderer = HudRenderer("portrait")
+    rendered = renderer.render(_model(
+        corner=HudCell(path="c.mp4", thumb=thumb), satellites_mode="origenerator",
+    ))
+    rect = dict((name, r) for r, name in rendered.targets.modes)["players_activate"]
+    x, y, w, h = rect
+    rgb = _rgb(rendered.bgra)[y:y + h, x:x + w].astype(int)
+
+    assert (abs(rgb - np.array(TEXT_PRIMARY)).max(axis=2) <= 2).any()
