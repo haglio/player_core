@@ -39,11 +39,9 @@ osr2_row
 place_rows
 rows_height
 shape_label
-shares_the_device
 tooltip_at
 
 # --- console_hud.py ---
-DOT
 DOT_GAP
 OSR2_BUFFER
 OSR2_FUNSCRIPT
@@ -69,7 +67,6 @@ clamp01
 controls  # also drive_readout.py
 fraction
 geometry
-hit
 percent
 section_size
 track_value
@@ -77,7 +74,6 @@ tracks  # also drive_readout.py
 
 # --- drive_readout.py ---
 DriveSection
-drive_text
 label_pair_x
 trace_ink
 track_command
@@ -86,6 +82,12 @@ track_command
 PARK_SETTLE_MS
 QUIET_LEAD_IN_MS
 QUIET_LEAD_OUT_MS
+
+# --- geometry.py ---
+# fun_time stopped importing contains in b9fe768, when Origenerator became a
+# satellite mode of a session; recorded 2026-09-03, the day the gate first ran
+# on a machine with all three consumers beside it.
+contains
 
 # --- hud_marks.py ---
 SHARED_MARK
@@ -207,6 +209,11 @@ gutter_width_for
 # --- sdl_hints.py ---
 FOCUS_CLICKTHROUGH_HINT
 
+# --- tcode.py ---
+# fun_time's satellite HUD stopped importing to_tcode_position in 946d798;
+# recorded 2026-09-03 with contains above.
+to_tcode_position
+
 # --- timeline.py ---
 BAR_EDGE
 BAR_FILL
@@ -215,7 +222,6 @@ CURSOR
 CURSOR_W
 MARK_W
 paint_rect
-rgba_to_bgra
 
 # --- volume.py ---
 MAX_VOLUME
