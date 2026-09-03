@@ -9,6 +9,31 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-08-31 — the sanitize toolchain leaves `tools/` (item 44 stage 2)
+
+`tools/sanitize_guard.py` and `tools/__init__.py` are gone; the guard is
+`app_support.sanitize`, installed with the package, and `tools/githooks/` holds
+the two shims that run it. `tests/test_sanitize_guard.py` is gone too -- its
+fifty-nine unit cases live in app_support now, and the one case whose subject is
+this checkout arrives from `app_support.sanitize.pytest_plugin`, named once in
+`pyproject.toml`. The merge gate installs app_support for that line; nothing
+under `player_core/` imports it.
+
+**The comment ratio moves because its denominator did: 0.7447 → 0.7532** over
+`player_core/` and `tools/`, SLOC 3,415 → 3,270, files 31 → 29. Not a comment
+was added or removed here; the two files that left were the least-commented in
+the measured set. The 0.7692/3,661 in this file's header is the audit's baseline
+and predates both this and the harvester's removal.
+
+**One behaviour change, in the hooks.** The `[ -n "$python" ] || exit 0` escape
+is gone. While the guard was a file in this repo it ran off any interpreter, so
+"cannot run" meant "no python at all"; as an installed package it means "not
+installed in the interpreter this hook found", which is a checkout that has
+silently stopped being guarded. Measured through a real `git commit`: with no
+python on PATH the old hooks committed a blocked term (exit 0), these refuse it.
+The four cases that matter -- a staged term, a term in the message, a clean
+commit, a checkout with no blocklist -- behave exactly as before.
+
 ## 2026-08-25 — the painters pinned, the unadopted helpers deleted
 
 **Pins.** All seven mutation survivors the audit recorded against this suite are
