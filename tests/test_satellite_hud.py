@@ -643,3 +643,26 @@ class TestModePair:
         targets = HudTargets(click=[], loop=[], filter=[], expand=None,
                              modes=[((0, 0, 60, 18), "players_activate")])
         assert "Player mode" in button_tooltip(targets, 5, 5)
+
+
+def test_parse_hud_reads_an_enhanced_filter_only_where_the_side_names_one():
+    """None is "this side has no such switch" — every one of fun_time's own
+    players, which publish nothing for it — and only a hosted Origenerator's
+    show says on or off.  The two must not collapse: a player HUD that read
+    "absent" as "off" would grow a button for a filter it does not have."""
+    assert parse_hud(json.dumps({"side": "portrait"})).enhanced_filter is None
+    assert parse_hud(json.dumps({"side": "portrait", "enhanced_filter": False})).enhanced_filter is False
+    assert parse_hud(json.dumps({"side": "portrait", "enhanced_filter": True})).enhanced_filter is True
+
+
+def test_the_enhanced_switch_names_itself_and_posts_its_sides_command():
+    """Slotted in after F-mode, the switch is one more control on the band: it
+    carries a tooltip like every glyph here, and a press posts "<side>_enhanced"
+    — the verb falls out of the name, as every other control's does."""
+    names = ("prev", "next", "lock", "trash", "fmode", "enhanced", "reset", "minimize")
+    targets = _targets(control=control_button_rects(0, 0, names))
+    ctrl = CTRL_BTN + MAP_GAP
+
+    assert HudClicks("portrait").press(targets, 5 * ctrl + 5, 5, now=0.0) == "portrait_enhanced"
+    assert HudClicks("landscape").press(targets, 6 * ctrl + 5, 5, now=0.0) == "landscape_reset"
+    assert "enhanced" in button_tooltip(targets, 5 * ctrl + 5, 5).lower()

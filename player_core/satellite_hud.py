@@ -110,6 +110,13 @@ class HudModel:
     # Whether THIS side is in F-mode — its browse narrowed to the favorites.  Each
     # player has its own, so it lights this side's own button in the control band.
     f_mode: bool = False
+    # Whether this side is narrowed to the pictures it has enhanced — or None for
+    # a side with no such filter, which is every one of fun_time's own players:
+    # only a hosted Origenerator's shows have enhanced pictures to keep, so only
+    # their HUDs grow the button (see :func:`satellite_hud_paint._row_names`).
+    # The same shape the main console's ``enhanced_filter`` takes, for the same
+    # reason: None is "has no such switch", not "switched off".
+    enhanced_filter: bool | None = None
     corner: HudCell | None = None
     seeds: tuple[HudCell, ...] = ()
     actions: tuple[HudCell, ...] = ()
@@ -421,8 +428,12 @@ def ellipsis_rects(
 # The buttons this satellite carries for itself, in the order they sit in the
 # band: browse first (the pair reached for most), then the two that act on the
 # clip on screen, then F-mode — which acts on neither, but on the library the
-# browse draws from, so it sits past the ones that do.  Reset follows
-# F-mode because it is the widest of them: it puts the side back to every default
+# browse draws from, so it sits past the ones that do.  A hosted Origenerator's
+# show slots its enhanced-only switch in right after F-mode, being the same kind
+# of thing (a filter over the library) — see the paint module, which adds it
+# only for a model that names the filter, since fun_time's own players have no
+# enhanced pictures to keep.  Reset follows the filters because it is the widest
+# of them: it puts the side back to every default
 # at once, F-mode and the filter and the lock and the loop together, so it stands
 # past the single switches rather than among them.  Minimize comes last, being
 # about none of the video at all: it acts on the window the whole panel is drawn
@@ -640,6 +651,7 @@ CONTROL_TOOLTIPS = {
     "lock": "Lock / unlock this clip",
     "trash": "Unfavorite it — or mark weird when it is not a favorite",
     "fmode": "F-Mode — browse only the favorites on this player",
+    "enhanced": "Enhanced only — show just the pictures that have been enhanced",
     "reset": "Reset — no filter, no lock, no loop, no F-Mode, shuffled from the top",
     "minimize": "Minimize this player — bring it back from the taskbar",
 }
@@ -855,6 +867,10 @@ def parse_hud(text: str) -> HudModel | None:
 
         is_favorite=bool(raw.get("is_favorite", False)),
         f_mode=bool(raw.get("f_mode", False)),
+        # Absent is None — no such switch — rather than off: the button is drawn
+        # only for a side that says it has the filter at all.
+        enhanced_filter=(None if raw.get("enhanced_filter") is None
+                         else bool(raw.get("enhanced_filter"))),
         corner=_cell(raw.get("corner")),
         seeds=tuple(cell for cell in seeds if cell is not None),
         actions=tuple(cell for cell in actions if cell is not None),
