@@ -9,9 +9,9 @@ take the HUDs and the stroke without the player.
 | Consumer | Repo | What it takes |
 | --- | --- | --- |
 | Nau | `../genau` | the player, the console, the drive readout, the T-Code driver |
-| Genau | `../genau` | the console, the drive readout, the stroke |
+| Genau | `../genau` | the clip player's whole engine, under its pygame window |
 | Fun Time's satellites | `../fun_time` | the player, the satellite HUD |
-| Fun Time's VR player | `../fun_time` | the offscreen player, the T-Code driver |
+| Fun Time's VR player | `../fun_time` | the offscreen player, the T-Code driver, and the clip player's engine for its genau mode |
 | Fun Time itself | `../fun_time` | the file channel, the playlist, the status line |
 | Origenerator | `../origenerator` | the console and the drive readout, over its slideshows |
 
@@ -25,17 +25,36 @@ another application's internals to get it. By what it is:
   (the command queue and the paused flag), `status` (what a player publishes
   back).
 - **the device** — `tcode` and `tcode_driver` for the wire, `funscript` for a
-  script and the questions asked of one, and `robot_hand` / `wave_stack` /
-  `cruise_control` / `clip_scrub` for a stroke of this family's own.
+  script and the questions asked of one, and for a stroke of this family's own:
+  `robot_hand` (the waveform), `robot_hand_beat` (the phase it runs at),
+  `robot_hand_driver` (the stroke on the wire, and the device changing hands),
+  `wave_stack` / `cruise_control` (the stroke varying itself), `broker_feed`
+  (the beat the OSR2 broker publishes when it has the room).
+- **the clip player** — Genau, wherever it is drawn: `clip_folder`,
+  `clip_decode`, `clip_cache`, `clip_loader`, `clip_preload`, `clip_sequence`,
+  `clip_selection`, `clip_advance`, `clip_renderer` and `clip_scrub` get a clip
+  from a folder to the frame the stroke is at, and `genau_controls`,
+  `genau_refresh`, `genau_readout`, `genau_status` and `genau_notifier` are its
+  verbs, its tick, and what it publishes. A shell — Genau's pygame window, Fun
+  Time's headset — supplies the surface, the loop and the keys.
 - **the chrome and what is drawn on it** — `hud_panel`, `hud_marks`,
   `geometry`, `timeline`, `volume`, `hud_status`, and then a model and a
   painter per HUD: `console` / `console_hud`, `drive_layout` / `drive_readout`,
   `satellite_hud` / `satellite_hud_paint`.
 - **the window** — `sdl_hints` and `taskbar`, the two Win32 facts every player
   here has to get right before it opens one.
+- **the loop** — `control_registry` (how any player declares a control and the
+  verb and key that move it), `flag` (a bit two parts of an app share, with its
+  edge), `tick_failures` (a frame loop's fault, said once).
 
 Nothing app-specific belongs here. A module earns a place only once a second
-repo needs it; until then it stays with the app that owns it.
+repo needs it; until then it stays with the app that owns it. Genau's engine is
+here because two shells run it: Genau's own window, and Fun Time's VR player,
+whose genau mode runs the same tick against a headset texture.
+
+`clip_decode` reaches `app_support.subprocess_utils` for the one Windows fact
+about launching ffmpeg (no console window), so `../app_support` has to be
+installed in any venv that imports this package — every consumer's already is.
 
 ## Install
 

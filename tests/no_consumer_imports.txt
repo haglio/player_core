@@ -233,3 +233,114 @@ advance
 biggest
 fit
 room
+
+# --- Genau's engine, moved in from ../genau on 2026-09-04 ---
+#
+# Every name below waits on two landings: genau's, which switches its window
+# to import the engine from here instead of its own copies, and fun_time's,
+# whose VR player runs the same engine in-process for its genau mode. Each
+# line comes out as its consumer lands; a name neither ever reaches goes
+# private or goes.
+
+# --- broker_feed.py ---
+apply_udp_line
+bind_with_retry
+BrokerFeed
+BrokerSnapshot
+snapshot
+udp_reader
+
+# --- clip_advance.py ---
+adjust_interval
+ClipAdvanceState
+DEFAULT_INTERVAL_S
+MAX_INTERVAL_S
+MIN_INTERVAL_S
+set_interval
+set_locked
+tick_clip_advance
+toggle_lock
+
+# --- clip_cache.py ---
+ClipCacheStore
+DecodeRequestState
+trim_path_lru_cache
+
+# --- clip_decode.py ---
+decode_video_to_numpy_frames
+ffprobe_size
+load_clip_frames
+read_rhcache_all_frames
+read_rhcache_meta
+
+# --- clip_folder.py ---
+cache_dir_for_clips_folder
+move_clip_to_weird
+scan_clips
+SUPPORTED_VIDEO_EXTS
+weird_dir_for_clips_folder
+
+# --- clip_loader.py ---
+ClipLoadController
+
+# --- clip_preload.py ---
+FirstClipPreload
+
+# --- clip_renderer.py ---
+ClipRenderController
+display_index_for_phase
+
+# --- clip_selection.py ---
+ClipSelectionController
+
+# --- clip_sequence.py ---
+ClipSequenceController
+
+# --- control_registry.py ---
+act
+Act  # also genau_controls.py
+bind
+bind_keys
+Control
+look_up
+Verb
+
+# --- flag.py ---
+Flag
+
+# --- genau_controls.py ---
+apply_runtime_command
+GenauControls
+KEYS
+QUARTER_CYCLE_OFFSET_COMMAND
+VERBS
+
+# --- genau_notifier.py ---
+GenauNotifier
+
+# --- genau_readout.py ---
+GenauReadout
+
+# --- genau_refresh.py ---
+GenauRefreshController
+
+# --- genau_status.py ---
+build_status_text
+GENAU_STATUS_FILENAME
+write_status_file
+
+# --- robot_hand.py ---
+control_limits
+ControlLimits
+
+# --- robot_hand_beat.py ---
+advance_beat
+Beat
+BeatEngine
+
+# --- robot_hand_driver.py ---
+DeviceHandoff
+RobotHandTCodeDriver
+
+# --- tick_failures.py ---
+TickFailures
