@@ -4,6 +4,22 @@ from __future__ import annotations
 from dataclasses import replace
 
 import numpy as np
+
+from player_core.console import _ROW_LABELS, ConsoleModel
+from player_core.console_hud import (
+    _DRIVE_TIPS,
+    FULL,
+    SHORTS,
+    ConsoleHud,
+    ConsolePainter,
+    ModeHud,
+    compilation_label,
+    hud_xy,
+    with_playback_speed,
+)
+from player_core.console_hud import _PAD as PAD
+from player_core.drive_layout import AMPLITUDE, CENTER, SPEED
+from player_core.drive_readout import DriveHud
 from player_core.hud_panel import (
     ICON_GRIDS,
     TEXT_MUTED,
@@ -12,20 +28,6 @@ from player_core.hud_panel import (
     load_font,
     text_width,
 )
-
-from player_core.drive_layout import AMPLITUDE, CENTER, SPEED
-from player_core.drive_readout import DriveHud
-from player_core.console import ConsoleModel, _ROW_LABELS
-from player_core.console_hud import (
-    ConsoleHud,
-    ConsolePainter,
-    ModeHud,
-    compilation_label,
-    hud_xy,
-    with_playback_speed,
-)
-from player_core.console_hud import _DRIVE_TIPS, _PAD as PAD
-from player_core.console_hud import FULL, SHORTS
 
 MIXED = "mixed"
 

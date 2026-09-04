@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-
 from shared_ui.icons_pil import paste_glyph
 
 # Segoe UI Bold — every label on these HUDs is bold, because they are read at a

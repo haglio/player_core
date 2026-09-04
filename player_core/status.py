@@ -17,8 +17,8 @@ status files can never drift apart in their write mechanics.
 from __future__ import annotations
 
 import time
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Callable, Mapping
 
 from .file_channel import publish_whole
 

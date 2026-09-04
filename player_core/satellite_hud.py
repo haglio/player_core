@@ -18,10 +18,10 @@ font: the paint module measures text and hands the width back in.
 """
 from __future__ import annotations
 
-from shared_ui.spacing import BUTTON_SIZE_HUD
-
 import json
 from dataclasses import dataclass, field
+
+from shared_ui.spacing import BUTTON_SIZE_HUD
 
 from .geometry import Rect, contains
 

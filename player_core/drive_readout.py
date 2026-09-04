@@ -36,9 +36,9 @@ from .geometry import Rect
 from .hud_panel import (
     BLUE,
     GREEN,
+    SYMBOL_FONT,
     TEXT_MUTED,
     TEXT_PRIMARY,
-    SYMBOL_FONT,
     WHITE,
     draw_glyph,
     load_font,

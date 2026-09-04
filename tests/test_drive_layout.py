@@ -17,8 +17,8 @@ def test_the_block_is_as_big_as_the_parts_it_places():
     g = layout.geometry(0, 0, 0.5)
     for rect in (g.wave, g.speed_bar, g.amp_bar, g.speed_up, g.center_down):
         x, y, w, h = rect
-        assert 0 <= x and x + w <= layout.SECTION_W
-        assert 0 <= y and y + h <= layout.SECTION_H
+        assert x >= 0 and x + w <= layout.SECTION_W
+        assert y >= 0 and y + h <= layout.SECTION_H
     assert layout.section_size() == (layout.SECTION_W, layout.SECTION_H)
     assert layout.section_size(trace_only=True) == layout.TRACE_ONLY_SIZE
 

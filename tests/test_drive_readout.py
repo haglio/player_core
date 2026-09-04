@@ -2,15 +2,6 @@
 from __future__ import annotations
 
 import numpy as np
-from player_core.hud_panel import (
-    BLUE,
-    GREEN,
-    TEXT_MUTED,
-    TEXT_PRIMARY,
-    HudPanel,
-    load_font,
-    text_width,
-)
 
 from player_core.drive_layout import (
     AMPLITUDE,
@@ -20,24 +11,33 @@ from player_core.drive_layout import (
     SPEED,
     TRACE_ONLY_SIZE,
 )
-
 from player_core.drive_readout import (
+    _DISABLED,
+    _NEUTRAL_INK,
     DRIVEN_BY_FUNSCRIPT,
     DRIVEN_BY_GENAU,
     DRIVEN_BY_NEUTRAL,
     DRIVEN_BY_NOTHING,
     DriveHud,
     DriveSection,
-    section_size,
     controls,
     label_pair_x,
     publish_drive,
     read_drive,
+    section_size,
     track_command,
     track_value,
     tracks,
 )
-from player_core.drive_readout import _DISABLED, _NEUTRAL_INK
+from player_core.hud_panel import (
+    BLUE,
+    GREEN,
+    TEXT_MUTED,
+    TEXT_PRIMARY,
+    HudPanel,
+    load_font,
+    text_width,
+)
 
 PAD = 10
 
@@ -110,8 +110,8 @@ class TestControls:
         lands on what is on screen — at either end of the centre's travel."""
         for center in (0, 50, 100):
             for x, y, w, h in (c.rect for c in controls(PAD, PAD, _hud(center=center))):
-                assert PAD <= x and x + w <= PAD + SECTION_W
-                assert PAD <= y and y + h <= PAD + SECTION_H
+                assert x >= PAD and x + w <= PAD + SECTION_W
+                assert y >= PAD and y + h <= PAD + SECTION_H
 
 
 class TestTracks:
@@ -208,8 +208,8 @@ class TestTracks:
     def test_the_bands_it_offers_all_fall_on_the_block_it_draws(self):
         for center in (0, 50, 100):
             for x, y, w, h in (t.rect for t in tracks(PAD, PAD, _hud(center=center))):
-                assert PAD <= x and x + w <= PAD + SECTION_W
-                assert PAD <= y and y + h <= PAD + SECTION_H
+                assert x >= PAD and x + w <= PAD + SECTION_W
+                assert y >= PAD and y + h <= PAD + SECTION_H
 
 
 class TestReadout:

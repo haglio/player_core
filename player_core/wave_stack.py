@@ -31,7 +31,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .direct_control import (
-    WaveformShape, bpm_for_speed, phase_advanced, position_fraction,
+    WaveformShape,
+    bpm_for_speed,
+    phase_advanced,
+    position_fraction,
 )
 
 
