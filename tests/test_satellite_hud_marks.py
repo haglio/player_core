@@ -9,15 +9,15 @@ geometry now, through player_core's HUD chrome, and these hold them to it.
 """
 from __future__ import annotations
 
-from player_core.hud_marks import SHARED_MARK, shared_mark_name
+from shared_ui.icon_geometry import glyph_names
 
+from player_core.hud_marks import SHARED_MARK, shared_mark_name
 from player_core.satellite_hud_paint import (
     _CONTROL_GLYPHS,
     _EXPAND_GLYPH,
     _FAVORITE_GLYPH,
     _LOOP_GLYPH,
 )
-from shared_ui.icon_geometry import glyph_names
 
 
 def _named() -> dict[str, str]:
@@ -82,8 +82,8 @@ def test_a_resting_button_draws_its_mark_full_strength():
     # player's console, which draws its own resting marks at full strength.
     # Both had muted the mark AND the box; only the box should be muted.
     from PIL import Image, ImageDraw
-    from player_core.hud_panel import TEXT_PRIMARY
 
+    from player_core.hud_panel import TEXT_PRIMARY
     from player_core.satellite_hud_paint import HudRenderer
 
     ink = HudRenderer("portrait")._button_box(

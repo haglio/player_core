@@ -24,7 +24,28 @@ from dataclasses import dataclass, field, replace
 
 import numpy as np
 from PIL import Image
-from shared_ui.spacing import BUTTON_GAP, BUTTON_PAD_H_TIGHT
+from shared_ui.spacing import BUTTON_GAP
+
+from .console import (
+    _ROW_LABELS,
+    BROKER_ICON,
+    BUTTON,
+    FMODE_ICON,
+    GAP,
+    MINIMIZE_ICON,
+    PLAYBACK_LABEL_W,
+    Button,
+    ConsoleModel,
+    _row_width,
+    console_rows,
+    genau_drives,
+    hit_test,
+    nau_displays,
+    osr2_row,
+    place_rows,
+    rows_height,
+    tooltip_at,
+)
 from .drive_readout import (
     DRIVEN_BY_FUNSCRIPT,
     DRIVEN_BY_GENAU,
@@ -39,19 +60,21 @@ from .drive_readout import (
 from .drive_readout import controls as drive_controls
 from .drive_readout import tracks as drive_tracks
 from .geometry import Rect, contains
+from .hud_marks import SHARED_MARK, shared_mark_name
 from .hud_panel import (
     ACTIVE_DOT,
     AMBER,
-    BG_BUTTON, BG_BUTTON_ACTIVE,
+    BG_BUTTON,
+    BG_BUTTON_ACTIVE,
     BG_PRIMARY,
     BLUE,
     GREEN,
     PINK,
     RED,
+    SYMBOL_FONT,
     TEXT_MUTED,
     TEXT_PRIMARY,
     WHITE,
-    SYMBOL_FONT,
     HudPanel,
     draw_active_dot,
     draw_glyph,
@@ -62,30 +85,12 @@ from .hud_panel import (
     text_width,
     to_bgra,
 )
-from .hud_marks import SHARED_MARK, shared_mark_name
 from .hud_status import (
-    ENHANCED_LABEL, LATEST_LABEL, SEPARATOR, SHUFFLE_LABEL, status_line,
-)
-
-from .console import (
-    PLAYBACK_LABEL_W,
-    _ROW_LABELS,
-    BROKER_ICON,
-    BUTTON,
-    FMODE_ICON,
-    GAP,
-    MINIMIZE_ICON,
-    Button,
-    ConsoleModel,
-    console_rows,
-    genau_drives,
-    hit_test,
-    nau_displays,
-    osr2_row,
-    place_rows,
-    _row_width,
-    rows_height,
-    tooltip_at,
+    ENHANCED_LABEL,
+    LATEST_LABEL,
+    SEPARATOR,
+    SHUFFLE_LABEL,
+    status_line,
 )
 
 # Nau's two length modes, named here because the console prints them and nothing
@@ -501,7 +506,7 @@ class ConsolePainter:
             y += sum(self._tiny.getmetrics())
         return y
 
-    def _paint(self, hud: ConsoleHud, hover: tuple[int, int] | None = None) -> "Image.Image":
+    def _paint(self, hud: ConsoleHud, hover: tuple[int, int] | None = None) -> Image.Image:
         console, drive = hud.console, hud.drive
         # Held for the OSR2 pill: with a composed trace on the panel the pill
         # reads the trace's own answer to who has the device (see _osr2_state),

@@ -3,14 +3,13 @@ from __future__ import annotations
 import bisect
 import time
 
+from .funscript import HANDOFF_RAMP_MS, PARK_SETTLE_MS, Funscript
 from .tcode import (
     HandoffGlide,
     TCodeSink,
     format_tcode_command,
     to_tcode_position,
 )
-
-from .funscript import HANDOFF_RAMP_MS, PARK_SETTLE_MS, Funscript
 
 _RESEND_INTERVAL = 0.1
 # Glide to the parked position over this long, matching the broker's own park.

@@ -16,12 +16,14 @@ from dataclasses import dataclass, replace
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-from player_core.hud_marks import SHARED_MARK, shared_mark, shared_mark_name
 from shared_ui.spacing import BUTTON_GROUP_GAP
+
+from player_core.hud_marks import SHARED_MARK, shared_mark, shared_mark_name
 from player_core.hud_panel import (
-    BG_BUTTON, BG_BUTTON_ACTIVE,
-    BG_PRIMARY,
     AMBER,
+    BG_BUTTON,
+    BG_BUTTON_ACTIVE,
+    BG_PRIMARY,
     BLUE,
     GREEN,
     RED,
@@ -56,6 +58,8 @@ from .satellite_hud import (
     MAP_THUMB_H,
     MAX_GUTTER,
     MIN_GUTTER,
+    MODE_BUTTONS,
+    MODE_LABEL_PAD,
     PAD,
     STATUS_BAND_H,
     STATUS_BASELINE,
@@ -83,8 +87,6 @@ from .satellite_hud import (
     map_reach,
     map_window,
     mode_button_rects,
-    MODE_BUTTONS,
-    MODE_LABEL_PAD,
     panel_height,
     panel_width,
     playing_rect,

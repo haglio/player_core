@@ -22,7 +22,11 @@ from player_core.cruise_control import (
     toggle_cruise_control,
 )
 from player_core.direct_control import (
-    MAX_TICK_SECONDS, DirectControlState, WaveformShape, bpm_for_speed, set_amplitude,
+    MAX_TICK_SECONDS,
+    DirectControlState,
+    WaveformShape,
+    bpm_for_speed,
+    set_amplitude,
 )
 
 

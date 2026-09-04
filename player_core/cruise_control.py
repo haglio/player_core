@@ -39,8 +39,13 @@ from typing import TYPE_CHECKING
 
 from . import wave_stack
 from .direct_control import (
-    MAX_SPEED, MAX_TICK_SECONDS, MIN_SPEED, WaveformShape, set_amplitude,
-    set_center, set_speed,
+    MAX_SPEED,
+    MAX_TICK_SECONDS,
+    MIN_SPEED,
+    WaveformShape,
+    set_amplitude,
+    set_center,
+    set_speed,
 )
 from .wave_stack import Ramp, Wave, WaveStack
 

@@ -20,9 +20,9 @@ context.
 """
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
-from .mpv_player import _MpvControl, _import_mpv, _shared_options
+from .mpv_player import _import_mpv, _MpvControl, _shared_options
 
 
 class MpvRenderPlayer(_MpvControl):

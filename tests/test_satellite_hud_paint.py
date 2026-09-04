@@ -8,7 +8,6 @@ import pytest
 from PIL import Image
 
 from player_core.hud_panel import ICON_GRIDS, TEXT_MUTED, WHITE
-
 from player_core.satellite_hud import (
     COL_LABEL_H,
     CONTROL_TOOLTIPS,
@@ -820,7 +819,6 @@ def test_gutter_width_fits_the_acts_present():
     """The gutter is sized to the acts actually shown — narrow for short ones, no
     wider than the cap for a long one — so it isn't a big empty margin."""
     from player_core.hud_panel import load_font
-
     from player_core.satellite_hud import MAX_GUTTER
 
     font = load_font(7)
@@ -883,7 +881,6 @@ def test_the_button_glyphs_are_not_tofu():
     the glyph font must cover every button icon itself — the map's two and each of
     the side's own controls, reset's backwards loop included."""
     from player_core.hud_panel import SYMBOL_FONT, load_font
-
     from player_core.satellite_hud_paint import (
         _CONTROL_GLYPHS,
         _EXPAND_GLYPH,

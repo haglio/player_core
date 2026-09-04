@@ -10,11 +10,11 @@ from __future__ import annotations
 
 import numpy as np
 from PIL import Image, ImageDraw
+from shared_ui.icon_geometry import glyph_names
 
-from player_core.console import WAVE_ICON, _GLYPHS, console_rows
+from player_core.console import _GLYPHS, WAVE_ICON, console_rows
 from player_core.hud_marks import SHARED_MARK, shared_mark, shared_mark_name
 from player_core.hud_panel import MARK_INSET, draw_mark
-from shared_ui.icon_geometry import glyph_names
 
 
 def _named_marks() -> dict[str, str]:

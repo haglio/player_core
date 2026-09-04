@@ -12,6 +12,7 @@ from player_core.satellite_hud import (
     MAP_CELLS,
     MAP_GAP,
     MIN_GUTTER,
+    MODE_LABEL_PAD,
     PAD,
     ROW_GAP,
     STATUS_TEXT_X,
@@ -29,18 +30,16 @@ from player_core.satellite_hud import (
     friendly_action_label,
     hit_test_targets,
     label_is_filtered,
-    mode_button_rects,
-    MODE_LABEL_PAD,
     loop_button_rects,
     looped_group_box,
     map_reach,
     map_row_width,
     map_window,
+    mode_button_rects,
     panel_width,
     parse_hud,
     thumbnail_rects,
 )
-
 
 # --- the status line ---------------------------------------------------------
 

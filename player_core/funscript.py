@@ -14,7 +14,6 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-
 _BASE_THRESHOLD = 95
 _MIN_LOOP_MS = 500
 
