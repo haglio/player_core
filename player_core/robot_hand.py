@@ -65,13 +65,6 @@ def pause_playing(state: RobotHandState) -> None:
     state.playing = False
 
 
-def space_action(state: RobotHandState, *, pause_only: bool) -> None:
-    if pause_only:
-        pause_playing(state)
-    else:
-        toggle_playing(state)
-
-
 def set_speed(state: RobotHandState, speed: int) -> None:
     speed = max(MIN_SPEED, min(MAX_SPEED, speed))
     state.speed = speed
