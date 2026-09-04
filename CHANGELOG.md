@@ -9,6 +9,54 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-09-04 — Genau's engine moves in, for the headset
+
+Everything Genau does that is not its pygame window now lives here, so Fun
+Time's VR player can run the same clip player in-process for its genau mode
+and GenauVR, a second copy of most of it, can go. Twenty-one modules and their
+tests came over from `../genau`; nothing already here changed but `robot_hand`,
+which took the hand's control limits. The names moved with the responsibility:
+
+| was, in `genau/` | is, here |
+| --- | --- |
+| `engine` (`PlaybackEngine`, `update_engine`), `refresh_logic.Beat` | `robot_hand_beat` (`BeatEngine`, `advance_beat`, `Beat`) |
+| `tcode` (`RateLimitedTCodeSender`), `device_handoff` | `robot_hand_driver` (`RobotHandTCodeDriver`, `DeviceHandoff`) |
+| `limits` | `robot_hand` (`ControlLimits`, `control_limits`) |
+| `state` (`SharedState`), `refresh_logic.read_shared_state_snapshot` | `broker_feed` (`BrokerFeed`, `BrokerSnapshot`, `snapshot`) |
+| `controls`, `runtime_commands` | `genau_controls` (registry, `VERBS`, `KEYS`, `apply_runtime_command`) |
+| `refresh_controller` | `genau_refresh` |
+| `drive_readout` (`DriveReadout`) | `genau_readout` (`GenauReadout`) |
+| `status_writer` | `genau_status` (with the status file's name) |
+| `notifier` | `genau_notifier` |
+| `video`, `weird` | `clip_folder` (the scan, and the piles beside the folder) and `clip_decode` (ffmpeg, and the frame cache) |
+| `frame_cache` | `clip_decode`, reading WebP through Pillow rather than cv2 |
+| `clip_runtime`, `cache_utils` | `clip_cache` |
+| `refresh_logic.display_index_for_phase` | `clip_renderer` |
+| `first_clip` | `clip_preload` |
+| `control_registry`, `flags`, `tick_failures` | `control_registry`, `flag`, `tick_failures` |
+| `clip_advance`, `clip_sequence`, `clip_selection`, `clip_loader`, `clip_renderer` | the same names |
+
+The two class renames say what the things are beside what was already here:
+the engine is the beat the hand strokes to, not playback, and its sender is the
+Robot Hand's T-Code driver, the mirror of the funscript's.
+
+**Two dependencies moved with it.** cv2 did not come: `.rhcache` frames are
+WebP and Pillow reads them, so the one reader that needed OpenCV is gone from
+the family's shared code. `app_support` now is imported at run time, for the
+first time here — `clip_decode` launches ffmpeg through its hidden-subprocess
+kwargs — where before only the test plugin reached it; every consumer's venv
+already has it, and the merge gate already installs it.
+
+**The consumer gate carries 61 waiting names.** Nothing imports the engine from
+here until genau's window switches to it and Fun Time's VR player takes it up;
+both are the next landings on this branch line, and each takes its lines out
+of `tests/no_consumer_imports.txt` as it does.
+
+**The comment ratio falls because the denominator grew: 0.7704 → 0.6416** over
+`player_core/` and `tools/`, SLOC 3,310 → 4,897, files 29 → 50. The engine
+arrives at the density genau kept it at, and nothing measured before this
+changed.
+
 ## 2026-08-31 — the sanitize toolchain leaves `tools/` (item 44 stage 2)
 
 `tools/sanitize_guard.py` and `tools/__init__.py` are gone; the guard is

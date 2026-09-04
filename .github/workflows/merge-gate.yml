@@ -19,11 +19,12 @@ name: merge gate (full suite)
 # and the Pillow renderer import neither -- but pip installs PyQt6 alongside it,
 # which costs a wheel on the runner and nothing at run time.
 #
-# app_support is installed for one reason: the suite asks for its content-guard
+# app_support is installed for two reasons: the suite asks for its content-guard
 # plugin, and a `-p` that cannot be imported is a hard pytest failure with no
-# tests run. Nothing under player_core/ imports it, so it comes from its public
-# repo rather than being checked out adjacent -- the way clipper, evolver,
-# promptcrafter and scripture take it. The shared_ui step above is left as it is.
+# tests run; and clip_decode imports its hidden-subprocess kwargs to launch
+# ffmpeg without a console window. It comes from its public repo rather than
+# being checked out adjacent -- the way clipper, evolver, promptcrafter and
+# scripture take it. The shared_ui step above is left as it is.
 #
 # libmpv is deliberately NOT provided here. import mpv loads mpv-2.dll at import
 # time, but the unit suite never triggers it: no test constructs MpvPlayer, and
