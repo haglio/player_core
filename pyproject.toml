@@ -16,6 +16,7 @@ dependencies = [
 dev = [
     "pytest",
     "pytest-timeout",
+    "ruff==0.16.6",
 ]
 
 # Consumers install this editable from a local path (see README); it is never
