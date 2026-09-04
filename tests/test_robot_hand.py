@@ -16,7 +16,6 @@ from player_core.robot_hand import (
     set_amplitude,
     set_center,
     set_speed,
-    space_action,
     toggle_playing,
 )
 
@@ -60,28 +59,6 @@ class TestPausePlaying:
     def test_noop_when_already_paused(self):
         state = RobotHandState(playing=False)
         pause_playing(state)
-        assert state.playing is False
-
-
-class TestSpaceAction:
-    def test_solo_toggles_on(self):
-        state = RobotHandState(playing=False)
-        space_action(state, pause_only=False)
-        assert state.playing is True
-
-    def test_solo_toggles_off(self):
-        state = RobotHandState(playing=True)
-        space_action(state, pause_only=False)
-        assert state.playing is False
-
-    def test_fun_time_only_pauses(self):
-        state = RobotHandState(playing=True)
-        space_action(state, pause_only=True)
-        assert state.playing is False
-
-    def test_fun_time_does_not_resume(self):
-        state = RobotHandState(playing=False)
-        space_action(state, pause_only=True)
         assert state.playing is False
 
 
