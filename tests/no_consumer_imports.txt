@@ -37,7 +37,6 @@ hit_test
 nau_displays
 osr2_row
 place_rows
-row_width
 rows_height
 shape_label
 tooltip_at
