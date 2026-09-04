@@ -234,9 +234,6 @@ TRACK_H
 # --- wave_stack.py ---
 Dials
 Fit
-Ramp
-Wave
-WaveStack
 advance
 biggest
 fit
