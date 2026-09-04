@@ -45,20 +45,12 @@ tooltip_at
 DOT_GAP
 OSR2_BUFFER
 OSR2_FUNSCRIPT
-OSR2_ROBOT_HAND
 SYMBOL_FONT
 compilation_label
-
-# --- drive_readout.py ---
-# The Robot Hand rename, landing here first: the consumers' branches import
-# these by their new names, and their primaries will once they land.
-DRIVEN_BY_ROBOT_HAND
 
 # --- robot_hand.py ---
 MAX_BPM
 MAX_TICK_SECONDS
-RobotHandState  # the rename, as above
-pause_playing
 
 # --- drive_layout.py ---
 CONTROL_SIZE
@@ -229,8 +221,6 @@ MARK_W
 paint_rect
 
 # --- volume.py ---
-MAX_VOLUME
-MIN_VOLUME
 ROW_H
 SLOT_W
 SPEAKER_W
