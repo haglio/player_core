@@ -21,9 +21,9 @@ from player_core.cruise_control import (
     tick_cruise_control,
     toggle_cruise_control,
 )
-from player_core.direct_control import (
+from player_core.robot_hand import (
     MAX_TICK_SECONDS,
-    DirectControlState,
+    RobotHandState,
     WaveformShape,
     bpm_for_speed,
     set_amplitude,
@@ -32,7 +32,7 @@ from player_core.direct_control import (
 
 def _cruising(seed, **dials):
     """A stroke running under cruise control, one tick in."""
-    direct = DirectControlState(playing=True, **dials)
+    direct = RobotHandState(playing=True, **dials)
     cc = CruiseControlState(rng=random.Random(seed))
     enable_cruise_control(cc)
     tick_cruise_control(direct, cc, now=1000.0)
@@ -74,7 +74,7 @@ class TestArming:
     def test_arming_alone_moves_nothing(self):
         # The waves are drawn on the first tick, from whatever the dials say
         # then — so arming against a parked device cannot change the stroke.
-        direct = DirectControlState(speed=50, amplitude=80, intended_center=50)
+        direct = RobotHandState(speed=50, amplitude=80, intended_center=50)
         cc = CruiseControlState(rng=random.Random(42))
         enable_cruise_control(cc)
         assert not cc.stack
@@ -83,7 +83,7 @@ class TestArming:
         assert not cc.stack
 
     def test_an_unarmed_tick_changes_nothing(self):
-        direct = DirectControlState(speed=50, amplitude=80, intended_center=50)
+        direct = RobotHandState(speed=50, amplitude=80, intended_center=50)
         cc = CruiseControlState(active=False, rng=random.Random(42))
         tick_cruise_control(direct, cc, now=10.0)
         assert (direct.speed, direct.amplitude, direct.center) == (50, 80, 50)
@@ -97,7 +97,7 @@ class TestTakingTheStrokeOver:
         # running the same speed, the sum is the single wave. Anything else is a
         # step on the wire the device has to lurch through.
         for seed in range(8):
-            direct = DirectControlState(playing=True, speed=35, amplitude=70,
+            direct = RobotHandState(playing=True, speed=35, amplitude=70,
                                         intended_center=40)
             cc = CruiseControlState(rng=random.Random(seed))
             enable_cruise_control(cc)
@@ -119,7 +119,7 @@ class TestTakingTheStrokeOver:
 
 
 def _single_wave_fraction(phase, amplitude, center):
-    from player_core.direct_control import position_fraction
+    from player_core.robot_hand import position_fraction
     return position_fraction(phase, amplitude=amplitude, center=center)
 
 

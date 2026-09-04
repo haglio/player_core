@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from player_core.direct_control import (
-    DirectControlState,
+from player_core.robot_hand import (
+    RobotHandState,
     WaveformShape,
     adjust_amplitude,
     adjust_center,
@@ -41,64 +41,64 @@ class TestBpmForSpeed:
 
 class TestTogglePlaying:
     def test_false_to_true(self):
-        state = DirectControlState()
+        state = RobotHandState()
         toggle_playing(state)
         assert state.playing is True
 
     def test_true_to_false(self):
-        state = DirectControlState(playing=True)
+        state = RobotHandState(playing=True)
         toggle_playing(state)
         assert state.playing is False
 
 
 class TestPausePlaying:
     def test_pauses_when_playing(self):
-        state = DirectControlState(playing=True)
+        state = RobotHandState(playing=True)
         pause_playing(state)
         assert state.playing is False
 
     def test_noop_when_already_paused(self):
-        state = DirectControlState(playing=False)
+        state = RobotHandState(playing=False)
         pause_playing(state)
         assert state.playing is False
 
 
 class TestSpaceAction:
     def test_solo_toggles_on(self):
-        state = DirectControlState(playing=False)
+        state = RobotHandState(playing=False)
         space_action(state, pause_only=False)
         assert state.playing is True
 
     def test_solo_toggles_off(self):
-        state = DirectControlState(playing=True)
+        state = RobotHandState(playing=True)
         space_action(state, pause_only=False)
         assert state.playing is False
 
     def test_fun_time_only_pauses(self):
-        state = DirectControlState(playing=True)
+        state = RobotHandState(playing=True)
         space_action(state, pause_only=True)
         assert state.playing is False
 
     def test_fun_time_does_not_resume(self):
-        state = DirectControlState(playing=False)
+        state = RobotHandState(playing=False)
         space_action(state, pause_only=True)
         assert state.playing is False
 
 
 class TestSetSpeed:
     def test_sets_speed_and_bpm(self):
-        state = DirectControlState()
+        state = RobotHandState()
         set_speed(state, 30)
         assert state.speed == 30
         assert state.bpm == pytest.approx(bpm_for_speed(30))
 
     def test_clamps_below_minimum_to_5(self):
-        state = DirectControlState()
+        state = RobotHandState()
         set_speed(state, 0)
         assert state.speed == 5
 
     def test_clamps_above_100(self):
-        state = DirectControlState()
+        state = RobotHandState()
         set_speed(state, 105)
         assert state.speed == 100
 
@@ -256,47 +256,47 @@ class TestPhaseToPosition:
             assert 0 <= pos <= 9999
 
 
-class TestDirectControlStateNewFields:
+class TestRobotHandStateNewFields:
     def test_default_amplitude(self):
-        state = DirectControlState()
+        state = RobotHandState()
         assert state.amplitude == 100
 
     def test_default_center(self):
-        state = DirectControlState()
+        state = RobotHandState()
         assert state.center == 50
 
     def test_default_intended_center(self):
-        state = DirectControlState()
+        state = RobotHandState()
         assert state.intended_center == 50
 
     def test_default_shape(self):
-        state = DirectControlState()
+        state = RobotHandState()
         assert state.shape is WaveformShape.SINE
 
 class TestSetAmplitude:
     def test_sets_amplitude_directly(self):
-        state = DirectControlState(amplitude=30)
+        state = RobotHandState(amplitude=30)
 
         set_amplitude(state, 75)
 
         assert state.amplitude == 75
 
     def test_clamps_above_100(self):
-        state = DirectControlState(amplitude=50)
+        state = RobotHandState(amplitude=50)
 
         set_amplitude(state, 120)
 
         assert state.amplitude == 100
 
     def test_clamps_below_0(self):
-        state = DirectControlState(amplitude=50)
+        state = RobotHandState(amplitude=50)
 
         set_amplitude(state, -10)
 
         assert state.amplitude == 0
 
     def test_recomputes_center(self):
-        state = DirectControlState(amplitude=20, intended_center=90)
+        state = RobotHandState(amplitude=20, intended_center=90)
         assert state.center == 90  # within range for amp=20
 
         set_amplitude(state, 100)
@@ -306,27 +306,27 @@ class TestSetAmplitude:
 
 class TestAdjustAmplitude:
     def test_increase(self):
-        state = DirectControlState(amplitude=70)
+        state = RobotHandState(amplitude=70)
         adjust_amplitude(state, 10)
         assert state.amplitude == 80
 
     def test_decrease(self):
-        state = DirectControlState(amplitude=70)
+        state = RobotHandState(amplitude=70)
         adjust_amplitude(state, -10)
         assert state.amplitude == 60
 
     def test_clamps_at_100(self):
-        state = DirectControlState(amplitude=100)
+        state = RobotHandState(amplitude=100)
         adjust_amplitude(state, 10)
         assert state.amplitude == 100
 
     def test_clamps_at_0(self):
-        state = DirectControlState(amplitude=0)
+        state = RobotHandState(amplitude=0)
         adjust_amplitude(state, -10)
         assert state.amplitude == 0
 
     def test_increasing_amplitude_pushes_center_toward_50(self):
-        state = DirectControlState(amplitude=40, intended_center=80)
+        state = RobotHandState(amplitude=40, intended_center=80)
         # range [20, 80], center=80 is valid
         adjust_amplitude(state, 10)
         # amplitude=50, range [25, 75], intended=80 is outside → center clamped to 75
@@ -335,14 +335,14 @@ class TestAdjustAmplitude:
         assert state.intended_center == 80  # unchanged
 
     def test_repeated_amplitude_increase_forces_center_to_50(self):
-        state = DirectControlState(amplitude=0, intended_center=80)
+        state = RobotHandState(amplitude=0, intended_center=80)
         for _ in range(10):
             adjust_amplitude(state, 10)
         assert state.amplitude == 100
         assert state.center == 50
 
     def test_decreasing_amplitude_restores_intended_center(self):
-        state = DirectControlState(amplitude=40, intended_center=80)
+        state = RobotHandState(amplitude=40, intended_center=80)
         # Increase then decrease amplitude
         adjust_amplitude(state, 10)  # amp=50, center clamped to 75
         adjust_amplitude(state, 10)  # amp=60, center clamped to 70
@@ -354,21 +354,21 @@ class TestAdjustAmplitude:
 
 class TestSetCenter:
     def test_sets_intended_center(self):
-        state = DirectControlState(amplitude=40, intended_center=50)
+        state = RobotHandState(amplitude=40, intended_center=50)
 
         set_center(state, 80)
 
         assert state.intended_center == 80
 
     def test_clamps_to_0_100(self):
-        state = DirectControlState(amplitude=40)
+        state = RobotHandState(amplitude=40)
 
         set_center(state, 120)
 
         assert state.intended_center == 100
 
     def test_recomputes_effective_center(self):
-        state = DirectControlState(amplitude=100, intended_center=50)
+        state = RobotHandState(amplitude=100, intended_center=50)
 
         set_center(state, 90)
 
@@ -379,13 +379,13 @@ class TestSetCenter:
 
 class TestAdjustCenter:
     def test_increase(self):
-        state = DirectControlState(amplitude=60, intended_center=50)
+        state = RobotHandState(amplitude=60, intended_center=50)
         adjust_center(state, 10)
         assert state.center == 60
         assert state.intended_center == 60
 
     def test_decrease(self):
-        state = DirectControlState(amplitude=60, intended_center=50)
+        state = RobotHandState(amplitude=60, intended_center=50)
         adjust_center(state, -10)
         assert state.center == 40
         assert state.intended_center == 40
@@ -393,14 +393,14 @@ class TestAdjustCenter:
     def test_half_step_when_5_from_edge(self):
         # amplitude=80, range [40, 60]. intended=55, try +10 → would be 65 > 60
         # 55 is 5 from edge (60), accept half → intended=60
-        state = DirectControlState(amplitude=80, intended_center=55)
+        state = RobotHandState(amplitude=80, intended_center=55)
         adjust_center(state, 10)
         assert state.intended_center == 60
         assert state.center == 60
 
     def test_ignored_when_at_edge(self):
         # amplitude=80, range [40, 60]. intended=60, try +10 → at edge, ignore
-        state = DirectControlState(amplitude=80, intended_center=60)
+        state = RobotHandState(amplitude=80, intended_center=60)
         adjust_center(state, 10)
         assert state.intended_center == 60
         assert state.center == 60
@@ -409,41 +409,41 @@ class TestAdjustCenter:
         # The low side is the same rule mirrored, and nothing was asking it —
         # amplitude=80, range [40, 60]. intended=45, try -10 → would be 35 < 40,
         # and 45 is 5 clear of the edge, so accept half → intended=40.
-        state = DirectControlState(amplitude=80, intended_center=45)
+        state = RobotHandState(amplitude=80, intended_center=45)
         adjust_center(state, -10)
         assert state.intended_center == 40
         assert state.center == 40
 
     def test_ignored_when_at_the_low_edge(self):
-        state = DirectControlState(amplitude=80, intended_center=40)
+        state = RobotHandState(amplitude=80, intended_center=40)
         adjust_center(state, -10)
         assert state.intended_center == 40
         assert state.center == 40
 
     def test_center_never_affects_amplitude(self):
-        state = DirectControlState(amplitude=80, intended_center=50)
+        state = RobotHandState(amplitude=80, intended_center=50)
         adjust_center(state, 10)
         assert state.amplitude == 80
 
 
 class TestCycleShape:
     def test_cycles_from_sine_to_triangle(self):
-        state = DirectControlState(shape=WaveformShape.SINE)
+        state = RobotHandState(shape=WaveformShape.SINE)
         cycle_shape(state)
         assert state.shape is WaveformShape.TRIANGLE
 
     def test_wraps_from_last_to_first(self):
-        state = DirectControlState(shape=WaveformShape.SAWTOOTH)
+        state = RobotHandState(shape=WaveformShape.SAWTOOTH)
         cycle_shape(state)
         assert state.shape is WaveformShape.SINE
 
     def test_step_minus_one_goes_backward(self):
-        state = DirectControlState(shape=WaveformShape.TRIANGLE)
+        state = RobotHandState(shape=WaveformShape.TRIANGLE)
         cycle_shape(state, -1)
         assert state.shape is WaveformShape.SINE
 
     def test_backward_wraps_from_first_to_last(self):
-        state = DirectControlState(shape=WaveformShape.SINE)
+        state = RobotHandState(shape=WaveformShape.SINE)
         cycle_shape(state, -1)
         assert state.shape is WaveformShape.SAWTOOTH
 
@@ -472,29 +472,29 @@ class TestSampleWaveform:
 
 class TestAdjustSpeed:
     def test_increase(self):
-        state = DirectControlState(speed=50)
+        state = RobotHandState(speed=50)
         adjust_speed(state, 5)
         assert state.speed == 55
         assert state.bpm == pytest.approx(bpm_for_speed(55))
 
     def test_decrease(self):
-        state = DirectControlState(speed=50)
+        state = RobotHandState(speed=50)
         adjust_speed(state, -5)
         assert state.speed == 45
 
     def test_clamps_at_max(self):
-        state = DirectControlState(speed=100)
+        state = RobotHandState(speed=100)
         adjust_speed(state, 5)
         assert state.speed == 100
 
     def test_clamps_at_min(self):
-        state = DirectControlState(speed=5)
+        state = RobotHandState(speed=5)
         adjust_speed(state, -5)
         assert state.speed == 5
 
 
 def test_position_fraction_and_phase_to_position_are_one_curve_at_two_scales():
-    from player_core.direct_control import POSITION_MAX, position_fraction
+    from player_core.robot_hand import POSITION_MAX, position_fraction
 
     for phase in (0.0, 0.17, 0.5, 0.83):
         for amplitude, center in ((100, 50), (40, 70), (0, 50)):
@@ -505,7 +505,7 @@ def test_position_fraction_and_phase_to_position_are_one_curve_at_two_scales():
 
 
 def test_phase_advanced_moves_by_the_time_that_passed_and_wraps():
-    from player_core.direct_control import phase_advanced
+    from player_core.robot_hand import phase_advanced
 
     assert phase_advanced(0.0, 60.0, 0.0) == 0.0
     assert phase_advanced(0.0, 60.0, 0.05) == pytest.approx(0.05)  # 60/min = 1/s
@@ -516,7 +516,7 @@ def test_phase_advanced_moves_by_the_time_that_passed_and_wraps():
 def test_a_stalled_clock_cannot_slingshot_the_phase():
     # The app blocked, or the machine suspended: the step owed is capped, so the
     # stroke slows through the gap instead of flinging the device across it.
-    from player_core.direct_control import MAX_TICK_SECONDS, phase_advanced
+    from player_core.robot_hand import MAX_TICK_SECONDS, phase_advanced
 
     capped = phase_advanced(0.0, 60.0, 5.0)
     assert capped == pytest.approx(phase_advanced(0.0, 60.0, MAX_TICK_SECONDS))

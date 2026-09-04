@@ -1,16 +1,14 @@
-"""The self-generated stroke: a waveform shaped by speed, amplitude and centre.
+"""The Robot Hand: the stroke this family generates itself, a waveform shaped
+by speed, amplitude and center.
 
-Genau's direct-control model, moved here whole once a second app grew one.
-Origenerator drives the OSR2 over slideshows of stills, where an image gives the
-device nothing to follow — the same problem Genau solves for a clip with no
-script — and it had answered it with a second copy of this arithmetic. Two
-copies of a waveform are two waveforms: they had already drifted on the shape
-names and on where the phase is carried.
+It is what drives the OSR2 whenever no funscript has it — the family's own auto
+mode, made so the stroke could be steered from the room instead of left to the
+device's built-in one.  Genau drives it from a clip's beats and visualizes it;
+Origenerator free-runs it over slideshows of stills.  Both stroke from this one
+arithmetic, so :func:`phase_advanced` is offered here rather than owned here:
+what advances the phase is the caller's own clock.
 
-Pure arithmetic: no toolkit, no device, no clock. What advances the phase is the
-caller's own — Genau's :mod:`genau.engine` follows the clip's beats while
-Origenerator free-runs — so :func:`phase_advanced` is offered here rather than
-owned here.
+Pure arithmetic: no toolkit, no device, no clock.
 """
 from __future__ import annotations
 
@@ -44,7 +42,7 @@ def bpm_for_speed(speed: int) -> float:
 
 
 @dataclass
-class DirectControlState:
+class RobotHandState:
     playing: bool = False
     speed: int = 50
     bpm: float = 0.0
@@ -59,52 +57,52 @@ class DirectControlState:
         _recompute_center(self)
 
 
-def toggle_playing(state: DirectControlState) -> None:
+def toggle_playing(state: RobotHandState) -> None:
     state.playing = not state.playing
 
 
-def pause_playing(state: DirectControlState) -> None:
+def pause_playing(state: RobotHandState) -> None:
     state.playing = False
 
 
-def space_action(state: DirectControlState, *, pause_only: bool) -> None:
+def space_action(state: RobotHandState, *, pause_only: bool) -> None:
     if pause_only:
         pause_playing(state)
     else:
         toggle_playing(state)
 
 
-def set_speed(state: DirectControlState, speed: int) -> None:
+def set_speed(state: RobotHandState, speed: int) -> None:
     speed = max(MIN_SPEED, min(MAX_SPEED, speed))
     state.speed = speed
     state.bpm = bpm_for_speed(speed)
 
 
-def adjust_speed(state: DirectControlState, delta: int) -> None:
+def adjust_speed(state: RobotHandState, delta: int) -> None:
     set_speed(state, state.speed + delta)
 
 
-def _recompute_center(state: DirectControlState) -> None:
+def _recompute_center(state: RobotHandState) -> None:
     """Set effective center from intended_center, clamped to amplitude range."""
     half = state.amplitude // 2
     state.center = max(half, min(100 - half, state.intended_center))
 
 
-def set_amplitude(state: DirectControlState, value: int) -> None:
+def set_amplitude(state: RobotHandState, value: int) -> None:
     state.amplitude = max(0, min(100, value))
     _recompute_center(state)
 
 
-def adjust_amplitude(state: DirectControlState, delta: int) -> None:
+def adjust_amplitude(state: RobotHandState, delta: int) -> None:
     set_amplitude(state, state.amplitude + delta)
 
 
-def set_center(state: DirectControlState, value: int) -> None:
+def set_center(state: RobotHandState, value: int) -> None:
     state.intended_center = max(0, min(100, value))
     _recompute_center(state)
 
 
-def adjust_center(state: DirectControlState, delta: int) -> None:
+def adjust_center(state: RobotHandState, delta: int) -> None:
     half = state.amplitude // 2
     lo, hi = half, 100 - half
     new = state.intended_center + delta
@@ -121,7 +119,7 @@ def adjust_center(state: DirectControlState, delta: int) -> None:
     _recompute_center(state)
 
 
-def cycle_shape(state: DirectControlState, step: int = 1) -> None:
+def cycle_shape(state: RobotHandState, step: int = 1) -> None:
     """Advance the waveform shape by *step* (default +1; pass -1 to go back)."""
     shapes = list(WaveformShape)
     idx = shapes.index(state.shape)

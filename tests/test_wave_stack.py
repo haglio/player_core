@@ -13,7 +13,7 @@ import random
 import pytest
 
 from player_core import wave_stack
-from player_core.direct_control import WaveformShape, position_fraction
+from player_core.robot_hand import WaveformShape, position_fraction
 from player_core.wave_stack import Ramp, Wave, WaveStack
 
 

@@ -1,9 +1,9 @@
 """The controls on the main console, and where they sit.
 
-Whichever player holds the main slot draws it: Nau in nau and hybrid, Genau in
-genau mode.  The console is the same in every mode, so the mode switch and the
-drive controls do not move as you flip between them; only the transport changes,
-because prev/next step Nau's video in nau/hybrid and Genau's clips in genau.
+Whichever player holds the main slot draws it: Nau in video mode, Genau in
+genau mode.  The console is the same in both, so the mode switch and the drive
+controls do not move as you flip between them; only the transport changes,
+because prev/next step Nau's video in video mode and Genau's clips in genau.
 
 Kept free of Pillow, as :mod:`player_core.satellite_hud` is, so the rows, the
 geometry and the hit-testing are testable without a font.  :mod:`player_core.console_hud` paints them; the
@@ -88,8 +88,8 @@ class Button:
     # at before clicking says so before its tooltip does.  Red is otherwise this
     # family's alarm, and nothing here is alarming enough to spend it on twice.
     danger: bool = False
-    # One of a set of mutually exclusive modes -- Nau/Hybrid/Genau here, the
-    # satellite side's Player/Origenerator on its own HUD.  Lit, it fills the
+    # One of a set of mutually exclusive modes -- Video/Genau here, the
+    # satellite side's Video/Origenerator on its own HUD.  Lit, it fills the
     # family's BLUE rather than the active gray every other toggle takes: with
     # every button now carrying a lit ground, one shade lighter was too small a
     # difference to find the mode you are in at a glance.
@@ -109,11 +109,11 @@ class ConsoleModel:
     ``playback_speed``, which is Nau's own and folded in by whoever is drawing.
     """
 
-    mode: str = "nau"
+    mode: str = "video"
     # The dot: whether a bare, player-less command ("next", "lock") lands on the
     # main player rather than on a satellite.
     active: bool = False
-    # What is driving the OSR2 right now: off / auto / funscript / genau / idle.
+    # What is driving the OSR2 right now: off / auto / funscript / robot_hand / idle.
     osr2: str = "off"
     # Whether the OSR2 broker service is up — its own concern, only the main player's.
     broker: bool = False
@@ -123,7 +123,7 @@ class ConsoleModel:
     # — by a player that has no loop machine of its own to ask.
     record: str = "normal"
     # Whether the player on the main slot is holding what is on screen rather
-    # than letting it move on — Nau's video in nau and hybrid, Genau's clip in
+    # than letting it move on — Nau's video in video mode, Genau's clip in
     # genau.  One flag for one padlock, because whichever player is showing is the
     # one the lock holds.  On is where both players open, so it is the default
     # here too: a console drawn before the first panel arrives must not show the
@@ -161,7 +161,7 @@ class ConsoleModel:
     enhanced_filter: bool | None = None
     # And whether it is showing only its favorites — the same shape, and the
     # same reason: a genau-mode host with a set of its own to narrow has these
-    # switches, and one with no set has neither.  ``f_mode`` above is the nau
+    # switches, and one with no set has neither.  ``f_mode`` above is the video
     # branch's flag, published by Fun Time for a playlist IT owns; this one is
     # the genau branch's, folded in by the host that owns the set.  Both light
     # the same F, because a reader glancing between two screens is looking at
@@ -182,7 +182,7 @@ def read_console(path: Path) -> ConsoleModel | None:
     if not isinstance(raw, dict) or "mode" not in raw:
         return None
     return ConsoleModel(
-        mode=str(raw.get("mode", "nau")),
+        mode=str(raw.get("mode", "video")),
         active=bool(raw.get("active", False)),
         f_mode=bool(raw.get("f_mode", False)),
         latest=bool(raw.get("latest", False)),
@@ -238,29 +238,19 @@ FMODE_ICON = "\x00fmode"
 MINIMIZE_ICON = "\x00minimize"
 
 _MODE_BUTTONS = (
-    ("nau_activate", "Nau", "nau"),
-    ("hybrid_activate", "Hybrid", "hybrid"),
+    ("main_video_activate", "Video", "video"),
     ("genau_activate", "Genau", "genau"),
 )
 
 
 def nau_displays(mode: str) -> bool:
-    """Whether Nau's video is on the main slot — nau and hybrid.
+    """Whether Nau's video is on the main slot — video mode.
 
     The transport steps Nau's video then, and the nudge / open / clip / record
     that act on a video make sense; in genau mode the transport steps Genau's own
     clips instead and those video actions have nothing to act on.
     """
-    return mode in ("nau", "hybrid")
-
-
-def genau_drives(mode: str) -> bool:
-    """Whether a waveform is driving the device — genau and hybrid.
-
-    Only then do amplitude, centre, speed, cruise and the rest mean anything, so
-    only then does the drive readout and its control row appear.
-    """
-    return mode in ("genau", "hybrid")
+    return mode == "video"
 
 
 def _format_rate(rate: float) -> str:
@@ -275,12 +265,12 @@ def console_rows(model: ConsoleModel, *, modes: bool = True,
     The mode row leads, so it holds the same place in every mode.  Then the
     transport — Nau's video or Genau's clips — then the pace of whatever that
     transport is stepping (the video's playback rate, or the seconds a clip holds
-    the screen), and, while Genau is driving, the hands-free control row (the
-    drive readout's amplitude/centre/speed arrows are drawn on the readout itself,
-    not here).
+    the screen), and the Robot Hand's hands-free control row (the drive
+    readout's amplitude/center/speed arrows are drawn on the readout itself, not
+    here).
 
     *modes* off drops that leading row, and the minimize button riding it with
-    it.  A player embedded in another app's window is not one of the three that
+    it.  A player embedded in another app's window is not one of the two that
     row switches between, and has no borderless window of its own to park — but
     everything below it means exactly what it means here, which is the whole
     point of asking for this console rather than building a second one.
@@ -309,15 +299,14 @@ def console_rows(model: ConsoleModel, *, modes: bool = True,
         rows.append(_playback_speed_row(model, label_width))
     else:
         rows.append(_clip_seconds_row(model, label_width))
-    if genau_drives(model.mode):
-        rows.append(_control_row(model))
+    rows.append(_control_row(model))
     return rows
 
 
 def _transport_row(model: ConsoleModel) -> list[Button]:
     """Stepping and the actions on what is on screen.
 
-    In nau/hybrid that is Nau's video — step it, nudge inside it, hold it against
+    In video mode that is Nau's video — step it, nudge inside it, hold it against
     the end of the playlist's advance, browse for another, save a clip, record a
     loop.  In genau it is Genau's own clips — step them, hold one, mark one weird;
     nudge/browse/clip/record have no video to act on.
@@ -452,11 +441,11 @@ def _clip_seconds_row(model: ConsoleModel, label_width: int = PLAYBACK_LABEL_W) 
 
 def _control_row(model: ConsoleModel) -> list[Button]:
     """The hands-free stroke switch, the waveform and the offset — everything
-    Genau does that is not a level on the readout."""
+    the Robot Hand does that is not a level on the readout."""
     return [
-        Button("genau_toggle_cruise", "cc",
+        Button("robot_hand_toggle_cruise", "cc",
                "Cruise control: vary the stroke hands-free", lit=model.cruise),
-        Button("genau_cycle_shape", WAVE_ICON, f"Waveform: {shape_label(model.shape)}"),
+        Button("robot_hand_cycle_shape", WAVE_ICON, f"Waveform: {shape_label(model.shape)}"),
         Button("quarter_button", _GLYPHS["quarter"], "Offset the stroke a ¼ cycle"),
     ]
 
@@ -513,8 +502,8 @@ def _group_break(row: list[Button], index: int) -> bool:
     return _family(previous.action) != _family(current.action)
 
 
-# Genau controls whose command name does not begin with genau_.
-_GENAU_CONTROLS = frozenset({"quarter_button"})
+# Robot Hand controls whose command name does not begin with robot_hand_.
+_ROBOT_HAND_CONTROLS = frozenset({"quarter_button"})
 # Recording a loop and saving what it caught: one job, two presses.
 _CAPTURE_CONTROLS = frozenset({"nau_record_tap", "clipper_save"})
 # The two switches: the lock holds what is on screen against moving on, F-mode
@@ -536,14 +525,14 @@ _WINDOW_CONTROLS = frozenset({"main_minimize"})
 
 def _family(action: str) -> str:
     """Which group of controls *action* belongs to."""
-    # The three mode buttons are one group; genau_activate would otherwise fall
+    # The two mode buttons are one group; genau_activate would otherwise fall
     # to the Genau controls' prefix below.
     if action.endswith("_activate"):
         return "mode"
     if action in _WINDOW_CONTROLS:
         return "window"
-    if action in _GENAU_CONTROLS:
-        return "genau_"
+    if action in _ROBOT_HAND_CONTROLS:
+        return "robot_hand_"
     if action in _CAPTURE_CONTROLS:
         return "capture"
     if action in _SWITCH_CONTROLS:
@@ -552,7 +541,7 @@ def _family(action: str) -> str:
         return "reset"
     # Stepping the video and nudging inside it are one run of four marks, so they
     # are one family: prev, back ten, forward ten, next, evenly spaced.
-    for prefix in ("main_", "nau_speed", "genau_"):
+    for prefix in ("main_", "nau_speed", "robot_hand_", "genau_"):
         if action.startswith(prefix):
             return prefix
     return "file"

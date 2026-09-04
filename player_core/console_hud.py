@@ -1,7 +1,7 @@
 """The main console — the HUD the player on the main slot draws.
 
 The same console is drawn whichever player holds the slot: Nau over its video in
-nau and hybrid, Genau into its own window in genau.  So the mode switch and the
+video mode, Genau into its own window in genau mode.  So the mode switch and the
 drive controls keep their places as you flip between modes — only the transport
 changes, because it steps Nau's video in one and Genau's clips in the other.
 
@@ -10,8 +10,8 @@ length mode, or the compilation and your place in it) beside the active-player
 dot, with the file on screen as a muted line under it, the same shape each
 satellite's HUD leads with.  Both are empty in genau mode, where there is no Nau
 playlist behind the screen.  Everything else is the console the orchestrator
-publishes (:mod:`player_core.console`) plus, while Genau is driving, the drive
-readout (:mod:`player_core.drive_readout`) with its own controls.
+publishes (:mod:`player_core.console`) plus the Robot Hand's drive readout
+(:mod:`player_core.drive_readout`) with its own controls.
 
 The wording and shape are pure functions; the drawing goes onto the slab
 :mod:`player_core.hud_panel` owns, the same slab the satellites' HUD is drawn on,
@@ -38,7 +38,6 @@ from .console import (
     ConsoleModel,
     _row_width,
     console_rows,
-    genau_drives,
     hit_test,
     nau_displays,
     osr2_row,
@@ -48,7 +47,7 @@ from .console import (
 )
 from .drive_readout import (
     DRIVEN_BY_FUNSCRIPT,
-    DRIVEN_BY_GENAU,
+    DRIVEN_BY_ROBOT_HAND,
     DRIVEN_BY_NEUTRAL,
     DRIVEN_BY_NOTHING,
     DriveHud,
@@ -113,9 +112,9 @@ _APP_MARKS = {BROKER_ICON: "B", FMODE_ICON: "F"}
 _REVISION = re.compile(r"\s*\(v\d+\)$")
 
 # What the OSR2 line says by what is driving the device, and the color it says
-# it in — green when a funscript is driving, blue when Genau is, muted when
-# nothing is, and the device's own pink when it is running itself in auto.
-OSR2_GENAU = "genau"  # the one state in which the drive readout can be pressed
+# it in — green when a funscript is driving, blue when the Robot Hand is, muted
+# when nothing is, and the device's own pink when it is running itself in auto.
+OSR2_ROBOT_HAND = "robot_hand"  # the one state in which the drive readout can be pressed
 OSR2_FUNSCRIPT = "funscript"
 OSR2_BUFFER = "buffer"
 # The buffer pill wears the trace's own neutral grey, so the word and the line
@@ -123,22 +122,17 @@ OSR2_BUFFER = "buffer"
 _NEUTRAL_PILL = (168, 168, 174)
 _OSR2_LABELS = {
     "off": "Off", "auto": "Auto", OSR2_FUNSCRIPT: "FunScript",
-    OSR2_GENAU: "Genau", "idle": "Idle", OSR2_BUFFER: "Buffer",
+    OSR2_ROBOT_HAND: "Robot Hand", "idle": "Idle", OSR2_BUFFER: "Buffer",
 }
 _OSR2_COLORS = {
-    "funscript": GREEN, "genau": BLUE, "auto": PINK,
+    "funscript": GREEN, OSR2_ROBOT_HAND: BLUE, "auto": PINK,
     "off": TEXT_MUTED, "idle": TEXT_MUTED, OSR2_BUFFER: _NEUTRAL_PILL,
 }
 
 # What the OSR2 state means for the trace.  Auto is the device running itself and
 # idle is nothing running at all; either way nothing here is being sent, so there
 # is no motion of ours to draw.
-_DRIVEN_BY_OSR2 = {OSR2_GENAU: DRIVEN_BY_GENAU, OSR2_FUNSCRIPT: DRIVEN_BY_FUNSCRIPT}
-
-
-# The modes whose drive readout is composed from the funscript's plan rather
-# than resampled from Genau's live stroke — see ConsolePainter._resolve.
-_COMPOSED_TRACE_MODES = ("nau", "hybrid")
+_DRIVEN_BY_OSR2 = {OSR2_ROBOT_HAND: DRIVEN_BY_ROBOT_HAND, OSR2_FUNSCRIPT: DRIVEN_BY_FUNSCRIPT}
 
 
 def _driven_by(osr2: str) -> str:
@@ -148,9 +142,9 @@ def _driven_by(osr2: str) -> str:
 # The drive readout's own arrows are drawn by the readout, but the console still
 # has to know what each posts and name it on hover.
 _DRIVE_TIPS = {
-    "genau_speed_down": "Stroke slower", "genau_speed_up": "Stroke faster",
-    "genau_amplitude_up": "Amplitude up", "genau_amplitude_down": "Amplitude down",
-    "genau_center_up": "Center up", "genau_center_down": "Center down",
+    "robot_hand_speed_down": "Stroke slower", "robot_hand_speed_up": "Stroke faster",
+    "robot_hand_amplitude_up": "Amplitude up", "robot_hand_amplitude_down": "Amplitude down",
+    "robot_hand_center_up": "Center up", "robot_hand_center_down": "Center down",
 }
 
 
@@ -214,11 +208,11 @@ def hud_xy() -> tuple[int, int]:
 @dataclass(frozen=True)
 class ConsoleHud:
     """Everything on the main console: the top line, the room's controls, and
-    — while Genau is driving — the drive readout.
+    the Robot Hand's drive readout.
 
-    *modes* is drawn only where it applies (nau/hybrid); *console* is what Fun
-    Time published; *drive* is the live readout, present only while a waveform is
-    driving the device.
+    *modes* is drawn only where it applies (video mode); *console* is what Fun
+    Time published; *drive* is the live readout, present once the Robot Hand has
+    published one.
     """
 
     modes: ModeHud = field(default_factory=ModeHud)
@@ -228,7 +222,7 @@ class ConsoleHud:
     # floating this over a video wants (see hud_panel.HudPanel).  Part of the
     # value compared for the repaint cache, like the rest.
     ground: tuple[int, int, int] | None = None
-    # Whether to draw the row that switches between the three players, and the
+    # Whether to draw the row that switches between the two players, and the
     # minimize button riding it.  A console drawn inside another app's window is
     # not one of those three and has no borderless window of its own to park, so
     # that row names nothing it can do; everything below it means what it means
@@ -281,7 +275,7 @@ class ConsoleHud:
         order = LATEST_LABEL if self.console.latest else SHUFFLE_LABEL
         # The pace an unheld Genau clip moves on at, after the order rather than in
         # place of it: the order says which clip is next, the pace says when.  Only
-        # while Genau is the one showing — hybrid draws the drive readout too, but
+        # while Genau is the one showing — video mode draws the drive readout too, but
         # an unlocked Nau there plays through a playlist rather than on a timer —
         # and only unheld, since nothing is going to move a held clip.
         if not nau_displays(self.console.mode) and not self.console.locked and self.advance_interval:
@@ -376,21 +370,21 @@ class ConsolePainter:
         # playhead — set by the same function that drew the line under the dot —
         # since the round trip lags the arbiter, and the arbiter itself decides
         # seconds before the device is done riding the blue.
-        if not (hud.console.mode in _COMPOSED_TRACE_MODES and drive.segments):
+        if not (nau_displays(hud.console.mode) and drive.segments):
             drive = replace(drive, driven=_driven_by(hud.console.osr2))
-        # In hybrid the readout is not a picture of Genau's stroke: it is the
+        # In video mode the readout is not a picture of the Robot Hand's stroke: it is the
         # picture of the handoff, and the device changes hands inside it.  The
         # OSR2 reads "off" whenever nothing is answering on the wire, which is
         # exactly the gap between Genau letting go and the script's driver
         # picking up.
         # Frozen ONLY when the trace is Genau's own resampled stroke — a
         # motion nobody is sending, which must not keep animating.  A composed
-        # trace (nau and hybrid both) is the script's plan, computed fresh per
+        # trace (video mode) is the script's plan, computed fresh per
         # frame from the playhead: it keeps sliding through every rest and
         # every handoff whatever the OSR2 state says, because the rests ARE
         # part of what it draws — freezing it on the round-tripped "idle"/"off"
         # was the picture that stopped scrolling for the length of each gap.
-        if not drive.live and hud.console.mode not in _COMPOSED_TRACE_MODES:
+        if not drive.live and not nau_displays(hud.console.mode):
             # Genau goes on stroking regardless — it cannot see that the OSR2 is
             # off — so both the trace and the position it publishes keep moving,
             # and either one left running is a dead readout still claiming to be
@@ -513,18 +507,12 @@ class ConsolePainter:
         # and the width helpers need it before the pill is drawn.
         self._composed_drive = (
             drive if (drive is not None and drive.segments
-                      and console.mode in _COMPOSED_TRACE_MODES) else None)
-        # Nau's own screen has no Genau behind it, so the readout there is the
-        # trace alone: the levels describe a stroke nothing is making and no
-        # control on them could reach one.  What is worth drawing is the picture
-        # of what the device is being sent, which is the funscript.
-        trace_only = drive is not None and not genau_drives(console.mode)
+                      and nau_displays(console.mode)) else None)
         rows = console_rows(console, modes=hud.modes_row,
                             label_width=self._row_label_width())
         status = hud.status_line
         filename = hud.modes.video
-        drive_w, drive_h = (
-            section_size(trace_only=trace_only) if drive is not None else (0, 0))
+        drive_w, drive_h = section_size() if drive is not None else (0, 0)
         body_ascent, body_descent = self._body.getmetrics()
         top_h = body_ascent + body_descent
         tiny_h = sum(self._tiny.getmetrics())
@@ -560,10 +548,10 @@ class ConsolePainter:
             y += _ROW_GAP
             # The panel's image rather than its pen: the readout supersamples
             # its trace and composites it back, which a pen cannot carry.
-            self._drive.draw(panel.image, _PAD, y, drive, trace_only=trace_only)
+            self._drive.draw(panel.image, _PAD, y, drive)
             # The readout draws its own arrows; the console only needs them as hit
             # targets, so they answer a press and name themselves on hover.
-            for control in drive_controls(_PAD, y, drive, trace_only=trace_only):
+            for control in drive_controls(_PAD, y, drive):
                 self.buttons.append((
                     control.rect,
                     Button(control.action, "", _DRIVE_TIPS.get(control.action, ""),
@@ -573,7 +561,7 @@ class ConsolePainter:
             # target (:meth:`_grab`) — and joins the buttons with no action to
             # post, purely so it names what it sets on hover.  Nothing else on a
             # HUD in a video says a bar can be dragged.
-            self.tracks = drive_tracks(_PAD, y, drive, trace_only=trace_only)
+            self.tracks = drive_tracks(_PAD, y, drive)
             for track in self.tracks:
                 self.buttons.append((track.rect, Button("", "", track.tooltip)))
 
@@ -597,7 +585,7 @@ class ConsolePainter:
         if drive is None:
             return model.osr2
         return {
-            DRIVEN_BY_GENAU: OSR2_GENAU,
+            DRIVEN_BY_ROBOT_HAND: OSR2_ROBOT_HAND,
             DRIVEN_BY_FUNSCRIPT: OSR2_FUNSCRIPT,
             DRIVEN_BY_NEUTRAL: OSR2_BUFFER,
         }.get(drive.driven, model.osr2)
@@ -618,7 +606,7 @@ class ConsolePainter:
         player, so they share the OSR2's line and sit together at its head —
         placed by hand rather than through the row layout, which would read them
         as different families and open a gap between them.  The label then hugs
-        its pill, well clear of the controls, so "OSR2 Genau" reads as one
+        its pill, well clear of the controls, so "OSR2 Robot Hand" reads as one
         read-out instead of as a third button.
         """
         controls = osr2_row(model)

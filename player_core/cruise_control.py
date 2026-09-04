@@ -1,6 +1,6 @@
-"""Hands-free variation of the stroke — Genau's cruise control, shared.
+"""Hands-free variation of the stroke — the Robot Hand's cruise control, shared.
 
-It lives beside :mod:`player_core.direct_control` because the state it varies is
+It lives beside :mod:`player_core.robot_hand` because the state it varies is
 that one's: an app that has the stroke gets this with it, rather than growing
 its own idea of what "vary it for me" means.
 
@@ -38,7 +38,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from . import wave_stack
-from .direct_control import (
+from .robot_hand import (
     MAX_SPEED,
     MAX_TICK_SECONDS,
     MIN_SPEED,
@@ -50,7 +50,7 @@ from .direct_control import (
 from .wave_stack import Ramp, Wave, WaveStack
 
 if TYPE_CHECKING:
-    from .direct_control import DirectControlState
+    from .robot_hand import RobotHandState
 
 # How many waves a session gets: a pair most of the time, sometimes the plain
 # single wave, sometimes three.
@@ -138,7 +138,7 @@ def disable_cruise_control(state: CruiseControlState) -> float | None:
 
 
 def tick_cruise_control(
-    direct: DirectControlState,
+    robot_hand: RobotHandState,
     cc: CruiseControlState,
     now: float,
     *,
@@ -161,11 +161,11 @@ def tick_cruise_control(
     dt = 0.0 if cc._last_tick is None else now - cc._last_tick
     cc._last_tick = now
 
-    if not direct.playing:
+    if not robot_hand.playing:
         return
 
     if not cc.stack:
-        _draw_the_waves(cc, direct, phase)
+        _draw_the_waves(cc, robot_hand, phase)
 
     # A clock that stalled — the app blocked, the machine suspended — comes back
     # owing a step no stroke should take at once, and the same cap the phase
@@ -173,9 +173,9 @@ def tick_cruise_control(
     step = max(0.0, min(dt, MAX_TICK_SECONDS))
     cc.clock += step
     wave_stack.advance(cc.stack, cc.clock, step)
-    _hand_turns(cc, direct)
+    _hand_turns(cc, robot_hand)
     _onward_all(cc)
-    _write_dials(cc, direct)
+    _write_dials(cc, robot_hand)
 
 
 def _clamped(speed: float) -> float:
@@ -210,7 +210,7 @@ def _onward(cc: CruiseControlState, ramp: Ramp, span: tuple[float, float],
                 cc.rng.uniform(*seconds))
 
 
-def _draw_the_waves(cc: CruiseControlState, direct: DirectControlState,
+def _draw_the_waves(cc: CruiseControlState, robot_hand: RobotHandState,
                     phase: float) -> None:
     """Take the stroke over, from exactly where the dials have it.
 
@@ -222,16 +222,16 @@ def _draw_the_waves(cc: CruiseControlState, direct: DirectControlState,
     """
     count = cc.rng.choice(_COUNTS)
     now = cc.clock
-    cc.base_speed = float(direct.speed)
+    cc.base_speed = float(robot_hand.speed)
     cc.bands = _bands(cc.base_speed, count)
     cc.next_base = now + cc.rng.uniform(*_BASE_S)
     cc.wrote = None
     cc.stack = WaveStack(waves=[
         Wave(
-            shape=direct.shape,
-            speed=_settled(float(direct.speed), now),
-            amplitude=_settled(direct.amplitude / count, now),
-            center=_settled(direct.center / count, now),
+            shape=robot_hand.shape,
+            speed=_settled(float(robot_hand.speed), now),
+            amplitude=_settled(robot_hand.amplitude / count, now),
+            center=_settled(robot_hand.center / count, now),
             phase=phase,
         )
         for _ in range(count)
@@ -263,19 +263,19 @@ def _onward_all(cc: CruiseControlState) -> None:
                                   _share(_CENTER, count), _CENTER_S)
 
 
-def _write_dials(cc: CruiseControlState, direct: DirectControlState) -> None:
+def _write_dials(cc: CruiseControlState, robot_hand: RobotHandState) -> None:
     """The stack as the dials, so every console and status file draws what is
     actually being sent."""
     dials = wave_stack.dials(cc.stack, cc.clock)
-    set_amplitude(direct, round(dials.travel))
-    set_center(direct, round(dials.center))
-    set_speed(direct, round(dials.speed))
-    direct.shape = dials.shape
-    cc.wrote = (direct.amplitude, direct.intended_center, direct.speed,
-                direct.shape)
+    set_amplitude(robot_hand, round(dials.travel))
+    set_center(robot_hand, round(dials.center))
+    set_speed(robot_hand, round(dials.speed))
+    robot_hand.shape = dials.shape
+    cc.wrote = (robot_hand.amplitude, robot_hand.intended_center, robot_hand.speed,
+                robot_hand.shape)
 
 
-def _hand_turns(cc: CruiseControlState, direct: DirectControlState) -> None:
+def _hand_turns(cc: CruiseControlState, robot_hand: RobotHandState) -> None:
     """A dial that has moved since this last wrote it moved by hand — so cruise
     carries on from there rather than yanking it back.
 
@@ -290,24 +290,24 @@ def _hand_turns(cc: CruiseControlState, direct: DirectControlState) -> None:
     amplitude, center, speed, shape = cc.wrote
     waves = cc.stack.waves
     count = len(waves)
-    if direct.amplitude != amplitude:
+    if robot_hand.amplitude != amplitude:
         travel = sum(wave.amplitude.at(now) for wave in waves)
         for wave in waves:
-            part = (wave.amplitude.at(now) * direct.amplitude / travel
-                    if travel > 0 else direct.amplitude / count)
+            part = (wave.amplitude.at(now) * robot_hand.amplitude / travel
+                    if travel > 0 else robot_hand.amplitude / count)
             wave.amplitude = wave.amplitude.resumed(part, now)
-    if direct.intended_center != center:
-        moved = (direct.intended_center
+    if robot_hand.intended_center != center:
+        moved = (robot_hand.intended_center
                  - sum(wave.center.at(now) for wave in waves)) / count
         for wave in waves:
             wave.center = wave.center.resumed(wave.center.at(now) + moved, now)
-    if direct.speed != speed:
-        delta = direct.speed - speed
+    if robot_hand.speed != speed:
+        delta = robot_hand.speed - speed
         cc.base_speed = _clamped(cc.base_speed + delta)
         cc.bands = _bands(cc.base_speed, count)
         for wave in waves:
             shifted = wave.speed.shifted(delta)
             wave.speed = Ramp(_clamped(shifted.start), _clamped(shifted.end),
                               shifted.begun, shifted.seconds)
-    if direct.shape is not shape:
-        waves[0].shape = direct.shape  # the console named the main wave's
+    if robot_hand.shape is not shape:
+        waves[0].shape = robot_hand.shape  # the console named the main wave's

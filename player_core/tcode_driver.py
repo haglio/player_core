@@ -127,8 +127,8 @@ class FunscriptTCodeDriver:
         """One waypoint, given the handoff's glide while one is running.
 
         The script's own timing runs a beat late for that stretch — the
-        alternative is arriving on time by snapping there from wherever Genau's
-        stroke had the device, which is the jolt this exists to remove.
+        alternative is arriving on time by snapping there from wherever the Robot
+        Hand's stroke had the device, which is the jolt this exists to remove.
         """
         self._sink.send(format_tcode_command(
             "L0", position, self._glide.interval_ms(interval_ms, now)))

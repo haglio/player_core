@@ -20,7 +20,6 @@ def test_the_block_is_as_big_as_the_parts_it_places():
         assert x >= 0 and x + w <= layout.SECTION_W
         assert y >= 0 and y + h <= layout.SECTION_H
     assert layout.section_size() == (layout.SECTION_W, layout.SECTION_H)
-    assert layout.section_size(trace_only=True) == layout.TRACE_ONLY_SIZE
 
 
 def test_the_centre_marks_ride_the_line_they_move_and_stay_on_the_block():
@@ -77,10 +76,10 @@ def test_every_mark_is_hit_by_a_press_in_its_own_middle_and_by_no_other():
 
 def test_a_mark_at_the_end_of_its_range_is_dimmed_and_only_that_one():
     marks = _by_action(layout.controls(0, 0, 50, layout.Limits(amp_at_max=True)))
-    assert marks["genau_amplitude_up"].dim
-    assert not marks["genau_amplitude_down"].dim
+    assert marks["robot_hand_amplitude_up"].dim
+    assert not marks["robot_hand_amplitude_down"].dim
     assert not any(m.dim for a, m in marks.items()
-                   if not a.startswith("genau_amplitude"))
+                   if not a.startswith("robot_hand_amplitude"))
 
 
 def test_nothing_driving_dims_every_mark_and_every_band():
@@ -89,18 +88,12 @@ def test_nothing_driving_dims_every_mark_and_every_band():
     assert all(track.dim for track in layout.tracks(0, 0, 50, dim=True))
 
 
-def test_every_mark_posts_the_command_fun_time_routes_to_genau():
+def test_every_mark_posts_the_command_fun_time_routes_to_the_robot_hand():
     # The verbs are the wire, so they are written out here rather than composed:
     # a rename has to be findable from the dispatch end as well as this one.
     posted = _by_action(layout.controls(0, 0, 50, layout.Limits()))
     assert set(posted) == {
-        "genau_speed_down", "genau_speed_up",
-        "genau_amplitude_down", "genau_amplitude_up",
-        "genau_center_down", "genau_center_up",
+        "robot_hand_speed_down", "robot_hand_speed_up",
+        "robot_hand_amplitude_down", "robot_hand_amplitude_up",
+        "robot_hand_center_down", "robot_hand_center_up",
     }
-
-
-def test_the_trace_alone_has_nothing_to_press():
-    # In Nau there is no engine behind the screen for a mark to reach.
-    assert layout.controls(0, 0, 50, layout.Limits(), trace_only=True) == []
-    assert layout.tracks(0, 0, 50, trace_only=True) == []

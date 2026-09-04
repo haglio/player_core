@@ -626,7 +626,7 @@ class TestModePair:
     def test_mode_buttons_run_right_with_their_commands(self):
         rects = mode_button_rects(100, 50, [40, 80])
         assert [command for _rect, command in rects] == [
-            "players_activate", "origenerator_activate"]
+            "satellites_video_activate", "origenerator_activate"]
         (first, _), (second, _) = rects
         assert first == (100, 50, 40 + 2 * MODE_LABEL_PAD, CTRL_BTN)
         assert second[0] == first[0] + first[2] + MAP_GAP
@@ -640,8 +640,8 @@ class TestModePair:
 
     def test_the_pair_names_itself_on_hover(self):
         targets = HudTargets(click=[], loop=[], filter=[], expand=None,
-                             modes=[((0, 0, 60, 18), "players_activate")])
-        assert "Player mode" in button_tooltip(targets, 5, 5)
+                             modes=[((0, 0, 60, 18), "satellites_video_activate")])
+        assert "Video mode" in button_tooltip(targets, 5, 5)
 
 
 def test_parse_hud_reads_an_enhanced_filter_only_where_the_side_names_one():

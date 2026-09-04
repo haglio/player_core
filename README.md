@@ -25,7 +25,7 @@ another application's internals to get it. By what it is:
   (the command queue and the paused flag), `status` (what a player publishes
   back).
 - **the device** — `tcode` and `tcode_driver` for the wire, `funscript` for a
-  script and the questions asked of one, and `direct_control` / `wave_stack` /
+  script and the questions asked of one, and `robot_hand` / `wave_stack` /
   `cruise_control` / `clip_scrub` for a stroke of this family's own.
 - **the chrome and what is drawn on it** — `hud_panel`, `hud_marks`,
   `geometry`, `timeline`, `volume`, `hud_status`, and then a model and a

@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 from .geometry import Rect
 
-# The three axes, named as the numeric set commands name them (``genau_amp_57``).
+# The three axes, named as the numeric set commands name them (``robot_hand_amp_57``).
 AMPLITUDE, CENTER, SPEED = "amp", "center", "speed"
 
 # One pair of marks for every axis: speed, amplitude and centre are the same
@@ -41,11 +41,6 @@ _WAVE_W = 120        # the trace, between the two axis columns
 SECTION_W = _CTR_LABEL_W + _GAP + _CTRL + _GAP + _WAVE_W + _GAP + _AMP_W + _GAP + _AMP_LABEL_W
 SECTION_H = _WAVE_H + _GAP + _CTRL + 2 + _LABEL_H
 
-# The trace on its own, which is the whole readout in Nau: there is no Genau
-# behind that screen, so its amplitude, centre and speed have nothing to act on
-# and only the picture of what the device is being sent is worth drawing.
-TRACE_ONLY_SIZE = (_WAVE_W, _WAVE_H)
-
 # How many points the trace is drawn from. Shared, because a funscript sampled
 # to take the trace over has to arrive at the same resolution as the stroke it
 # replaces — a coarser or finer line would read as a different kind of thing.
@@ -57,9 +52,9 @@ CONTROL_SIZE = _CTRL
 GAP = _GAP
 
 
-def section_size(*, trace_only: bool = False) -> tuple[int, int]:
-    """How much room the readout needs — the whole block, or the trace alone."""
-    return TRACE_ONLY_SIZE if trace_only else (SECTION_W, SECTION_H)
+def section_size() -> tuple[int, int]:
+    """How much room the readout needs."""
+    return SECTION_W, SECTION_H
 
 
 @dataclass(frozen=True)
@@ -170,45 +165,36 @@ class Limits:
 
 
 def controls(x: int, y: int, center: int, limits: Limits, *,
-             dim: bool = False, trace_only: bool = False) -> list[DriveControl]:
+             dim: bool = False) -> list[DriveControl]:
     """The readout's marks at ``(x, y)`` — a −/+ pair for each of speed,
     amplitude and centre — each carrying the command it posts and whether it is
     dimmed at the end of its range.
 
-    The commands are the ones Fun Time routes to Genau, written out so a verb
-    can be grepped from either end.  *dim* dims all of them at once, which is
-    what a readout nobody can adjust looks like — a funscript has the device, or
-    the stroke is not running.
-
-    None at all when only the trace is drawn: in Nau there is no engine behind
-    the screen for a mark to reach.
+    The commands are the ones Fun Time routes to the Robot Hand, written out so
+    a verb can be grepped from either end.  *dim* dims all of them at once,
+    which is what a readout nobody can adjust looks like — a funscript has the
+    device, or the stroke is not running.
     """
-    if trace_only:
-        return []
     g = geometry(x, y, fraction(center))
     return [
-        DriveControl(g.speed_down, "genau_speed_down", LESS, dim or limits.spd_at_min),
-        DriveControl(g.speed_up, "genau_speed_up", MORE, dim or limits.spd_at_max),
-        DriveControl(g.amp_up, "genau_amplitude_up", MORE, dim or limits.amp_at_max),
-        DriveControl(g.amp_down, "genau_amplitude_down", LESS, dim or limits.amp_at_min),
-        DriveControl(g.center_up, "genau_center_up", MORE, dim or limits.ctr_at_max),
-        DriveControl(g.center_down, "genau_center_down", LESS, dim or limits.ctr_at_min),
+        DriveControl(g.speed_down, "robot_hand_speed_down", LESS, dim or limits.spd_at_min),
+        DriveControl(g.speed_up, "robot_hand_speed_up", MORE, dim or limits.spd_at_max),
+        DriveControl(g.amp_up, "robot_hand_amplitude_up", MORE, dim or limits.amp_at_max),
+        DriveControl(g.amp_down, "robot_hand_amplitude_down", LESS, dim or limits.amp_at_min),
+        DriveControl(g.center_up, "robot_hand_center_up", MORE, dim or limits.ctr_at_max),
+        DriveControl(g.center_down, "robot_hand_center_down", LESS, dim or limits.ctr_at_min),
     ]
 
 
-def tracks(x: int, y: int, center: int, *, dim: bool = False,
-           trace_only: bool = False) -> list[DriveTrack]:
+def tracks(x: int, y: int, center: int, *, dim: bool = False) -> list[DriveTrack]:
     """The readout's bands at ``(x, y)`` — the three you press to set a level
     outright instead of walking to it with the marks.
 
     A press anywhere on a bar asks for exactly the value drawn under the
     pointer, and holding the button keeps asking as the pointer moves. None of
     them carries a limit flag: a band sets an absolute value, so there is no end
-    of a range to run out of. None at all when only the trace is drawn, for the
-    same reason the marks are gone.
+    of a range to run out of.
     """
-    if trace_only:
-        return []
     center_frac = fraction(center)
     g = geometry(x, y, center_frac)
     return [

@@ -20,17 +20,17 @@ still lands. Both are rare, because the draws that feed the ramps are already
 divided by how many waves there are (see :mod:`player_core.cruise_control`) — the
 fit is the guarantee, not the mechanism.
 
-Pure arithmetic, as :mod:`player_core.direct_control` is. No clock of its own —
+Pure arithmetic, as :mod:`player_core.robot_hand` is. No clock of its own —
 the caller says what time it is — and no randomness: drawing the ramps is
 :mod:`player_core.cruise_control`'s job. The waveform itself is
-:mod:`player_core.direct_control`'s; this only sums copies of it.
+:mod:`player_core.robot_hand`'s; this only sums copies of it.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .direct_control import (
+from .robot_hand import (
     WaveformShape,
     bpm_for_speed,
     phase_advanced,

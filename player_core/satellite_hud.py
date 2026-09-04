@@ -136,9 +136,9 @@ class HudModel:
     # while a loop plays a non-anchor member of the group.  Drawn bright; the
     # rest dim.
     playing: Cell = ("corner", 0)
-    # The satellite side's own mode axis ("player" / "origenerator"), or "" for
+    # The satellite side's own mode axis ("video" / "origenerator"), or "" for
     # a session with no hosted Origenerator — the mode pair is drawn only when
-    # this names a mode, the way the main console's Nau/Hybrid/Genau row does.
+    # this names a mode, the way the main console's Video/Genau row does.
     satellites_mode: str = ""
 
 
@@ -460,8 +460,8 @@ def control_button_rects(x: int, y: int,
     ]
 
 
-# The satellite side's mode pair, drawn like the main console's Nau/Hybrid/
-# Genau row: a labeled button per mode, the session's current one lit, a press
+# The satellite side's mode pair, drawn like the main console's Video/Genau
+# row: a labeled button per mode, the session's current one lit, a press
 # on the other switching to it.  Each action is the dispatch command verbatim —
 # side-less, because the mode belongs to the whole satellite side.  Like the
 # console's, the mode row is a row of its own, leading the bands, and minimize
@@ -470,7 +470,7 @@ def control_button_rects(x: int, y: int,
 # Origenerator there is no mode row, and minimize stays at the end of the control
 # band.)
 MODE_BUTTONS = (
-    ("players_activate", "Player", "player"),
+    ("satellites_video_activate", "Video", "video"),
     ("origenerator_activate", "Origenerator", "origenerator"),
 )
 
@@ -657,7 +657,7 @@ CONTROL_TOOLTIPS = {
 }
 FAVORITE_TOOLTIP = "In the favorites"
 MODE_TOOLTIPS = {
-    "players_activate": "Player mode — the satellite players and the Random Favs Browser",
+    "satellites_video_activate": "Video mode — the satellite players and the Random Favs Browser",
     "origenerator_activate":
         "Origenerator mode — Origenerator over the browser, its shows over the players",
 }
