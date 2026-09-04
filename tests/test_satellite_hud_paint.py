@@ -933,16 +933,16 @@ def test_column_labels_are_clipped_to_their_column(thumb):
 
 
 def test_the_mode_pair_renders_and_is_pressable(thumb):
-    # The satellite counterpart of the console's Nau/Hybrid/Genau row: with a
+    # The satellite counterpart of the console's Video/Genau row: with a
     # session mode published, the pair is on the control band with real hit
     # targets, and a press posts the other mode's activation verbatim.
     rendered = HudRenderer("portrait").render(
         _model(corner=HudCell(path="c.mp4", thumb=thumb),
-               satellites_mode="player")
+               satellites_mode="video")
     )
 
     commands = [command for _rect, command in rendered.targets.modes]
-    assert commands == ["players_activate", "origenerator_activate"]
+    assert commands == ["satellites_video_activate", "origenerator_activate"]
     clicks = HudClicks("portrait")
     rect, command = rendered.targets.modes[1]
     assert clicks.press(rendered.targets, rect[0] + 2, rect[1] + 2, now=0.0) == command
@@ -961,7 +961,7 @@ def test_the_mode_row_leads_and_minimize_rides_it(thumb):
     rides that row rather than sitting among the transport."""
     rendered = HudRenderer("portrait").render(
         _model(corner=HudCell(path="c.mp4", thumb=thumb),
-               satellites_mode="player")
+               satellites_mode="video")
     )
 
     mode_y = rendered.targets.modes[0][0][1]
@@ -1013,7 +1013,7 @@ def test_the_unlit_mode_keeps_its_ordinary_ink(thumb):
     rendered = renderer.render(_model(
         corner=HudCell(path="c.mp4", thumb=thumb), satellites_mode="origenerator",
     ))
-    rect = dict((name, r) for r, name in rendered.targets.modes)["players_activate"]
+    rect = dict((name, r) for r, name in rendered.targets.modes)["satellites_video_activate"]
     x, y, w, h = rect
     rgb = _rgb(rendered.bgra)[y:y + h, x:x + w].astype(int)
 

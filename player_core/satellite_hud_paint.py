@@ -721,7 +721,7 @@ class HudRenderer:
     def _draw_modes(self, draw, modes: list[tuple[Rect, str]], model: HudModel) -> None:
         """The satellite side's mode pair — labeled buttons, the session's
         current mode lit, exactly the shape the main console draws its
-        Nau/Hybrid/Genau row in: press the other one to switch."""
+        Video/Genau row in: press the other one to switch."""
         lit_action = {mode: action for action, _label, mode in MODE_BUTTONS}.get(
             model.satellites_mode, "")
         labels = {action: label for action, label, _mode in MODE_BUTTONS}
@@ -729,7 +729,7 @@ class HudRenderer:
             # Blue, not the active gray every other toggle takes: with every
             # button carrying a lit ground now, one shade lighter was too small
             # a difference to find the mode you are in at a glance.  The same
-            # blue the console's Nau/Hybrid/Genau row lights, because it is the
+            # blue the console's Video/Genau row lights, because it is the
             # same question asked about the other half of the room.
             ink = self._button_box(draw, rect, on=action == lit_action,
                                    on_color=BLUE)

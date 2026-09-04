@@ -37,6 +37,7 @@ hit_test
 nau_displays
 osr2_row
 place_rows
+row_width
 rows_height
 shape_label
 tooltip_at
@@ -45,13 +46,19 @@ tooltip_at
 DOT_GAP
 OSR2_BUFFER
 OSR2_FUNSCRIPT
-OSR2_GENAU
+OSR2_ROBOT_HAND
 SYMBOL_FONT
 compilation_label
 
-# --- direct_control.py ---
+# --- drive_readout.py ---
+# The Robot Hand rename, landing here first: the consumers' branches import
+# these by their new names, and their primaries will once they land.
+DRIVEN_BY_ROBOT_HAND
+
+# --- robot_hand.py ---
 MAX_BPM
 MAX_TICK_SECONDS
+RobotHandState  # the rename, as above
 pause_playing
 
 # --- drive_layout.py ---
@@ -62,7 +69,6 @@ Geometry
 LABEL_H
 SECTION_H
 SECTION_W
-TRACE_ONLY_SIZE
 clamp01
 controls  # also drive_readout.py
 fraction

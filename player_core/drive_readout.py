@@ -21,9 +21,8 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 from . import drive_layout
-from .direct_control import POSITION_MAX
+from .robot_hand import POSITION_MAX
 from .drive_layout import (
-    TRACE_ONLY_SIZE,
     TRACE_SAMPLES,  # noqa: F401 — re-exported: genau reads it from here
     DriveControl,
     DriveTrack,
@@ -45,25 +44,24 @@ from .hud_panel import (
     text_width,
 )
 
-# What has the device, which is what the trace is a picture of.  Genau's own
-# stroke and a video's funscript take turns in Hybrid; in Nau there is only ever
-# the funscript, and with the OSR2 off or running itself nobody is sending
-# anything at all.
-DRIVEN_BY_GENAU = "genau"
+# What has the device, which is what the trace is a picture of.  The Robot
+# Hand's stroke and a video's funscript take turns in video mode, and with the
+# OSR2 off or running itself nobody is sending anything at all.
+DRIVEN_BY_ROBOT_HAND = "robot_hand"
 DRIVEN_BY_FUNSCRIPT = "funscript"
 DRIVEN_BY_NEUTRAL = "neutral"
 DRIVEN_BY_NOTHING = "nothing"
 
 # Green means the funscripts everywhere else on these HUDs — the favorites and
-# the scripts — so it means one here too; blue is Genau's own stroke, the color
-# its bars already wear.  The neutral buffers around a handoff are a light
+# the scripts — so it means one here too; blue is the Robot Hand's stroke, the
+# color its bars already wear.  The neutral buffers around a handoff are a light
 # grey: the stretch belonging to neither driver wears neither driver's color.
 # Nothing driving is the same muted grey a dead control is drawn in, so the
 # readout reads as one switched-off thing rather than as a live trace
 # surrounded by dead furniture.
 _NEUTRAL_INK = (168, 168, 174)
 _TRACE_INK = {
-    DRIVEN_BY_GENAU: BLUE,
+    DRIVEN_BY_ROBOT_HAND: BLUE,
     DRIVEN_BY_FUNSCRIPT: GREEN,
     DRIVEN_BY_NEUTRAL: _NEUTRAL_INK,
     DRIVEN_BY_NOTHING: TEXT_MUTED,
@@ -73,7 +71,6 @@ _TRACE_INK = {
 _SIZE_TINY = 8
 _TRACK = (56, 56, 62)  # the unfilled part of a bar — a shade off the slab
 
-_WAVE_W, _WAVE_H = TRACE_ONLY_SIZE
 _LABEL_H = drive_layout.LABEL_H
 _CTRL = drive_layout.CONTROL_SIZE
 _GAP = drive_layout.GAP
@@ -112,12 +109,12 @@ def label_pair_x(font, key: str, *, left: int) -> tuple[int, int]:
 
 @dataclass(frozen=True)
 class DriveHud:
-    """What Genau is driving the device with, ready to be drawn.
+    """What the Robot Hand is driving the device with, ready to be drawn.
 
     ``waveform`` is the stroke sampled left to right as 0-1 positions — the same
     samples the device is being sent, so the trace is the motion rather than a
     picture of it — spanning ``trace_seconds`` from now.  Whoever is driving
-    supplies them: Genau's own stroke while it strokes, the funscript's shape
+    supplies them: the Robot Hand's stroke while it strokes, the funscript's shape
     while a funscript has the device (Nau samples that; Genau cannot see it), and
     the last shape drawn, held still, while nothing is being sent at all.  The
     ``*_at_max`` / ``*_at_min`` flags say which controls have run out of range,
@@ -135,10 +132,10 @@ class DriveHud:
     advance_interval: int = 0
     # What has the device.  Not published — Genau cannot see the handoff; whoever
     # draws the console knows it from the OSR2 state and folds it in.  Anything
-    # but Genau dims every control here, because a stroke Genau is not sending
-    # cannot be adjusted: pressing one during a funscript's turn is what put two
-    # drivers on the device at once.
-    driven: str = DRIVEN_BY_GENAU
+    # but the Robot Hand dims every control here, because a stroke it is not
+    # sending cannot be adjusted: pressing one during a funscript's turn is what
+    # put two drivers on the device at once.
+    driven: str = DRIVEN_BY_ROBOT_HAND
     # How much time the trace spans, so a funscript sampled for it lines up with
     # the stroke it replaces.  Genau owns the number (it follows its own beats
     # per loop) and publishes it; a player with no Genau to ask keeps the default.
@@ -177,8 +174,8 @@ class DriveHud:
 
     @property
     def driving(self) -> bool:
-        """Whether Genau is the one driving — which is what its controls need."""
-        return self.driven == DRIVEN_BY_GENAU
+        """Whether the Robot Hand is the one driving — which is what its controls need."""
+        return self.driven == DRIVEN_BY_ROBOT_HAND
 
     @property
     def live(self) -> bool:
@@ -204,9 +201,8 @@ class DriveHud:
         return tuple((start, end, who) for (start, who), end in zip(marks, ends))
 
 
-def controls(x: int, y: int, hud: DriveHud, *,
-             trace_only: bool = False) -> list[DriveControl]:
-    """The readout's marks at ``(x, y)``, read off *hud* — Genau's own view of
+def controls(x: int, y: int, hud: DriveHud) -> list[DriveControl]:
+    """The readout's marks at ``(x, y)``, read off *hud* — the readout's own view of
     :func:`player_core.drive_layout.controls`, which is where the rects and the
     dimming live.  The console adds these to its hit targets, so a press posts
     exactly what is drawn."""
@@ -217,21 +213,19 @@ def controls(x: int, y: int, hud: DriveHud, *,
             amp_at_min=hud.amp_at_min, amp_at_max=hud.amp_at_max,
             ctr_at_min=hud.ctr_at_min, ctr_at_max=hud.ctr_at_max,
         ),
-        dim=not hud.driving, trace_only=trace_only)
+        dim=not hud.driving)
 
 
-def tracks(x: int, y: int, hud: DriveHud, *,
-           trace_only: bool = False) -> list[DriveTrack]:
+def tracks(x: int, y: int, hud: DriveHud) -> list[DriveTrack]:
     """The readout's bands at ``(x, y)``, read off *hud* — the three you press to
     set a level outright instead of walking to it with the marks."""
-    return drive_layout.tracks(x, y, hud.center, dim=not hud.driving,
-                         trace_only=trace_only)
+    return drive_layout.tracks(x, y, hud.center, dim=not hud.driving)
 
 
 def track_command(track: DriveTrack, px: int, py: int) -> str:
     """What a press at ``(px, py)`` on *track* posts — the numeric set command Fun
-    Time already routes to Genau."""
-    return f"genau_{track.axis}_{track_value(track, px, py)}"
+    Time already routes to the Robot Hand."""
+    return f"robot_hand_{track.axis}_{track_value(track, px, py)}"
 
 
 class DriveSection:
@@ -241,30 +235,22 @@ class DriveSection:
         self._tiny = load_font(_SIZE_TINY)
         self._glyph = load_font(_LABEL_H - 3, SYMBOL_FONT)
 
-    def draw(self, image: Image.Image, x: int, y: int, hud: DriveHud, *,
-             trace_only: bool = False) -> None:
+    def draw(self, image: Image.Image, x: int, y: int, hud: DriveHud) -> None:
         """Paint the readout with its top-left corner at ``(x, y)`` of *image*.
 
         Takes the hosting panel's image rather than a pen: the trace is
         rendered supersampled and composited back (:meth:`_wave`), which no
         pen can do.
-
-        *trace_only* draws the picture and nothing else, which is the whole
-        readout in Nau: Genau is not behind that screen, so its levels have
-        nothing to say and no control there could reach them.
         """
         draw = ImageDraw.Draw(image)
-        if trace_only:
-            self._wave(image, (x, y, _WAVE_W, _WAVE_H), hud)
-            return
         g = drive_layout.geometry(x, y, _fraction(hud.center))
-        # Blue is Genau's own stroke — the trace, the amplitude bar and the speed
-        # bar are all the same thing — and it is Genau's *turn* that keeps them
-        # lit: a stroke Genau is not sending cannot be adjusted, so the levels
-        # and their numbers go as faint as the dead marks beside them, whether a
-        # funscript has the device or nothing does.  Never the funscript's
-        # green: these are Genau's numbers, and a script driving does not make
-        # them the script's.
+        # Blue is the Robot Hand's stroke — the trace, the amplitude bar and the
+        # speed bar are all the same thing — and it is the hand's *turn* that
+        # keeps them lit: a stroke it is not sending cannot be adjusted, so the
+        # levels and their numbers go as faint as the dead marks beside them,
+        # whether a funscript has the device or nothing does.  Never the
+        # funscript's green: these are the hand's numbers, and a script driving
+        # does not make them the script's.
         level_ink = (*BLUE, 255) if hud.driving else _DISABLED
         value_ink = (*TEXT_PRIMARY, 255) if hud.driving else _DISABLED
 
@@ -330,8 +316,8 @@ class DriveSection:
         Rendered at _SUPERSAMPLE scale and resized down, because that is
         the whole of how the line gets its antialiasing — see the constant.
 
-        The centre's ruler is Genau's own idea and belongs to Genau's stroke, so
-        a funscript's trace is drawn without it — a dotted line saying "the
+        The center's ruler belongs to the Robot Hand's stroke, so a funscript's
+        trace is drawn without it — a dotted line saying "the
         stroke swings about here" is a claim about a stroke nobody is making.
         """
         x, y, w, h = rect
@@ -399,8 +385,8 @@ class DriveSection:
 
 
 # --- publishing --------------------------------------------------------------
-# In Hybrid the readout is drawn by Nau, inside its console, under the controls
-# that move it — so Genau stops drawing and starts saying.  A file, like every
+# In video mode the readout is drawn by Nau, inside its console, under the
+# controls that move it — so Genau stops drawing and starts saying.  A file, like every
 # other channel between these players: the reader polls per frame, and a torn or
 # missing read simply means "keep the readout you have".
 

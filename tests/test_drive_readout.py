@@ -1,4 +1,4 @@
-"""Genau's drive readout: what it says, and the controls it carries."""
+"""The Robot Hand's drive readout: what it says, and the controls it carries."""
 from __future__ import annotations
 
 import numpy as np
@@ -9,13 +9,12 @@ from player_core.drive_layout import (
     SECTION_H,
     SECTION_W,
     SPEED,
-    TRACE_ONLY_SIZE,
 )
 from player_core.drive_readout import (
     _DISABLED,
     _NEUTRAL_INK,
     DRIVEN_BY_FUNSCRIPT,
-    DRIVEN_BY_GENAU,
+    DRIVEN_BY_ROBOT_HAND,
     DRIVEN_BY_NEUTRAL,
     DRIVEN_BY_NOTHING,
     DriveHud,
@@ -62,9 +61,9 @@ class TestControls:
         actions = {control.action for control in controls(0, 0, _hud())}
 
         assert actions == {
-            "genau_speed_down", "genau_speed_up",
-            "genau_amplitude_up", "genau_amplitude_down",
-            "genau_center_up", "genau_center_down",
+            "robot_hand_speed_down", "robot_hand_speed_up",
+            "robot_hand_amplitude_up", "robot_hand_amplitude_down",
+            "robot_hand_center_up", "robot_hand_center_down",
         }
 
     def test_every_axis_is_moved_by_the_same_pair_of_marks(self):
@@ -73,19 +72,19 @@ class TestControls:
         by_action = {c.action: c.glyph for c in controls(0, 0, _hud())}
 
         assert {by_action[a] for a in
-                ("genau_speed_up", "genau_amplitude_up", "genau_center_up")} == {"+"}
+                ("robot_hand_speed_up", "robot_hand_amplitude_up", "robot_hand_center_up")} == {"+"}
         assert {by_action[a] for a in
-                ("genau_speed_down", "genau_amplitude_down", "genau_center_down")} == {"−"}
+                ("robot_hand_speed_down", "robot_hand_amplitude_down", "robot_hand_center_down")} == {"−"}
 
     def test_the_speed_controls_sit_below_the_trace(self):
         """Speed is out from between centre and amplitude, under the trace, so the
         three axes do not crowd one band."""
         by_action = {c.action: c.rect for c in controls(0, 0, _hud())}
-        wave_bottom = max(by_action["genau_amplitude_down"][1] + by_action["genau_amplitude_down"][3],
-                          by_action["genau_center_down"][1])
+        wave_bottom = max(by_action["robot_hand_amplitude_down"][1] + by_action["robot_hand_amplitude_down"][3],
+                          by_action["robot_hand_center_down"][1])
 
-        assert by_action["genau_speed_down"][1] >= wave_bottom
-        assert by_action["genau_speed_up"][1] >= wave_bottom
+        assert by_action["robot_hand_speed_down"][1] >= wave_bottom
+        assert by_action["robot_hand_speed_up"][1] >= wave_bottom
 
     def test_a_mark_at_its_limit_is_dimmed(self):
         """The flag on the readout says the axis has run out of range, so the mark
@@ -93,9 +92,9 @@ class TestControls:
         targets, the same as any dimmed control."""
         by_action = {c.action: c for c in controls(0, 0, _hud(spd_at_max=True, amp_at_min=True))}
 
-        assert by_action["genau_speed_up"].dim is True
-        assert by_action["genau_speed_down"].dim is False
-        assert by_action["genau_amplitude_down"].dim is True
+        assert by_action["robot_hand_speed_up"].dim is True
+        assert by_action["robot_hand_speed_down"].dim is False
+        assert by_action["robot_hand_amplitude_down"].dim is True
 
     def test_the_centre_marks_follow_the_line(self):
         """They sit beside the centre's dotted line, so they move up the panel as
@@ -103,7 +102,7 @@ class TestControls:
         low = {c.action: c.rect for c in controls(0, 0, _hud(center=20))}
         high = {c.action: c.rect for c in controls(0, 0, _hud(center=80))}
 
-        assert high["genau_center_up"][1] < low["genau_center_up"][1]
+        assert high["robot_hand_center_up"][1] < low["robot_hand_center_up"][1]
 
     def test_the_marks_it_offers_all_fall_on_the_block_it_draws(self):
         """Drawing and hit-testing place the marks from one geometry, so a press
@@ -132,13 +131,13 @@ class TestTracks:
         marks = {c.action: c.rect for c in controls(PAD, PAD, hud)}
         speed = self._band(hud, SPEED).rect
         amp = self._band(hud, AMPLITUDE).rect
-        down_x, down_y, down_w, _h = marks["genau_speed_down"]
+        down_x, down_y, down_w, _h = marks["robot_hand_speed_down"]
 
         assert speed[0] >= down_x + down_w
-        assert speed[0] + speed[2] <= marks["genau_speed_up"][0]
+        assert speed[0] + speed[2] <= marks["robot_hand_speed_up"][0]
         assert speed[1] >= down_y - 1
-        assert amp[1] >= marks["genau_amplitude_up"][1] + marks["genau_amplitude_up"][3]
-        assert amp[1] + amp[3] <= marks["genau_amplitude_down"][1]
+        assert amp[1] >= marks["robot_hand_amplitude_up"][1] + marks["robot_hand_amplitude_up"][3]
+        assert amp[1] + amp[3] <= marks["robot_hand_amplitude_down"][1]
 
     def test_a_press_along_the_speed_bar_asks_for_how_far_along_it_sits(self):
         band = self._band(_hud(), SPEED)
@@ -197,7 +196,7 @@ class TestTracks:
         band = self._band(_hud(), SPEED)
         x, y, _w, h = band.rect
 
-        assert track_command(band, x, y + h // 2) == "genau_speed_0"
+        assert track_command(band, x, y + h // 2) == "robot_hand_speed_0"
 
     def test_every_band_is_dimmed_while_a_funscript_has_the_device(self):
         """A stroke Genau is not sending cannot be dragged, for the same reason
@@ -233,15 +232,15 @@ class TestReadout:
         hud = _hud(speed=100, waveform=())
         rgb = _rendered(hud).astype(int)[:, :, :3]
         rects = {c.action: c.rect for c in controls(PAD, PAD, hud)}
-        down_x, down_y, down_w, down_h = rects["genau_speed_down"]
-        up_x = rects["genau_speed_up"][0]
+        down_x, down_y, down_w, down_h = rects["robot_hand_speed_down"]
+        up_x = rects["robot_hand_speed_up"][0]
         bar = rgb[down_y + down_h // 2, down_x + down_w + 4:up_x - 4]
 
         assert ((bar[:, 2] > 150) & (bar[:, 0] < 120)).all()
 
 
 class TestPublishing:
-    """In Hybrid the readout is drawn by Nau, so Genau says it instead of drawing it."""
+    """In video mode the readout is drawn by Nau, so Genau says it instead of drawing it."""
 
     def test_a_published_readout_reads_back_whole_including_its_limits(self, tmp_path):
         hud = _hud(shape="sawtooth", advance_interval=7,
@@ -294,8 +293,8 @@ class TestWhoseStroke:
         rgb = _rendered(hud).astype(int)[:, :, :3]
         return {tuple(pixel) for row in rgb for pixel in row} - {(0, 0, 0)}
 
-    def test_genau_s_own_stroke_is_blue(self):
-        assert BLUE in self._line_colors(_hud(driven=DRIVEN_BY_GENAU))
+    def test_the_robot_hand_s_stroke_is_blue(self):
+        assert BLUE in self._line_colors(_hud(driven=DRIVEN_BY_ROBOT_HAND))
 
     def test_a_funscript_s_stroke_is_green(self):
         """Green is what the funscripts own everywhere else on these HUDs."""
@@ -306,46 +305,18 @@ class TestWhoseStroke:
         the middle of dead furniture."""
         assert TEXT_MUTED in self._line_colors(_hud(driven=DRIVEN_BY_NOTHING))
 
-    def test_only_genau_s_stroke_carries_the_centre_ruler(self):
-        """The dotted line says "the stroke swings about here", which is Genau's
-        own idea — a claim about a stroke a funscript is not making."""
-        genau = _rendered(_hud(driven=DRIVEN_BY_GENAU, waveform=()))
+    def test_only_the_robot_hand_s_stroke_carries_the_center_ruler(self):
+        """The dotted line says "the stroke swings about here", which is the
+        Robot Hand's own idea — a claim about a stroke a funscript is not making."""
+        hand = _rendered(_hud(driven=DRIVEN_BY_ROBOT_HAND, waveform=()))
         script = _rendered(_hud(driven=DRIVEN_BY_FUNSCRIPT, waveform=()))
 
-        assert not np.array_equal(genau, script)
+        assert not np.array_equal(hand, script)
 
-    def test_only_genau_s_stroke_leaves_its_controls_live(self):
+    def test_only_the_robot_hand_s_stroke_leaves_its_controls_live(self):
         for driven in (DRIVEN_BY_FUNSCRIPT, DRIVEN_BY_NOTHING):
             assert all(c.dim for c in controls(0, 0, _hud(driven=driven)))
-        assert not all(c.dim for c in controls(0, 0, _hud(driven=DRIVEN_BY_GENAU)))
-
-
-class TestTraceOnly:
-    """In Nau there is no Genau behind the screen: its levels describe a stroke
-    nothing is making, and no control on them could reach one."""
-
-    def test_it_is_only_as_big_as_the_trace(self):
-        assert section_size(trace_only=True) == TRACE_ONLY_SIZE
-        assert section_size() == (SECTION_W, SECTION_H)
-
-    def test_it_offers_no_marks_and_no_bands(self):
-        hud = _hud()
-
-        assert controls(0, 0, hud, trace_only=True) == []
-        assert tracks(0, 0, hud, trace_only=True) == []
-
-    def test_it_draws_the_trace_and_nothing_beside_it(self):
-        """Measured against the bare slab, so what counts is what the readout
-        put there rather than what the panel under it already had."""
-        bare = np.asarray(HudPanel(SECTION_W + 2 * PAD, SECTION_H + 2 * PAD).image)
-        panel = HudPanel(SECTION_W + 2 * PAD, SECTION_H + 2 * PAD)
-        DriveSection().draw(panel.image, PAD, PAD, _hud(), trace_only=True)
-        touched = (np.asarray(panel.image) != bare).any(axis=2)
-        width, height = TRACE_ONLY_SIZE
-
-        assert touched[:, PAD + width + 2:].sum() == 0
-        assert touched[PAD + height + 2:, :].sum() == 0
-        assert touched[PAD:PAD + height, PAD:PAD + width].any()
+        assert not all(c.dim for c in controls(0, 0, _hud(driven=DRIVEN_BY_ROBOT_HAND)))
 
 
 class TestSwitchedOff:
@@ -360,13 +331,13 @@ class TestSwitchedOff:
 
     def test_no_part_of_it_is_left_in_the_stroke_s_blue(self):
         assert BLUE not in self._colors(_hud(driven=DRIVEN_BY_NOTHING))
-        assert BLUE in self._colors(_hud(driven=DRIVEN_BY_GENAU))
+        assert BLUE in self._colors(_hud(driven=DRIVEN_BY_ROBOT_HAND))
 
     def test_the_bars_go_grey_with_everything_else(self):
         """A live blue level beside a dead control says the level is doing
         something."""
         off = _rendered(_hud(driven=DRIVEN_BY_NOTHING, waveform=()))
-        bar = {c.action: c.rect for c in controls(PAD, PAD, _hud())}["genau_speed_up"]
+        bar = {c.action: c.rect for c in controls(PAD, PAD, _hud())}["robot_hand_speed_up"]
         row = off.astype(int)[bar[1] + bar[3] // 2, PAD:PAD + SECTION_W, :3]
 
         assert not ((row[:, 2] > 150) & (row[:, 0] < 120)).any()
@@ -390,7 +361,7 @@ class TestSwitchedOff:
             digits[:bar_y + bar_h] = False
             return int(fifty[digits][:, :3].max())
 
-        assert brightest_digit(DRIVEN_BY_GENAU) > muted  # brighter than its own key
+        assert brightest_digit(DRIVEN_BY_ROBOT_HAND) > muted  # brighter than its own key
         assert brightest_digit(DRIVEN_BY_NOTHING) < muted  # and now darker than it
 
     def test_the_position_marker_is_not_left_white(self):
@@ -418,7 +389,7 @@ class TestDimmedForTheScript:
         """The bars stayed bright blue through the script's stretch, which is
         what made the dimmed marks beside them read as merely decorative."""
         assert BLUE not in self._colors(_hud(driven=DRIVEN_BY_FUNSCRIPT))
-        assert BLUE in self._colors(_hud(driven=DRIVEN_BY_GENAU))
+        assert BLUE in self._colors(_hud(driven=DRIVEN_BY_ROBOT_HAND))
 
     def test_the_dimmed_marks_are_dark_not_translucent(self):
         """"Very dimmed" is the ask, and the first try got it backwards: muted
@@ -427,7 +398,7 @@ class TestDimmedForTheScript:
         opaque — darker than the muted grey a live readout's key labels wear —
         so it reads as switched off over any video."""
         dimmed = _rendered(_hud(driven=DRIVEN_BY_FUNSCRIPT))
-        live = _rendered(_hud(driven=DRIVEN_BY_GENAU))
+        live = _rendered(_hud(driven=DRIVEN_BY_ROBOT_HAND))
         x, y, w, _h = controls(PAD, PAD, _hud(driven=DRIVEN_BY_FUNSCRIPT))[0].rect
         top_middle = (y, x + w // 2)
 
@@ -444,7 +415,7 @@ class TestSmoothTrace:
     intensity ramps and the motion as quarter-pixel steps."""
 
     def test_the_line_s_edges_ramp_instead_of_stepping(self):
-        rgb = _rendered(_hud(driven=DRIVEN_BY_GENAU)).astype(int)[:, :, :3]
+        rgb = _rendered(_hud(driven=DRIVEN_BY_ROBOT_HAND)).astype(int)[:, :, :3]
         blue_family = {
             tuple(pixel) for row in rgb for pixel in row
             if pixel[2] > pixel[0] + 20 and pixel[2] > pixel[1] + 20
@@ -468,8 +439,8 @@ class TestSmoothTrace:
         blue included.  The old per-run exemption, kept after the reads
         changed, made the blue and its neighbours disagree by the slide at
         every seam between them."""
-        still = _rendered(_hud(driven=DRIVEN_BY_GENAU, slide=0.0, edge=0.5))
-        slid = _rendered(_hud(driven=DRIVEN_BY_GENAU, slide=0.5, edge=0.5))
+        still = _rendered(_hud(driven=DRIVEN_BY_ROBOT_HAND, slide=0.0, edge=0.5))
+        slid = _rendered(_hud(driven=DRIVEN_BY_ROBOT_HAND, slide=0.5, edge=0.5))
 
         assert not np.array_equal(still, slid)
 
@@ -496,13 +467,13 @@ class TestRuns:
         assert hud.runs == ((0, len(hud.waveform) - 1, DRIVEN_BY_FUNSCRIPT),)
 
     def test_consecutive_runs_share_a_point_so_the_line_does_not_break(self):
-        hud = _hud(segments=((0, DRIVEN_BY_FUNSCRIPT), (40, DRIVEN_BY_GENAU)))
+        hud = _hud(segments=((0, DRIVEN_BY_FUNSCRIPT), (40, DRIVEN_BY_ROBOT_HAND)))
         first, second = hud.runs
 
         assert (first[1], second[0]) == (40, 40)
 
     def test_each_run_is_drawn_in_its_own_driver_s_color(self):
-        hud = _hud(segments=((0, DRIVEN_BY_FUNSCRIPT), (40, DRIVEN_BY_GENAU)))
+        hud = _hud(segments=((0, DRIVEN_BY_FUNSCRIPT), (40, DRIVEN_BY_ROBOT_HAND)))
         rgb = _rendered(hud).astype(int)[:, :, :3]
         colors = {tuple(pixel) for row in rgb for pixel in row}
 
@@ -512,7 +483,7 @@ class TestRuns:
         """The stretch belonging to neither driver is neither green nor blue —
         a light grey between the script's turn and the stroke's."""
         hud = _hud(segments=((0, DRIVEN_BY_FUNSCRIPT), (30, DRIVEN_BY_NEUTRAL),
-                             (50, DRIVEN_BY_GENAU)))
+                             (50, DRIVEN_BY_ROBOT_HAND)))
         rgb = _rendered(hud).astype(int)[:, :, :3]
         colors = {tuple(pixel) for row in rgb for pixel in row}
 

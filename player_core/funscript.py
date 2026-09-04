@@ -3,8 +3,8 @@
 A funscript is a JSON list of (time, position) actions authored against one
 video.  Beyond parsing, this answers where sustained action begins (so the OSR2
 rests through a long quiet lead-in instead of drifting toward it), whether a
-given playhead sits in a quiet stretch (``is_resting_at`` — what the hybrid
-handoff hands to Genau), where the action next picks up (``next_active_ms`` —
+given playhead sits in a quiet stretch (``is_resting_at`` — what the video-mode
+handoff hands to the Robot Hand), where the action next picks up (``next_active_ms`` —
 where a jump-to-the-action lands), plus loop-boundary snapping for A-B loops.
 """
 from __future__ import annotations
@@ -32,7 +32,7 @@ _SNAP_TOLERANCE_MS = 1000
 # another (gap below this) is where it truly begins.
 _QUIET_LEAD_IN_MS = 5000
 
-# The same number, public: it is also how far ahead of a cluster the hybrid
+# The same number, public: it is also how far ahead of a cluster the video-mode
 # handoff gives the device to the script (resting ends this far before the
 # onset), so a drawer reconstructing where a handoff fell reads it from here
 # rather than growing a second copy of the buffer.
@@ -50,10 +50,10 @@ _RISE_MS = 1000
 PARK_SETTLE_MS = 500
 
 # How long the device takes to walk between one driver's last position and the
-# next one's first, at a hybrid handoff.  A couple of seconds: long enough to
+# next one's first, at a video-mode handoff.  A couple of seconds: long enough to
 # read as a hand-over rather than a jump, short enough to leave the device
 # resting for most of the buffer.  Both directions use it — down onto the park
-# when the script takes over, up to the stroke's floor when Genau does — so the
+# when the script takes over, up to the stroke's floor when the hand does — so the
 # two ramps are the same shape mirrored, which is what the buffer looks like.
 HANDOFF_RAMP_MS = 2000
 
@@ -314,8 +314,8 @@ class Funscript:
         """True when position_ms sits outside every stretch the script holds the
         device for — a funscript's lead-in, an interior gap, the tail.
 
-        In Hybrid the orchestrator hands these stretches to Genau; inside a turn
-        the funscript drives.  Read straight off :meth:`turn_bounds_at`'s own
+        In video mode the orchestrator hands these stretches to the Robot Hand;
+        inside a turn the funscript drives.  Read straight off :meth:`turn_bounds_at`'s own
         turns rather than measured again here, because the two answers have to
         be the same answer: the arbiter flips the device on this, and the trace
         anchors its ramps to those bounds, so a rule stated twice is a seam that
