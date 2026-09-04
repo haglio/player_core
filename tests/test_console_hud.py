@@ -6,8 +6,8 @@ from dataclasses import replace
 import numpy as np
 
 from player_core.console import _ROW_LABELS, ConsoleModel
+from player_core.console_hud import _PAD as PAD
 from player_core.console_hud import (
-    _DRIVE_TIPS,
     FULL,
     SHORTS,
     ConsoleHud,
@@ -17,7 +17,6 @@ from player_core.console_hud import (
     hud_xy,
     with_playback_speed,
 )
-from player_core.console_hud import _PAD as PAD
 from player_core.drive_layout import AMPLITUDE, CENTER, SPEED
 from player_core.drive_readout import DriveHud
 from player_core.hud_panel import (

@@ -47,9 +47,9 @@ from .console import (
 )
 from .drive_readout import (
     DRIVEN_BY_FUNSCRIPT,
-    DRIVEN_BY_ROBOT_HAND,
     DRIVEN_BY_NEUTRAL,
     DRIVEN_BY_NOTHING,
+    DRIVEN_BY_ROBOT_HAND,
     DriveHud,
     DriveSection,
     DriveTrack,

@@ -21,7 +21,6 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 from . import drive_layout
-from .robot_hand import POSITION_MAX
 from .drive_layout import (
     TRACE_SAMPLES,  # noqa: F401 — re-exported: genau reads it from here
     DriveControl,
@@ -43,6 +42,7 @@ from .hud_panel import (
     load_font,
     text_width,
 )
+from .robot_hand import POSITION_MAX
 
 # What has the device, which is what the trace is a picture of.  The Robot
 # Hand's stroke and a video's funscript take turns in video mode, and with the
