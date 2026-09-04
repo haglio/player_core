@@ -83,7 +83,7 @@ from .console import (
     nau_displays,
     osr2_row,
     place_rows,
-    row_width,
+    _row_width,
     rows_height,
     tooltip_at,
 )
@@ -526,7 +526,7 @@ class ConsolePainter:
         filename_h = (_SUBTITLE_GAP + tiny_h) if filename else 0
 
         width = 2 * _PAD + max(
-            row_width(rows), drive_w, self._osr2_width(console),
+            _row_width(rows), drive_w, self._osr2_width(console),
             ACTIVE_DOT + DOT_GAP + text_width(self._body, status),
             ACTIVE_DOT + DOT_GAP + text_width(self._tiny, filename),
         )

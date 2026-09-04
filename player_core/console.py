@@ -558,7 +558,7 @@ def _family(action: str) -> str:
     return "file"
 
 
-def row_width(rows: list[list[Button]]) -> int:
+def _row_width(rows: list[list[Button]]) -> int:
     """How wide the widest row runs — what the panel has to be to hold them."""
     placed = place_rows(rows, x=0, y=0)
     return max((rect[0] + rect[2] for rect, _b in placed), default=0)
