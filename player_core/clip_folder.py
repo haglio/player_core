@@ -12,6 +12,14 @@ from __future__ import annotations
 import random
 from pathlib import Path
 
+__all__ = [
+    "SUPPORTED_VIDEO_EXTS",
+    "cache_dir_for_clips_folder",
+    "move_clip_to_weird",
+    "scan_clips",
+    "weird_dir_for_clips_folder",
+]
+
 SUPPORTED_VIDEO_EXTS = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v"}
 
 

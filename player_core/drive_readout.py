@@ -40,6 +40,16 @@ from .hud_panel import (
 )
 from .robot_hand import POSITION_MAX
 
+__all__ = [
+    "DRIVEN_BY_FUNSCRIPT",
+    "DRIVEN_BY_NEUTRAL",
+    "DRIVEN_BY_NOTHING",
+    "DRIVEN_BY_ROBOT_HAND",
+    "DriveHud",
+    "drive_text",
+    "read_drive",
+]
+
 # What has the device, which is what the trace is a picture of.  The Robot
 # Hand's stroke and a video's funscript take turns in video mode, and with the
 # OSR2 off or running itself nobody is sending anything at all.

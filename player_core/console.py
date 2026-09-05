@@ -23,6 +23,12 @@ from pathlib import Path
 from .geometry import Rect, contains
 from .hud_marks import shared_mark
 
+__all__ = [
+    "ConsoleModel",
+    "console_rows",
+    "read_console",
+]
+
 BUTTON = 18   # a square control; the wider ones are multiples plus the gaps
 VALUE_W = 22  # a value read-out between a pair of buttons (the playback rate)
 # The words naming that pair.  A FLOOR, not the width: the cell is widened to

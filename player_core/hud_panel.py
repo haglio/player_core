@@ -20,6 +20,8 @@ from shared_ui.icons_pil import paste_glyph
 # so a player reaching for its own blue has the family's to reach for.
 from shared_ui.palette import BG_PRIMARY, BORDER_PANEL, PINK, TEXT_MUTED, TEXT_PRIMARY, WHITE
 
+__all__: list[str] = []  # package-internal: no sibling reaches anything here
+
 # Segoe UI Bold — every label on these HUDs is bold, because they are read at a
 # glance over moving video.  A caller wanting another face passes its filename.
 UI_FONT = "segoeuib.ttf"

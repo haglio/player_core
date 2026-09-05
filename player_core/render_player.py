@@ -24,6 +24,9 @@ from collections.abc import Callable
 
 from .mpv_player import _import_mpv, _MpvControl, _shared_options
 
+__all__ = [
+    "MpvRenderPlayer",
+]
 
 class MpvRenderPlayer(_MpvControl):
     def __init__(

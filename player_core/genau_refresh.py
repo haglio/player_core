@@ -24,6 +24,9 @@ from .robot_hand_beat import Beat, advance_beat
 from .robot_hand_driver import DeviceHandoff
 from .tick_failures import TickFailures
 
+__all__ = [
+    "GenauRefreshController",
+]
 
 class GenauRefreshController:
     def __init__(

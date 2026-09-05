@@ -18,6 +18,11 @@ from dataclasses import dataclass
 
 from .geometry import Rect
 
+__all__ = [
+    "TRACE_SAMPLES",
+    "Limits",
+]
+
 # The three axes, named as the numeric set commands name them (``robot_hand_amp_57``).
 AMPLITUDE, CENTER, SPEED = "amp", "center", "speed"
 

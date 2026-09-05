@@ -10,6 +10,9 @@ from __future__ import annotations
 import socket
 from pathlib import Path
 
+__all__ = [
+    "GenauNotifier",
+]
 
 class GenauNotifier:
     def __init__(self, host: str, port: int, *, sock=None):

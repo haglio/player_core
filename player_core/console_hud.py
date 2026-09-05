@@ -94,6 +94,15 @@ from .hud_status import (
     status_line,
 )
 
+__all__ = [
+    "OSR2_ROBOT_HAND",
+    "ConsoleHud",
+    "ConsolePainter",
+    "ModeHud",
+    "hud_xy",
+    "with_playback_speed",
+]
+
 # Nau's two length modes, named here because the console prints them and nothing
 # else in this package cares what they are.  MIXED is deliberately absent: it
 # applies no length filter at all, so it narrows nothing and prints nothing — the

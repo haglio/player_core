@@ -18,6 +18,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+__all__ = [
+    "BeatEngine",
+]
+
 # The most wall time one tick may move the phase, the same cap
 # :func:`player_core.robot_hand.phase_advanced` puts on a caller's own clock: a
 # clock that stalled comes back owing a step the stroke should not take at once.

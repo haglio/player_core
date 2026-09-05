@@ -14,6 +14,10 @@ from .clip_advance import ClipAdvanceState
 from .cruise_control import CruiseControlState
 from .robot_hand import RobotHandState, control_limits
 
+__all__ = [
+    "build_status_text",
+]
+
 # Where the status goes when nobody names a path: beside the command file, which
 # is where every version of the orchestrator so far has looked.  The name is
 # the family's, spelled once where the orchestrator reads it too.

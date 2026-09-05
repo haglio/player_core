@@ -16,6 +16,9 @@ import logging
 import threading
 from pathlib import Path
 
+__all__ = [
+    "FirstClipPreload",
+]
 
 class FirstClipPreload:
     """One decode in flight, and the frames it produced."""

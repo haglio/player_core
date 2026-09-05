@@ -26,6 +26,10 @@ import numpy as np
 
 from .libmpv_loader import add_libmpv_to_path
 
+__all__ = [
+    "MpvPlayer",
+]
+
 logger = logging.getLogger(__name__)
 
 # mpv's severities onto Python's.  Only warnings and worse are asked for below,

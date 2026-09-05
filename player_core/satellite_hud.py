@@ -25,6 +25,18 @@ from shared_ui.spacing import BUTTON_SIZE_HUD
 
 from .geometry import Rect, contains
 
+__all__ = [
+    "MARGIN",
+    "HudCell",
+    "HudClicks",
+    "HudModel",
+    "HudTargets",
+    "button_tooltip",
+    "hit_test_targets",
+    "label_is_filtered",
+    "parse_hud",
+]
+
 # --- layout constants (px) ---------------------------------------------------
 # Inset of the HUD from the player window's top-left corner.
 MARGIN = 12

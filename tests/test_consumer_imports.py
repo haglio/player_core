@@ -1,25 +1,25 @@
-"""This repo's dead-code gate: every public name must have a consumer.
+"""This repo's dead-code gate: the API each module declares is what the consumers reach.
 
 **Not vulture, and deliberately so.** Every caller of this package lives in
 another repo, so a scanner looking for callers here flags the entire public API
 and the whitelist that quiets it just restates that API -- a gate that can never
 fail. `CLAUDE.md` says not to add one back, and this is not it.
 
-The answerable question is the one the consumers can answer. This reads the
-sibling checkouts, collects every name they import out of `player_core`, and
-fails on a public name none of them reaches. `no_consumer_imports.txt` holds the
-ones that already had no consumer when the gate went in; the set has to match it
-exactly, so a name that gains a consumer takes its line out of the file and a
-new name with no consumer cannot be added quietly.
+The answerable question is the one the consumers can answer. Every module
+declares its public API in ``__all__``; this reads the sibling checkouts,
+collects every name they import out of `player_core`, and holds the two
+against each other in both directions: a declared name no consumer reaches is
+a name published for nobody, and a name a consumer reaches that its module does
+not declare is an API the module never meant to have.  A module that declares
+nothing is package-internal, and says so.
 
 **What it costs.** The answer depends on the sibling checkouts as they sit on
-disk, which is why the file is a snapshot and not a rule. One that is absent,
-or one on a branch that has dropped an import, moves names into the unreferenced
-set and turns this red -- with the checkouts it read named in the message, so
-the cause is in front of whoever sees it. A tree with no consumer beside it at
-all, which is what CI clones, has nothing to compare against and skips: the
-gate's authority is the developer machine, where the siblings live and where
-every suite in this family is run before it lands.
+disk. One that is absent, or one on a branch that has dropped an import, moves
+names into the unreached set and turns this red -- with the checkouts it read
+named in the message, so the cause is in front of whoever sees it. A tree with
+no consumer beside it at all, which is what CI clones, has nothing to compare
+against and skips: the gate's authority is the developer machine, where the
+siblings live and where every suite in this family is run before it lands.
 """
 from __future__ import annotations
 
@@ -31,7 +31,6 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 PACKAGE = ROOT / "player_core"
-BASELINE = Path(__file__).resolve().parent / "no_consumer_imports.txt"
 
 _NOT_SOURCE = {".venv", ".claude", "build", "__pycache__", "node_modules"}
 
@@ -61,24 +60,25 @@ def _source_files(checkout: Path):
             yield path
 
 
-def _public_names() -> dict[str, list[str]]:
-    """Every module-level name this package publishes, and where it is defined."""
-    published: dict[str, list[str]] = {}
-    for module in sorted(PACKAGE.glob("*.py")):
-        tree = ast.parse(module.read_text(encoding="utf-8"))
-        for node in tree.body:
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                names = [node.name]
-            elif isinstance(node, ast.Assign):
-                names = [t.id for t in node.targets if isinstance(t, ast.Name)]
-            elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-                names = [node.target.id]
-            else:
-                continue
-            for name in names:
-                if not name.startswith("_"):
-                    published.setdefault(name, []).append(module.name)
-    return published
+def _modules():
+    return sorted(path for path in PACKAGE.glob("*.py") if path.name != "__init__.py")
+
+
+def _declared(module: Path) -> list[str] | None:
+    """The names *module*'s ``__all__`` lists, or None when it declares nothing."""
+    tree = ast.parse(module.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            targets = [t.id for t in node.targets if isinstance(t, ast.Name)]
+            value = node.value
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            targets, value = [node.target.id], node.value
+        else:
+            continue
+        if "__all__" in targets:
+            assert isinstance(value, (ast.List, ast.Tuple)), f"{module.name}: __all__ is not a literal list"
+            return [elt.value for elt in value.elts]
+    return None
 
 
 def _names_reached_from(source: str) -> set[str]:
@@ -146,42 +146,73 @@ def _what_the_consumers_reach() -> tuple[set[str], list[str]]:
     return reached, consumers
 
 
-def _baseline() -> set[str]:
-    lines = BASELINE.read_text(encoding="utf-8").splitlines()
-    return {line.split("#")[0].strip() for line in lines if line.split("#")[0].strip()}
+def _public_definitions(module: Path) -> set[str]:
+    """Every module-level name *module* defines without a leading underscore."""
+    found: set[str] = set()
+    tree = ast.parse(module.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            names = [node.name]
+        elif isinstance(node, ast.Assign):
+            names = [t.id for t in node.targets if isinstance(t, ast.Name)]
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            names = [node.target.id]
+        elif isinstance(node, ast.ImportFrom):
+            names = [alias.asname or alias.name for alias in node.names]
+        else:
+            continue
+        found.update(name for name in names if not name.startswith("_"))
+    return found
 
 
-def test_every_public_name_has_a_consumer():
+def test_every_module_declares_its_api():
+    silent = [module.name for module in _modules() if _declared(module) is None]
+    assert not silent, (
+        "modules with no __all__ -- declare what the siblings may import, or an "
+        "empty list for a package-internal module:\n" + "\n".join(f"  {name}" for name in silent)
+    )
+
+
+def test_a_declaration_names_only_what_the_module_defines():
+    wrong = []
+    for module in _modules():
+        defined = _public_definitions(module)
+        wrong.extend(f"{module.name}: {name}" for name in (_declared(module) or ()) if name not in defined)
+    assert not wrong, "__all__ names a module does not define:\n" + "\n".join(f"  {w}" for w in wrong)
+
+
+@pytest.fixture(scope="module")
+def reached_and_consumers():
     reached, consumers = _what_the_consumers_reach()
     if not consumers:
         pytest.skip(
             "no sibling checkout beside this one imports player_core, so there is "
-            "nothing to compare the public surface against -- this is what a "
+            "nothing to compare the declared surface against -- this is what a "
             "public clone and a fresh CI checkout look like"
         )
+    return reached, consumers
 
-    published = _public_names()
-    without_a_consumer = {name for name in published if name not in reached}
-    recorded = _baseline()
 
-    unrecorded = sorted(without_a_consumer - recorded)
-    assert not unrecorded, (
-        f"public names no consumer imports (read from: {', '.join(consumers)}).\n"
-        "Give each one a consumer, make it private, or -- if it is meant to sit "
-        f"unused for now -- add it to {BASELINE.name} with the reason:\n"
-        + "\n".join(f"  {name}  ({', '.join(published[name])})" for name in unrecorded)
+def test_every_declared_name_has_a_consumer(reached_and_consumers):
+    reached, consumers = reached_and_consumers
+    for_nobody = []
+    for module in _modules():
+        for_nobody.extend(f"{module.name}: {name}" for name in (_declared(module) or ())
+                          if name not in reached)
+    assert not for_nobody, (
+        f"declared names no consumer imports (read from: {', '.join(consumers)}). "
+        "Each is published for nobody: give it a consumer or take it out of __all__:\n"
+        + "\n".join(f"  {name}" for name in for_nobody)
     )
 
-    settled = sorted(recorded - without_a_consumer)
-    assert not settled, (
-        f"{BASELINE.name} lists names that are no longer waiting for a consumer "
-        f"(read from: {', '.join(consumers)}). Delete these lines -- the file is "
-        "the list of what is still waiting, and a line that has stopped being "
-        "true is what hides the next one:\n"
-        + "\n".join(
-            f"  {name}  -- "
-            + ("a consumer imports it now" if name in published
-               else "no longer published here")
-            for name in settled
-        )
+
+def test_every_name_a_consumer_reaches_is_declared(reached_and_consumers):
+    reached, consumers = reached_and_consumers
+    declared = {name for module in _modules() for name in (_declared(module) or ())}
+    defined = {name for module in _modules() for name in _public_definitions(module)}
+    undeclared = sorted((reached & defined) - declared)
+    assert not undeclared, (
+        f"names a consumer imports that no module declares (read from: {', '.join(consumers)}). "
+        "An import a module never meant to offer: declare it in that module's __all__, or "
+        "move the consumer off it:\n" + "\n".join(f"  {name}" for name in undeclared)
     )

@@ -30,10 +30,17 @@ suite pointed at it, or a fun_time verification session naming it in
 
 ## What belongs here
 
-- **Only what a second repo needs.** A module earns a place here once both
-  `../genau` and `../fun_time` import it. Until then it stays with the app that
+- **Only what a second repo needs.** A module earns a place here once two
+  sibling apps — whichever two — import it. Until then it stays with the app that
   owns it — a "core" that accumulates one app's code is the coupling this repo
-  exists to undo.
+  exists to undo. Genau's engine moved in whole on 2026-09-04 ahead of its second
+  consumer (fun_time's VR player, item 52), so its modules are the standing
+  exception until that lands.
+- **Every module declares its API in `__all__`** — the names the siblings may
+  import, and an empty list for a package-internal module. Nothing else a
+  module defines is a contract, however public its spelling, so a helper the
+  package shares between its own modules needs no leading underscore to say it
+  is not the family's.
 - **No app knows another app exists.** Nothing here may import `nau`, `genau`,
   `satellite` or `fun_time`, and nothing here may be shaped around one caller's
   needs. `StatusWriter` takes a `fields` callable rather than hardcoding either
@@ -52,10 +59,10 @@ suite pointed at it, or a fun_time verification session naming it in
   public API and the whitelist needed to silence it would just restate that API:
   a guard that can never fail. Don't add one back.
   `tests/test_consumer_imports.py` asks the question the consumers can answer —
-  every public name must be imported by some sibling checkout, with
-  `tests/no_consumer_imports.txt` holding the ones that are not yet. It needs
-  those checkouts on disk and skips rather than passes without them, so a public
-  clone and CI both skip it and this machine is where it bites.
+  every name a module's `__all__` declares must be imported by some sibling
+  checkout, and every name a sibling imports must be declared. It needs those
+  checkouts on disk and skips rather than passes without them, so a public clone
+  and CI both skip it and this machine is where it bites.
 
 ## libmpv changes: mandatory pre-flight
 

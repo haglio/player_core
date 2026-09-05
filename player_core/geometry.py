@@ -5,6 +5,8 @@ of Pillow, so this cannot live beside the painters that also want it.
 """
 from __future__ import annotations
 
+__all__: list[str] = []  # package-internal: no sibling reaches anything here
+
 Rect = tuple[int, int, int, int]  # (x, y, w, h)
 
 

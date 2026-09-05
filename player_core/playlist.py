@@ -11,6 +11,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+__all__ = [
+    "read_playlist",
+]
 
 def read_playlist(path: Path) -> list[tuple[Path, Path | None]]:
     try:
