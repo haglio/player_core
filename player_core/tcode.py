@@ -13,8 +13,11 @@ import socket
 from typing import Protocol
 
 __all__ = [
+    "PARK_COMMAND",
     "POSITION_MAX",
     "UdpTCodeSink",
+    "format_tcode_command",
+    "to_tcode_position",
 ]
 
 # The top of the linear axis's range; 0 is the bottom of it.

@@ -24,6 +24,7 @@ from .geometry import Rect, contains
 from .hud_marks import shared_mark
 
 __all__ = [
+    "CONSOLE_VERBS",
     "ConsoleModel",
     "console_rows",
     "read_console",
