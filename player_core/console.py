@@ -243,6 +243,40 @@ FMODE_ICON = "\x00fmode"
 # say why, each beside the rectangle it draws.
 MINIMIZE_ICON = "\x00minimize"
 
+# Every dispatch verb a console button can post, as data: the verbs are the
+# dashboard's vocabulary, spelled here because the console's buttons post them,
+# and a consumer holds its dispatch table to this set rather than finding out
+# at the first click that a verb has drifted (which is how the clip-seconds
+# buttons came to post a verb nothing answered).  tests/test_console.py holds
+# this set to the buttons; the consumer's own test holds its table to this set.
+CONSOLE_VERBS = frozenset({
+    "broker_panel",
+    "browse_library",
+    "clipper_save",
+    "genau_activate",
+    "genau_advance_down",
+    "genau_advance_up",
+    "genau_filter_enhanced",
+    "genau_next_clip",
+    "genau_prev_clip",
+    "genau_weird_clip",
+    "main_fmode",
+    "main_lock",
+    "main_minimize",
+    "main_next",
+    "main_nudge_next",
+    "main_nudge_prev",
+    "main_prev",
+    "main_reset",
+    "main_video_activate",
+    "nau_record_tap",
+    "nau_speed_down",
+    "nau_speed_up",
+    "quarter_button",
+    "robot_hand_cycle_shape",
+    "robot_hand_toggle_cruise",
+})
+
 _MODE_BUTTONS = (
     ("main_video_activate", "Video", "video"),
     ("genau_activate", "Genau", "genau"),
