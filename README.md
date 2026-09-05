@@ -41,8 +41,9 @@ another application's internals to get it. By what it is:
   `geometry`, `timeline`, `volume`, `hud_status`, and then a model and a
   painter per HUD: `console` / `console_hud`, `drive_layout` / `drive_readout`,
   `satellite_hud` / `satellite_hud_paint`.
-- **the window** — `sdl_hints` and `taskbar`, the two Win32 facts every player
-  here has to get right before it opens one.
+- **the window** — `sdl_hints`, the SDL facts every player here has to get
+  right before it opens one (its taskbar identity it claims through
+  `app_support.win32`, like every other process in the family).
 - **the loop** — `control_registry` (how any player declares a control and the
   verb and key that move it), `flag` (a bit two parts of an app share, with its
   edge), `tick_failures` (a frame loop's fault, said once).
