@@ -15,6 +15,11 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from shared_ui.icons_pil import paste_glyph
 
+# The palette is shared_ui's, read without Qt: shared_ui.palette imports
+# nothing, and these HUDs are Pillow.  Every HUD painter reads it there too,
+# so a player reaching for its own blue has the family's to reach for.
+from shared_ui.palette import BG_PRIMARY, BORDER_PANEL, PINK, TEXT_MUTED, TEXT_PRIMARY, WHITE
+
 # Segoe UI Bold — every label on these HUDs is bold, because they are read at a
 # glance over moving video.  A caller wanting another face passes its filename.
 UI_FONT = "segoeuib.ttf"
@@ -23,24 +28,6 @@ UI_FONT = "segoeuib.ttf"
 # carries none of them, and Pillow draws a ".notdef" box for a codepoint a face
 # lacks where Qt used to fall back silently — so anything typed names this face.
 SYMBOL_FONT = "seguisym.ttf"
-
-# Palette, matching the shared_ui tokens the Qt HUDs drew with (RGB).  Mirrored
-# rather than imported: shared_ui is Qt, so its tokens are QColors and these HUDs
-# are Pillow.  Carried whole rather than trimmed to today's callers — the point of
-# one palette is that the HUDs look alike, and a player reaching for its own blue
-# is back to the ad-hoc literals this replaced.
-BG_PRIMARY = (24, 24, 24)
-BG_BUTTON = (62, 62, 62)         # a control at rest
-BG_BUTTON_ACTIVE = (92, 92, 92)  # a control that is on
-BORDER_PANEL = (120, 120, 120)
-BLUE = (48, 128, 224)
-GREEN = (48, 160, 48)
-RED = (255, 60, 60)
-AMBER = (255, 200, 120)
-PINK = (200, 80, 160)
-TEXT_MUTED = (120, 120, 120)
-TEXT_PRIMARY = (240, 240, 240)
-WHITE = (255, 255, 255)
 
 # Translucent enough to read the video through, opaque enough to read the text.
 PANEL_ALPHA = 224

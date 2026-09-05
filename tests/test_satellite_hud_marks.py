@@ -82,8 +82,8 @@ def test_a_resting_button_draws_its_mark_full_strength():
     # player's console, which draws its own resting marks at full strength.
     # Both had muted the mark AND the box; only the box should be muted.
     from PIL import Image, ImageDraw
+    from shared_ui.palette import TEXT_PRIMARY
 
-    from player_core.hud_panel import TEXT_PRIMARY
     from player_core.satellite_hud_paint import HudRenderer
 
     ink = HudRenderer("portrait")._button_box(

@@ -23,14 +23,9 @@ from dataclasses import dataclass
 
 import numpy as np
 from PIL import Image, ImageDraw
+from shared_ui.palette import BG_PRIMARY, BORDER_PANEL, TEXT_MUTED, TEXT_PRIMARY
 
-from player_core.hud_panel import (
-    BG_PRIMARY,
-    BORDER_PANEL,
-    TEXT_MUTED,
-    TEXT_PRIMARY,
-    to_bgra,
-)
+from player_core.hud_panel import to_bgra
 
 # The chip: a speaker at the left end, a slider filling the rest.  Sized for the
 # corner of a video rather than for a mouse-heavy toolbar — big enough to hit,

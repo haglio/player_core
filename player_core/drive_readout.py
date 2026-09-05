@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from PIL import Image, ImageDraw
+from shared_ui.palette import BLUE, GREEN, TEXT_MUTED, TEXT_PRIMARY, WHITE
 
 from . import drive_layout
 from .drive_layout import (
@@ -32,12 +33,7 @@ from .drive_layout import fraction as _fraction
 from .file_channel import publish_whole
 from .geometry import Rect
 from .hud_panel import (
-    BLUE,
-    GREEN,
     SYMBOL_FONT,
-    TEXT_MUTED,
-    TEXT_PRIMARY,
-    WHITE,
     draw_glyph,
     load_font,
     text_width,

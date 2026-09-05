@@ -16,10 +16,7 @@ from dataclasses import dataclass, replace
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-from shared_ui.spacing import BUTTON_GROUP_GAP
-
-from player_core.hud_marks import SHARED_MARK, shared_mark, shared_mark_name
-from player_core.hud_panel import (
+from shared_ui.palette import (
     AMBER,
     BG_BUTTON,
     BG_BUTTON_ACTIVE,
@@ -27,10 +24,15 @@ from player_core.hud_panel import (
     BLUE,
     GREEN,
     RED,
-    SYMBOL_FONT,
     TEXT_MUTED,
     TEXT_PRIMARY,
     WHITE,
+)
+from shared_ui.spacing import BUTTON_GROUP_GAP
+
+from player_core.hud_marks import SHARED_MARK, shared_mark, shared_mark_name
+from player_core.hud_panel import (
+    SYMBOL_FONT,
     HudPanel,
     draw_active_dot,
     draw_glyph,
