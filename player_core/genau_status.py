@@ -8,13 +8,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from app_support.state_files import GENAU_STATUS
+
 from .clip_advance import ClipAdvanceState
 from .cruise_control import CruiseControlState
 from .robot_hand import RobotHandState, control_limits
 
 # Where the status goes when nobody names a path: beside the command file, which
-# is where every version of the orchestrator so far has looked.
-GENAU_STATUS_FILENAME = "genau_status.txt"
+# is where every version of the orchestrator so far has looked.  The name is
+# the family's, spelled once where the orchestrator reads it too.
+GENAU_STATUS_FILENAME = GENAU_STATUS
 
 
 def build_status_text(
