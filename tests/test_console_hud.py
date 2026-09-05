@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 import numpy as np
+from shared_ui.palette import TEXT_MUTED, WHITE
 
 from player_core.console import _ROW_LABELS, ConsoleModel
 from player_core.console_hud import _PAD as PAD
@@ -21,9 +22,7 @@ from player_core.drive_layout import AMPLITUDE, CENTER, SPEED
 from player_core.drive_readout import DriveHud
 from player_core.hud_panel import (
     ICON_GRIDS,
-    TEXT_MUTED,
     TOOLTIP_PAD,
-    WHITE,
     load_font,
     text_width,
 )
@@ -320,7 +319,7 @@ class TestPainter:
 
         Not green: green means the favorites and the funscripts everywhere in
         this family, and the mode you are in is neither."""
-        from player_core.hud_panel import BLUE
+        from shared_ui.palette import BLUE
 
         shade, box = self._busiest_shade("main_video_activate", ConsoleModel(mode="video"))
 
@@ -473,7 +472,7 @@ class TestPainter:
         so it is the canvas colour. A host drawing it on its own chrome has no
         picture behind it — on a window painted that very grey the slab is
         invisible and only its border shows — so it says which grey it wants."""
-        from player_core.hud_panel import BG_PRIMARY
+        from shared_ui.palette import BG_PRIMARY
 
         default = _rgb(ConsolePainter().bgra(
             ConsoleHud(console=ConsoleModel(mode="genau"))))
@@ -846,7 +845,7 @@ class TestTheLockIsGreen:
     spends on them — the same green the satellite HUDs' lock has always lit."""
 
     def test_a_held_clip_lights_the_lock_green(self):
-        from player_core.hud_panel import GREEN
+        from shared_ui.palette import GREEN
 
         painter = ConsolePainter()
         rgb = _rgb(painter.bgra(ConsoleHud(console=ConsoleModel(mode="video", locked=True))))

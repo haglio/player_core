@@ -6,8 +6,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 from PIL import Image
+from shared_ui.palette import TEXT_MUTED, WHITE
 
-from player_core.hud_panel import ICON_GRIDS, TEXT_MUTED, WHITE
+from player_core.hud_panel import ICON_GRIDS
 from player_core.satellite_hud import (
     COL_LABEL_H,
     CONTROL_TOOLTIPS,
@@ -992,7 +993,7 @@ def test_a_mode_label_stays_white_on_its_blue(thumb):
     blue turned those labels black while the main console's stayed white for
     the same state, which is the inconsistency the shared dressing exists to
     prevent."""
-    from player_core.hud_panel import BLUE, WHITE
+    from shared_ui.palette import BLUE, WHITE
 
     renderer = HudRenderer("portrait")
     rendered = renderer.render(_model(
@@ -1007,7 +1008,7 @@ def test_a_mode_label_stays_white_on_its_blue(thumb):
 
 
 def test_the_unlit_mode_keeps_its_ordinary_ink(thumb):
-    from player_core.hud_panel import TEXT_PRIMARY
+    from shared_ui.palette import TEXT_PRIMARY
 
     renderer = HudRenderer("portrait")
     rendered = renderer.render(_model(

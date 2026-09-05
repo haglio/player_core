@@ -105,9 +105,10 @@ class TestDangerIsRed:
         assert bin_button.danger
 
     def test_a_dangerous_control_draws_its_mark_in_red(self):
+        from shared_ui.palette import RED
+
         from player_core.console import Button
         from player_core.console_hud import ConsolePainter
-        from player_core.hud_panel import RED
 
         panel = Image.new("RGBA", (18, 18), (0, 0, 0, 255))
         draw = ImageDraw.Draw(panel)
@@ -125,9 +126,10 @@ class TestButtonGrounds:
         # It was an outline over the slab and nothing else, which read as a hole
         # in the panel rather than as the raised button every window in this
         # family offers for the same act.
+        from shared_ui.palette import BG_BUTTON
+
         from player_core.console import Button
         from player_core.console_hud import ConsolePainter
-        from player_core.hud_panel import BG_BUTTON
 
         panel = Image.new("RGBA", (18, 18), (0, 0, 0, 255))
         ConsolePainter()._button(panel, ImageDraw.Draw(panel), (0, 0, 18, 18),
@@ -139,9 +141,10 @@ class TestButtonGrounds:
     def test_a_control_that_is_on_still_comes_forward(self):
         # The ground is the resting state, not the lit one: a lit control fills
         # white, and would say nothing if resting looked the same.
+        from shared_ui.palette import BG_BUTTON
+
         from player_core.console import Button
         from player_core.console_hud import ConsolePainter
-        from player_core.hud_panel import BG_BUTTON
 
         def ground(lit: bool):
             panel = Image.new("RGBA", (18, 18), (0, 0, 0, 255))

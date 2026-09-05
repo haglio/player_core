@@ -94,26 +94,16 @@ shared_mark_name
 # --- hud_panel.py ---
 ACTIVE_DOT
 AMBER  # also timeline.py
-BG_BUTTON
-BG_BUTTON_ACTIVE
-BG_PRIMARY
-BLUE
-BORDER_PANEL
 CORNER_RADIUS
-GREEN
 HudPanel
 ICON_GRIDS
 MARK_INSET
 PANEL_ALPHA
-PINK
 RED  # also timeline.py
-TEXT_MUTED
-TEXT_PRIMARY
 TOOLTIP_ALPHA
 TOOLTIP_PAD
 TOOLTIP_RADIUS
 UI_FONT
-WHITE
 draw_active_dot
 draw_glyph
 draw_icon

@@ -2,16 +2,13 @@
 from __future__ import annotations
 
 import numpy as np
+from shared_ui.palette import BG_PRIMARY, PINK, TEXT_MUTED, WHITE
 
 from player_core import hud_panel
 from player_core.hud_panel import (
-    BG_PRIMARY,
     ICON_GRIDS,
     PANEL_ALPHA,
-    PINK,
-    TEXT_MUTED,
     TOOLTIP_PAD,
-    WHITE,
     HudPanel,
     draw_active_dot,
     draw_glyph,
@@ -22,29 +19,17 @@ from player_core.hud_panel import (
     text_width,
 )
 
-# Every colour the palette mirrors, named as shared_ui names it.  Written out so
-# that dropping one is a deliberate edit here rather than a token going quietly
-# missing from a HUD.
-MIRRORED = (
-    "BG_PRIMARY", "BG_BUTTON", "BG_BUTTON_ACTIVE", "BORDER_PANEL", "BLUE",
-    "GREEN", "RED", "AMBER", "PINK", "TEXT_MUTED", "TEXT_PRIMARY",
-)
 
-
-def test_every_mirrored_colour_is_the_shared_ui_token_of_the_same_name():
-    """The palette is a mirror rather than an import — shared_ui's tokens are
-    QColors and these HUDs are Pillow — so the numbers are typed out twice and can
-    drift apart. This is what stops them, and it is what keeps a token nothing
-    draws with yet from reading as dead: the palette is carried whole so a HUD and
-    a window looking at the same state look alike.
-
-    WHITE is not in it: it is plain white, and shared_ui has no token for it.
+def test_the_palette_is_shared_uis_own_read_without_qt():
+    """The HUDs color with the family's palette itself, not a copy of it: the
+    numbers used to be typed out twice, here and in shared_ui, and only a test
+    kept them from drifting apart.
     """
-    from shared_ui import colors
+    from shared_ui import palette
 
-    for name in MIRRORED:
-        token = getattr(colors, name)
-        assert getattr(hud_panel, name) == (token.red(), token.green(), token.blue()), name
+    assert hud_panel.WHITE is palette.WHITE
+    assert hud_panel.BG_PRIMARY is palette.BG_PRIMARY
+    assert hud_panel.PINK is palette.PINK
 
 
 def test_panel_is_a_translucent_rounded_slab_of_the_asked_size():

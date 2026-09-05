@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import numpy as np
+from shared_ui.palette import BLUE, GREEN, TEXT_MUTED, TEXT_PRIMARY
 
 from player_core.drive_layout import (
     AMPLITUDE,
@@ -28,10 +29,6 @@ from player_core.drive_readout import (
     tracks,
 )
 from player_core.hud_panel import (
-    BLUE,
-    GREEN,
-    TEXT_MUTED,
-    TEXT_PRIMARY,
     HudPanel,
     load_font,
     text_width,
