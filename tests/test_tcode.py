@@ -68,3 +68,9 @@ class TestToTcodePosition:
     def test_a_position_between_them_scales(self):
         assert to_tcode_position(50) == 5000
         assert to_tcode_position(1) == 100
+
+
+def test_the_park_command_rests_the_stroke_axis_at_the_bottom_over_half_a_second():
+    from player_core.tcode import PARK_COMMAND, format_tcode_command
+
+    assert format_tcode_command("L0", 0, 500) == PARK_COMMAND

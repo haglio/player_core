@@ -20,6 +20,11 @@ __all__ = [
 # The top of the linear axis's range; 0 is the bottom of it.
 POSITION_MAX = 9999
 
+# The device's rest: the stroke axis to the bottom over half a second.  A driver
+# that stops sends it, and the broker sends it when it parks a paused room, so
+# the one spelling is here and both read it.
+PARK_COMMAND = "L00000I500"
+
 
 def to_tcode_position(percent: float) -> int:
     """A 0-100 stroke position as the 0-9999 one the wire carries."""
