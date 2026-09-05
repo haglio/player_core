@@ -557,3 +557,25 @@ def test_the_mode_row_can_be_left_off_and_takes_minimize_with_it():
     for kept in ("robot_hand_toggle_cruise", "robot_hand_cycle_shape", "main_lock",
                  "genau_advance_up", "genau_advance_down"):
         assert kept in actions
+
+
+def test_the_published_verbs_are_exactly_what_the_buttons_post():
+    """CONSOLE_VERBS is data a consumer holds its dispatch table to, so it has
+    to be exactly the verbs the buttons post -- read off the source, so a button
+    added with a new verb, or one renamed, fails here before it fails at a
+    click."""
+    import ast
+    from pathlib import Path
+
+    from player_core.console import CONSOLE_VERBS
+
+    source = Path(__file__).resolve().parent.parent / "player_core" / "console.py"
+    posted = set()
+    for node in ast.walk(ast.parse(source.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "Button" and node.args:
+            first = node.args[0]
+            if isinstance(first, ast.Constant) and isinstance(first.value, str) and first.value:
+                posted.add(first.value)
+        if isinstance(node, ast.Assign) and any(getattr(t, "id", "") == "_MODE_BUTTONS" for t in node.targets):
+            posted.update(entry.elts[0].value for entry in node.value.elts)
+    assert posted == CONSOLE_VERBS
