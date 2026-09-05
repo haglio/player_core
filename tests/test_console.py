@@ -312,13 +312,13 @@ class TestClipSeconds:
 
     def test_the_pace_has_arrows_where_genau_is_on_screen(self):
         actions = _actions(ConsoleModel(mode="genau"))
-        assert "genau_advance_down" in actions and "genau_advance_up" in actions
+        assert "genau_clip_seconds_down" in actions and "genau_clip_seconds_up" in actions
 
     def test_video_mode_shows_the_video_rate_instead(self):
         """The row is about what the transport is stepping, and in video mode
         that is Nau's video, which has a playback rate rather than a pace."""
         actions = _actions(ConsoleModel(mode="video"))
-        assert "genau_advance_down" not in actions
+        assert "genau_clip_seconds_down" not in actions
         assert "nau_speed_down" in actions
 
     def test_the_seconds_are_shown_as_a_read_out_between_the_arrows(self):
@@ -555,7 +555,7 @@ def test_the_mode_row_can_be_left_off_and_takes_minimize_with_it():
     assert not any(a.endswith("_activate") for a in actions)
     # ...and the rows that carry the stroke are all still there.
     for kept in ("robot_hand_toggle_cruise", "robot_hand_cycle_shape", "main_lock",
-                 "genau_advance_up", "genau_advance_down"):
+                 "genau_clip_seconds_up", "genau_clip_seconds_down"):
         assert kept in actions
 
 

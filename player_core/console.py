@@ -254,8 +254,8 @@ CONSOLE_VERBS = frozenset({
     "browse_library",
     "clipper_save",
     "genau_activate",
-    "genau_advance_down",
-    "genau_advance_up",
+    "genau_clip_seconds_down",
+    "genau_clip_seconds_up",
     "genau_filter_enhanced",
     "genau_next_clip",
     "genau_prev_clip",
@@ -473,9 +473,9 @@ def _clip_seconds_row(model: ConsoleModel, label_width: int = PLAYBACK_LABEL_W) 
     """
     return [
         Button("", "Clip seconds", "", width=label_width),
-        Button("genau_advance_down", _GLYPHS["minus"], "Move on sooner"),
+        Button("genau_clip_seconds_down", _GLYPHS["minus"], "Move on sooner"),
         Button("", f"{model.advance_interval}s", "", width=VALUE_W),
-        Button("genau_advance_up", _GLYPHS["plus"], "Leave each clip longer"),
+        Button("genau_clip_seconds_up", _GLYPHS["plus"], "Leave each clip longer"),
     ]
 
 
