@@ -22,8 +22,9 @@ another application's internals to get it. By what it is:
   `libmpv_loader` that puts the vendored DLL on `%PATH%` first, which is the
   only way python-mpv finds it on Windows.
 - **the files an orchestrator steers through** — `playlist`, `file_channel`
-  (the command queue and the paused flag), `status` (what a player publishes
-  back).
+  (the command queue and the paused flag, re-exported from `app_support`,
+  which the broker steers by too), `status` (what a player publishes back),
+  `session_quit` (a close on one window of a session asks the session).
 - **the device** — `tcode` and `tcode_driver` for the wire, `funscript` for a
   script and the questions asked of one, and for a stroke of this family's own:
   `robot_hand` (the waveform), `robot_hand_beat` (the phase it runs at),
