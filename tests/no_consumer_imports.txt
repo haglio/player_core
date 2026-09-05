@@ -305,12 +305,6 @@ Beat
 # --- robot_hand_driver.py ---
 DeviceHandoff
 
-# --- session_quit.py ---
-# Here until genau and fun_time take it in place of their own copies (item 47);
-# their landings delete these two lines.
-SESSION_QUIT
-quit_gesture
-
 # --- tick_failures.py ---
 TickFailures
 
