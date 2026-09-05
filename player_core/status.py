@@ -22,6 +22,9 @@ from pathlib import Path
 
 from .file_channel import publish_whole
 
+__all__ = [
+    "StatusWriter",
+]
 
 class StatusWriter:
     def __init__(

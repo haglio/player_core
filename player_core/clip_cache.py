@@ -11,6 +11,10 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 
+__all__ = [
+    "ClipCacheStore",
+    "DecodeRequestState",
+]
 
 def trim_path_lru_cache[T](
     cache: OrderedDict[Path, T],

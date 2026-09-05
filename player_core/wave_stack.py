@@ -37,6 +37,15 @@ from .robot_hand import (
     position_fraction,
 )
 
+__all__ = [
+    "Ramp",
+    "Wave",
+    "WaveStack",
+    "dials",
+    "position",
+    "position_ahead",
+    "trace",
+]
 
 @dataclass
 class Ramp:

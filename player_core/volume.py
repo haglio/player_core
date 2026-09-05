@@ -27,6 +27,20 @@ from shared_ui.palette import BG_PRIMARY, BORDER_PANEL, TEXT_MUTED, TEXT_PRIMARY
 
 from player_core.hud_panel import to_bgra
 
+__all__ = [
+    "CHIP_H",
+    "CHIP_W",
+    "MARGIN",
+    "MAX_VOLUME",
+    "MIN_VOLUME",
+    "VolumeHud",
+    "VolumeHudPainter",
+    "chip_local",
+    "chip_xy",
+    "hit_part",
+    "volume_at",
+]
+
 # The chip: a speaker at the left end, a slider filling the rest.  Sized for the
 # corner of a video rather than for a mouse-heavy toolbar — big enough to hit,
 # small enough to ignore.

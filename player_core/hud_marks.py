@@ -13,6 +13,8 @@ and a painter can use it without either dragging the other's dependencies along.
 
 from __future__ import annotations
 
+__all__: list[str] = []  # package-internal: no sibling reaches anything here
+
 SHARED_MARK = "\x00glyph:"
 
 

@@ -18,6 +18,25 @@ from enum import Enum
 
 from .tcode import POSITION_MAX
 
+__all__ = [
+    "MAX_SPEED",
+    "MIN_SPEED",
+    "RobotHandState",
+    "WaveformShape",
+    "adjust_amplitude",
+    "adjust_center",
+    "adjust_speed",
+    "bpm_for_speed",
+    "cycle_shape",
+    "pause_playing",
+    "phase_advanced",
+    "phase_to_position",
+    "position_fraction",
+    "set_amplitude",
+    "set_center",
+    "set_speed",
+    "toggle_playing",
+]
 
 class WaveformShape(Enum):
     SINE = "sine"

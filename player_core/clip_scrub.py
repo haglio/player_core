@@ -37,6 +37,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+__all__: list[str] = []  # package-internal: no sibling reaches anything here
+
+__all__: list[str] = []  # package-internal: no sibling reaches anything here
+
 # The two ends, named for the frames the loop shares there.
 A_END = "A"
 B_END = "B"

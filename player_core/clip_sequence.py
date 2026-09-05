@@ -8,6 +8,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+__all__ = [
+    "ClipSequenceController",
+]
 
 def _index_of(clips: list[Path], wanted: Path | None) -> int:
     """Where *wanted* sits in *clips*, or 0 for "not among them".

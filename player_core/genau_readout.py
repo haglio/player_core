@@ -19,6 +19,8 @@ from .drive_readout import TRACE_SAMPLES, DriveHud, publish_drive
 from .genau_controls import GenauControls
 from .robot_hand import MIN_BPM, POSITION_MAX, control_limits, sample_waveform
 
+__all__: list[str] = []  # package-internal: no sibling reaches anything here
+
 # How often the drive readout goes out for the console to draw.  Its trace
 # scrolls, so it cannot wait on a change the way the status file does -- 25/s is
 # well under Genau's refresh rate and well over what reads as smooth.

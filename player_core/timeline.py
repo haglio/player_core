@@ -18,6 +18,19 @@ import numpy as np
 
 from player_core.volume import SLOT_W as _VOLUME_SLOT_W
 
+__all__ = [
+    "BAR_BORDER",
+    "BAR_INSET_Y",
+    "BORDER_W",
+    "TIMELINE_HEIGHT",
+    "bar_track_x",
+    "bar_x",
+    "draw_border",
+    "draw_track_marks",
+    "framed_track",
+    "progress_bar_bgra",
+]
+
 RED = (220, 40, 40, 245)
 AMBER = (235, 180, 60, 245)
 

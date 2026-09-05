@@ -49,6 +49,14 @@ from .robot_hand import (
 )
 from .wave_stack import Ramp, Wave, WaveStack
 
+__all__ = [
+    "CruiseControlState",
+    "disable_cruise_control",
+    "enable_cruise_control",
+    "tick_cruise_control",
+    "toggle_cruise_control",
+]
+
 if TYPE_CHECKING:
     from .robot_hand import RobotHandState
 

@@ -8,6 +8,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+__all__ = [
+    "ClipRenderController",
+]
 
 def display_index_for_phase(
     *,

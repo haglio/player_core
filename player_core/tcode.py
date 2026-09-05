@@ -12,6 +12,11 @@ from __future__ import annotations
 import socket
 from typing import Protocol
 
+__all__ = [
+    "POSITION_MAX",
+    "UdpTCodeSink",
+]
+
 # The top of the linear axis's range; 0 is the bottom of it.
 POSITION_MAX = 9999
 

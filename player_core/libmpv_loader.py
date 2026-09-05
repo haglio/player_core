@@ -14,6 +14,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+__all__: list[str] = []  # package-internal: no sibling reaches anything here
 
 def libmpv_dir() -> Path:
     """The repo's ``vendor/`` directory that holds ``libmpv-2.dll``."""

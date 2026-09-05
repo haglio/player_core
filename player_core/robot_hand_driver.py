@@ -21,6 +21,10 @@ from .funscript import HANDOFF_RAMP_MS
 from .robot_hand import POSITION_MAX, phase_to_position
 from .tcode import HandoffGlide, TCodeSink, format_tcode_command
 
+__all__ = [
+    "RobotHandTCodeDriver",
+]
+
 if TYPE_CHECKING:
     from .robot_hand import RobotHandState
 

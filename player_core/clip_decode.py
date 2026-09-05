@@ -18,6 +18,9 @@ import numpy as np
 from app_support.subprocess_utils import hidden_subprocess_kwargs
 from PIL import Image
 
+__all__ = [
+    "load_clip_frames",
+]
 
 def ffprobe_size(path: Path) -> tuple[int, int]:
     cmd = [
