@@ -48,7 +48,7 @@ class TestPlacement:
         """Genau draws no timeline, but its window IS the primary display in genau
         mode — so reaching for the sound must not find the control somewhere other
         than where the same session shows it in video mode, which is the row
-        Nau draws.  Measuring its own margin off the bottom edge instead put it
+        Nau draws.  Measuring its own margin off the lower edge instead put it
         nine pixels above that."""
         assert chip_xy(win_w=1200, win_h=900, timeline_h=0) == chip_xy(
             win_w=1200, win_h=900, timeline_h=ROW_H)
@@ -69,7 +69,7 @@ class TestPlacement:
 
 class TestWindowPoints:
     """Presses arrive in the window's coordinates; every hit test here takes the
-    chip's.  The chip is placed from the window's bottom-right corner, so its
+    chip's.  The chip is placed from the window's lower-right corner, so its
     origin moves with the window and with the timeline beneath it — which is why
     undoing `chip_xy` belongs beside `chip_xy` and not at each call site."""
 

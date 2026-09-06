@@ -20,10 +20,10 @@ __all__ = [
     "to_tcode_position",
 ]
 
-# The top of the linear axis's range; 0 is the bottom of it.
+# The top of the linear axis's range; 0 is the floor of it.
 POSITION_MAX = 9999
 
-# The device's rest: the stroke axis to the bottom over half a second.  A driver
+# The device's rest: the stroke axis to the floor over half a second.  A driver
 # that stops sends it, and the broker sends it when it parks a paused room, so
 # the one spelling is here and both read it.
 PARK_COMMAND = "L00000I500"

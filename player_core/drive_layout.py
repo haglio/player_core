@@ -119,20 +119,20 @@ def geometry(x: int, y: int, center_frac: float) -> Geometry:
     wave_x = ctr_ctrl_x + _CTRL + _GAP
     amp_x = wave_x + _WAVE_W + _GAP
     wave = (wave_x, y, _WAVE_W, _WAVE_H)
-    wave_bottom = y + _WAVE_H
+    wave_lower = y + _WAVE_H
 
     amp_up = (amp_x, y, _AMP_W, _CTRL)
-    amp_down = (amp_x, wave_bottom - _CTRL, _AMP_W, _CTRL)
+    amp_down = (amp_x, wave_lower - _CTRL, _AMP_W, _CTRL)
     amp_bar = (amp_x, y + _CTRL + 2, _AMP_W, _WAVE_H - 2 * (_CTRL + 2))
 
     # The centre marks ride its dotted line, kept inside the trace's band so a
     # centre at either end cannot push one off the block.
     center_y = y + round((1 - center_frac) * (_WAVE_H - 1))
-    up_y = min(max(y, center_y - _CTRL - 1), wave_bottom - 2 * _CTRL - 2)
+    up_y = min(max(y, center_y - _CTRL - 1), wave_lower - 2 * _CTRL - 2)
     center_up = (ctr_ctrl_x, up_y, _CTRL, _CTRL)
     center_down = (ctr_ctrl_x, up_y + _CTRL + 2, _CTRL, _CTRL)
 
-    speed_y = wave_bottom + _GAP
+    speed_y = wave_lower + _GAP
     speed_down = (wave_x, speed_y, _CTRL, _CTRL)
     speed_up = (amp_x + _AMP_W - _CTRL, speed_y, _CTRL, _CTRL)
     bar_x = wave_x + _CTRL + 4

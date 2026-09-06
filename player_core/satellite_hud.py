@@ -61,7 +61,7 @@ CTRL_BAND_H = 24    # the band those controls sit in, under the status line
 # the column.  The panel is measured with these and the map laid out against them,
 # so a widened row can never push a button off the panel.
 MAP_RIGHT_RESERVE = 2 * (LOOP_BTN + MAP_GAP)
-MAP_BOTTOM_RESERVE = LOOP_BTN + MAP_GAP
+MAP_LOWER_RESERVE = LOOP_BTN + MAP_GAP
 
 # The map is three cells on a side — the clip on screen in the corner, two of its
 # seeds along the row, two of its other acts down the column.  Each axis is
@@ -245,7 +245,7 @@ def panel_height(column_height: int, subtitle_h: int = 0, mode_band_h: int = 0) 
     foot = PAD + STATUS_BAND_H + subtitle_h + mode_band_h + CTRL_BAND_H
     if column_height:
         foot += (COL_LABEL_H + COL_LABEL_GAP + ELLIPSIS_ROOM
-                 + column_height + ELLIPSIS_ROOM + MAP_BOTTOM_RESERVE)
+                 + column_height + ELLIPSIS_ROOM + MAP_LOWER_RESERVE)
     return foot + PAD
 
 
@@ -306,7 +306,7 @@ def thumbnail_rects(
     map_x: int,
     map_y: int,
     right: int,
-    bottom: int,
+    lower: int,
     corner_size: tuple[int, int],
     seed_sizes: list[tuple[int, int]],
     action_sizes: list[tuple[int, int]],
@@ -315,7 +315,7 @@ def thumbnail_rects(
     """Positioned ``(x, y, w, h)`` rects for the map's thumbnails.
 
     The corner sits at the origin, seeds walk right until one would cross
-    *right*, actions walk down until one would cross *bottom* — each dropped
+    *right*, actions walk down until one would cross *lower* — each dropped
     rather than clipped, exactly as the map is drawn.  The column starts under
     whichever row cell *playing* lights (:func:`column_anchor_rect`), since the
     acts in it are that seed's.  Sizes are the thumbnails' already-scaled
@@ -335,7 +335,7 @@ def thumbnail_rects(
     column_x = column_anchor_rect(playing, corner, seeds)[0]
     action_y = map_y + ch + ROW_GAP
     for w, h in action_sizes:
-        if action_y + h > bottom:
+        if action_y + h > lower:
             break
         actions.append((column_x, action_y, w, h))
         action_y += h + ROW_GAP
@@ -364,7 +364,7 @@ def _row_right(corner_rect: Rect, seed_rects: list[Rect]) -> int:
     return max([cx + cw] + [sx + sw for sx, _sy, sw, _sh in seed_rects])
 
 
-def _col_bottom(corner_rect: Rect, action_rects: list[Rect]) -> int:
+def _col_lower(corner_rect: Rect, action_rects: list[Rect]) -> int:
     _cx, cy, _cw, ch = corner_rect
     return max([cy + ch] + [ay + ah for _ax, ay, _aw, ah in action_rects])
 
@@ -374,7 +374,7 @@ def loop_button_rects(
     seed_rects: list[Rect],
     action_rects: list[Rect],
     right: int,
-    bottom: int,
+    lower: int,
     *,
     reserve_row: int = 0,
     reserve_col: int = 0,
@@ -393,8 +393,8 @@ def loop_button_rects(
         return None, None
     cx, cy, cw, ch = corner_rect
     col_x, _col_y, col_w, _col_h = corner_rect if column_rect is None else column_rect
-    loop_action_y = _col_bottom(corner_rect, action_rects) + reserve_col + MAP_GAP
-    loop_action = (col_x, loop_action_y, col_w, LOOP_BTN) if loop_action_y + LOOP_BTN <= bottom else None
+    loop_action_y = _col_lower(corner_rect, action_rects) + reserve_col + MAP_GAP
+    loop_action = (col_x, loop_action_y, col_w, LOOP_BTN) if loop_action_y + LOOP_BTN <= lower else None
     loop_seed_x = _row_right(corner_rect, seed_rects) + reserve_row + MAP_GAP
     loop_seed = (loop_seed_x, cy, LOOP_BTN, ch) if loop_seed_x + LOOP_BTN <= right else None
     return loop_action, loop_seed
@@ -414,8 +414,8 @@ def looped_group_box(
         row_right = _row_right(corner_rect, seed_rects)
         return (cx - reserve, cy, (row_right + reserve) - (cx - reserve), ch)
     col_x, _col_y, col_w, _col_h = corner_rect if column_rect is None else column_rect
-    col_bottom = _col_bottom(corner_rect, action_rects)
-    return (col_x, cy - reserve, col_w, (col_bottom + reserve) - (cy - reserve))
+    col_lower = _col_lower(corner_rect, action_rects)
+    return (col_x, cy - reserve, col_w, (col_lower + reserve) - (cy - reserve))
 
 
 def ellipsis_rects(
@@ -433,7 +433,7 @@ def ellipsis_rects(
                 (_row_right(corner_rect, seed_rects) + MAP_GAP, cy, ELLIPSIS, ch))
     col_x, _col_y, col_w, _col_h = corner_rect if column_rect is None else column_rect
     return ((col_x, cy - MAP_GAP - ELLIPSIS, col_w, ELLIPSIS),
-            (col_x, _col_bottom(corner_rect, action_rects) + MAP_GAP, col_w, ELLIPSIS))
+            (col_x, _col_lower(corner_rect, action_rects) + MAP_GAP, col_w, ELLIPSIS))
 
 
 # --- the side's own controls -------------------------------------------------

@@ -1,4 +1,4 @@
-"""The scrubber every player in this family draws along the bottom of its video.
+"""The scrubber every player in this family draws along the lower edge of its video.
 
 An inset, floated, bordered track with a full-height playcursor and loop/record
 marks — Nau draws it under a funscript heatmap or as a plain bar, and a silent
@@ -37,7 +37,7 @@ AMBER = (235, 180, 60, 245)
 # The timeline — heatmap strip or plain bar — is drawn as one shared frame: an
 # inset, floated, bordered track with full-height marks.
 BAR_INSET_X = 40     # side margin so the timeline's start clears the left edge
-BAR_INSET_Y = 3      # top/bottom margin so the timeline floats off the edge
+BAR_INSET_Y = 3      # top/lower margin so the timeline floats off the edge
 BAR_FILL = (34, 34, 38, 165)       # dark translucent fill (plain bar only)
 BAR_BORDER = (215, 215, 220, 235)  # light inner border (reads on the dark fill)
 BAR_EDGE = (8, 8, 10, 235)         # dark outer edge (reads on the bright heatmap)
@@ -46,7 +46,7 @@ CURSOR = (255, 255, 255, 255)   # prominent white playcursor
 CURSOR_W = 3
 MARK_W = 4                      # prominent loop in/out and record marks
 
-TIMELINE_HEIGHT = 24  # bottom strip height when not recording
+TIMELINE_HEIGHT = 24  # lower strip height when not recording
 
 
 def bar_track_x(width: int) -> tuple[int, int]:
@@ -77,7 +77,7 @@ def paint_rect(bgra, x0, x1, y0, y1, color):
 def _ring(bgra, x0, x1, y0, y1, t, color):
     """Draw a ``t``-thick hollow rectangle just inside [x0:x1] x [y0:y1]."""
     paint_rect(bgra, x0, x1, y0, y0 + t, color)  # top
-    paint_rect(bgra, x0, x1, y1 - t, y1, color)  # bottom
+    paint_rect(bgra, x0, x1, y1 - t, y1, color)  # lower
     paint_rect(bgra, x0, x0 + t, y0, y1, color)  # left
     paint_rect(bgra, x1 - t, x1, y0, y1, color)  # right
 

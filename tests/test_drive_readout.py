@@ -76,11 +76,11 @@ class TestControls:
         """Speed is out from between centre and amplitude, under the trace, so the
         three axes do not crowd one band."""
         by_action = {c.action: c.rect for c in controls(0, 0, _hud())}
-        wave_bottom = max(by_action["robot_hand_amplitude_down"][1] + by_action["robot_hand_amplitude_down"][3],
+        wave_lower = max(by_action["robot_hand_amplitude_down"][1] + by_action["robot_hand_amplitude_down"][3],
                           by_action["robot_hand_center_down"][1])
 
-        assert by_action["robot_hand_speed_down"][1] >= wave_bottom
-        assert by_action["robot_hand_speed_up"][1] >= wave_bottom
+        assert by_action["robot_hand_speed_down"][1] >= wave_lower
+        assert by_action["robot_hand_speed_up"][1] >= wave_lower
 
     def test_a_mark_at_its_limit_is_dimmed(self):
         """The flag on the readout says the axis has run out of range, so the mark

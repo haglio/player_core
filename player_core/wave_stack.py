@@ -262,7 +262,7 @@ def dials(stack: WaveStack, now: float) -> Dials:
                  speed=lead.speed.at(now), shape=lead.shape)
 
 
-def rest_at_bottom(stack: WaveStack) -> None:
+def rest_at_floor(stack: WaveStack) -> None:
     """Put every wave at phase 0 — the foot of the stroke's swing.
 
     Phase 0 is where every waveform shape's raw value is 0, so all of them at

@@ -91,7 +91,7 @@ def _ink_center_offset(font: ImageFont.FreeTypeFont, glyph: str) -> tuple[float,
     """The centre of *glyph*'s ink, offset from where ``draw.text`` starts it.
 
     Measured by drawing it, because nothing reported is the ink box:
-    ``textbbox`` gives the layout box, whose bottom is the face's descender line
+    ``textbbox`` gives the layout box, whose lower edge is the face's descender line
     however short the glyph — a minus sign reports nine pixels of empty space
     under it.  None when the glyph leaves no ink at all.
     """

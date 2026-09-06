@@ -53,9 +53,9 @@ from .satellite_hud import (
     CTRL_BTN,
     ELLIPSIS_ROOM,
     FILTER_ROOM,
-    MAP_BOTTOM_RESERVE,
     MAP_CELLS,
     MAP_GAP,
+    MAP_LOWER_RESERVE,
     MAP_RIGHT_RESERVE,
     MAP_THUMB_H,
     MAX_GUTTER,
@@ -373,7 +373,7 @@ class HudRenderer:
                                           modes=modes))
 
         self._draw_counts(draw, x, y, counts)
-        right, bottom = width - PAD, height - PAD
+        right, lower = width - PAD, height - PAD
         # Room for the "…" at each end whether or not there is more to show, so
         # nothing on the map moves when a window slides or a loop goes on.
         map_x = x + gutter_w + ELLIPSIS_ROOM
@@ -381,9 +381,9 @@ class HudRenderer:
         # Where the panel's own measurement already put the map's far edges — read
         # back rather than answered again, so painting and hit-testing cannot drift.
         map_right = right - MAP_RIGHT_RESERVE - ELLIPSIS_ROOM
-        map_bottom = bottom - MAP_BOTTOM_RESERVE - ELLIPSIS_ROOM
+        map_lower = lower - MAP_LOWER_RESERVE - ELLIPSIS_ROOM
         corner_rect, seed_rects, action_rects = thumbnail_rects(
-            map_x=map_x, map_y=map_y, right=map_right, bottom=map_bottom,
+            map_x=map_x, map_y=map_y, right=map_right, lower=map_lower,
             corner_size=corner_thumb.size,
             seed_sizes=[thumb.size for thumb in seed_thumbs],
             action_sizes=[thumb.size for thumb in action_thumbs],
@@ -409,7 +409,7 @@ class HudRenderer:
         self._draw_filter_buttons(draw, filter_rects, model.filter_query)
 
         loop_action_rect, loop_seed_rect = loop_button_rects(
-            corner_rect, seed_rects, action_rects, right, bottom,
+            corner_rect, seed_rects, action_rects, right, lower,
             reserve_row=ELLIPSIS_ROOM, reserve_col=ELLIPSIS_ROOM, column_rect=column_rect)
         expand_rect = expand_button_rect(loop_seed_rect, right)
         self._draw_loop_controls(image, draw, corner_rect, column_rect, loop_action_rect,
@@ -547,7 +547,7 @@ class HudRenderer:
         not read as part of that border either.
 
         Drawn rather than typed: an "…" glyph hangs off the text baseline, which in a
-        slot this small puts it against the bottom edge instead of in the middle.
+        slot this small puts it against the lower edge instead of in the middle.
         """
         before, after = ellipsis_rects(corner_rect, seed_rects, action_rects, axis,
                                        column_rect=column_rect)
@@ -696,10 +696,10 @@ class HudRenderer:
         bx, by, bw, bh = rect
         cx, cy = bx + bw / 2, by + bh / 2
         mouth, neck = _FUNNEL_W / 2, _FUNNEL_NECK / 2
-        top, bottom = cy - _FUNNEL_H / 2, cy + _FUNNEL_H / 2
+        upper, lower = cy - _FUNNEL_H / 2, cy + _FUNNEL_H / 2
         draw.polygon(
-            [(cx - mouth, top), (cx + mouth, top), (cx + neck, cy), (cx + neck, bottom),
-             (cx - neck, bottom), (cx - neck, cy)],
+            [(cx - mouth, upper), (cx + mouth, upper), (cx + neck, cy), (cx + neck, lower),
+             (cx - neck, lower), (cx - neck, cy)],
             fill=ink,
         )
 

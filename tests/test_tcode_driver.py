@@ -197,7 +197,7 @@ class TestLeadInPark:
         position: the device rests there while the handoff buffer runs down, and
         only a beat ahead of the onset does it rise — to the cluster's *opening*
         action, so it is at the script's starting end as the action fires
-        rather than sitting at the bottom while the opening, at the opposite
+        rather than sitting at the floor while the opening, at the opposite
         end, scrolls toward the playhead."""
         sink = FakeSink()
         driver = FunscriptTCodeDriver(sink)

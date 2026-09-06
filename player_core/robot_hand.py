@@ -181,7 +181,7 @@ def position_fraction(
     amplitude: int = 100,
     center: int = 50,
 ) -> float:
-    """Where the stroke sits at *phase*, 0 (bottom of the axis) to 1 (top).
+    """Where the stroke sits at *phase*, 0 (the floor of the axis) to 1 (top).
 
     The scale-free form of :func:`phase_to_position`. Callers speaking T-Code
     want that one's 0-9999; a readout drawing a trace, or an app whose device
@@ -239,7 +239,7 @@ class ControlLimits:
 
 def control_limits(hand: RobotHandState) -> ControlLimits:
     # The center's range is what the travel leaves it: it cannot push a stroke
-    # off the top or bottom of the device, so it stops half a travel in from
+    # off the top or floor of the device, so it stops half a travel in from
     # each end.
     half = hand.amplitude // 2
     return ControlLimits(

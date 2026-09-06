@@ -117,7 +117,7 @@ def test_the_map_is_three_cells_a_side_whatever_shape_its_clips_are(side, shape,
 def test_the_panel_stops_where_its_last_controls_do(side, shape, clip_thumb):
     """No slab past the map wherever the map is what set the width: the expand
     button ends one margin in from the right edge and the action-loop button one
-    margin up from the bottom, so every pixel of the panel is carrying something —
+    margin up from the lower edge, so every pixel of the panel is carrying something —
     for a wide cell as much as a narrow one.  (A status longer than the map is the
     other case, and there it is the line that reaches the far edge.)"""
     rendered = HudRenderer(side).render(_crowded(side, clip_thumb(side, shape)))
@@ -741,11 +741,11 @@ def test_only_the_act_the_filter_matched_is_lit_on_a_two_act_row(thumb):
             current_action="gamma, theta", filter_query=filter_query,
         )))
 
-    gamma_top, gamma_bottom = halves("gamma")
-    theta_top, theta_bottom = halves("theta")
+    gamma_upper, gamma_lower = halves("gamma")
+    theta_upper, theta_lower = halves("theta")
 
-    assert gamma_top > 0 and gamma_bottom == 0
-    assert theta_bottom > 0 and theta_top == 0
+    assert gamma_upper > 0 and gamma_lower == 0
+    assert theta_lower > 0 and theta_upper == 0
     assert halves("alpha") == (0, 0)
 
 
@@ -758,9 +758,9 @@ def test_a_filter_set_from_a_two_act_clip_lights_both_of_its_acts(thumb):
         current_action="gamma, theta motion", filter_query="gamma, theta motion",
     ))
 
-    top, bottom = _white_halves(rendered)
+    upper, lower = _white_halves(rendered)
 
-    assert top > 0 and bottom > 0
+    assert upper > 0 and lower > 0
 
 
 @pytest.mark.parametrize("camera", ["pov", "side"])
@@ -863,17 +863,17 @@ def test_a_tooltip_longer_than_the_panel_is_wide_stays_on_the_panel(thumb):
     plain = _rgb(renderer.render(model).bgra)
 
     def tooltip_box(text: str) -> tuple[int, int, int]:
-        """(top, bottom, right) of what hovering with *text* added to the panel."""
+        """(upper, lower, right) of what hovering with *text* added to the panel."""
         tipped = _rgb(renderer.render(model, hover_tip=text, hover_pos=(33, 44)).bgra)
         rows, cols = np.nonzero((tipped != plain).any(axis=2))
         assert len(rows), f"hovering with {text!r} drew nothing"
         return rows.min(), rows.max(), cols.max()
 
-    top, bottom, right = tooltip_box(CONTROL_TOOLTIPS["trash"])
-    short_top, short_bottom, _ = tooltip_box("Bin")
+    upper, lower, right = tooltip_box(CONTROL_TOOLTIPS["trash"])
+    short_upper, short_lower, _ = tooltip_box("Bin")
 
     assert right < plain.shape[1] - 1  # it stopped short of the far edge
-    assert bottom - top > short_bottom - short_top  # having wrapped to fit
+    assert lower - upper > short_lower - short_upper  # having wrapped to fit
 
 
 def test_the_button_glyphs_are_not_tofu():

@@ -18,6 +18,6 @@ def test_the_far_edges_belong_to_whatever_starts_there():
     rect = (10, 20, 30, 40)
 
     assert not contains(rect, 40, 40)  # one past the right edge
-    assert not contains(rect, 20, 60)  # one past the bottom
+    assert not contains(rect, 20, 60)  # one past the lower edge
     assert not contains(rect, 9, 40)   # and one short of the left
     assert not contains(rect, 20, 19)
