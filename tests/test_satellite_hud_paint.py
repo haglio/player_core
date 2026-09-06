@@ -337,7 +337,7 @@ def test_render_draws_the_sides_own_controls_even_with_no_clip():
 
 def test_the_minimize_button_wears_a_bar_rather_than_a_font_glyph():
     """The minimize mark Windows uses lives in a face these buttons don't load, and
-    Pillow draws a ".notdef" box for a codepoint a face doesn't carry — so it is
+    Pillow draws a ".notdef" tofu for a codepoint a face doesn't carry — so it is
     drawn: one horizontal run of ink across the middle of the button, wider than it
     is tall, which is what a title bar's minimize looks like everywhere."""
     rendered = HudRenderer("landscape").render(
@@ -857,7 +857,7 @@ def test_a_tooltip_longer_than_the_panel_is_wide_stays_on_the_panel(thumb):
     portrait panel has, so it was drawn straight off the right edge and read
     "…when it is not a favo".  It wraps now, which is player_core's job — this
     guards that the satellite actually hands it the panel's own bounds, since
-    passing anything wider would put the box back over the edge."""
+    passing anything wider would put the tooltip back over the edge."""
     renderer = HudRenderer("portrait")
     model = _model(corner=HudCell(path="c.mp4", thumb=thumb))
     plain = _rgb(renderer.render(model).bgra)
@@ -878,7 +878,7 @@ def test_a_tooltip_longer_than_the_panel_is_wide_stays_on_the_panel(thumb):
 
 def test_the_button_glyphs_are_not_tofu():
     """Segoe UI has no U+21BB, so drawing the loop button with the UI face gives a
-    ".notdef" box.  Qt fell back to Segoe UI Symbol silently; Pillow does not, so
+    ".notdef" tofu.  Qt fell back to Segoe UI Symbol silently; Pillow does not, so
     the glyph font must cover every button icon itself — the map's two and each of
     the side's own controls, reset's backwards loop included."""
     from player_core.hud_panel import SYMBOL_FONT, load_font

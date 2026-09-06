@@ -226,8 +226,8 @@ _GLYPHS = {
 ENHANCE_FILTER_ICON = shared_mark("enhance_filter")
 
 # The waveform control wears a drawn mark rather than a glyph: ∿ is a small mark
-# low in a big box, so it read as a smudge in the corner of its button whatever
-# the centring.  It is the family's sine now — the very one Origenerator's OSR2
+# low in the bounds its face lays out, so it read as a smudge in the corner of
+# its button whatever the centering.  It is the family's sine now — the very one Origenerator's OSR2
 # switch wears — because from the outside the two are the same thing: motion the
 # app is sending the device.
 WAVE_ICON = shared_mark("wave")

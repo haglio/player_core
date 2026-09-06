@@ -150,7 +150,7 @@ _ENHANCED_GLYPH = shared_mark("enhance_filter")
 
 # The filter mark, drawn rather than typed: Segoe UI Symbol — the face the other
 # buttons take their icons from — carries no funnel at any codepoint, and this is
-# the one button whose shape *is* its meaning, so a ".notdef" box would say
+# the one button whose shape *is* its meaning, so a ".notdef" tofu would say
 # nothing at all.  A mouth _FUNNEL_W wide narrowing to a stem, sized like the
 # glyphs beside it.
 _FUNNEL_W = 9
@@ -159,7 +159,7 @@ _FUNNEL_NECK = 3  # width of the stem the mouth narrows to
 
 # The minimize mark, drawn for the same reason: the bar Windows puts on a title
 # bar is U+E921 of Segoe MDL2 Assets, which is not the face the buttons here take
-# their glyphs from, and Pillow draws a ".notdef" box for a codepoint a face does
+# their glyphs from, and Pillow draws a ".notdef" tofu for a codepoint a face does
 # not carry.  Drawing it costs one rectangle and needs no font at all — and the
 # bar is the one mark on this panel nobody has to be taught, since it is exactly
 # what every title bar in Windows uses for the same gesture.  As wide as the
@@ -680,7 +680,7 @@ class HudRenderer:
         A mark the family draws is rendered from its geometry, so the bin here is
         the bin on Origenerator's toolbar rather than whatever a symbol face had.
         A typed glyph is centered on its own ink instead: the padlock and the
-        transport arrows sit high in a box that runs to the descender, so the
+        transport arrows sit high in bounds that run to the descender, so the
         font's own centering dropped every one of them toward its button's floor.
         """
         ink = self._button_square(draw, rect, on=on, on_color=on_color, ink=ink)

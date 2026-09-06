@@ -81,7 +81,7 @@ def test_the_active_dot_is_lit_or_gray_but_never_absent():
 def test_a_tooltip_wider_than_the_panel_wraps_rather_than_running_off_it():
     """A tooltip is drawn into the panel's own bitmap, so whatever crosses the edge
     is simply never drawn — the sentence loses its tail with nothing to say it had
-    one.  It wraps to the room there is instead, and the box stays on the slab."""
+    one.  It wraps to the room there is instead, and the tooltip stays on the slab."""
     panel = HudPanel(150, 120)
     font = load_font(8)
 
@@ -117,8 +117,8 @@ def _ink_center(size: int, paint) -> tuple[float, float]:
     return (xs.min() + xs.max()) / 2, (ys.min() + ys.max()) / 2
 
 
-def test_a_glyph_is_centred_on_its_ink_not_on_the_fonts_box():
-    """``anchor="mm"`` centres the font's box, whose lower edge is the descender line
+def test_a_glyph_is_centered_on_its_ink_not_on_the_fonts_bounds():
+    """``anchor="mm"`` centers the font's bounds, whose lower edge is the descender line
     however short the glyph — which is why every icon button drew its mark low.
     Centring the ink puts it in the middle of the button, for the transport
     arrows, the padlock and the bare minus sign alike."""

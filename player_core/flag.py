@@ -8,7 +8,7 @@ invariant; and threaded through three modules under different key names
 ("value", "active").
 
 The edge belonged with them.  The HUD's previous value lived on the refresh
-controller while the value itself lived in the box, so the two things that have
+controller while the value itself lived in the dict, so the two things that have
 to be compared were owned by different objects and the comparison could only be
 written where both happened to be in scope.
 """

@@ -27,7 +27,7 @@ __all__: list[str] = []  # package-internal: no sibling reaches anything here
 UI_FONT = "segoeuib.ttf"
 
 # Segoe UI Symbol, for the marks these HUDs type rather than draw.  Segoe UI Bold
-# carries none of them, and Pillow draws a ".notdef" box for a codepoint a face
+# carries none of them, and Pillow draws a ".notdef" tofu for a codepoint a face
 # lacks where Qt used to fall back silently — so anything typed names this face.
 SYMBOL_FONT = "seguisym.ttf"
 
@@ -90,16 +90,16 @@ _INK_OFFSETS: dict[tuple[str, int, str], tuple[float, float] | None] = {}
 def _ink_center_offset(font: ImageFont.FreeTypeFont, glyph: str) -> tuple[float, float] | None:
     """The centre of *glyph*'s ink, offset from where ``draw.text`` starts it.
 
-    Measured by drawing it, because nothing reported is the ink box:
-    ``textbbox`` gives the layout box, whose lower edge is the face's descender line
+    Measured by drawing it, because nothing reported is the ink bounds:
+    ``textbbox`` gives the layout bounds, whose lower edge is the face's descender line
     however short the glyph — a minus sign reports nine pixels of empty space
     under it.  None when the glyph leaves no ink at all.
     """
     key = (str(getattr(font, "path", "")), int(getattr(font, "size", 0)), glyph)
     if key not in _INK_OFFSETS:
         pad = 8
-        box = font.getbbox(glyph)
-        probe = Image.new("L", (int(box[2]) + 2 * pad, int(box[3]) + 2 * pad), 0)
+        bounds = font.getbbox(glyph)
+        probe = Image.new("L", (int(bounds[2]) + 2 * pad, int(bounds[3]) + 2 * pad), 0)
         ImageDraw.Draw(probe).text((pad, pad), glyph, font=font, fill=255)
         ink = probe.getbbox()
         _INK_OFFSETS[key] = None if ink is None else (
@@ -112,9 +112,9 @@ def draw_glyph(draw: ImageDraw.ImageDraw, cx: float, cy: float, glyph: str,
                font: ImageFont.FreeTypeFont, fill) -> None:
     """Draw *glyph* centred on its own ink at ``(cx, cy)``.
 
-    Pillow's ``anchor="mm"`` centres the font's ascent/descent box, not the mark
-    inside it — and on the symbol faces these HUDs use, the mark sits high in a
-    box that runs down to the descender.  Every icon button was therefore drawing
+    Pillow's ``anchor="mm"`` centers the font's ascent/descent bounds, not the mark
+    inside it — and on the symbol faces these HUDs use, the mark sits high in
+    bounds that run down to the descender.  Every icon button was therefore drawing
     its glyph two to six pixels low.  Centring the ink puts it where the eye
     expects it, whatever the glyph.
     """
@@ -221,14 +221,14 @@ def _wrap(font: ImageFont.FreeTypeFont, text: str, available: int) -> list[str]:
 
 def draw_tooltip(draw: ImageDraw.ImageDraw, font: ImageFont.FreeTypeFont, text: str,
                  pos: tuple[int, int], bounds: tuple[int, int]) -> tuple[int, int, int, int]:
-    """Name a control in a box near *pos*, inside a panel *bounds* big, and return
-    the box it drew.
+    """Name a control in a tooltip near *pos*, inside a panel *bounds* big, and
+    return the rect it drew.
 
     These HUDs are painted into the video, so there is no native tooltip to fall
-    back on and every glyph on them is cryptic on purpose — this box *is* how a
+    back on and every glyph on them is cryptic on purpose — this tooltip *is* how a
     control says what it is.  Being part of the panel's own bitmap is also why it
     wraps rather than running on: whatever crosses the slab's edge is never drawn,
-    so an over-wide tooltip loses its tail with nothing to say it had one.  The box
+    so an over-wide tooltip loses its tail with nothing to say it had one.  It
     is then nudged back inside the slab, so a control near an edge names itself
     inward instead of off it.
     """

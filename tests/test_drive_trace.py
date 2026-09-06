@@ -485,7 +485,7 @@ class TestStillPicture:
 
         # Column 0's sample time sits a fraction of a knot BEFORE the playhead,
         # where a forward-window publish has nothing; it clamps to now and is
-        # drawn off the box's left edge — so the invariant starts at column 1.
+        # drawn off the block's left edge — so the invariant starts at column 1.
         pictures = [
             _read(script, at=at, published=_stroke_at(at)).waveform[1:20]
             for at in (0, 40, 80)
