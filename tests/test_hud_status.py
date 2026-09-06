@@ -31,7 +31,7 @@ def test_the_slots_run_from_the_set_being_played_down_to_the_finest_filter():
 def test_a_set_playing_through_drops_unlocked_but_keeps_locked():
     """A set on repeat holds nothing, so saying "Unlocked" beside one is noise —
     it names the absence of a hold that was never on offer.  A hold taken inside
-    the set is real, though: it is a stop at one member of it, and it stays."""
+    the set is real, though: it is a stop at one clip of it, and it stays."""
     assert status_line(playing_set="Looping seeds", locked=False) == "Looping seeds"
     assert status_line(playing_set="Looping seeds", locked=True) == (
         f"Looping seeds · {LOCKED_LABEL}")

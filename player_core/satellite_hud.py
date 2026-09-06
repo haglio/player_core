@@ -145,7 +145,7 @@ class HudModel:
     seed_count: int = 0
     action_count: int = 0
     # The map cell actually on screen — the corner normally, or another cell
-    # while a loop plays a non-anchor member of the group.  Drawn bright; the
+    # while a loop plays a non-anchor clip of the group.  Drawn bright; the
     # rest dim.
     playing: Cell = ("corner", 0)
     # The satellite side's own mode axis ("video" / "origenerator"), or "" for
@@ -348,7 +348,7 @@ def playing_rect(
     """The rect of the cell holding the clip on screen, or None when that cell was
     not drawn (its axis's window closed before reaching it).
 
-    Usually the corner — but a lock taken inside a running loop holds a member the
+    Usually the corner — but a lock taken inside a running loop holds a clip the
     map is not anchored on, and the ring saying "this is the clip being held" has to
     land on the cell that clip is actually drawn in, not on the loop's anchor.
     """

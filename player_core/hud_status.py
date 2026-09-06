@@ -80,7 +80,7 @@ def status_line(*, locked: bool, playing_set: str = "", order: str = "",
     rule beyond that: a *playing_set* drops "Unlocked", because a set playing
     through holds nothing and naming the absence of a hold that was never on offer
     is noise.  "Locked" still joins it — a hold taken inside a set is a stop at one
-    member of it, which is worth saying.
+    clip of it, which is worth saying.
     """
     parts = [playing_set] if playing_set else []
     if locked:
