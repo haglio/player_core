@@ -311,7 +311,7 @@ def test_the_columns_chrome_follows_it_under_the_playing_seed():
     assert after == (40, 42 + 20 + MAP_GAP, 24, ELLIPSIS)
 
 
-def test_map_reach_covers_a_column_hung_past_the_rows_end():
+def test_map_reach_covers_a_column_hanging_past_the_rows_end():
     """The panel is measured on the map's reach, so a column under the row's last
     cell asks for its own room rather than poking out of the panel."""
     row = [30, 40, 30]

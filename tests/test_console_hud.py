@@ -179,7 +179,7 @@ class TestCompilationLabel:
 
 class TestPainter:
     def test_held_to_a_width_it_paints_every_mode_that_wide(self):
-        """A console hung in a scene as a screen of its own (FunTimeVR's) must
+        """A console hanging in a scene as a screen of its own (FunTimeVR's) must
         not change size with what is on it: the genau-mode rows are narrower
         than the video-mode ones, and sized to its contents the screen jumped
         between the modes."""
