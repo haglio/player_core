@@ -182,7 +182,7 @@ def map_reach(row_widths: list[int], action_widths: list[int], playing: Cell) ->
     widest action cell, whichever reaches further.
 
     *row_widths* is the whole drawn row, corner first.  The panel is measured
-    with this rather than with the row alone, so a column hung under the row's
+    with this rather than with the row alone, so a column hanging under the row's
     last cell cannot poke out of the panel when one of its clips is wider than
     the cell above it.
     """

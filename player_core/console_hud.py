@@ -329,7 +329,7 @@ class ConsolePainter:
 
     def __init__(self, *, width: int | None = None) -> None:
         """*width* holds every panel to one width, whatever is on it.  A console
-        hung in a scene as a screen of its own (FunTimeVR's) otherwise changes
+        hanging in a scene as a screen of its own (FunTimeVR's) otherwise changes
         size with its contents — the genau-mode rows are narrower than the
         video-mode ones, and a long title widens the box — and a screen that
         grows and shrinks is a screen that moves.  The rows, the readout and

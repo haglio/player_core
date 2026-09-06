@@ -221,7 +221,7 @@ _GLYPHS = {
 
 # The switch that keeps only the enhanced pictures wears the family's own mark
 # for exactly that: the plus an enhanced picture carries in its corner, with a
-# funnel hung off it.  A bare plus is Enhance — the button that MAKES one, which
+# funnel hanging off it.  A bare plus is Enhance — the button that MAKES one, which
 # Origenerator's toolbar already has — so the funnel is what tells the two apart.
 ENHANCE_FILTER_ICON = shared_mark("enhance_filter")
 

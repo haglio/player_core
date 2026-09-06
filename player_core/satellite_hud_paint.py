@@ -141,7 +141,7 @@ _ICON_CONTROLS = {"fmode": "F"}
 _DESTRUCTIVE = {"trash"}
 _FAVORITE_GLYPH = shared_mark("star")
 # The enhanced-only switch wears the family's own mark for exactly that â€” the
-# plus an enhanced picture carries in its corner, with a funnel hung off it â€”
+# plus an enhanced picture carries in its corner, with a funnel hanging off it —
 # the same mark the main console's copy of the switch wears, so the two are one
 # control in two places.  Its color is the family's enhanced amber, at rest and
 # lit alike, the way F-mode keeps its favorites green: the color says what the
