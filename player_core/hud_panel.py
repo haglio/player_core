@@ -110,12 +110,12 @@ def _ink_center_offset(font: ImageFont.FreeTypeFont, glyph: str) -> tuple[float,
 
 def draw_glyph(draw: ImageDraw.ImageDraw, cx: float, cy: float, glyph: str,
                font: ImageFont.FreeTypeFont, fill) -> None:
-    """Draw *glyph* centred on its own ink at ``(cx, cy)``.
+    """Draw *glyph* centered on its own ink at ``(cx, cy)``.
 
     Pillow's ``anchor="mm"`` centers the font's ascent/descent bounds, not the mark
     inside it — and on the symbol faces these HUDs use, the mark sits high in
     bounds that run down to the descender.  Every icon button was therefore drawing
-    its glyph two to six pixels low.  Centring the ink puts it where the eye
+    its glyph two to six pixels low.  Centering the ink puts it where the eye
     expects it, whatever the glyph.
     """
     offset = _ink_center_offset(font, glyph)

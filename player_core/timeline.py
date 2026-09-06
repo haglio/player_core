@@ -37,7 +37,7 @@ AMBER = (235, 180, 60, 245)
 # The timeline — heatmap strip or plain bar — is drawn as one shared frame: an
 # inset, floated, bordered track with full-height marks.
 BAR_INSET_X = 40     # side margin so the timeline's start clears the left edge
-BAR_INSET_Y = 3      # top/lower margin so the timeline floats off the edge
+BAR_INSET_Y = 3      # upper/lower margin so the timeline floats off the edge
 BAR_FILL = (34, 34, 38, 165)       # dark translucent fill (plain bar only)
 BAR_BORDER = (215, 215, 220, 235)  # light inner border (reads on the dark fill)
 BAR_EDGE = (8, 8, 10, 235)         # dark outer edge (reads on the bright heatmap)
@@ -76,7 +76,7 @@ def paint_rect(bgra, x0, x1, y0, y1, color):
 
 def _ring(bgra, x0, x1, y0, y1, t, color):
     """Draw a ``t``-thick hollow rectangle just inside [x0:x1] x [y0:y1]."""
-    paint_rect(bgra, x0, x1, y0, y0 + t, color)  # top
+    paint_rect(bgra, x0, x1, y0, y0 + t, color)  # upper
     paint_rect(bgra, x0, x1, y1 - t, y1, color)  # lower
     paint_rect(bgra, x0, x0 + t, y0, y1, color)  # left
     paint_rect(bgra, x1 - t, x1, y0, y1, color)  # right

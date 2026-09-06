@@ -77,7 +77,7 @@ class TestControls:
         three axes do not crowd one band."""
         by_action = {c.action: c.rect for c in controls(0, 0, _hud())}
         wave_lower = max(by_action["robot_hand_amplitude_down"][1] + by_action["robot_hand_amplitude_down"][3],
-                          by_action["robot_hand_center_down"][1])
+                         by_action["robot_hand_center_down"][1])
 
         assert by_action["robot_hand_speed_down"][1] >= wave_lower
         assert by_action["robot_hand_speed_up"][1] >= wave_lower

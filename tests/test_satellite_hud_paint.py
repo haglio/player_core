@@ -411,7 +411,7 @@ def test_f_mode_wears_its_own_badge_rather_than_a_typed_letter():
         cell = (xs.max() - xs.min() + 1) / 5
         drawn = [
             "".join("#" if magenta[int(ys.min() + (r + 0.5) * cell),
-                                int(xs.min() + (c + 0.5) * cell)] else "."
+                                   int(xs.min() + (c + 0.5) * cell)] else "."
                     for c in range(5))
             for r in range(5)
         ]

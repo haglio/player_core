@@ -20,7 +20,7 @@ __all__ = [
     "to_tcode_position",
 ]
 
-# The top of the linear axis's range; 0 is the floor of it.
+# The ceiling of the linear axis's range; 0 is the floor of it.
 POSITION_MAX = 9999
 
 # The device's rest: the motion axis to the floor over half a second.  A driver
