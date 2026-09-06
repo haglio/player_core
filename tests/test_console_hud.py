@@ -178,6 +178,41 @@ class TestCompilationLabel:
 
 
 class TestPainter:
+    def test_held_to_a_width_it_paints_every_mode_that_wide(self):
+        """A console hung in a scene as a screen of its own (FunTimeVR's) must
+        not change size with what is on it: the genau-mode rows are narrower
+        than the video-mode ones, and sized to its contents the screen jumped
+        between the modes."""
+        painter = ConsolePainter(width=300)
+
+        widths = {
+            mode: painter.rgba(ConsoleHud(
+                modes=ModeHud(video="scene one"),
+                console=ConsoleModel(mode=mode, locked=False), drive=_drive()))[1][0]
+            for mode in ("video", "genau")
+        }
+
+        assert widths == {"video": 300, "genau": 300}
+
+    def test_a_file_name_too_long_for_the_held_width_is_elided_rather_than_widening_it(self):
+        painter = ConsolePainter(width=300)
+        long_name = "Jane Doe - scene one - " + "a long descriptor " * 6
+
+        _rgba, (width, _height) = painter.rgba(ConsoleHud(
+            modes=ModeHud(video=long_name), console=ConsoleModel(mode="video", locked=False)))
+
+        assert width == 300
+
+    def test_a_width_its_own_parts_cannot_fit_in_is_widened_not_clipped(self):
+        """The rows, the readout and the OSR2 line are not text that can give way."""
+        hud = ConsoleHud(modes=ModeHud(video="scene one"),
+                         console=ConsoleModel(mode="genau", locked=False), drive=_drive())
+
+        _rgba, (natural, _h) = ConsolePainter().rgba(hud)
+        _rgba, (held, _h) = ConsolePainter(width=50).rgba(hud)
+
+        assert held == natural
+
     def test_a_tooltip_longer_than_the_panel_is_wide_stays_on_the_panel(self):
         """The widest tooltip on the console wants a box wider than the console
         itself, so it was drawn straight off the right edge and lost its tail.

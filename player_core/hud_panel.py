@@ -62,6 +62,25 @@ def text_width(font: ImageFont.FreeTypeFont, text: str) -> int:
     return int(font.getlength(text))
 
 
+ELLIPSIS = "…"
+
+
+def fit_text(font: ImageFont.FreeTypeFont, text: str, max_width: int) -> str:
+    """*text* if it draws inside *max_width*, else as much of its head as does
+    with an ellipsis after it — "" when not even the ellipsis fits."""
+    if text_width(font, text) <= max_width:
+        return text
+    fits, over = 0, len(text)  # the longest head known to fit; the shortest known not to
+    while over - fits > 1:
+        cut = (fits + over) // 2
+        if text_width(font, text[:cut].rstrip() + ELLIPSIS) <= max_width:
+            fits = cut
+        else:
+            over = cut
+    head = text[:fits].rstrip() + ELLIPSIS
+    return head if text_width(font, head) <= max_width else ""
+
+
 # Where each glyph's ink sits relative to the origin ``draw.text`` draws from,
 # measured once per face+size+glyph.  A HUD uses a dozen glyphs and repaints them
 # for the life of the session, so the probe below runs a handful of times.

@@ -82,6 +82,7 @@ from .hud_panel import (
     draw_icon,
     draw_mark,
     draw_tooltip,
+    fit_text,
     load_font,
     text_width,
     to_bgra,
@@ -326,7 +327,17 @@ class ConsolePainter:
     too.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, width: int | None = None) -> None:
+        """*width* holds every panel to one width, whatever is on it.  A console
+        hung in a scene as a screen of its own (FunTimeVR's) otherwise changes
+        size with its contents — the genau-mode rows are narrower than the
+        video-mode ones, and a long title widens the box — and a screen that
+        grows and shrinks is a screen that moves.  The rows, the readout and
+        the OSR2 line must fit, so a width narrower than them is widened, never
+        clipped; the two text lines give way instead, elided to fit.  None
+        sizes the panel to its contents, as one drawn over the player's own
+        window is."""
+        self._width = width
         self._body = load_font(_SIZE_BODY)
         self._tiny = load_font(_SIZE_TINY)
         self._glyph = load_font(_SIZE_BODY, SYMBOL_FONT)
@@ -529,11 +540,19 @@ class ConsolePainter:
         tiny_h = sum(self._tiny.getmetrics())
         filename_h = (_SUBTITLE_GAP + tiny_h) if filename else 0
 
-        width = 2 * _PAD + max(
-            _row_width(rows), drive_w, self._osr2_width(console),
-            ACTIVE_DOT + DOT_GAP + text_width(self._body, status),
-            ACTIVE_DOT + DOT_GAP + text_width(self._tiny, filename),
-        )
+        text_x = ACTIVE_DOT + DOT_GAP
+        parts_w = max(_row_width(rows), drive_w, self._osr2_width(console))
+        if self._width is None:
+            width = 2 * _PAD + max(
+                parts_w,
+                text_x + text_width(self._body, status),
+                text_x + text_width(self._tiny, filename),
+            )
+        else:
+            width = max(self._width, 2 * _PAD + parts_w)
+            room = width - 2 * _PAD - text_x
+            status = fit_text(self._body, status, room)
+            filename = fit_text(self._tiny, filename, room)
         height = (
             2 * _PAD + top_h + filename_h + _ROW_GAP + rows_height(rows)
             + _ROW_GAP + _OSR2_H
