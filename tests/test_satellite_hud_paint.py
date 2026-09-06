@@ -25,7 +25,7 @@ from player_core.satellite_hud import (
     HudClicks,
     HudModel,
     ellipsis_rects,
-    looped_group_box,
+    looped_group_rect,
 )
 from player_core.satellite_hud_paint import HudRenderer, gutter_width_for
 
@@ -523,11 +523,11 @@ def test_the_more_mark_does_not_touch_the_loop_rectangle(thumb):
     rendered = HudRenderer("portrait").render(_loop_model(thumb, ("seed", 5)))
     corner_rect = rendered.targets.click[0][0]
     seed_rects = [rect for rect, _p in rendered.targets.click[1:]]
-    box = looped_group_box(corner_rect, seed_rects, [], "seed", reserve=ELLIPSIS_ROOM)
+    rect = looped_group_rect(corner_rect, seed_rects, [], "seed", reserve=ELLIPSIS_ROOM)
     before, _after = ellipsis_rects(corner_rect, seed_rects, [], "seed")
 
-    assert before[0] - box[0] >= MAP_GAP
-    bx, by, bw, bh = box
+    assert before[0] - rect[0] >= MAP_GAP
+    bx, by, bw, bh = rect
     # The strip just inside the rectangle's left border carries no ink at all.
     assert int((_rgb(rendered.bgra)[by + 2:by + bh - 2, bx + 2:bx + MAP_GAP] > 100).sum()) == 0
 
@@ -862,15 +862,15 @@ def test_a_tooltip_longer_than_the_panel_is_wide_stays_on_the_panel(thumb):
     model = _model(corner=HudCell(path="c.mp4", thumb=thumb))
     plain = _rgb(renderer.render(model).bgra)
 
-    def tooltip_box(text: str) -> tuple[int, int, int]:
+    def tooltip_bounds(text: str) -> tuple[int, int, int]:
         """(upper, lower, right) of what hovering with *text* added to the panel."""
         tipped = _rgb(renderer.render(model, hover_tip=text, hover_pos=(33, 44)).bgra)
         rows, cols = np.nonzero((tipped != plain).any(axis=2))
         assert len(rows), f"hovering with {text!r} drew nothing"
         return rows.min(), rows.max(), cols.max()
 
-    upper, lower, right = tooltip_box(CONTROL_TOOLTIPS["trash"])
-    short_upper, short_lower, _ = tooltip_box("Bin")
+    upper, lower, right = tooltip_bounds(CONTROL_TOOLTIPS["trash"])
+    short_upper, short_lower, _ = tooltip_bounds("Bin")
 
     assert right < plain.shape[1] - 1  # it stopped short of the far edge
     assert lower - upper > short_lower - short_upper  # having wrapped to fit

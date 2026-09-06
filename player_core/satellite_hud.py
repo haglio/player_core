@@ -400,14 +400,14 @@ def loop_button_rects(
     return loop_action, loop_seed
 
 
-def looped_group_box(
+def looped_group_rect(
     corner_rect: Rect, seed_rects: list[Rect], action_rects: list[Rect], axis: str,
     *, reserve: int = 0, column_rect: Rect | None = None,
 ) -> Rect:
     """The rectangle drawn around the clips an *axis* loop is cycling — the row for
     "seed", the column for "action" — grown by *reserve* at each end so the loop's
     "…" marks fall inside it, saying those clips are in the loop too.  The column's
-    box stands on *column_rect*, the row cell the column hangs under
+    rect stands on *column_rect*, the row cell the column hangs under
     (:func:`column_anchor_rect`); it defaults to the corner."""
     cx, cy, cw, ch = corner_rect
     if axis == "seed":

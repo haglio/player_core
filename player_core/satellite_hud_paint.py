@@ -84,7 +84,7 @@ from .satellite_hud import (
     friendly_action_label,
     label_is_filtered,
     loop_button_rects,
-    looped_group_box,
+    looped_group_rect,
     map_column_height,
     map_reach,
     map_window,
@@ -214,10 +214,10 @@ class RenderedHud:
     targets: HudTargets
 
 
-def _dashed_rect(draw: ImageDraw.ImageDraw, box: Rect, color, dash: int = 4) -> None:
+def _dashed_rect(draw: ImageDraw.ImageDraw, rect: Rect, color, dash: int = 4) -> None:
     """A 1px dashed outline — Pillow draws only solid lines, and the hover preview
     has to read as provisional next to the solid border a running loop gets."""
-    x, y, w, h = box
+    x, y, w, h = rect
     for start in range(x, x + w, dash * 2):
         end = min(start + dash, x + w)
         draw.line([(start, y), (end, y)], fill=color)
@@ -803,23 +803,23 @@ class HudRenderer:
         border around the videos it loops (dashed for a hover preview, solid once
         on).  The border wraps the room kept for that axis's "…" marks, so the clips
         they stand for read as part of the looped set."""
-        boxes = {
+        rects = {
             kind: (
                 button,
-                looped_group_box(corner_rect, seed_rects, action_rects, kind,
+                looped_group_rect(corner_rect, seed_rects, action_rects, kind,
                                  reserve=ELLIPSIS_ROOM, column_rect=column_rect),
             )
             for kind, button in (("action", loop_action_rect), ("seed", loop_seed_rect))
         }
-        for kind, (button, group_box) in boxes.items():
+        for kind, (button, group_rect) in rects.items():
             if button is None:
                 continue
             on = active_loop == kind
             self._glyph_button(image, draw, button, _LOOP_GLYPH, on=on)
             if on:
-                gx, gy, gw, gh = group_box
+                gx, gy, gw, gh = group_rect
                 draw.rectangle([gx, gy, gx + gw - 1, gy + gh - 1],
                                outline=(*WHITE, 255), width=2)
             elif hover_loop == kind:
-                _dashed_rect(draw, group_box, (*WHITE, 255))
+                _dashed_rect(draw, group_rect, (*WHITE, 255))
 

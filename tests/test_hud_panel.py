@@ -85,10 +85,10 @@ def test_a_tooltip_wider_than_the_panel_wraps_rather_than_running_off_it():
     panel = HudPanel(150, 120)
     font = load_font(8)
 
-    box = draw_tooltip(panel.draw, font, "Unfavorite it or mark weird when it is "
-                       "not a favorite", (20, 20), panel.image.size)
+    rect = draw_tooltip(panel.draw, font, "Unfavorite it or mark weird when it is "
+                        "not a favorite", (20, 20), panel.image.size)
 
-    x, y, w, h = box
+    x, y, w, h = rect
     assert (x, y) >= (0, 0) and (x + w, y + h) <= (150, 120)
     assert h > sum(font.getmetrics()) + 2 * TOOLTIP_PAD  # more than one line
 
