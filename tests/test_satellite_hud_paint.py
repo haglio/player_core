@@ -157,7 +157,7 @@ def test_render_rings_the_locked_clip_in_white(thumb):
 
 
 def test_the_lock_ring_follows_the_clip_being_held(thumb):
-    """A lock taken inside a loop holds whichever member the loop had reached, and
+    """A lock taken inside a loop holds whichever clip the loop had reached, and
     the map stays anchored where the loop started — so the ring has to land on the
     cell that clip is drawn in.  Left on the corner it rings a clip that is neither
     playing nor locked."""

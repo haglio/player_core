@@ -296,7 +296,7 @@ class HudRenderer:
         moves down and the row reloads with that action's seeds.  The column hangs
         under whichever row cell is playing (fun_time builds it from that seed's
         own acts), the corner when the corner is.  A lock rings the cell being
-        held in white: the corner normally, or the member a loop had reached when
+        held in white: the corner normally, or the clip a loop had reached when
         the lock was taken.
 
         *video* is the file on screen, named under the status line.  It comes from
@@ -565,7 +565,7 @@ class HudRenderer:
                          corner_thumb, seed_thumbs, action_thumbs) -> None:
         """Paste the map, with only the clip actually on screen at full opacity.
 
-        Usually that is the corner, but while a loop plays a non-anchor member the
+        Usually that is the corner, but while a loop plays a non-anchor clip the
         bright cell moves to it (the map itself stays put), so the bright one always
         reads as "this is what's on".
         """
