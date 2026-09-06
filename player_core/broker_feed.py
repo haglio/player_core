@@ -57,7 +57,7 @@ def apply_udp_line(feed: BrokerFeed, line: str, logger: logging.Logger) -> None:
     """Act on one datagram from the broker.
 
     Three of the eight verbs the broker sends are acted on.  The other five --
-    SHOW, HIDE, BEATS, STROKE, PATTERN -- arrive and fall through exactly as an
+    SHOW, HIDE, BEATS, MOTION, PATTERN -- arrive and fall through exactly as an
     unrecognized line does; whether the broker should stop sending them is the
     broker's call, not this reader's.
 
