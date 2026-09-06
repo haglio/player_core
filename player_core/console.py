@@ -28,6 +28,7 @@ __all__ = [
     "ConsoleModel",
     "console_rows",
     "read_console",
+    "tooltip_at",
 ]
 
 BUTTON = 18   # a square control; the wider ones are multiples plus the gaps
