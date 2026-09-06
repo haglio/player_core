@@ -31,7 +31,7 @@ from player_core.satellite_hud import (
     hit_test_targets,
     label_is_filtered,
     loop_button_rects,
-    looped_group_box,
+    looped_group_rect,
     map_reach,
     map_row_width,
     map_window,
@@ -292,7 +292,7 @@ def test_a_playing_seed_that_was_not_drawn_leaves_the_column_on_the_corner():
 
 
 def test_the_columns_chrome_follows_it_under_the_playing_seed():
-    """The loop button below the column, the loop box around it and its "…" slots
+    """The loop button below the column, the loop border around it and its "…" slots
     all stand on the cell the column hangs under, so the column's chrome cannot
     stay put on an empty corner while the column sits mid-row."""
     corner = (10, 10, 20, 20)
@@ -303,8 +303,8 @@ def test_the_columns_chrome_follows_it_under_the_playing_seed():
         corner, [column], actions, right=300, lower=300, column_rect=column)
     assert loop_action == (40, 42 + 20 + MAP_GAP, 24, LOOP_BTN)
 
-    box = looped_group_box(corner, [column], actions, "action", column_rect=column)
-    assert box == (40, 10, 24, (42 + 20) - 10)
+    rect = looped_group_rect(corner, [column], actions, "action", column_rect=column)
+    assert rect == (40, 10, 24, (42 + 20) - 10)
 
     before, after = ellipsis_rects(corner, [column], actions, "action", column_rect=column)
     assert before == (40, 10 - MAP_GAP - ELLIPSIS, 24, ELLIPSIS)
