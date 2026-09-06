@@ -84,11 +84,11 @@ class FakeTCodeSender:
         self.let_go_position: int | None = None
         self.closed = False
         self._position = 5000
-        self._stroke_phase = 0.0
+        self._motion_phase = 0.0
 
     def maybe_send(self, phase: float, now: float) -> None:
         self.sends.append((phase, now))
-        self._stroke_phase = phase
+        self._motion_phase = phase
 
     def take_over(self) -> None:
         self.take_overs += 1
@@ -96,10 +96,10 @@ class FakeTCodeSender:
 
     def rest_at_floor(self) -> None:
         self.rests += 1
-        self._stroke_phase = 0.0
+        self._motion_phase = 0.0
 
-    def set_stroke_phase(self, phase: float) -> None:
-        self._stroke_phase = phase
+    def set_motion_phase(self, phase: float) -> None:
+        self._motion_phase = phase
 
     def hand_over(self) -> None:
         self.hand_overs += 1
@@ -110,8 +110,8 @@ class FakeTCodeSender:
         return self._position
 
     @property
-    def stroke_phase(self) -> float:
-        return self._stroke_phase
+    def motion_phase(self) -> float:
+        return self._motion_phase
 
     def close(self) -> None:
         self.closed = True
@@ -161,8 +161,8 @@ def _build_controller(
         condemn_clip=selection.condemn_current,
         robot_hand=robot_hand if robot_hand is not None else RobotHandState(),
         cruise_control_state=cruise_control,
-        set_stroke_phase=(
-            tcode_sender.set_stroke_phase if tcode_sender is not None else None
+        set_motion_phase=(
+            tcode_sender.set_motion_phase if tcode_sender is not None else None
         ),
         clip_advance_state=clip_advance,
         hud=hud,
@@ -390,11 +390,11 @@ def test_pause_command_stops_direct_mode_playback():
     assert dc.playing is False
 
 
-def test_losing_the_device_walks_it_down_and_rests_the_stroke():
+def test_losing_the_device_walks_it_down_and_rests_the_motion():
     """The readout published through a funscript's turn (or any pause) samples
-    forward from the sender's stroke phase — rested at the swing's foot the
+    forward from the sender's motion phase — rested at the swing's foot the
     moment playback stops, so what Nau draws waiting after the seam is the
-    stroke that will actually resume, rising out of the park."""
+    motion that will actually resume, rising out of the park."""
     dc = RobotHandState(playing=True, bpm=120.0)
     tcode = FakeTCodeSender()
     entry = {"frames": [object() for _ in range(8)]}
@@ -754,7 +754,7 @@ def test_turning_at_the_top_puts_the_other_half_of_the_clip_on_the_way_down():
     assert built["renderer"].display_calls[-1] == 2
 
 
-def test_a_stroke_that_never_reaches_an_end_keeps_the_half_it_is_in():
+def test_a_motion_that_never_reaches_an_end_keeps_the_half_it_is_in():
     # Working the middle of the axis shows the middle of the one half, up and
     # back down it, rather than rolling on into the other.
     dc = RobotHandState(playing=True, bpm=120.0)
@@ -834,7 +834,7 @@ class TestTheOrderTheTickDoesThingsIn:
 
     def test_commands_are_drained_before_anything_reads_what_they_moved(self):
         """A PAUSE that lands this tick has to be a falling edge this tick, not
-        next: drained late, the stroke goes out once more after the hand stopped
+        next: drained late, the motion goes out once more after the hand stopped
         and the broker is told a tick late."""
         self._before("self._drain_commands", "self._who_is_driving")
         self._before("self._drain_commands", "self.handoff.watch")

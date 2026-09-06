@@ -581,7 +581,7 @@ class TestPresses:
         assert painter.press_at(*self._over(painter, "robot_hand_amplitude_up")) == "robot_hand_amplitude_up"
 
     def test_the_readouts_controls_are_dead_while_a_funscript_has_the_device(self):
-        """Genau is paused through a funscript's stretch, so a stroke it is not
+        """Genau is paused through a funscript's stretch, so a motion it is not
         sending cannot be adjusted — pressing one woke Genau onto a device the
         funscript was already driving, and the two fought over it."""
         painter = ConsolePainter()
@@ -634,13 +634,13 @@ class TestDrags:
         point = self._at(self._band(painter, SPEED), 1.0)
         assert painter.press_at(*point) == "robot_hand_speed_100"
 
-    def test_a_press_in_the_trace_moves_the_stroke_s_center(self):
+    def test_a_press_in_the_trace_moves_the_motion_s_center(self):
         painter = self._painted()
 
         point = self._at(self._band(painter, CENTER), 1.0)
         assert painter.press_at(*point) == "robot_hand_center_100"
 
-    def test_a_press_up_the_amplitude_bar_sets_how_far_the_stroke_reaches(self):
+    def test_a_press_up_the_amplitude_bar_sets_how_far_the_motion_reaches(self):
         painter = self._painted()
 
         point = self._at(self._band(painter, AMPLITUDE), 1.0)
@@ -690,7 +690,7 @@ class TestDrags:
         assert painter.holding is False
 
     def test_the_bars_are_dead_while_a_funscript_has_the_device(self):
-        """The whole readout is dimmed through a funscript's stretch — a stroke
+        """The whole readout is dimmed through a funscript's stretch — a motion
         Genau is not sending cannot be dragged any more than it can be stepped."""
         painter = self._painted(osr2="funscript")
 
@@ -751,7 +751,7 @@ class TestTraceSources:
         assert [t.dim for t in painter.tracks] == [False, False, False]
 
     def test_a_funscript_driving_dims_every_control_but_keeps_the_trace(self):
-        """A stroke Genau is not sending cannot be adjusted; the picture of the
+        """A motion Genau is not sending cannot be adjusted; the picture of the
         one that *is* being sent is still worth drawing."""
         painter = self._painted("video", "funscript")
 

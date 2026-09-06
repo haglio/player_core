@@ -101,7 +101,7 @@ class GenauRefreshController:
         self.present_scene = present_scene or (lambda: None)
         self.set_hud_mode = set_hud_mode or (lambda _active: None)
         # Which half of the clip is showing, and what is known about the end
-        # the stroke is at — see :meth:`_scrub_the_clip`.
+        # the motion is at — see :meth:`_scrub_the_clip`.
         self._scrub = ClipScrub()
 
     def refresh(self) -> None:
@@ -119,7 +119,7 @@ class GenauRefreshController:
         """One turn of the loop, in the order the order matters.
 
         The drain runs first, before anything below reads the state a command
-        moves and before this tick's stroke goes out; the arbitration decides who
+        moves and before this tick's motion goes out; the arbitration decides who
         is driving before the engine is told anything; the frame is chosen after
         the engine has moved and shown before the scene is presented; and the
         status file goes out last, saying what the tick just did.
@@ -205,11 +205,11 @@ class GenauRefreshController:
         varying it, and the clip advance letting the picture move on."""
         if self.cruise_control is not None:
             # The phase is only read on the tick that draws the waves: they
-            # all start where the stroke already is, so taking over cannot
+            # all start where the motion already is, so taking over cannot
             # be felt.
             tick_cruise_control(
                 self.robot_hand, self.cruise_control, now,
-                phase=(self.tcode_sender.stroke_phase
+                phase=(self.tcode_sender.motion_phase
                        if self.tcode_sender is not None else 0.0),
             )
         if self.clip_advance is not None:
@@ -273,7 +273,7 @@ class GenauRefreshController:
 
         The frame is the picture of where the device is, which is the same
         number the readout's dot draws — so the two cannot drift apart, and a
-        stroke that only works part of the axis only ever shows that part of the
+        motion that only works part of the axis only ever shows that part of the
         clip. :mod:`player_core.clip_scrub` is the whole rule, including which
         half is showing and when that may change.
         """

@@ -37,7 +37,7 @@ class DriveKey:
     """The wave a choice was cut from, in the four fields that identify it.
 
     Everything else about a publish moves every frame; these move only when
-    the stroke is really a different stroke -- a control moved the floor, the
+    the motion is really a different motion -- a control moved the floor, the
     wave realigned after a resume, Genau handed the device over.  A choice
     whose key still matches is a choice made about the wave still running.
     """
@@ -58,7 +58,7 @@ class DescentChoice:
     """How the blue leaves the device at one turn boundary.
 
     *top* is where the gray ramps down from, *touch* the moment the blue comes
-    down onto the park instead -- None for a stroke whose floor sits above it,
+    down onto the park instead -- None for a motion whose floor sits above it,
     which ramps rather than touching.
     """
 

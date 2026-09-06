@@ -58,7 +58,7 @@ class TestTakingOver:
 
     def test_a_fresh_sender_eases_onto_the_device(self):
         """Whatever had it last — the broker's park, a funscript — it is not
-        where this stroke's phase says to be."""
+        where this motion's phase says to be."""
         sink = FakeTCodeSink()
         sender = RobotHandTCodeDriver(sink, min_interval=0.033)
 
@@ -78,7 +78,7 @@ class TestTakingOver:
         assert f"I{HANDOFF_MS}" in sink.sent[2]
 
     def test_every_tick_of_the_glide_is_stretched_not_just_the_first(self):
-        """A stroke sends thirty times a second: one stretched command would be
+        """A motion sends thirty times a second: one stretched command would be
         superseded a frame later by an ordinary one, and the device would cover
         whatever was left of the gap in that frame — the jolt, moved."""
         sink = FakeTCodeSink()
@@ -91,8 +91,8 @@ class TestTakingOver:
 
         assert all(f"I{HANDOFF_MS}" in command for command in sink.sent)
 
-    def test_the_stroke_is_its_own_again_once_the_glide_runs_out(self):
-        """A glide, not a slowed-down stroke."""
+    def test_the_motion_is_its_own_again_once_the_glide_runs_out(self):
+        """A glide, not a slowed-down motion."""
         sink = FakeTCodeSink()
         sender = RobotHandTCodeDriver(sink, min_interval=0.033)
         glide = HANDOFF_MS / 1000
@@ -104,13 +104,13 @@ class TestTakingOver:
 
         assert "I50" in sink.sent[2]
 
-    def test_phase_wrap_accumulates_stroke_phase(self):
+    def test_phase_wrap_accumulates_motion_phase(self):
         sink = FakeTCodeSink()
         sender = RobotHandTCodeDriver(sink, min_interval=0.0)
-        # Phase goes 0.9 → 0.1 (wrap). Stroke phase should go 0.9 → 1.1
+        # Phase goes 0.9 → 0.1 (wrap). Motion phase should go 0.9 → 1.1
         sender.maybe_send(phase=0.9, now=1.0)
         sender.maybe_send(phase=0.1, now=1.05)
-        # stroke_phase ~1.1: past the base-at-1.0 point, heading back up.
+        # motion_phase ~1.1: past the base-at-1.0 point, heading back up.
         # Should NOT snap to the position for raw phase 0.1 (near base).
         # Position at 1.1 should be small but nonzero (~951).
         pos_str = sink.sent[1]
@@ -118,12 +118,12 @@ class TestTakingOver:
         pos_value = int(pos_str[2:6])
         assert 500 < pos_value < 2000
 
-    def test_no_wrap_advances_stroke_phase_normally(self):
+    def test_no_wrap_advances_motion_phase_normally(self):
         sink = FakeTCodeSink()
         sender = RobotHandTCodeDriver(sink, min_interval=0.0)
         sender.maybe_send(phase=0.0, now=1.0)
         sender.maybe_send(phase=0.5, now=1.05)
-        # stroke_phase=0.5 → tip (9999) with 2π cosine
+        # motion_phase=0.5 → tip (9999) with 2π cosine
         assert "L09999" in sink.sent[1]
 
     def test_close_delegates_to_sink(self):
@@ -134,7 +134,7 @@ class TestTakingOver:
 
 
 class TestRestingAtTheFloor:
-    """The funscript's turn leaves the device at its park, so the stroke resumes
+    """The funscript's turn leaves the device at its park, so the motion resumes
     from the foot of its swing — phase 0, where every shape's raw value is 0 —
     instead of lunging to wherever the swing happened to freeze."""
 
@@ -148,10 +148,10 @@ class TestRestingAtTheFloor:
 
         assert sink.sent[1].startswith("L00000")
 
-    def test_losing_the_device_rests_the_published_stroke_too(self):
+    def test_losing_the_device_rests_the_published_motion_too(self):
         """The readout Nau draws through a funscript's turn samples forward from
-        ``stroke_phase`` — rested at the floor the moment Genau loses the
-        device, so the waiting stroke on screen is the one that will resume."""
+        ``motion_phase`` — rested at the floor the moment Genau loses the
+        device, so the waiting motion on screen is the one that will resume."""
         sink = FakeTCodeSink()
         sender = RobotHandTCodeDriver(sink, min_interval=0.0)
         sender.maybe_send(phase=0.5, now=1.0)
@@ -159,12 +159,12 @@ class TestRestingAtTheFloor:
 
         sender.rest_at_floor()
 
-        assert sender.stroke_phase == 0.0
+        assert sender.motion_phase == 0.0
         assert sender.current_position() == 0
 
 
 class TestTheRiseOutOfThePark:
-    """At full amplitude the stroke's floor is the park and the swing starts at
+    """At full amplitude the motion's floor is the park and the swing starts at
     once — but with the floor raised (amplitude under 100, a shifted center),
     starting there jumped the device across the gap the moment Genau took the
     device back.  The swing holds while the device climbs park-to-floor, then
@@ -197,7 +197,7 @@ class TestTheRiseOutOfThePark:
         assert 1600 < halfway < 1900             # about half of the 35% floor
 
     def test_the_swing_holds_until_the_climb_ends(self):
-        """No stroke phase accumulates during the rise, so the wave begins at
+        """No motion phase accumulates during the rise, so the wave begins at
         the floor rather than part-way up its cycle."""
         sink, sender = self._sender()
 
@@ -205,11 +205,11 @@ class TestTheRiseOutOfThePark:
         sender.maybe_send(phase=0.7, now=1.0)
         sender.maybe_send(phase=0.9, now=1.0 + HANDOFF_RAMP_MS / 1000)
 
-        assert sender.stroke_phase == 0.0
+        assert sender.motion_phase == 0.0
         arrived = int(sink.sent[1][2:6])
         assert 3400 < arrived < 3600             # the floor, arrived at exactly
 
-    def test_the_stroke_is_its_own_again_after_the_climb(self):
+    def test_the_motion_is_its_own_again_after_the_climb(self):
         sink, sender = self._sender()
 
         sender.take_over()
@@ -217,7 +217,7 @@ class TestTheRiseOutOfThePark:
         sender.maybe_send(phase=0.9, now=1.0 + HANDOFF_RAMP_MS / 1000 + 0.1)
         sender.maybe_send(phase=0.15, now=1.0 + HANDOFF_RAMP_MS / 1000 + 0.2)
 
-        assert sender.stroke_phase > 0.0
+        assert sender.motion_phase > 0.0
         assert int(sink.sent[2][2:6]) > 3600     # off the floor, swinging
 
     def test_the_published_position_follows_the_climb(self):
@@ -332,7 +332,7 @@ class TestSenderWithDirectState:
 
 """The device changing hands, both directions.
 
-The driver is told on the edge to climb out of the park or walk the stroke
+The driver is told on the edge to climb out of the park or walk the motion
 down and rest it.  The tick used to hold this inline, interleaved with ten
 other jobs, with the previous play state as a bare attribute beside them.
 """
@@ -356,7 +356,7 @@ class TestTheSender:
 
         assert sender.calls == ["take_over"]
 
-    def test_a_hand_that_stops_walks_the_stroke_down_and_rests_it(self):
+    def test_a_hand_that_stops_walks_the_motion_down_and_rests_it(self):
         sender = FakeSender()
         handoff = DeviceHandoff(playing=True, tcode_sender=sender)
 

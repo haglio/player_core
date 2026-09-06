@@ -2,7 +2,7 @@
 
 T-Code is the one-line command language the OSR2 broker's UDP inlet accepts
 (``L0<pos>I<ms>``: move the linear axis to *pos* over *ms* milliseconds).  Both
-driver styles in this family speak it — Genau's phase-driven stroke sender and
+driver styles in this family speak it — Genau's phase-driven motion sender and
 the funscript waypoint driver (:mod:`player_core.tcode_driver`) — so the format
 and the datagram sink live here, beneath both.  What to send and when stays
 with each driver; this module only says it correctly.
@@ -23,25 +23,25 @@ __all__ = [
 # The top of the linear axis's range; 0 is the floor of it.
 POSITION_MAX = 9999
 
-# The device's rest: the stroke axis to the floor over half a second.  A driver
+# The device's rest: the motion axis to the floor over half a second.  A driver
 # that stops sends it, and the broker sends it when it parks a paused room, so
 # the one spelling is here and both read it.
 PARK_COMMAND = "L00000I500"
 
 
 def to_tcode_position(percent: float) -> int:
-    """A 0-100 stroke position as the 0-9999 one the wire carries."""
+    """A 0-100 motion position as the 0-9999 one the wire carries."""
     return round(percent * POSITION_MAX / 100)
 
 
-# How long the device is given to arrive at the incoming driver's stroke when it
+# How long the device is given to arrive at the incoming driver's motion when it
 # changes hands.
 #
 # Both drivers in this family send "be at *pos* in *ms*", and the OSR2
 # interpolates from wherever it already is — so neither has to know where the
 # other left it.  What went wrong was only the *time*: each driver's first
 # command after taking over asked for its own position in its own ordinary
-# interval — a stroke tick, or the gap to the next waypoint — which can be tens
+# interval — a motion tick, or the gap to the next waypoint — which can be tens
 # of milliseconds.  Across a handoff that is most of the travel in a twitch.
 # Stretching that first command alone turns the seam into a glide, and every
 # command after it is the driver's own again, so nothing else changes.
@@ -55,12 +55,12 @@ class HandoffGlide:
     """The stretch of time after a driver takes the device over, during which
     every command it sends is given the glide.
 
-    Not the first command alone: a driver that goes on sending — Genau's stroke
+    Not the first command alone: a driver that goes on sending — Genau's motion
     ticks thirty times a second — would have its stretched command superseded a
     frame later by an ordinary one, and the device would cover whatever was left
     of the gap in that frame instead.  Flooring the interval for the whole glide
     instead makes each command re-aim at a moving target it is always given
-    :data:`HANDOFF_MS` to reach, so the device eases onto the incoming stroke and
+    :data:`HANDOFF_MS` to reach, so the device eases onto the incoming motion and
     is on it by the time the floor lifts.  A driver that sends sparsely gets the
     same treatment for free.
 

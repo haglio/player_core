@@ -5,9 +5,9 @@ The line is four things in a row, and nothing else:
     whatever Genau is doing
     a ramp from where that leaves the device down onto the park
     whatever the funscript is doing
-    a ramp back up to where Genau's stroke begins
+    a ramp back up to where Genau's motion begins
 
-Green is the script scripting, blue is Genau stroking, gray is a ramp or the
+Green is the script scripting, blue is Genau driving, gray is a ramp or the
 rest between them — nobody drives through those, the device is being handed
 over.
 
@@ -19,7 +19,7 @@ park over the same one — so the picture and the wire share one schedule.
 
 Two disciplines keep the picture still while it slides:
 
-* The stroke is only ever asked WHAT HEIGHT, never WHEN.  A live stroke asked
+* The motion is only ever asked WHAT HEIGHT, never WHEN.  A live motion asked
   *when* something happens — its next floor-touch, its own let-go — answers
   differently every publish, and the picture would move with it.
 * Every read is anchored to something that does not move.  The one number that
@@ -52,8 +52,8 @@ from .trace_grid import on_the_grid
 
 __all__: list[str] = []
 
-# A resumed stroke opening this close to the park needs no climb: the sender
-# skips its rise there (the park already IS the stroke's floor, full amplitude)
+# A resumed motion opening this close to the park needs no climb: the sender
+# skips its rise there (the park already IS the motion's floor, full amplitude)
 # and the blue begins the moment Genau's turn does.  The same two percent the
 # sender uses, so the picture and the device skip together.
 _PARK_EPSILON = 0.02
@@ -117,7 +117,7 @@ def drive_readout(
     # The window into the script slides continuously, so read at the raw
     # playhead it would move — and repaint the console — at the player's full frame
     # rate.  Quantized to the cadence Genau's own publishes already repaint at
-    # while the stroke scrolls, the green moves exactly as smoothly as the
+    # while the motion scrolls, the green moves exactly as smoothly as the
     # blue, for the same cost; and the status reads the same grid before it
     # looks up what was chosen here (player_core.trace_grid).
     position_ms = on_the_grid(position_ms)
@@ -137,38 +137,38 @@ def drive_readout(
     # Sample times anchored to the window's own knots, so what each sample says
     # never depends on where inside a knot the playhead sits.
     anchor_ms = position_ms - slide * step
-    stroke = base.waveform if len(base.waveform) == TRACE_SAMPLES else None
+    motion = base.waveform if len(base.waveform) == TRACE_SAMPLES else None
 
-    def stroke_at(index: float) -> float:
-        """The published stroke at a possibly fractional sample offset.
+    def motion_at(index: float) -> float:
+        """The published motion at a possibly fractional sample offset.
 
         Interpolated, not rounded: the index falls between samples, and a
         rounded one moves by a whole sample's height every time the playhead
         crosses a half-knot.
         """
         if index <= 0:
-            return stroke[0]
+            return motion[0]
         if index >= TRACE_SAMPLES - 1:
-            return stroke[TRACE_SAMPLES - 1]
+            return motion[TRACE_SAMPLES - 1]
         whole = int(index)
         frac = index - whole
         if not frac:
-            return stroke[whole]
-        return stroke[whole] * (1 - frac) + stroke[whole + 1] * frac
+            return motion[whole]
+        return motion[whole] * (1 - frac) + motion[whole + 1] * frac
 
-    # Where a future resumed stroke opens inside the published buffer.  A
+    # Where a future resumed motion opens inside the published buffer.  A
     # takeover always rests the phase first, so every future Genau turn begins
-    # at the stroke's floor: parked, the publish already starts there (offset
+    # at the motion's floor: parked, the publish already starts there (offset
     # 0); live, the floor is wherever the buffer's lowest sample sits.  A fixed
     # offset into a buffer that scrolls would treadmill in place.
     resume_base = 0.0
-    if stroke is not None and base.let_go is None:
-        resume_base = float(min(range(TRACE_SAMPLES), key=stroke.__getitem__))
+    if motion is not None and base.let_go is None:
+        resume_base = float(min(range(TRACE_SAMPLES), key=motion.__getitem__))
     # How long the climb out of the park takes, in media time.  Zero when the
-    # resumed stroke already opens at the park — then the blue begins the moment
+    # resumed motion already opens at the park — then the blue begins the moment
     # Genau's turn does, exactly as the sender's skipped rise plays it.
     climb_ms = 0
-    if stroke is not None and stroke_at(resume_base) > _PARK_EPSILON:
+    if motion is not None and motion_at(resume_base) > _PARK_EPSILON:
         climb_ms = ramp_ms
 
     def genau_height(sample_ms: int, began: int | None) -> float:
@@ -182,30 +182,30 @@ def drive_readout(
         script turn's bounds and re-anchored the live wave as if it were a
         future resumed one, and the drawn ending landed a whole swing wrong.
 
-        Two anchors, one per state of the publish: a RUNNING stroke is read at
+        Two anchors, one per state of the publish: a RUNNING motion is read at
         the time offset (sample - now), which returns the value at that fixed
         absolute time frame after frame; a WAITING one (a turn ahead, a climb
         still running) is frozen at phase 0 and anchored at its own start.
         """
-        if stroke is None:
+        if motion is None:
             return 0.0
         if began is None or began + climb_ms <= position_ms:
-            return stroke_at((sample_ms - position_ms) / step)
-        return stroke_at(resume_base + (sample_ms - began - climb_ms) / step)
+            return motion_at((sample_ms - position_ms) / step)
+        return motion_at(resume_base + (sample_ms - began - climb_ms) / step)
 
     def park_touch_after(turn_start: int, began: int | None) -> int | None:
         """The blue's first touch-down on the park at-or-after *turn_start*
         (plus the arbiter's lag window), for the stretch that opened at *began*.
 
-        Only a stroke whose floor rests ON the park has one — that is the case
+        Only a motion whose floor rests ON the park has one — that is the case
         with no ramp: the blue swings on to this touch and the gray runs flat
         from there, exactly where the arbiter sets the device down.  None means
-        the ramp case (a raised floor, or a stroke too slow to come down inside
+        the ramp case (a raised floor, or a motion too slow to come down inside
         the shared cap).  A touch beyond the published horizon reads as a cut
         at the boundary itself for now; the freeze horizon guarantees it is
         recomputed before it is ever latched.
         """
-        if stroke is None or min(stroke) > _PARK_EPSILON:
+        if motion is None or min(motion) > _PARK_EPSILON:
             return None
         scan_from = turn_start + round(_TOUCH_LAG_MS * speed)
         scan_to = scan_from + round(PARK_TOUCH_WAIT_CAP_MS * speed)
@@ -269,7 +269,7 @@ def drive_readout(
         """One sample of the line: how high, and whose stretch it is in."""
         if script.is_resting_at(sample_ms):
             # Genau's stretch.  It opens with the climb out of the park.
-            if stroke is None:
+            if motion is None:
                 # Nobody is going to take these stretches: nothing published
                 # means no Genau backing the screen, and the script's driver
                 # rests the device through them.
@@ -278,9 +278,9 @@ def drive_readout(
             if began is not None and climb_ms:
                 since = sample_ms - began
                 if since < climb_ms:
-                    # The climb: park up to wherever the resumed stroke opens.
-                    # Genau holds its swing through it, so it costs no stroke.
-                    top = stroke_at(resume_base)
+                    # The climb: park up to wherever the resumed motion opens.
+                    # Genau holds its swing through it, so it costs no motion.
+                    top = motion_at(resume_base)
                     return top * max(0, since) / climb_ms, DRIVEN_BY_NEUTRAL
             value = genau_height(sample_ms, began)
             feather_ms = round(_SEAM_FEATHER_MS * speed)
@@ -292,13 +292,13 @@ def drive_readout(
                     weight = 1 - (ends_at - sample_ms) / feather_ms
                     value = value * (1 - weight) + seam_top * weight
             return value, DRIVEN_BY_ROBOT_HAND
-        # The script's stretch — opening with the blue's exit.  A stroke whose
+        # The script's stretch — opening with the blue's exit.  A motion whose
         # floor rests on the park needs no ramp: the blue swings on past the
         # boundary to its touch-down and the gray runs flat from there — his
         # rule, and where the arbiter really sets the device down.  A raised
         # floor ramps down from wherever the blue leaves the device.
         turn_start, _turn_end = script.turn_bounds_at(sample_ms)
-        if turn_start is not None and stroke is not None:
+        if turn_start is not None and motion is not None:
             top, touch = descent_entry(turn_start)
             if touch is not None:
                 if sample_ms <= touch and base.let_go is None:
@@ -306,7 +306,7 @@ def drive_readout(
                     # the script turn these samples sit inside — and it is only
                     # drawn while Genau really still has the device.  Off a
                     # parked publish (a rewind landing just past a boundary) it
-                    # would be a stroke nobody is making, re-anchoring under
+                    # would be a motion nobody is making, re-anchoring under
                     # the playhead into a cliff.
                     prev_began, _ = script.turn_bounds_at(max(turn_start - 1, 0))
                     value = genau_height(sample_ms, prev_began)
@@ -365,7 +365,7 @@ def drive_readout(
         # Always said, even for a single run: the painter's fallback color for
         # an empty ``segments`` is the OSR2 state, and that state trails the
         # arbiter by a beat at every handoff, so an empty one would flash the
-        # script's green over the whole stroke as the device changes hands.
+        # script's green over the whole motion as the device changes hands.
         # The marks are stable while the picture is, so the readout still
         # compares equal to itself between repaints.
         segments=tuple(marks),

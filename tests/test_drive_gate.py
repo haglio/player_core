@@ -10,8 +10,8 @@ for this boundary still the one that was made first, or has it been made again?
 Held, the wave underneath can move as much as it likes and the answer does not;
 voided, the fresh wave gets to answer.
 
-The stroke used throughout rests its floor ON the park (full amplitude,
-centered), because only such a stroke has a touch-down at all; a raised floor
+The motion used throughout rests its floor ON the park (full amplitude,
+centered), because only such a motion has a touch-down at all; a raised floor
 ramps down instead and has none to publish.
 """
 from __future__ import annotations
@@ -39,7 +39,7 @@ CHOSEN_TOUCH_MS = 3_600
 NEWER_MS = 200
 
 
-def _stroke(ms: int = 0, **over) -> DriveHud:
+def _motion(ms: int = 0, **over) -> DriveHud:
     """Genau's publish, *ms* into the video: the same wave, phase advanced."""
     steps = ms / STEP_MS
     base = dict(
@@ -70,24 +70,24 @@ def _gate_holding_a_forecast() -> tuple[DriveGate, FakeSession]:
     """A gate that has read once and chosen a touch for the boundary ahead."""
     session = FakeSession()
     gate = DriveGate(session)
-    gate.readout(_stroke())
+    gate.readout(_motion())
     assert gate.handoff_touch() == CHOSEN_TOUCH_MS
     return gate, session
 
 
 def _a_newer_publish_arrives(gate: DriveGate) -> None:
-    gate.readout(_stroke(NEWER_MS))
+    gate.readout(_motion(NEWER_MS))
 
 
 class TestChoosingAForecast:
     def test_the_trace_chooses_a_touch_down_for_the_boundary_ahead(self):
         gate = DriveGate(FakeSession())
 
-        gate.readout(_stroke())
+        gate.readout(_motion())
 
         assert gate.handoff_touch() == CHOSEN_TOUCH_MS
 
-    def test_with_no_stroke_published_there_is_nothing_to_choose_from(self):
+    def test_with_no_motion_published_there_is_nothing_to_choose_from(self):
         gate = DriveGate(FakeSession())
 
         gate.readout(None)
@@ -132,7 +132,7 @@ class TestAChoiceThatIsHeld:
         """The trace's 40ms quantum makes some real frames read as zero."""
         gate, session = _gate_holding_a_forecast()
         for _ in range(5):
-            gate.readout(_stroke())
+            gate.readout(_motion())
 
         session.position_ms = 40
         _a_newer_publish_arrives(gate)
@@ -203,7 +203,7 @@ class TestWhatVoidsAChoice:
         wave it was cut from by the time the playhead moves again."""
         gate, session = _gate_holding_a_forecast()
         for _ in range(26):
-            gate.readout(_stroke())  # the playhead stands still
+            gate.readout(_motion())  # the playhead stands still
 
         session.position_ms = 40
         _a_newer_publish_arrives(gate)
@@ -259,7 +259,7 @@ class TestExactlyWhereTheseRulesBegin:
         """The setup's own read is the first of them, so twenty-four more."""
         gate, session = _gate_holding_a_forecast()
         for _ in range(24):
-            gate.readout(_stroke())
+            gate.readout(_motion())
 
         session.position_ms = 40
         _a_newer_publish_arrives(gate)
@@ -269,7 +269,7 @@ class TestExactlyWhereTheseRulesBegin:
     def test_twenty_six_of_them_are(self):
         gate, session = _gate_holding_a_forecast()
         for _ in range(25):
-            gate.readout(_stroke())
+            gate.readout(_motion())
 
         session.position_ms = 40
         _a_newer_publish_arrives(gate)
@@ -282,13 +282,13 @@ class TestExactlyWhereTheseRulesBegin:
         the choice made from the wave the seek actually landed on."""
         gate, session = _gate_holding_a_forecast()
         for _ in range(30):
-            gate.readout(_stroke())      # a real pause
+            gate.readout(_motion())      # a real pause
         session.position_ms = 900                           # ended by a jump
         _a_newer_publish_arrives(gate)
         chosen_where_it_landed = gate.handoff_touch()
 
         session.position_ms = 940                           # an ordinary frame
-        gate.readout(_stroke(NEWER_MS * 2))
+        gate.readout(_motion(NEWER_MS * 2))
 
         assert gate.handoff_touch() == chosen_where_it_landed
 
@@ -302,7 +302,7 @@ class TestHowFastTheVideoIsRunning:
         session.speed = 2.0
         gate = DriveGate(session)
 
-        gate.readout(_stroke())
+        gate.readout(_motion())
 
         assert gate.handoff_touch() not in (None, CHOSEN_TOUCH_MS)
 
@@ -316,25 +316,25 @@ class TestWhetherGenauHasBeenSeenLiveHere:
         here, so the publish is taken as though Genau still had the device."""
         gate = DriveGate(FakeSession())
 
-        hud = gate.readout(_stroke(let_go=0.44))
+        hud = gate.readout(_motion(let_go=0.44))
 
         assert hud.let_go is None
 
     def test_once_genau_has_been_seen_live_a_handoff_is_honored(self):
         gate = DriveGate(FakeSession())
-        gate.readout(_stroke())  # let_go unset: Genau has it
+        gate.readout(_motion())  # let_go unset: Genau has it
 
-        hud = gate.readout(_stroke(let_go=0.44))
+        hud = gate.readout(_motion(let_go=0.44))
 
         assert hud.let_go == 0.44
 
     def test_a_new_video_makes_genau_prove_itself_live_again(self):
         session = FakeSession()
         gate = DriveGate(session)
-        gate.readout(_stroke())
+        gate.readout(_motion())
 
         session.current_video = SECOND_VIDEO
-        hud = gate.readout(_stroke(let_go=0.44))
+        hud = gate.readout(_motion(let_go=0.44))
 
         assert hud.let_go is None
 
@@ -342,10 +342,10 @@ class TestWhetherGenauHasBeenSeenLiveHere:
         """A publish that failed to arrive is not a new video: the device is
         where Genau left it, and the handoff it published still describes it."""
         gate = DriveGate(FakeSession())
-        gate.readout(_stroke())
+        gate.readout(_motion())
 
         gate.readout(None)
-        hud = gate.readout(_stroke(let_go=0.44))
+        hud = gate.readout(_motion(let_go=0.44))
 
         assert hud.let_go == 0.44
 
@@ -360,14 +360,14 @@ class TestWhetherGenauHasBeenSeenLiveHere:
         """
         session = FakeSession()
         gate = DriveGate(session)
-        gate.readout(_stroke())   # let_go unset: seen live
+        gate.readout(_motion())   # let_go unset: seen live
         if what_moved == "a pause":
             for _ in range(30):
-                gate.readout(_stroke())
+                gate.readout(_motion())
         session.position_ms = {"a rewind": -300, "a jump forward": 900,
                                "a pause": 40}[what_moved]
 
-        hud = gate.readout(_stroke(NEWER_MS, let_go=0.44))
+        hud = gate.readout(_motion(NEWER_MS, let_go=0.44))
 
         assert hud.let_go == 0.44
 
@@ -419,7 +419,7 @@ class TestTheTouchTheTraceChose:
         assert next_handoff_touch(_script(), 0, DescentLatch()) is None
 
     def test_a_ramped_handoff_has_no_touch_down_to_name(self):
-        """A stroke whose floor sits above the park never comes down onto it:
+        """A motion whose floor sits above the park never comes down onto it:
         the gray ramps instead, and there is no touch."""
         ramped = self._latched(
             top=0.12, touch=None,

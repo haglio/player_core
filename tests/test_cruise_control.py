@@ -1,8 +1,8 @@
 """Cruise control's waves — the dice, and what they are not allowed to do.
 
-Two techniques are on trial. Waves are summed, so the stroke is the pace you set
+Two techniques are on trial. Waves are summed, so the motion is the pace you set
 with a much slower swell of its own size carrying it from base to tip and back;
-and every parameter of every wave is a ramp rather than a number, so the stroke
+and every parameter of every wave is a ramp rather than a number, so the motion
 is plainly somewhere different from where it was a minute ago. A ramp too small
 or too quick to feel is the failure this is tuned against, so the tests here
 measure how far things actually move, not merely that they moved.
@@ -31,7 +31,7 @@ from player_core.robot_hand import (
 
 
 def _cruising(seed, **dials):
-    """A stroke running under cruise control, one tick in."""
+    """A motion running under cruise control, one tick in."""
     direct = RobotHandState(playing=True, **dials)
     cc = CruiseControlState(rng=random.Random(seed))
     enable_cruise_control(cc)
@@ -40,7 +40,7 @@ def _cruising(seed, **dials):
 
 
 def _run(direct, cc, seconds, *, dt=0.05, start=1000.0, watch=None):
-    """Carry the stroke forward, handing each tick to *watch* if there is one."""
+    """Carry the motion forward, handing each tick to *watch* if there is one."""
     now = start
     for _ in range(int(seconds / dt)):
         now += dt
@@ -73,7 +73,7 @@ class TestArming:
 
     def test_arming_alone_moves_nothing(self):
         # The waves are drawn on the first tick, from whatever the dials say
-        # then — so arming against a parked device cannot change the stroke.
+        # then — so arming against a parked device cannot change the motion.
         direct = RobotHandState(speed=50, amplitude=80, intended_center=50)
         cc = CruiseControlState(rng=random.Random(42))
         enable_cruise_control(cc)
@@ -89,11 +89,11 @@ class TestArming:
         assert (direct.speed, direct.amplitude, direct.center) == (50, 80, 50)
 
 
-class TestTakingTheStrokeOver:
+class TestTakingTheMotionOver:
     def test_the_takeover_cannot_be_felt(self):
         # The dial's travel and center are divided evenly among the waves and
         # every ramp is born already arrived, so the sum is the dials to the
-        # point — and with every wave at the phase the stroke is already at and
+        # point — and with every wave at the phase the motion is already at and
         # running the same speed, the sum is the single wave. Anything else is a
         # step on the wire the device has to lurch through.
         for seed in range(8):
@@ -123,10 +123,10 @@ def _single_wave_fraction(phase, amplitude, center):
     return position_fraction(phase, amplitude=amplitude, center=center)
 
 
-class TestTheStrokeItMakes:
+class TestTheMotionItMakes:
     def test_it_sits_and_swings_where_a_single_cruising_wave_did(self):
         # The bias that makes summing safe. Drawn per wave from the ranges the
-        # whole stroke uses, two waves would average a center and a travel half
+        # whole motion uses, two waves would average a center and a travel half
         # again too big; dividing each draw by how many waves are sharing it is
         # what keeps the sum where one wave has always sat.
         centers, travels, positions = [], [], []
@@ -146,11 +146,11 @@ class TestTheStrokeItMakes:
         assert all(0.0 <= where <= 100.0 for where in positions)
         assert min(positions) < 5 and max(positions) > 95
 
-    def test_what_rides_the_stroke_is_a_swell_and_not_a_vibration(self):
-        # A quicker wave of small travel on top of the stroke is a vibration,
+    def test_what_rides_the_motion_is_a_swell_and_not_a_vibration(self):
+        # A quicker wave of small travel on top of the motion is a vibration,
         # which is the opposite of what is wanted: everything after the main
-        # wave runs much slower than it, so what it adds is the stroke being
-        # carried from base to tip and back while the stroking goes on.
+        # wave runs much slower than it, so what it adds is the motion being
+        # carried from base to tip and back while the motion goes on.
         ratios = []
 
         def watch(direct, cc):
@@ -186,7 +186,7 @@ class TestTheStrokeItMakes:
 
     def test_the_dials_move_far_enough_to_notice(self):
         # The complaint this is tuned against: ramps that are there in the code
-        # and cannot be felt on the device. Over a few minutes the stroke has to
+        # and cannot be felt on the device. Over a few minutes the motion has to
         # open and close most of the axis, walk a good way from base to tip, and
         # speed up and slow down by more than a nudge.
         for seed in range(4):
@@ -224,12 +224,12 @@ class TestTheStrokeItMakes:
 
 
 class TestPausing:
-    """Armed but not stroking — paused by hand, frozen under OmniPause, or
+    """Armed but not moving — paused by hand, frozen under OmniPause, or
     sitting out a funscript's turn in Hybrid. Auto advance has always sat still
-    then; this used to go on moving the stroke, so a session came back from a
-    pause to a stroke it never asked for."""
+    then; this used to go on moving the motion, so a session came back from a
+    pause to a motion it never asked for."""
 
-    def test_a_paused_hand_freezes_the_stroke(self):
+    def test_a_paused_hand_freezes_the_motion(self):
         direct, cc = _cruising(3)
         _run(direct, cc, seconds=30)
         direct.playing = False
@@ -252,9 +252,9 @@ class TestPausing:
         assert cc.clock == pytest.approx(held + 1, abs=0.1)
 
     def test_a_stalled_clock_comes_back_by_one_capped_step_not_by_the_gap(self):
-        """A pause is a clock that keeps up while the stroke stands still; a stall
+        """A pause is a clock that keeps up while the motion stands still; a stall
         is one that stops arriving at all — the app blocked, the machine suspended
-        — and it comes back owing an hour.  The stroke's clock takes the same cap
+        — and it comes back owing an hour.  The motion's clock takes the same cap
         the phase takes, so the waves and every ramp under them move by a step
         rather than landing wherever an hour would have put them."""
         direct, cc = _cruising(3)

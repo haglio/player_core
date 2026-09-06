@@ -1,6 +1,6 @@
 """Where the drive readout's parts sit, and what a press on one of them asks for.
 
-The readout — the trace of the stroke with Centre down its left, Amplitude down
+The readout — the trace of the motion with Centre down its left, Amplitude down
 its right and Speed under it — is placed here and painted in
 :mod:`player_core.drive_readout`. This module draws nothing: it says how big the
 block is, where each mark and band lands, which marks are dead at the end of
@@ -47,7 +47,7 @@ SECTION_W = _CTR_LABEL_W + _GAP + _CTRL + _GAP + _WAVE_W + _GAP + _AMP_W + _GAP 
 SECTION_H = _WAVE_H + _GAP + _CTRL + 2 + _LABEL_H
 
 # How many points the trace is drawn from. Shared, because a funscript sampled
-# to take the trace over has to arrive at the same resolution as the stroke it
+# to take the trace over has to arrive at the same resolution as the motion it
 # replaces — a coarser or finer line would read as a different kind of thing.
 TRACE_SAMPLES = 80
 
@@ -77,11 +77,11 @@ class DriveTrack:
     The marks beside each axis step it; these are the axis itself, and each band
     is already the picture of its own value — so a press reads straight off what
     is drawn. Along the speed bar for the rate, up the amplitude bar for how far
-    the stroke reaches, anywhere in the trace for the height it swings about.
+    the motion reaches, anywhere in the trace for the height it swings about.
 
-    ``center`` is where the stroke sits as a 0-1 height, which the amplitude
+    ``center`` is where the motion sits as a 0-1 height, which the amplitude
     band mirrors about: the bar is drawn out from there in both directions, so
-    grabbing either end and pulling sets how far the stroke has to reach.
+    grabbing either end and pulling sets how far the motion has to reach.
     ``dim`` is the whole readout being unpressable — something else has the
     device — the same state the marks wear, and for the same reason.
     """
@@ -178,7 +178,7 @@ def controls(x: int, y: int, center: int, limits: Limits, *,
     The commands are the ones Fun Time routes to the Robot Hand, written out so
     a verb can be grepped from either end.  *dim* dims all of them at once,
     which is what a readout nobody can adjust looks like — a funscript has the
-    device, or the stroke is not running.
+    device, or the motion is not running.
     """
     g = geometry(x, y, fraction(center))
     return [
@@ -203,11 +203,11 @@ def tracks(x: int, y: int, center: int, *, dim: bool = False) -> list[DriveTrack
     center_frac = fraction(center)
     g = geometry(x, y, center_frac)
     return [
-        DriveTrack(g.amp_bar, AMPLITUDE, "Set how far the stroke reaches",
+        DriveTrack(g.amp_bar, AMPLITUDE, "Set how far the motion reaches",
                    center_frac, dim),
-        DriveTrack(g.wave, CENTER, "Set where the stroke is centered",
+        DriveTrack(g.wave, CENTER, "Set where the motion is centered",
                    center_frac, dim),
-        DriveTrack(g.speed_bar, SPEED, "Set how fast the stroke goes",
+        DriveTrack(g.speed_bar, SPEED, "Set how fast the motion goes",
                    center_frac, dim),
     ]
 
@@ -219,7 +219,7 @@ def track_value(track: DriveTrack, px: int, py: int) -> int:
     is what you get: the speed bar fills from its left edge, so a press is how
     far along it sits; the trace puts the centre's dotted line at its own
     height, so a press is that height; and the amplitude bar is drawn out from
-    the centre in both directions, so a press is how far the stroke has to reach
+    the centre in both directions, so a press is how far the motion has to reach
     to arrive there — grab either end of the bar and pull.
 
     A point outside the band reads as its nearer end, so a drag that wanders off

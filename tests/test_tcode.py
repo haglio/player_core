@@ -58,7 +58,7 @@ class TestFormatTcodeCommand:
 
 
 class TestToTcodePosition:
-    """Funscripts and the console both measure a stroke 0-100; the wire is 0-9999,
+    """Funscripts and the console both measure a motion 0-100; the wire is 0-9999,
     and both ends of the range have to land exactly on it."""
 
     def test_the_ends_of_the_range_are_the_ends_of_the_range(self):
@@ -70,7 +70,7 @@ class TestToTcodePosition:
         assert to_tcode_position(1) == 100
 
 
-def test_the_park_command_rests_the_stroke_axis_at_the_floor_over_half_a_second():
+def test_the_park_command_rests_the_motion_axis_at_the_floor_over_half_a_second():
     from player_core.tcode import PARK_COMMAND, format_tcode_command
 
     assert format_tcode_command("L0", 0, 500) == PARK_COMMAND

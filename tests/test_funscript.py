@@ -115,7 +115,7 @@ class TestIsRestingAt:
 class TestTurnBoundsAt:
     """Whose turn it is, is is_resting_at; this says where that turn begins and
     ends.  Whoever draws the handoff needs the boundary itself: a ramp walking
-    the device between the park and a stroke has to be anchored to the moment
+    the device between the park and a motion has to be anchored to the moment
     the device changed hands, and anchored to anything recomputed per frame it
     slides around under its own picture."""
 
@@ -134,9 +134,9 @@ class TestTurnBoundsAt:
         """The other side is not symmetric.  The script is done once its own
         park glide is, and the driver taking over needs a handoff ramp's worth
         of the quiet to climb out of the park — so the turn closes exactly that
-        far before the quiet ends, and the climb lands where the stroke has
+        far before the quiet ends, and the climb lands where the motion has
         always resumed.  Held to the end instead, the buffer was spent and the
-        stroke had to start cold."""
+        motion had to start cold."""
         assert self._two_clusters().turn_bounds_at(10300)[1] == 13600
 
     def test_the_buffer_itself_belongs_to_the_same_stretch(self):
@@ -187,10 +187,10 @@ class TestNextActiveMs:
     def test_inside_a_gap_reaches_the_cluster_after_it(self):
         assert self._two_clusters().next_active_ms(25000) == 40000
 
-    def test_lands_on_the_first_stroke_not_in_the_buffer_before_it(self):
+    def test_lands_on_the_first_cycle_not_in_the_buffer_before_it(self):
         # is_resting_at hands the script back a _QUIET_LEAD_IN_MS buffer ahead of
         # a cluster so the OSR2 settles onto it; a jump that stopped there would
-        # be five seconds of nothing, so it goes all the way to the stroke.
+        # be five seconds of nothing, so it goes all the way to the first cycle.
         fs = self._two_clusters()
 
         assert fs.is_resting_at(36000) is False   # inside the buffer
@@ -276,7 +276,7 @@ class TestSnapLoop:
         assert result[1] - result[0] >= 500
 
     def test_a_distant_base_does_not_stretch_the_loop(self):
-        # Full strokes for the first two seconds, then a long stretch of shallow
+        # Full cycles for the first two seconds, then a long stretch of shallow
         # ones that never reach a base.  A mark inside that stretch has no base
         # near either end, and a loop stretched out to the far ones would run for
         # a minute instead of the five seconds that were marked.
@@ -377,7 +377,7 @@ class TestPlan:
         assert fs.planned_position_at(21_000) == fs.position_at(21_000)
 
     def test_a_stray_blip_in_a_quiet_stretch_is_sat_out(self):
-        """An isolated action with no dense neighbors is noise, not a stroke;
+        """An isolated action with no dense neighbors is noise, not a motion;
         the device stays at its rest rather than lunging at it."""
         fs = Funscript(actions=[(0, 0), (200, 100), (400, 0),
                                 (10_000, 90),

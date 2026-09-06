@@ -130,7 +130,7 @@ class TestTakingOver:
         sink = FakeSink()
         driver = FunscriptTCodeDriver(sink)
         # The next action is 40ms out: on time, and a snap from wherever Genau's
-        # stroke had the device.
+        # motion had the device.
         fs = Funscript(actions=[(0, 0), (40, 100), (2000, 0)])
 
         driver.update(0, fs, now=0.0)
@@ -148,7 +148,7 @@ class TestTakingOver:
         assert sink.sent[0] == "L09999I1000"
 
     def test_the_script_is_back_on_its_own_clock_once_the_glide_runs_out(self):
-        """A glide, not a slowed-down stroke: the floor lifts after
+        """A glide, not a slowed-down motion: the floor lifts after
         ``HANDOFF_MS`` and every waypoint after that is the script's own."""
         sink = FakeSink()
         driver = FunscriptTCodeDriver(sink)
@@ -211,7 +211,7 @@ class TestLeadInPark:
 
     def test_before_a_prompt_script_the_target_is_the_opening_action_itself(self):
         """The rise's first target is where the script *begins* — skipping to
-        the first stroke's far end sent the device the wrong way across the
+        the first motion's far end sent the device the wrong way across the
         range before playback got there."""
         sink = FakeSink()
         driver = FunscriptTCodeDriver(sink)

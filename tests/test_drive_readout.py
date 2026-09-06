@@ -157,11 +157,11 @@ class TestTracks:
         assert track_value(band, x + w // 2, y + h - 1) == 0
         assert abs(track_value(band, x + w // 2, y + (h - 1) // 2) - 50) <= 1
 
-    def test_a_press_up_the_amplitude_bar_asks_for_a_stroke_that_reaches_it(self):
+    def test_a_press_up_the_amplitude_bar_asks_for_a_motion_that_reaches_it(self):
         """The bar is drawn out from the center both ways, so its ends are the
         handles: pressing where one is asks for the amplitude already set, and
-        pressing past it asks for a longer stroke.  Pressing at the center itself
-        asks for no stroke at all."""
+        pressing past it asks for a longer motion.  Pressing at the center itself
+        asks for no motion at all."""
         band = self._band(_hud(amplitude=50, center=50), AMPLITUDE)
         x, y, w, h = band.rect
         top_of_bar = y + round(0.25 * (h - 1))
@@ -172,7 +172,7 @@ class TestTracks:
         assert abs(track_value(band, x + w // 2, y + (h - 1) // 2)) <= 2
 
     def test_the_amplitude_bar_mirrors_about_wherever_the_center_is(self):
-        """A stroke centered low reaches the top of the bar only by growing to the
+        """A motion centered low reaches the top of the bar only by growing to the
         full range and back, so the same press means different amplitudes."""
         low = self._band(_hud(center=25), AMPLITUDE)
         x, y, w, _h = low.rect
@@ -195,7 +195,7 @@ class TestTracks:
         assert track_command(band, x, y + h // 2) == "robot_hand_speed_0"
 
     def test_every_band_is_dimmed_while_a_funscript_has_the_device(self):
-        """A stroke Genau is not sending cannot be dragged, for the same reason
+        """A motion Genau is not sending cannot be dragged, for the same reason
         its marks cannot be pressed."""
         assert all(t.dim for t in tracks(0, 0, _hud(driven=DRIVEN_BY_FUNSCRIPT)))
         assert not any(t.dim for t in tracks(0, 0, _hud()))
@@ -214,15 +214,15 @@ class TestReadout:
         assert rgb.shape == (SECTION_H + 2 * PAD, SECTION_W + 2 * PAD, 4)
         assert (rgb[:, :, 3] > 0).mean() > 0.5
 
-    def test_a_bigger_stroke_draws_a_bigger_bar(self):
+    def test_a_bigger_motion_draws_a_bigger_bar(self):
         def blue(hud):
             rgb = _rendered(hud).astype(int)[:, :, :3]
             return int(((rgb[:, :, 2] > 150) & (rgb[:, :, 0] < 120)).sum())
 
         assert blue(_hud(amplitude=90, waveform=())) > blue(_hud(amplitude=20, waveform=()))
 
-    def test_the_speed_bar_runs_in_the_stroke_s_own_blue(self):
-        """The trace, the amplitude bar and this are all one thing — the stroke
+    def test_the_speed_bar_runs_in_the_motion_s_own_blue(self):
+        """The trace, the amplitude bar and this are all one thing — the motion
         Genau is sending — so they are one color.  It was green, which across
         these HUDs means the favorites and the funscripts."""
         hud = _hud(speed=100, waveform=())
@@ -279,7 +279,7 @@ class TestLabelPair:
         assert value_x >= key_x + text_width(font, "Speed")
 
 
-class TestWhoseStroke:
+class TestWhoseMotion:
     """The trace is a picture of what the device is being sent, so it is drawn in
     the color of whoever is sending it — and drawn still when nobody is."""
 
@@ -289,27 +289,27 @@ class TestWhoseStroke:
         rgb = _rendered(hud).astype(int)[:, :, :3]
         return {tuple(pixel) for row in rgb for pixel in row} - {(0, 0, 0)}
 
-    def test_the_robot_hand_s_stroke_is_blue(self):
+    def test_the_robot_hand_s_motion_is_blue(self):
         assert BLUE in self._line_colors(_hud(driven=DRIVEN_BY_ROBOT_HAND))
 
-    def test_a_funscript_s_stroke_is_green(self):
+    def test_a_funscript_s_motion_is_green(self):
         """Green is what the funscripts own everywhere else on these HUDs."""
         assert GREEN in self._line_colors(_hud(driven=DRIVEN_BY_FUNSCRIPT))
 
-    def test_a_stroke_nobody_is_sending_is_the_muted_grey_of_a_dead_control(self):
+    def test_a_motion_nobody_is_sending_is_the_muted_gray_of_a_dead_control(self):
         """The readout is switched off whole rather than a live trace sitting in
         the middle of dead furniture."""
         assert TEXT_MUTED in self._line_colors(_hud(driven=DRIVEN_BY_NOTHING))
 
-    def test_only_the_robot_hand_s_stroke_carries_the_center_ruler(self):
-        """The dotted line says "the stroke swings about here", which is the
-        Robot Hand's own idea — a claim about a stroke a funscript is not making."""
+    def test_only_the_robot_hand_s_motion_carries_the_center_ruler(self):
+        """The dotted line says "the motion swings about here", which is the
+        Robot Hand's own idea — a claim about a motion a funscript is not making."""
         hand = _rendered(_hud(driven=DRIVEN_BY_ROBOT_HAND, waveform=()))
         script = _rendered(_hud(driven=DRIVEN_BY_FUNSCRIPT, waveform=()))
 
         assert not np.array_equal(hand, script)
 
-    def test_only_the_robot_hand_s_stroke_leaves_its_controls_live(self):
+    def test_only_the_robot_hand_s_motion_leaves_its_controls_live(self):
         for driven in (DRIVEN_BY_FUNSCRIPT, DRIVEN_BY_NOTHING):
             assert all(c.dim for c in controls(0, 0, _hud(driven=driven)))
         assert not all(c.dim for c in controls(0, 0, _hud(driven=DRIVEN_BY_ROBOT_HAND)))
@@ -325,7 +325,7 @@ class TestSwitchedOff:
         rgb = _rendered(hud).astype(int)[:, :, :3]
         return {tuple(pixel) for row in rgb for pixel in row} - {(0, 0, 0)}
 
-    def test_no_part_of_it_is_left_in_the_stroke_s_blue(self):
+    def test_no_part_of_it_is_left_in_the_motion_s_blue(self):
         assert BLUE not in self._colors(_hud(driven=DRIVEN_BY_NOTHING))
         assert BLUE in self._colors(_hud(driven=DRIVEN_BY_ROBOT_HAND))
 
@@ -339,7 +339,7 @@ class TestSwitchedOff:
         assert not ((row[:, 2] > 150) & (row[:, 0] < 120)).any()
 
     def test_the_numbers_go_grey_too(self):
-        """They read as the live value of a stroke otherwise.
+        """They read as the live value of a motion otherwise.
 
         Read off the number's own pixels — the ones that move when the number does,
         under the bar that moves with it as well — rather than off the section's set
@@ -381,7 +381,7 @@ class TestDimmedForTheScript:
         rgb = _rendered(hud).astype(int)[:, :, :3]
         return {tuple(pixel) for row in rgb for pixel in row} - {(0, 0, 0)}
 
-    def test_no_level_is_left_in_the_stroke_s_blue(self):
+    def test_no_level_is_left_in_the_motion_s_blue(self):
         """The bars stayed bright blue through the script's stretch, which is
         what made the dimmed marks beside them read as merely decorative."""
         assert BLUE not in self._colors(_hud(driven=DRIVEN_BY_FUNSCRIPT))
@@ -428,9 +428,9 @@ class TestSmoothTrace:
 
         assert not np.array_equal(still, slid)
 
-    def test_the_live_stroke_slides_on_the_same_shift_as_everything_else(self):
+    def test_the_live_motion_slides_on_the_same_shift_as_everything_else(self):
         """One convention for every run.  The composed trace reads the live
-        stroke at fixed sample TIMES now — the values compensate the publish's
+        motion at fixed sample TIMES now — the values compensate the publish's
         own advance — so the painter's one shift is what slides the whole line,
         blue included.  The old per-run exemption, kept after the reads
         changed, made the blue and its neighbours disagree by the slide at
@@ -477,7 +477,7 @@ class TestRuns:
 
     def test_the_neutral_buffer_wears_its_own_light_grey(self):
         """The stretch belonging to neither driver is neither green nor blue —
-        a light grey between the script's turn and the stroke's."""
+        a light grey between the script's turn and the motion's."""
         hud = _hud(segments=((0, DRIVEN_BY_FUNSCRIPT), (30, DRIVEN_BY_NEUTRAL),
                              (50, DRIVEN_BY_ROBOT_HAND)))
         rgb = _rendered(hud).astype(int)[:, :, :3]
@@ -488,7 +488,7 @@ class TestRuns:
 
 class TestPublishedSpan:
     def test_the_trace_s_span_travels_with_it(self, tmp_path):
-        """Nau samples a funscript over the same stretch Genau's stroke covers,
+        """Nau samples a funscript over the same stretch Genau's motion covers,
         and has nowhere else to learn what that is — two spans would make a
         handoff look like a jump."""
         path = tmp_path / "genau_drive.txt"

@@ -1,13 +1,13 @@
 """The trace's model: what the device is about to be asked to do, and by whom.
 
 The line is four things in a row — whatever Genau is doing, a ramp down onto
-the park, whatever the funscript is doing, a ramp back up to the stroke — and
+the park, whatever the funscript is doing, a ramp back up to the motion — and
 each color means one thing: green is the script scripting, blue is Genau
-stroking, gray is a ramp or the rest between them, because through those the
+driving, gray is a ramp or the rest between them, because through those the
 device belongs to neither driver.
 
 Who holds the device travels inside Genau's own publish: ``let_go`` is None
-while Genau strokes and the height it handed over at once it has — the one
+while Genau drives and the height it handed over at once it has — the one
 number the picture cannot recompute, latched at the source.
 """
 from __future__ import annotations
@@ -38,11 +38,11 @@ STEP_MS = 100
 RAMP_STEPS = HANDOFF_RAMP_MS // STEP_MS
 
 
-def _stroke(**over) -> DriveHud:
-    """Genau's readout as a LIVE Genau publishes it: its own stroke, forward
+def _motion(**over) -> DriveHud:
+    """Genau's readout as a LIVE Genau publishes it: its own motion, forward
     from now, ``let_go`` unset because it still has the device.
 
-    Amplitude 80 around center 50, so the stroke's floor is at 10% — above the
+    Amplitude 80 around center 50, so the motion's floor is at 10% — above the
     park, which is the case where the ramps have somewhere to go.
     """
     base = dict(
@@ -52,19 +52,19 @@ def _stroke(**over) -> DriveHud:
     return DriveHud(**base)
 
 
-def _stroke_at(ms: int, **over) -> DriveHud:
-    """The stroke as Genau publishes it *ms* into the video: the same wave, its
+def _motion_at(ms: int, **over) -> DriveHud:
+    """The motion as Genau publishes it *ms* into the video: the same wave, its
     phase advanced by however much time has gone by — a published readout is a
     window forward from now, so it moves on its own."""
     steps = ms / STEP_MS
-    return _stroke(
+    return _motion(
         waveform=tuple(0.5 + 0.4 * np.sin((i + steps) / 6)
                        for i in range(TRACE_SAMPLES)),
         **over)
 
 
-def _parked_stroke(**over) -> DriveHud:
-    """The stroke as a PARKED Genau publishes it, through a funscript's turn:
+def _parked_motion(**over) -> DriveHud:
+    """The motion as a PARKED Genau publishes it, through a funscript's turn:
     rested at the foot of its swing, so sample 0 is its floor (10%) and the
     wave climbs from there.  ``let_go`` says where the device was handed over —
     a real handoff always sets it."""
@@ -72,11 +72,11 @@ def _parked_stroke(**over) -> DriveHud:
     over.setdefault(
         "waveform",
         tuple(0.5 - 0.4 * np.cos(i / 6) for i in range(TRACE_SAMPLES)))
-    return _stroke(**over)
+    return _motion(**over)
 
 
 def _script(*, until_ms: int) -> Funscript:
-    """A script that strokes hard for *until_ms* and then stops for good."""
+    """A script that drives hard for *until_ms* and then stops for good."""
     return Funscript(actions=[(t, 0 if (t // 200) % 2 else 100)
                               for t in range(0, until_ms + 1, 200)])
 
@@ -90,7 +90,7 @@ def _script_ahead(*, from_ms: int = 8_000, to_ms: int = 9_000) -> Funscript:
 
 def _read(script, *, at: int, published=None, latch=None) -> DriveHud:
     return drive_readout(
-        published if published is not None else _stroke(),
+        published if published is not None else _motion(),
         script=script, position_ms=at, latch=latch)
 
 
@@ -114,14 +114,14 @@ class TestOneLineTwoDrivers:
 
     def test_the_end_of_a_scripted_stretch_hands_over_through_the_buffer(self):
         """Green while the script runs, gray for the buffer that belongs to
-        neither driver, blue for the stroke waiting to take over."""
+        neither driver, blue for the motion waiting to take over."""
         hud = _read(_script(until_ms=2_000), at=1_000,
-                    published=_parked_stroke())
+                    published=_parked_motion())
 
         assert _colors(hud) == [
             DRIVEN_BY_FUNSCRIPT, DRIVEN_BY_NEUTRAL, DRIVEN_BY_ROBOT_HAND]
 
-    def test_a_script_about_to_start_up_shows_the_stroke_handing_over(self):
+    def test_a_script_about_to_start_up_shows_the_motion_handing_over(self):
         hud = _read(_script_ahead(), at=0)
 
         assert _colors(hud) == [
@@ -129,14 +129,14 @@ class TestOneLineTwoDrivers:
 
     def test_the_runs_touch_so_the_line_never_breaks_at_the_joins(self):
         hud = _read(_script(until_ms=2_000), at=1_000,
-                    published=_parked_stroke())
+                    published=_parked_motion())
 
         for left, right in pairwise(hud.runs):
             assert left[1] == right[0]
 
     def test_with_nothing_published_the_gap_is_nobody_s_and_rests_on_the_park(self):
         """Nothing published yet, and the script's own driver rests the device
-        — so past the buffer the picture is the park, not a stroke that is not
+        — so past the buffer the picture is the park, not a motion that is not
         coming."""
         hud = drive_readout(None, script=_script(until_ms=2_000), position_ms=0)
         gap_start = hud.runs[-1][0]
@@ -150,8 +150,8 @@ class TestTheRampDownOntoThePark:
     """Genau's turn ends when the script's turn opens — a time the script fixes
     — and the device walks from wherever that leaves it down onto the park.
 
-    It used to end on the stroke's next floor-touch instead, which only the
-    live stroke knew and which moved under the picture every frame: the final
+    It used to end on the motion's next floor-touch instead, which only the
+    live motion knew and which moved under the picture every frame: the final
     cycle flickered in and out, and vanished outright the moment Genau paused.
     """
 
@@ -161,8 +161,8 @@ class TestTheRampDownOntoThePark:
 
         assert hud.runs[0][1] == 3_000 // STEP_MS
 
-    def test_the_ramp_starts_where_the_stroke_is_and_reaches_the_park(self):
-        published = _stroke()
+    def test_the_ramp_starts_where_the_motion_is_and_reaches_the_park(self):
+        published = _motion()
         hud = _read(_script_ahead(), at=0, published=published)
         opens = 3_000 // STEP_MS
 
@@ -182,26 +182,26 @@ class TestTheRampDownOntoThePark:
         recomputed moment to move under it."""
         script = _script_ahead()
 
-        first = _read(script, at=0, published=_stroke_at(0)).waveform
+        first = _read(script, at=0, published=_motion_at(0)).waveform
         later = _read(script, at=2 * STEP_MS,
-                      published=_stroke_at(2 * STEP_MS)).waveform
+                      published=_motion_at(2 * STEP_MS)).waveform
 
         assert later[:-2] == first[2:]
 
     def test_the_published_let_go_carries_the_ramp_after_the_flip(self):
-        """A paused Genau publishes the stroke it will resume with, not where
+        """A paused Genau publishes the motion it will resume with, not where
         it stopped — so the height it let go at rides the publish, latched at
         the source, and the descent keeps drawing from it."""
         script = _script_ahead()
 
-        after = _read(script, at=3_000, published=_parked_stroke(let_go=0.73))
+        after = _read(script, at=3_000, published=_parked_motion(let_go=0.73))
 
         assert after.waveform[0] == 0.73             # the descent opens there...
         assert after.waveform[RAMP_STEPS] == 0.0     # ...and lands on the park
 
     def test_the_dot_walks_down_the_ramp_with_the_device(self):
         script = _script_ahead()
-        published = _parked_stroke(let_go=0.8)
+        published = _parked_motion(let_go=0.8)
 
         opened = _read(script, at=3_000, published=published)
         midway = _read(script, at=3_000 + HANDOFF_RAMP_MS // 2, published=published)
@@ -214,12 +214,12 @@ class TestTheRampDownOntoThePark:
 
 class TestTheClimbBackOut:
     """The mirror: the script gives the device back a handoff ramp before the
-    quiet ends, and the buffer climbs it from the park onto the stroke's floor
-    — so the stroke begins where it always did, at the far end of the quiet,
+    quiet ends, and the buffer climbs it from the park onto the motion's floor
+    — so the motion begins where it always did, at the far end of the quiet,
     having walked there instead of lunging at the end."""
 
-    def test_the_buffer_climbs_from_the_park_to_the_stroke(self):
-        published = _parked_stroke()
+    def test_the_buffer_climbs_from_the_park_to_the_motion(self):
+        published = _parked_motion()
         hud = _read(_script(until_ms=2_000), at=1_000, published=published)
         blue_start = hud.runs[-1][0]
 
@@ -230,14 +230,14 @@ class TestTheClimbBackOut:
         assert hud.waveform[blue_start] == published.waveform[0]
 
     def test_the_climb_is_the_buffer_s_gray_not_genau_s_blue(self):
-        hud = _read(_script(until_ms=2_000), at=1_000, published=_parked_stroke())
+        hud = _read(_script(until_ms=2_000), at=1_000, published=_parked_motion())
 
         assert hud.runs[-2][2] == DRIVEN_BY_NEUTRAL
 
-    def test_the_climb_spends_no_stroke(self):
+    def test_the_climb_spends_no_motion(self):
         """Genau holds its swing through the climb, so the wave that follows is
-        the whole published stroke rather than one with its opening eaten."""
-        published = _parked_stroke()
+        the whole published motion rather than one with its opening eaten."""
+        published = _parked_motion()
         hud = _read(_script(until_ms=2_000), at=1_000, published=published)
         blue_start = hud.runs[-1][0]
 
@@ -246,24 +246,24 @@ class TestTheClimbBackOut:
     def test_the_device_rests_on_the_park_before_the_climb(self):
         """The buffer is not all ramp: the script parks the device, it waits,
         and only then climbs."""
-        hud = _read(_script(until_ms=2_000), at=1_000, published=_parked_stroke())
+        hud = _read(_script(until_ms=2_000), at=1_000, published=_parked_motion())
         blue_start = hud.runs[-1][0]
 
         assert hud.waveform[blue_start - RAMP_STEPS - 1] == 0.0
 
-    def test_the_stroke_resumes_at_the_far_end_of_the_quiet(self):
+    def test_the_motion_resumes_at_the_far_end_of_the_quiet(self):
         """Where it always did: the climb lands on it rather than delaying it."""
         script = _script(until_ms=2_000)
-        hud = _read(script, at=1_000, published=_parked_stroke())
+        hud = _read(script, at=1_000, published=_parked_motion())
         blue_start_ms = 1_000 + hud.runs[-1][0] * STEP_MS
 
         assert blue_start_ms == 2_000 + 5_000
 
-    def test_a_stroke_opening_on_the_park_needs_no_climb(self):
-        """Full amplitude: the park already IS the stroke's floor.  The sender
+    def test_a_motion_opening_on_the_park_needs_no_climb(self):
+        """Full amplitude: the park already IS the motion's floor.  The sender
         skips its rise there and the blue begins the moment Genau's turn does —
         drawn any other way, the picture waited two seconds the device did not."""
-        published = _parked_stroke(
+        published = _parked_motion(
             amplitude=100,
             waveform=tuple(0.5 - 0.5 * np.cos(i / 6) for i in range(TRACE_SAMPLES)))
         script = _script(until_ms=2_000)
@@ -271,27 +271,27 @@ class TestTheClimbBackOut:
         blue_start = hud.runs[-1][0]
 
         # The first sample past the script's turn (its end is inclusive) — by
-        # which the stroke, begun at the boundary itself, is one sample in.
+        # which the motion, begun at the boundary itself, is one sample in.
         assert 1_000 + blue_start * STEP_MS == 2_000 + 3_000 + STEP_MS
         assert hud.waveform[blue_start] == published.waveform[1]
 
 
 class TestAFloorOnTheParkEndsOnItsTouchDown:
-    """His rule, restated for the third and final time: when the stroke's floor
+    """His rule, restated for the third and final time: when the motion's floor
     rests ON the park (full amplitude), there is NO ramp — the blue swings on
     past the boundary to its next touch-down, the gray runs flat from there,
     and the arbiter really does hold the device's flip for that same touch."""
 
-    def _touching_stroke(self, **over) -> DriveHud:
+    def _touching_motion(self, **over) -> DriveHud:
         # 0.5 + 0.5·sin(i/3): the floor IS the park, touched near samples 14,
         # 33, 52, 71 — well inside the shared wait cap past a 3000ms boundary.
         over.setdefault(
             "waveform",
             tuple(0.5 + 0.5 * np.sin(i / 3) for i in range(TRACE_SAMPLES)))
-        return _stroke(amplitude=100, **over)
+        return _motion(amplitude=100, **over)
 
     def test_no_ramp_and_the_gray_runs_flat(self):
-        hud = _read(_script_ahead(), at=0, published=self._touching_stroke(),
+        hud = _read(_script_ahead(), at=0, published=self._touching_motion(),
                     latch=DescentLatch())
         blue_end = hud.runs[0][1]
         green_start = hud.runs[-1][0]
@@ -303,7 +303,7 @@ class TestAFloorOnTheParkEndsOnItsTouchDown:
         assert max(flat) <= 0.03                          # ...and stays flat
 
     def test_the_blue_swings_past_the_boundary_to_the_touch(self):
-        hud = _read(_script_ahead(), at=0, published=self._touching_stroke(),
+        hud = _read(_script_ahead(), at=0, published=self._touching_motion(),
                     latch=DescentLatch())
         blue_end_ms = hud.runs[0][1] * STEP_MS
 
@@ -313,10 +313,10 @@ class TestAFloorOnTheParkEndsOnItsTouchDown:
         script = _script_ahead()
         latch = DescentLatch()
 
-        first = _read(script, at=0, published=self._touching_stroke(),
+        first = _read(script, at=0, published=self._touching_motion(),
                       latch=latch)
         # A publish a beat newer — the wobble that used to re-pick the moment.
-        later = _read(script, at=0, published=self._touching_stroke(
+        later = _read(script, at=0, published=self._touching_motion(
             waveform=tuple(0.5 + 0.5 * np.sin((i + 0.3) / 3)
                            for i in range(TRACE_SAMPLES))), latch=latch)
 
@@ -328,7 +328,7 @@ class TestAFloorOnTheParkEndsOnItsTouchDown:
         sample's own bounds they picked up the SCRIPT turn's and re-anchored
         the wave as a future resumed one — the drawn ending landed a whole
         swing away from the park it claimed to touch."""
-        published = self._touching_stroke()
+        published = self._touching_motion()
         hud = _read(_script_ahead(), at=0, published=published, latch=DescentLatch())
         blue_end = hud.runs[0][1]
 
@@ -350,12 +350,12 @@ class TestAFloorOnTheParkEndsOnItsTouchDown:
         script = _script_ahead(from_ms=18_000, to_ms=19_000)  # boundary 13000
         latch = DescentLatch()
 
-        _read(script, at=2_000, published=self._touching_stroke(),
+        _read(script, at=2_000, published=self._touching_motion(),
               latch=latch)
         # Too far: nothing chosen for that boundary yet, still a forecast.
         assert latch.choice_for(13_000) is None
 
-        _read(script, at=10_040, published=self._touching_stroke(),
+        _read(script, at=10_040, published=self._touching_motion(),
               latch=latch)
         assert latch.choice_for(13_000) is not None   # inside the horizon
 
@@ -380,10 +380,10 @@ class TestTheDescentTopIsSelectedOnce:
         latch = DescentLatch()
         opens = 3_000 // STEP_MS
 
-        first = _read(script, at=0, published=_stroke_at(0), latch=latch)
+        first = _read(script, at=0, published=_motion_at(0), latch=latch)
         # The next frame's publish is a beat newer than the playhead — the
         # exact mismatch that used to re-shape the ramp.
-        later = _read(script, at=0, published=_stroke_at(20), latch=latch)
+        later = _read(script, at=0, published=_motion_at(20), latch=latch)
 
         assert later.waveform[opens] == first.waveform[opens]
 
@@ -395,8 +395,8 @@ class TestTheDescentTopIsSelectedOnce:
         latch = DescentLatch()
         opens = 3_000 // STEP_MS
 
-        live = _read(script, at=0, published=_stroke(), latch=latch)
-        parked = _read(script, at=0, published=_parked_stroke(let_go=0.44),
+        live = _read(script, at=0, published=_motion(), latch=latch)
+        parked = _read(script, at=0, published=_parked_motion(let_go=0.44),
                        latch=latch)
 
         assert parked.waveform[opens] != live.waveform[opens]
@@ -409,9 +409,9 @@ class TestTheDescentTopIsSelectedOnce:
         latch = DescentLatch()
         opens = 3_000 // STEP_MS
 
-        frozen = _read(script, at=0, published=_parked_stroke(let_go=0.44),
+        frozen = _read(script, at=0, published=_parked_motion(let_go=0.44),
                        latch=latch)
-        resumed = _read(script, at=0, published=_stroke_at(0), latch=latch)
+        resumed = _read(script, at=0, published=_motion_at(0), latch=latch)
 
         assert resumed.waveform[opens] != frozen.waveform[opens]
 
@@ -430,8 +430,8 @@ class TestTheDescentTopIsSelectedOnce:
         opens = 3_000 // STEP_MS
         latch = DescentLatch()
 
-        first = _read(script, at=0, published=_stroke_at(0), latch=latch)
-        moved = _read(script, at=0, published=_stroke_at(20, **{control: moved_to}),
+        first = _read(script, at=0, published=_motion_at(0), latch=latch)
+        moved = _read(script, at=0, published=_motion_at(20, **{control: moved_to}),
                       latch=latch)
 
         assert moved.waveform[opens] != first.waveform[opens]
@@ -451,10 +451,10 @@ class TestStillPicture:
 
     def test_the_whole_handoff_slides_rigidly_too(self):
         """Through a funscript's turn Genau's publish is frozen, so between two
-        frames the settle, the rest, the climb and the waiting stroke are all
+        frames the settle, the rest, the climb and the waiting motion are all
         exactly the same values, two columns to the left."""
         script = _script(until_ms=2_000)
-        published = _parked_stroke()
+        published = _parked_motion()
 
         first = _read(script, at=1_000, published=published).waveform
         later = _read(script, at=1_000 + 2 * STEP_MS, published=published).waveform
@@ -474,7 +474,7 @@ class TestStillPicture:
         assert at_knot.slide == 0.0
         assert between.slide == 0.4
 
-    def test_the_live_stroke_reads_fixed_times_so_the_painter_slides_it(self):
+    def test_the_live_motion_reads_fixed_times_so_the_painter_slides_it(self):
         """The live blue is read at fixed absolute sample times: as the playhead
         moves within a knot and the publish advances in step with it, the value
         drawn at each column compensates the publish's own motion, so the whole
@@ -487,7 +487,7 @@ class TestStillPicture:
         # where a forward-window publish has nothing; it clamps to now and is
         # drawn off the block's left edge — so the invariant starts at column 1.
         pictures = [
-            _read(script, at=at, published=_stroke_at(at)).waveform[1:20]
+            _read(script, at=at, published=_motion_at(at)).waveform[1:20]
             for at in (0, 40, 80)
         ]
 
@@ -515,14 +515,14 @@ class TestPositionMarker:
         script's interpolated line floated where nothing was."""
         script = _script_ahead(from_ms=40_000, to_ms=41_000)
 
-        hud = _read(script, at=37_000, published=_parked_stroke())
+        hud = _read(script, at=37_000, published=_parked_motion())
 
         assert script.is_resting_at(37_000) is False
         assert hud.position == 0
 
     def test_genau_driving_leaves_the_marker_where_genau_published_it(self):
         """It is Genau's device then, and Genau knows where it put it."""
-        published = _stroke(position=1234)
+        published = _motion(position=1234)
 
         hud = _read(_script_ahead(), at=0, published=published)
 
@@ -530,7 +530,7 @@ class TestPositionMarker:
 
     def test_the_dot_climbs_the_drawn_ramp_out_of_the_park(self):
         script = _script(until_ms=2_000)
-        published = _parked_stroke()
+        published = _parked_motion()
 
         resting = _read(script, at=4_500, published=published)
         midway = _read(script, at=5_000 + HANDOFF_RAMP_MS // 2, published=published)
@@ -546,7 +546,7 @@ class TestTheSeamCannotFlicker:
 
     def test_the_last_blue_column_sits_on_the_latched_top(self):
         latch = DescentLatch()
-        published = _stroke()                        # amplitude 80: the ramp case
+        published = _motion()                        # amplitude 80: the ramp case
         hud = _read(_script_ahead(), at=1_000, published=published,
                     latch=latch)
         seam = hud.runs[0][1]                        # the gray's first column
@@ -555,7 +555,7 @@ class TestTheSeamCannotFlicker:
         assert abs(hud.waveform[seam - 1] - top) < 0.12
         # A publish a beat older — the wobble that used to flap the join —
         # moves the seam-adjacent column almost nothing.
-        aged = _read(_script_ahead(), at=1_000, published=_stroke_at(20),
+        aged = _read(_script_ahead(), at=1_000, published=_motion_at(20),
                      latch=latch)
         assert abs(aged.waveform[seam - 1] - hud.waveform[seam - 1]) < 0.02
 
@@ -565,13 +565,13 @@ class TestForecastsDieWithTheirWave:
     class: after any realignment, the old wave's touch cuts the new wave
     anywhere — so a re-key that is not the flip itself re-chooses, a parked
     publish never seeds a pre-turn latch, and no blue extension is drawn off a
-    wave nobody is stroking."""
+    wave nobody is driving."""
 
     def _touching(self, phase: float = 0.0, **over) -> DriveHud:
         over.setdefault(
             "waveform",
             tuple(0.5 + 0.5 * np.sin((i + phase) / 3) for i in range(TRACE_SAMPLES)))
-        return _stroke(amplitude=100, **over)
+        return _motion(amplitude=100, **over)
 
     def test_a_resume_re_chooses_the_touch_for_the_new_wave(self):
         """let_go set (a handoff, an OmniPause) then cleared (the wave running
@@ -600,7 +600,7 @@ class TestForecastsDieWithTheirWave:
     def test_no_extension_is_drawn_off_a_parked_wave(self):
         """A rewind landing just past a boundary finds the script holding the
         device (let_go published): the drawn line is the buffer and the plan,
-        never a blue stroke nobody is making."""
+        never a blue motion nobody is making."""
         script = _script_ahead()
         latch = DescentLatch()
         _read(script, at=2_800, published=self._touching(), latch=latch)
@@ -619,7 +619,7 @@ class TestThePillFollowsTheLine:
     arbiter's decision, seconds before the dot finished riding the blue."""
 
     def test_genau_while_the_dot_rides_the_extension(self):
-        published = _stroke(
+        published = _motion(
             amplitude=100,
             waveform=tuple(0.5 + 0.5 * np.sin(i / 3) for i in range(TRACE_SAMPLES)))
         # 3320ms is past the boundary (3000) but before the touch-down.
@@ -629,7 +629,7 @@ class TestThePillFollowsTheLine:
         assert hud.driven == DRIVEN_BY_ROBOT_HAND
 
     def test_buffer_through_the_gray(self):
-        hud = _read(_script_ahead(), at=4_500, published=_parked_stroke())
+        hud = _read(_script_ahead(), at=4_500, published=_parked_motion())
 
         assert hud.driven == DRIVEN_BY_NEUTRAL
 
@@ -648,7 +648,7 @@ class TestThePublishedTouch:
     def test_the_latched_touch_is_what_gets_published(self):
         script = _script_ahead()
         latch = DescentLatch()
-        published = _stroke(
+        published = _motion(
             amplitude=100,
             waveform=tuple(0.5 + 0.5 * np.sin(i / 3) for i in range(TRACE_SAMPLES)))
         hud = _read(script, at=1_000, published=published, latch=latch)
@@ -672,7 +672,7 @@ class TestThePublishedTouch:
         script = Funscript(actions=[(t, 0 if (t // 200) % 2 else 100)
                                   for t in range(8_005, 9_006, 200)])
         latch = DescentLatch()
-        published = _stroke(
+        published = _motion(
             amplitude=100,
             waveform=tuple(0.5 + 0.5 * np.sin(i / 3) for i in range(TRACE_SAMPLES)))
         playheads = [*range(0, 2_960, 40), *range(2_960, 3_100),
@@ -703,13 +703,13 @@ class TestThePublishedTouch:
 
 class TestNothingToFoldIn:
     def test_an_unscripted_video_leaves_the_readout_alone(self):
-        published = _stroke()
+        published = _motion()
 
         assert drive_readout(published, script=None, position_ms=0) == published
 
     def test_a_single_run_still_names_its_driver(self):
         """The painter's fallback color for empty segments is the OSR2 state,
-        which trails the arbiter by a beat at every handoff — the whole stroke
+        which trails the arbiter by a beat at every handoff — the whole motion
         flashed the script's green for a frame each time the device changed
         hands.  Named by the model itself, the color cannot lag."""
         hud = _read(_script(until_ms=120_000), at=0)

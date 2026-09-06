@@ -4,7 +4,7 @@ The shared playback core backing the video players in this project family.
 
 Six players and hosts across three repos read it. Four of them embed a video
 player and are driven by an orchestrator through files on disk; the other two
-take the HUDs and the stroke without the player.
+take the HUDs and the motion without the player.
 
 | Consumer | Repo | What it takes |
 | --- | --- | --- |
@@ -26,15 +26,15 @@ another application's internals to get it. By what it is:
   which the broker steers by too), `status` (what a player publishes back),
   `session_quit` (a close on one window of a session asks the session).
 - **the device** — `tcode` and `tcode_driver` for the wire, `funscript` for a
-  script and the questions asked of one, and for a stroke of this family's own:
+  script and the questions asked of one, and for a motion of this family's own:
   `robot_hand` (the waveform), `robot_hand_beat` (the phase it runs at),
-  `robot_hand_driver` (the stroke on the wire, and the device changing hands),
-  `wave_stack` / `cruise_control` (the stroke varying itself), `broker_feed`
+  `robot_hand_driver` (the motion on the wire, and the device changing hands),
+  `wave_stack` / `cruise_control` (the motion varying itself), `broker_feed`
   (the beat the OSR2 broker publishes when it has the room).
 - **the clip player** — Genau, wherever it is drawn: `clip_folder`,
   `clip_decode`, `clip_cache`, `clip_loader`, `clip_preload`, `clip_sequence`,
   `clip_selection`, `clip_advance`, `clip_renderer` and `clip_scrub` get a clip
-  from a folder to the frame the stroke is at, and `genau_controls`,
+  from a folder to the frame the motion is at, and `genau_controls`,
   `genau_refresh`, `genau_readout`, `genau_status` and `genau_notifier` are its
   verbs, its tick, and what it publishes. A shell — Genau's pygame window, Fun
   Time's headset — supplies the surface, the loop and the keys.

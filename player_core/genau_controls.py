@@ -70,7 +70,7 @@ class GenauControls:
     condemn_clip: Callable[[], None] | None = None
     robot_hand: RobotHandState | None = None
     cruise_control_state: CruiseControlState | None = None
-    set_stroke_phase: Callable[[float], None] | None = None
+    set_motion_phase: Callable[[float], None] | None = None
     clip_advance_state: ClipAdvanceState | None = None
     stop_event: threading.Event | None = None
     hud: Flag | None = None
@@ -82,7 +82,7 @@ class GenauControls:
 # whether they could.
 Act = Callable[[GenauControls, str], bool]
 
-# Fun Time's spelling for the quarter-turn of the stroke's phase.  Named because
+# Fun Time's spelling for the quarter-turn of the motion's phase.  Named because
 # two spellings of it once shipped side by side, which is the drift a literal per
 # branch invites.
 QUARTER_CYCLE_OFFSET_COMMAND = "OFFSET_QUARTER_CYCLE"
@@ -137,9 +137,9 @@ def _handed_back(controls: GenauControls, phase) -> None:
     """Cruise control letting go says where the single wave should pick up — at
     the phase of the wave that had most of the travel, which is the one the
     device was mostly following.  Nowhere to put it (a build with no driver) and
-    the stroke simply resumes on its own free-running phase."""
-    if phase is not None and controls.set_stroke_phase is not None:
-        controls.set_stroke_phase(phase)
+    the motion simply resumes on its own free-running phase."""
+    if phase is not None and controls.set_motion_phase is not None:
+        controls.set_motion_phase(phase)
 
 
 def _cruise_toggled(controls: GenauControls, _value: str) -> bool:
@@ -221,7 +221,7 @@ def _playing(playing: bool) -> Act:
     """PAUSE and RESUME move both halves of one fact.
 
     The flag is what an orchestrator's paused file feeds and what the tick reads;
-    the hand's own flag is what the stroke follows.  A build with no hand still
+    the hand's own flag is what the motion follows.  A build with no hand still
     answers -- the room is paused either way.
     """
     def act(controls: GenauControls, _value: str) -> bool:

@@ -1,9 +1,9 @@
-"""Scrubbing the clip with the stroke — the picture being *of* the device.
+"""Scrubbing the clip with the motion — the picture being *of* the device.
 
 The rule under test is that the frame shown is where the device is: parked
-shows A, fully retracted shows B, and a stroke that only works part of the axis
-only shows that part of the half. The half changes when the stroke turns at an
-end, and nowhere else, so a stroke that turns back early rewinds the half it is
+shows A, fully retracted shows B, and a motion that only works part of the axis
+only shows that part of the half. The half changes when the motion turns at an
+end, and nowhere else, so a motion that turns back early rewinds the half it is
 in rather than rolling on into the other.
 """
 from __future__ import annotations
@@ -24,7 +24,7 @@ def _ramp(start, end, steps=200):
 
 
 def _from(height, frames=FRAMES):
-    """A scrub already running, with the stroke at *height* — so the first look
+    """A scrub already running, with the motion at *height* — so the first look
     is not mistaken for arriving somewhere."""
     state = ClipScrub()
     scrub_clip(state, height, frames)
@@ -38,9 +38,9 @@ def test_the_frame_is_where_the_device_is():
     assert scrub_clip(state, 0.2, FRAMES) == pytest.approx(0.1)
 
 
-def test_a_stroke_that_turns_back_early_rewinds_the_half_it_is_in():
+def test_a_motion_that_turns_back_early_rewinds_the_half_it_is_in():
     # Not rolling on into the back half: the two halves only meet at the ends,
-    # and this stroke never reached one.
+    # and this motion never reached one.
     state = _from(0.2)
     climbing = _sweep(state, _ramp(0.2, 0.8))
     falling = _sweep(state, _ramp(0.8, 0.3))
@@ -51,7 +51,7 @@ def test_a_stroke_that_turns_back_early_rewinds_the_half_it_is_in():
 
 
 def test_the_extent_of_the_animation_is_the_extent_of_the_motor():
-    # A stroke working the middle of the axis shows the middle of the half —
+    # A motion working the middle of the axis shows the middle of the half —
     # never its first frames, never its last.
     state = _from(0.2)
     phases = _sweep(state, _ramp(0.2, 0.8)) + _sweep(state, _ramp(0.8, 0.2))
@@ -61,8 +61,8 @@ def test_the_extent_of_the_animation_is_the_extent_of_the_motor():
 
 def test_a_full_sweep_plays_the_whole_clip_as_it_always_did():
     # The amplitude-100 groove: up the front half, over at B, down the back
-    # half, over at A — one trip through the clip per stroke, which is what
-    # genau has always shown for a full stroke.
+    # half, over at A — one trip through the clip per motion, which is what
+    # genau has always shown for a full motion.
     state = _from(0.0)
     climbing = _sweep(state, _ramp(0.0, 1.0))
     assert climbing == sorted(climbing)
@@ -114,7 +114,7 @@ def test_resting_at_an_end_swaps_once_and_not_once_a_tick():
     assert state.back_half is True               # and the wobble swaps once
 
 
-def test_a_stroke_that_never_reaches_an_end_never_swaps():
+def test_a_motion_that_never_reaches_an_end_never_swaps():
     state = _from(0.15)
     for _ in range(20):
         _sweep(state, _ramp(0.15, 0.85))

@@ -293,8 +293,8 @@ class TestPlaybackSpeed:
         assert "nau_speed_down" in actions and "nau_speed_up" in actions
 
     def test_genau_has_no_video_rate(self):
-        """Genau's clips play at the stroke's rate, so there is no video rate to
-        set — that Speed is the stroke's, on the readout."""
+        """Genau's clips play at the motion's rate, so there is no video rate to
+        set — that Speed is the motion's, on the readout."""
         actions = _actions(ConsoleModel(mode="genau"))
 
         assert "nau_speed_down" not in actions
@@ -553,7 +553,7 @@ def test_the_mode_row_can_be_left_off_and_takes_minimize_with_it():
     actions = [b.action for row in trimmed for b in row]
     assert "main_minimize" not in actions
     assert not any(a.endswith("_activate") for a in actions)
-    # ...and the rows that carry the stroke are all still there.
+    # ...and the rows that carry the motion are all still there.
     for kept in ("robot_hand_toggle_cruise", "robot_hand_cycle_shape", "main_lock",
                  "genau_clip_seconds_up", "genau_clip_seconds_down"):
         assert kept in actions

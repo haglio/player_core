@@ -1,21 +1,21 @@
-"""Hands-free variation of the stroke — the Robot Hand's cruise control, shared.
+"""Hands-free variation of the motion — the Robot Hand's cruise control, shared.
 
 It lives beside :mod:`player_core.robot_hand` because the state it varies is
-that one's: an app that has the stroke gets this with it, rather than growing
+that one's: an app that has the motion gets this with it, rather than growing
 its own idea of what "vary it for me" means.
 
 What it hands the device is :mod:`player_core.wave_stack`'s — waves summed, each
 with its own travel, center and speed. This is the part with the dice in it. It
 decides how many waves there are and how far below the main one the others run,
 and then never stops: every ramp that arrives somewhere is given somewhere else
-to be, over its own stretch of seconds, so no dial in the stroke is ever simply
+to be, over its own stretch of seconds, so no dial in the motion is ever simply
 a number.
 
 Three things it is careful about.
 
 **What rides on what.** The first wave runs near the pace the dial is set to.
 Every other one runs *much* slower — a half to a fifth of it — and is drawn a
-travel from the same range, so what it adds is a swell that carries the stroking
+travel from the same range, so what it adds is a swell that carries the motion
 from base to tip and back, not a vibration on top of it. Which wave is the big
 one is a separate draw again, so the slow swell is as often the larger.
 
@@ -23,12 +23,12 @@ one is a separate draw again, so the slow swell is as often the larger.
 seconds is a ramp nobody can feel. The ranges here are the width of the axis and
 the times are long: a speed crossing most of the dial over half a minute, a
 travel opening from nearly shut to nearly the whole axis, a center walking from
-base to tip over a minute. The stroke should be plainly somewhere different from
+base to tip over a minute. The motion should be plainly somewhere different from
 where it was a minute ago.
 
-**The sum, not the parts.** Every range here is what the *whole* stroke is drawn
+**The sum, not the parts.** Every range here is what the *whole* motion is drawn
 from, divided by how many waves are sharing it — so two waves average what one
-used to, rather than piling two full strokes on top of each other and sitting
+used to, rather than piling two full motions on top of each other and sitting
 the device high and wide.
 """
 from __future__ import annotations
@@ -63,19 +63,19 @@ if TYPE_CHECKING:
 # How many waves a session gets: a pair most of the time, sometimes the plain
 # single wave, sometimes three.
 _COUNTS = (1, 2, 2, 2, 3)
-# What the *whole* stroke's travel and center are drawn from, before being
+# What the *whole* motion's travel and center are drawn from, before being
 # divided among the waves. Nearly the width of the axis, both of them, so the
-# stroke has somewhere to travel to.
+# motion has somewhere to travel to.
 _TRAVEL = (10.0, 100.0)
 _CENTER = (10.0, 90.0)
-# How long a ramp on each axis takes. Long, because what is wanted is a stroke
+# How long a ramp on each axis takes. Long, because what is wanted is a motion
 # gradually speeding up or opening out, not a dial being flicked.
 _SPEED_S = (10.0, 40.0)
 _TRAVEL_S = (8.0, 30.0)
 _CENTER_S = (15.0, 60.0)
 # Where each wave's speed wanders, in dial units either side of the session's
-# base. The dial is exponential — about 18 units doubles the strokes a minute —
-# so the first wave is the stroke you set, and the ones under it run at a half
+# base. The dial is exponential — about 18 units doubles the cycles a minute —
+# so the first wave is the motion you set, and the ones under it run at a half
 # to a fifth of that: swells, not vibration.
 _MAIN_SPAN = (-15.0, 15.0)
 _UNDER_SPANS = ((-45.0, -20.0), (-70.0, -40.0))
@@ -86,15 +86,15 @@ _BASE_S = (60.0, 120.0)
 
 @dataclass
 class CruiseControlState:
-    """Hands-free variation of the stroke itself — never of which clip plays.
+    """Hands-free variation of the motion itself — never of which clip plays.
 
     Moving on to another clip is :mod:`genau.clip_advance`'s job, and the two are
-    independent: a session can vary the stroke on one held clip, or hold the
-    stroke steady while the clips change, or both.
+    independent: a session can vary the motion on one held clip, or hold the
+    motion steady while the clips change, or both.
 
     ``active`` is the only part of this a caller reads. The stack under it is
-    what the device follows while it is set; ``clock`` is the stroke's own
-    seconds, which move only while it is actually stroking, so every ramp
+    what the device follows while it is set; ``clock`` is the motion's own
+    seconds, which move only while it is actually running, so every ramp
     freezes where it stood through a pause.
     """
 
@@ -110,7 +110,7 @@ class CruiseControlState:
     wrote: tuple | None = None
     # None until the first tick: the wall clock a caller hands in is whatever
     # its own clock reads, so the first tick has no interval before it and must
-    # not be given one — the stroke would jump the whole of it in a step.
+    # not be given one — the motion would jump the whole of it in a step.
     _last_tick: float | None = None
 
 
@@ -118,7 +118,7 @@ def toggle_cruise_control(state: CruiseControlState) -> float | None:
     """Hands off, or hands back on.
 
     Returns the phase the single wave should pick up at when this hands the
-    stroke back — the phase of the wave that had the most travel, which is the
+    motion back — the phase of the wave that had the most travel, which is the
     one the device was mostly following — or None when it has just taken over.
     A caller with nowhere to put that may ignore it.
     """
@@ -130,12 +130,12 @@ def toggle_cruise_control(state: CruiseControlState) -> float | None:
 
 def enable_cruise_control(state: CruiseControlState) -> None:
     """Arm it. The waves themselves are drawn on the first tick, from whatever
-    the dials say then, so arming cannot move the stroke."""
+    the dials say then, so arming cannot move the motion."""
     state.active = True
 
 
 def disable_cruise_control(state: CruiseControlState) -> float | None:
-    """Give the stroke back, and say where the single wave should pick it up."""
+    """Give the motion back, and say where the single wave should pick it up."""
     phase = (wave_stack.biggest(state.stack, state.clock).phase
              if state.stack else None)
     state.active = False
@@ -154,13 +154,13 @@ def tick_cruise_control(
 ) -> None:
     """One tick of the dice: carry the waves forward, pick up any hand on the
     dials, give every arrived ramp somewhere new to go, and write what the
-    stroke now is back to the dials for the console to read.
+    motion now is back to the dials for the console to read.
 
-    *phase* is where the stroke is, used only when this is the tick that draws
+    *phase* is where the motion is, used only when this is the tick that draws
     the waves — they all start there, so taking over cannot be felt.
 
-    Nothing moves while the stroke is not running: the wall clock keeps up so
-    resuming picks up where it left off, but the stroke's own clock — the one
+    Nothing moves while the motion is not running: the wall clock keeps up so
+    resuming picks up where it left off, but the motion's own clock — the one
     every ramp is timed against — does not.
     """
     if not cc.active:
@@ -176,7 +176,7 @@ def tick_cruise_control(
         _draw_the_waves(cc, robot_hand, phase)
 
     # A clock that stalled — the app blocked, the machine suspended — comes back
-    # owing a step no stroke should take at once, and the same cap the phase
+    # owing a step no motion should take at once, and the same cap the phase
     # puts on that is what the ramps under it get.
     step = max(0.0, min(dt, MAX_TICK_SECONDS))
     cc.clock += step
@@ -205,7 +205,7 @@ def _share(span: tuple[float, float], count: int) -> tuple[float, float]:
 
 def _settled(value: float, now: float) -> Ramp:
     """A ramp already arrived and holding *value* — what every parameter looks
-    like the moment cruise control takes the stroke over, before the first tick
+    like the moment cruise control takes the motion over, before the first tick
     gives it somewhere to go."""
     return Ramp(value, value, now, 0.0)
 
@@ -220,13 +220,13 @@ def _onward(cc: CruiseControlState, ramp: Ramp, span: tuple[float, float],
 
 def _draw_the_waves(cc: CruiseControlState, robot_hand: RobotHandState,
                     phase: float) -> None:
-    """Take the stroke over, from exactly where the dials have it.
+    """Take the motion over, from exactly where the dials have it.
 
     The dial's travel and center are divided evenly among the waves and every
     ramp is born already arrived, so the sum is the dials to the point — and
-    with every wave at the phase the stroke is already at and running the same
+    with every wave at the phase the motion is already at and running the same
     speed, the sum *is* the single wave. The rest of this tick draws them all
-    somewhere to go, and the stroke opens out from where it stood.
+    somewhere to go, and the motion opens out from where it stood.
     """
     count = cc.rng.choice(_COUNTS)
     now = cc.clock
@@ -287,7 +287,7 @@ def _hand_turns(cc: CruiseControlState, robot_hand: RobotHandState) -> None:
     """A dial that has moved since this last wrote it moved by hand — so cruise
     carries on from there rather than yanking it back.
 
-    Every dial is the whole stroke's, and the stroke is several waves, so each
+    Every dial is the whole motion's, and the motion is several waves, so each
     turn has to be spread over them: travel in proportion, so which wave is the
     big one survives the turn; center and pace by the same amount each, so their
     spacing does.

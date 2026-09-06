@@ -35,7 +35,7 @@ class TestTheTravelEnds:
 
 
 class TestTheCenterIsClampedByTheTravel:
-    """The center cannot push a stroke off the top or floor of the device, so
+    """The center cannot push a motion off the top or floor of the device, so
     the range it has is what the travel leaves it: half the travel in from each
     end.  This is the rule the two publications used to spell out separately."""
 
