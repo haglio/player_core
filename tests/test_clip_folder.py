@@ -189,3 +189,69 @@ def test_a_clip_already_gone_is_not_an_error(tmp_path: Path):
     weird = tmp_path / "weird"
 
     assert move_clip_to_weird(tmp_path / "missing.mp4", weird) is None
+
+
+class TestSeveralFoldersBrowsedAsOne:
+    """The headset browses its VR clips and the desktop's flat clips together,
+    the way the main rotation joins the VR library to the desktop's."""
+
+    @staticmethod
+    def _two_folders(tmp_path: Path) -> tuple[Path, Path]:
+        vr, flat = tmp_path / "vr_clips", tmp_path / "clips"
+        vr.mkdir()
+        flat.mkdir()
+        for name in ("alpha_180.mp4", "beta_180.mp4"):
+            (vr / name).touch()
+        for name in ("gamma.mp4", "delta.mp4"):
+            (flat / name).touch()
+        return vr, flat
+
+    def test_every_folders_clips_are_in_the_sequence(self, tmp_path: Path):
+        vr, flat = self._two_folders(tmp_path)
+
+        result = scan_clips((vr, flat), shuffle_on_load=False)
+
+        assert {p.name for p in result} == {"alpha_180.mp4", "beta_180.mp4", "gamma.mp4", "delta.mp4"}
+        assert [p.parent.name for p in result] == ["vr_clips", "vr_clips", "clips", "clips"]
+
+    def test_latest_orders_them_together(self, tmp_path: Path):
+        vr, flat = self._two_folders(tmp_path)
+        os.utime(vr / "alpha_180.mp4", (1_000, 1_000))
+        os.utime(flat / "gamma.mp4", (3_000, 3_000))
+        os.utime(vr / "beta_180.mp4", (2_000, 2_000))
+        os.utime(flat / "delta.mp4", (500, 500))
+
+        result = scan_clips((vr, flat), recent=True)
+
+        assert [p.name for p in result] == ["gamma.mp4", "beta_180.mp4", "alpha_180.mp4", "delta.mp4"]
+
+    def test_the_shuffle_is_asked_once_over_all_of_them(self, tmp_path: Path):
+        vr, flat = self._two_folders(tmp_path)
+        asked = []
+
+        scan_clips((vr, flat), shuffle_on_load=True, shuffle=lambda files: asked.append(list(files)))
+
+        assert len(asked) == 1
+        assert len(asked[0]) == 4
+
+    def test_a_folder_with_nothing_in_it_is_not_an_error(self, tmp_path: Path):
+        vr, flat = self._two_folders(tmp_path)
+        empty = tmp_path / "empty"
+        empty.mkdir()
+
+        result = scan_clips((vr, empty, flat), shuffle_on_load=False)
+
+        assert len(result) == 4
+
+    def test_no_clips_anywhere_names_every_folder(self, tmp_path: Path):
+        one, two = tmp_path / "one", tmp_path / "two"
+        one.mkdir()
+        two.mkdir()
+
+        with pytest.raises(RuntimeError, match=r"one.*two"):
+            scan_clips((one, two))
+
+    def test_one_folder_still_reads_as_one(self, tmp_path: Path):
+        vr, _flat = self._two_folders(tmp_path)
+
+        assert scan_clips(vr, shuffle_on_load=False) == scan_clips((vr,), shuffle_on_load=False)
