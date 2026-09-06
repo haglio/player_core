@@ -93,7 +93,7 @@ _DISABLED = (84, 84, 88, 255)
 # size every segment was a hard-edged pixel staircase, and a wave at low
 # amplitude — a few pixel rows tall — scrolled as chunks.  Supersampled, the
 # edges come back as intensity ramps and positions land on quarter-pixels, so
-# the line reads as a curve and slides instead of stepping.  The box is 120×96;
+# the line reads as a curve and slides instead of stepping.  The block is 120×96;
 # sixteen times the pixels is still far under a millisecond a repaint.
 _SUPERSAMPLE = 4
 
@@ -326,8 +326,8 @@ class DriveSection:
         """
         x, y, w, h = rect
         s = _SUPERSAMPLE
-        box = Image.new("RGBA", (w * s, h * s))
-        draw = ImageDraw.Draw(box)
+        block = Image.new("RGBA", (w * s, h * s))
+        draw = ImageDraw.Draw(block)
         # Opaque, and the same grey whatever is beneath it: a part-strength edge
         # takes its brightness from the video and reads as two different borders.
         draw.rectangle([0, 0, w * s - 1, h * s - 1], fill=(*_TRACK, 255),
@@ -347,7 +347,7 @@ class DriveSection:
             def at(index: float, value: float, shift: float) -> tuple[int, int]:
                 # Shifted left by the leftover knot fraction: the values never
                 # change between knots, so this shift is what slides the stable
-                # shape (PIL clips what leaves the box).
+                # shape (PIL clips what leaves the block).
                 return (round((index - shift) * pitch),
                         round((1 - value) * (h * s - 1)))
 
@@ -360,16 +360,16 @@ class DriveSection:
                 pts = [at(i, points[i], hud.slide) for i in range(start, end + 1)]
                 if run_no == len(runs) - 1 and hud.edge is not None:
                     # The knot just past the border, so the shifted line still
-                    # reaches the box's edge instead of stopping short of it.
+                    # reaches the block's edge instead of stopping short of it.
                     pts.append(at(len(points), hud.edge, hud.slide))
                 if len(pts) >= 2:
                     draw.line(pts, fill=(*trace_ink(driven), 255), width=2 * s,
                               joint="curve")
-        image.alpha_composite(box.resize((w, h), Image.LANCZOS), (x, y))
+        image.alpha_composite(block.resize((w, h), Image.LANCZOS), (x, y))
         # The device's own position, in the color of whoever is putting it there —
         # and held with the trace while nobody is, because a dot still bobbing in
         # a readout that has stopped is the last thing on it claiming to be live.
-        # Its own little supersample, since it straddles the box's edge.
+        # Its own little supersample, since it straddles the block's edge.
         dot_y = y + round((1 - hud.position / POSITION_MAX) * (h - 1))
         dot_ink = TEXT_PRIMARY if hud.live else TEXT_MUTED
         dot = Image.new("RGBA", (7 * s, 7 * s))

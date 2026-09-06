@@ -214,10 +214,10 @@ class TestPainter:
         assert held == natural
 
     def test_a_tooltip_longer_than_the_panel_is_wide_stays_on_the_panel(self):
-        """The widest tooltip on the console wants a box wider than the console
+        """The widest tooltip on the console wants to be wider than the console
         itself, so it was drawn straight off the right edge and lost its tail.
         Fitting it is player_core's job — this guards that the console hands it the
-        panel's own bounds, since anything wider puts the box back over the edge."""
+        panel's own bounds, since anything wider puts the tooltip back over the edge."""
         painter = ConsolePainter()
         hud = ConsoleHud(console=ConsoleModel(mode="video", locked=False))
         plain = _rgb(painter.bgra(hud))  # also lays the buttons out, so one can be hovered
@@ -228,11 +228,11 @@ class TestPainter:
         tipped = _rgb(ConsolePainter().bgra(hud, hover=(x + w // 2, y + h // 2)))
 
         rows, cols = np.nonzero((tipped != plain).any(axis=2))
-        one_line_box = sum(tiny.getmetrics()) + 2 * TOOLTIP_PAD
+        one_line_height = sum(tiny.getmetrics()) + 2 * TOOLTIP_PAD
 
         assert len(cols)  # it drew something
         assert cols.max() < plain.shape[1] - 1  # and stopped short of the far edge
-        assert rows.max() - rows.min() + 1 > one_line_box  # having wrapped to fit
+        assert rows.max() - rows.min() + 1 > one_line_height  # having wrapped to fit
 
     def test_the_top_line_sits_tight_to_the_top(self):
         """The old console left a tall empty band above its first line; the status
@@ -428,7 +428,7 @@ class TestPainter:
 
     def test_the_typed_glyphs_all_come_out_of_the_face_that_has_them(self):
         """Segoe UI Bold carries none of these marks and Pillow draws a ".notdef"
-        box for what a face lacks, so every glyph the console types has to be in
+        tofu for what a face lacks, so every glyph the console types has to be in
         the symbol face — the reset arrow, the newest of them, included."""
         from PIL import ImageFont
 
@@ -454,7 +454,7 @@ class TestPainter:
 
     def test_minimize_is_drawn_as_a_bar_rather_than_left_to_a_font(self):
         """Windows' minimize mark lives in Segoe MDL2 Assets, which this HUD does
-        not load, and Pillow draws a ".notdef" box for what a face lacks.  So the
+        not load, and Pillow draws a ".notdef" tofu for what a face lacks.  So the
         painter draws it: a run of ink across the middle of the button, wider than
         it is tall, which is the mark every Windows title bar uses."""
         pixels = self._button_pixels("main_minimize", ConsoleModel(mode="video"))

@@ -145,7 +145,7 @@ def _draw_speaker(draw: ImageDraw.ImageDraw, muted: bool) -> None:
     """A speaker cone at the left end, struck through while muted.
 
     Drawn rather than typed: the glyph fonts differ on the trailing waves, and a
-    missing one draws a tofu box where the clearest control on the chip should be.
+    missing one draws a tofu where the clearest control on the chip should be.
     """
     color = TEXT_MUTED if muted else TEXT_PRIMARY
     mid = CHIP_H // 2

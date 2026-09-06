@@ -337,7 +337,7 @@ def drive_readout(
         if not marks or marks[-1][1] != who:
             marks.append((index, who))
     # The knot just past the right border, so the line shifted left by ``slide``
-    # still reaches the box's edge — the same choice the loop would have made
+    # still reaches the block's edge — the same choice the loop would have made
     # for an eighty-first sample.
     edge, _who = at(
         round(anchor_ms + TRACE_SAMPLES * step), scripted[TRACE_SAMPLES])

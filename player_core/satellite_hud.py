@@ -450,7 +450,7 @@ def ellipsis_rects(
 # past the single switches rather than among them.  Minimize comes last, being
 # about none of the video at all: it acts on the window the whole panel is drawn
 # in.  That window is borderless (``satellite.app`` opens it NOFRAME so the video
-# fills its slot), so it has no title bar to carry a minimize box — the HUD is the
+# fills its slot), so it has no title bar to carry a minimize button — the HUD is the
 # only place the gesture can live.
 # Each name is also its command's verb, so "portrait_prev" and "landscape_trash"
 # fall out of the same tuple that draws them and the button can never post a

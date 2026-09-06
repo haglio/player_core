@@ -331,7 +331,7 @@ class ConsolePainter:
         """*width* holds every panel to one width, whatever is on it.  A console
         hanging in a scene as a screen of its own (FunTimeVR's) otherwise changes
         size with its contents — the genau-mode rows are narrower than the
-        video-mode ones, and a long title widens the box — and a screen that
+        video-mode ones, and a long title widens the panel — and a screen that
         grows and shrinks is a screen that moves.  The rows, the readout and
         the OSR2 line must fit, so a width narrower than them is widened, never
         clipped; the two text lines give way instead, elided to fit.  None
@@ -752,7 +752,7 @@ class ConsolePainter:
             self._minimize_icon(draw, rect, ink)
         elif len(button.glyph) == 1 and not button.glyph.isalnum():
             # A symbol needs the face that actually has it, and centring on its
-            # own ink — the font's box would drop it toward the button's floor.
+            # own ink — the font's bounds would drop it toward the button's floor.
             draw_glyph(draw, x + w / 2, y + h / 2, button.glyph, self._glyph, (*ink, 255))
         else:
             draw.text((x + w / 2, y + h / 2), button.glyph, font=self._tiny,
