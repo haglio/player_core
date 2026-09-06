@@ -171,7 +171,7 @@ def test_an_app_mark_leaves_its_counters_clear_for_the_fill_behind_it():
     pixels = np.asarray(image)
 
     assert (pixels[:, :, :3] == PINK).all(axis=2).any()   # the letter is drawn …
-    assert (pixels[:, :, :3] == 0).all(axis=2).any()      # … and its holes are not
+    assert (pixels[:, :, :3] == 0).all(axis=2).any()      # … and its counters are not
 
 
 def test_an_app_mark_fits_inside_the_button_it_is_centred_in():

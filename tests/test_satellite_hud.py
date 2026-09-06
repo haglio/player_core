@@ -161,7 +161,7 @@ def test_a_loop_near_its_end_clamps_rather_than_running_off():
 
 
 def test_an_axis_shorter_than_the_window_gives_only_what_it_has():
-    """Two seeds is a two-cell row, not a three-cell row with a hole in it — and the
+    """Two seeds is a two-cell row, not a three-cell row with a gap in it — and the
     panel is then measured around the two."""
     window = map_window(2, playing=0)
 

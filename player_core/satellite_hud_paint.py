@@ -634,7 +634,7 @@ class HudRenderer:
         cannot invent its own look.
 
         Off, the box sits on the family's own button ground -- an outline over
-        the slab and nothing else read as a hole cut in the panel rather than as
+        the slab and nothing else read as a gap cut in the panel rather than as
         the raised button every window here offers -- with an edge in the muted
         gray the rest of the chrome uses, and the MARK is full-strength -- the same way the main player's console
         draws its own.  Both were muted here, which left these panels reading as

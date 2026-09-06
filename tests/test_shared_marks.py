@@ -68,7 +68,7 @@ class TestDrawingThem:
 
     def test_a_mark_is_laid_over_what_the_button_already_painted(self):
         # It composites onto the button's fill rather than stamping a
-        # transparent square over it, which would cut a hole in the panel.
+        # transparent square over it, which would cut a gap in the panel.
         panel = Image.new("RGBA", (18, 18), (0, 90, 0, 255))
         draw_mark(panel, "reset", (0, 0, 18, 18), (255, 255, 255, 255))
         pixels = np.asarray(panel)
@@ -123,7 +123,7 @@ class TestDangerIsRed:
 
 class TestButtonGrounds:
     def test_a_resting_control_sits_on_the_familys_button_ground(self):
-        # It was an outline over the slab and nothing else, which read as a hole
+        # It was an outline over the slab and nothing else, which read as a gap
         # in the panel rather than as the raised button every window in this
         # family offers for the same act.
         from shared_ui.palette import BG_BUTTON
