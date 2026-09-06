@@ -144,7 +144,7 @@ class TestSawtoothWaveform:
 
 
 class TestWaveformContinuousPhase:
-    """All shapes must work with continuous phase > 1.0 (accumulated stroke_phase)."""
+    """All shapes must work with continuous phase > 1.0 (accumulated motion_phase)."""
 
     @pytest.mark.parametrize("shape", list(WaveformShape))
     def test_phase_1_5_matches_phase_0_5(self, shape):
@@ -492,7 +492,7 @@ def test_phase_advanced_moves_by_the_time_that_passed_and_wraps():
 
 def test_a_stalled_clock_cannot_slingshot_the_phase():
     # The app blocked, or the machine suspended: the step owed is capped, so the
-    # stroke slows through the gap instead of flinging the device across it.
+    # motion slows through the gap instead of flinging the device across it.
     from player_core.robot_hand import MAX_TICK_SECONDS, phase_advanced
 
     capped = phase_advanced(0.0, 60.0, 5.0)

@@ -112,7 +112,7 @@ class FunscriptTCodeDriver:
 
         Ahead of the whole script that is the opening action itself, so a
         playhead approaching the script's start glides to where the script
-        begins rather than skipping to where its first stroke ends.
+        begins rather than skipping to where its first motion ends.
         """
         if next_index < len(fs.actions):
             next_t, next_pos = fs.actions[next_index]
@@ -132,7 +132,7 @@ class FunscriptTCodeDriver:
 
         The script's own timing runs a beat late for that stretch — the
         alternative is arriving on time by snapping there from wherever the Robot
-        Hand's stroke had the device, which is the jolt this exists to remove.
+        Hand's motion had the device, which is the jolt this exists to remove.
         """
         self._sink.send(format_tcode_command(
             "L0", position, self._glide.interval_ms(interval_ms, now)))

@@ -37,7 +37,7 @@ which took the hand's control limits. The names moved with the responsibility:
 | `clip_advance`, `clip_sequence`, `clip_selection`, `clip_loader`, `clip_renderer` | the same names |
 
 The two class renames say what the things are beside what was already here:
-the engine is the beat the hand strokes to, not playback, and its sender is the
+the engine is the beat the hand moves to, not playback, and its sender is the
 Robot Hand's T-Code driver, the mirror of the funscript's.
 
 **Two dependencies moved with it.** cv2 did not come: `.rhcache` frames are
@@ -167,7 +167,7 @@ finding in the same bundle required it, and each keeps its mechanism:
   right — is untouched.
 - `drive_layout.py:182-189` — the `prefix` paragraph went with the parameter
   (`dead/008`); the rest of the docstring stands.
-- `direct_control.py:33` — the "A T-Code stroke position" note moved to
+- `direct_control.py:33` — the "A T-Code motion position" note moved to
   `tcode.py` with `POSITION_MAX` itself (`design/010`).
 - `wave_stack.py:142-147` — the reference to `player_core`'s own
   `_recompute_center` from inside `player_core` went (`dead/013`); what it

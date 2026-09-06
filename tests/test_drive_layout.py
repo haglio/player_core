@@ -50,7 +50,7 @@ def test_a_press_reads_the_value_drawn_under_it():
     assert layout.track_value(trace, x, y + h - 1) == 0
 
     # Amplitude is drawn out from the centre both ways, so a press is the reach
-    # needed to arrive there: half the band above a centred stroke is amp 100.
+    # needed to arrive there: half the band above a centred motion is amp 100.
     amp = tracks[layout.AMPLITUDE]
     x, y, w, h = amp.rect
     assert layout.track_value(amp, x, y) == 100

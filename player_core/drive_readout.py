@@ -1,4 +1,4 @@
-"""The drive readout itself — the stroke being sent, drawn.
+"""The drive readout itself — the motion being sent, drawn.
 
 Each axis is one object: its controls, its bar and its number together.  Centre
 sits down the left — its number, then a −/+ pair beside the dotted line it moves.
@@ -49,7 +49,7 @@ __all__ = [
 ]
 
 # What has the device, which is what the trace is a picture of.  The Robot
-# Hand's stroke and a video's funscript take turns in video mode, and with the
+# Hand's motion and a video's funscript take turns in video mode, and with the
 # OSR2 off or running itself nobody is sending anything at all.
 DRIVEN_BY_ROBOT_HAND = "robot_hand"
 DRIVEN_BY_FUNSCRIPT = "funscript"
@@ -57,7 +57,7 @@ DRIVEN_BY_NEUTRAL = "neutral"
 DRIVEN_BY_NOTHING = "nothing"
 
 # Green means the funscripts everywhere else on these HUDs — the favorites and
-# the scripts — so it means one here too; blue is the Robot Hand's stroke, the
+# the scripts — so it means one here too; blue is the Robot Hand's motion, the
 # color its bars already wear.  The neutral buffers around a handoff are a light
 # grey: the stretch belonging to neither driver wears neither driver's color.
 # Nothing driving is the same muted grey a dead control is drawn in, so the
@@ -115,10 +115,10 @@ def label_pair_x(font, key: str, *, left: int) -> tuple[int, int]:
 class DriveHud:
     """What the Robot Hand is driving the device with, ready to be drawn.
 
-    ``waveform`` is the stroke sampled left to right as 0-1 positions — the same
-    samples the device is being sent, so the trace is the motion rather than a
+    ``waveform`` is the motion sampled left to right as 0-1 positions — the same
+    samples the device is being sent, so the trace is the thing itself rather than a
     picture of it — spanning ``trace_seconds`` from now.  Whoever is driving
-    supplies them: the Robot Hand's stroke while it strokes, the funscript's shape
+    supplies them: the Robot Hand's motion while it runs, the funscript's shape
     while a funscript has the device (Nau samples that; Genau cannot see it), and
     the last shape drawn, held still, while nothing is being sent at all.  The
     ``*_at_max`` / ``*_at_min`` flags say which controls have run out of range,
@@ -136,12 +136,12 @@ class DriveHud:
     advance_interval: int = 0
     # What has the device.  Not published — Genau cannot see the handoff; whoever
     # draws the console knows it from the OSR2 state and folds it in.  Anything
-    # but the Robot Hand dims every control here, because a stroke it is not
+    # but the Robot Hand dims every control here, because a motion it is not
     # sending cannot be adjusted: pressing one during a funscript's turn is what
     # put two drivers on the device at once.
     driven: str = DRIVEN_BY_ROBOT_HAND
     # How much time the trace spans, so a funscript sampled for it lines up with
-    # the stroke it replaces.  Genau owns the number (it follows its own beats
+    # the motion it replaces.  Genau owns the number (it follows its own beats
     # per loop) and publishes it; a player with no Genau to ask keeps the default.
     trace_seconds: float = 12.0
     spd_at_max: bool = False
@@ -154,7 +154,7 @@ class DriveHud:
     # Where the trace changes hands, as ``(sample index, who drives from there)``
     # pairs — empty meaning the whole line is ``driven``'s.  The span runs forward
     # from now, so a handoff that has not happened yet is *in* it: the last of a
-    # funscript's action and the stroke waiting to take over are drawn as one line
+    # funscript's action and the motion waiting to take over are drawn as one line
     # that changes color at the join, which is the only way to see the seam
     # before it arrives rather than after it is over.
     segments: tuple[tuple[int, str], ...] = ()
@@ -164,14 +164,14 @@ class DriveHud:
     # re-reading values at the shifted positions morphed the shape at fixed
     # columns as it moved.  edge is the knot just past the right border,
     # so the shifted line still reaches it; None when nothing is shifted.
-    # Neither is published — Genau's own stroke slides by being resampled live.
+    # Neither is published — Genau's own motion slides by being resampled live.
     slide: float = 0.0
     edge: float | None = None
     # The height (0-1) Genau last let the device go at, and None while Genau
     # still holds it.  Latched by the sender at the instant it hands over —
     # BEFORE it rests its phase, which destroys the number — and cleared when it
     # takes the device back.  Published, because this is the one fact the trace
-    # cannot recompute: a paused Genau publishes the stroke it will resume with,
+    # cannot recompute: a paused Genau publishes the motion it will resume with,
     # not the position it stopped at, and reconstructing the height downstream
     # from the console's laggy flip recorded the parked floor instead.
     let_go: float | None = None
@@ -186,7 +186,7 @@ class DriveHud:
         """Whether anything at all is reaching the device.
 
         Nothing is, with the OSR2 off or running itself, and then the whole
-        readout is a picture of a stroke nobody is making: it holds still and
+        readout is a picture of a motion nobody is making: it holds still and
         every part of it goes the muted grey of a dead control, the trace and the
         bars and the numbers alike.
         """
@@ -248,9 +248,9 @@ class DriveSection:
         """
         draw = ImageDraw.Draw(image)
         g = drive_layout.geometry(x, y, _fraction(hud.center))
-        # Blue is the Robot Hand's stroke — the trace, the amplitude bar and the
+        # Blue is the Robot Hand's motion — the trace, the amplitude bar and the
         # speed bar are all the same thing — and it is the hand's *turn* that
-        # keeps them lit: a stroke it is not sending cannot be adjusted, so the
+        # keeps them lit: a motion it is not sending cannot be adjusted, so the
         # levels and their numbers go as faint as the dead marks beside them,
         # whether a funscript has the device or nothing does.  Never the
         # funscript's green: these are the hand's numbers, and a script driving
@@ -313,16 +313,16 @@ class DriveSection:
         draw.rectangle([x, y, x + filled - 1, y + h - 1], fill=color)
 
     def _wave(self, image: Image.Image, rect: Rect, hud: DriveHud) -> None:
-        """The stroke drawn as a trace, each stretch in the color of whoever
+        """The motion drawn as a trace, each stretch in the color of whoever
         drives it, with the centre marked across it and the device's position
         marked down the left edge.
 
         Rendered at _SUPERSAMPLE scale and resized down, because that is
         the whole of how the line gets its antialiasing — see the constant.
 
-        The center's ruler belongs to the Robot Hand's stroke, so a funscript's
+        The center's ruler belongs to the Robot Hand's motion, so a funscript's
         trace is drawn without it — a dotted line saying "the
-        stroke swings about here" is a claim about a stroke nobody is making.
+        motion swings about here" is a claim about a motion nobody is making.
         """
         x, y, w, h = rect
         s = _SUPERSAMPLE
@@ -378,7 +378,7 @@ class DriveSection:
 
     @staticmethod
     def _amp_bar(draw, rect: Rect, hud: DriveHud, *, color=(*BLUE, 255)) -> None:
-        """The stroke's extent as a bar: as tall as the amplitude, sitting where
+        """The motion's extent as a bar: as tall as the amplitude, sitting where
         the centre puts it, so the pair reads as the range the device travels."""
         x, y, w, h = rect
         draw.rectangle([x, y, x + w - 1, y + h - 1], fill=(*_TRACK, 255))
@@ -405,7 +405,7 @@ def drive_text(hud: DriveHud) -> str:
     lines += [f"{name}={'1' if getattr(hud, name) else '0'}" for name in _FLAGS]
     lines.append(f"shape={hud.shape}")
     # How much time the trace spans, so a funscript sampled to replace it covers
-    # the same stretch: Genau's stroke and the script have to be the same picture
+    # the same stretch: Genau's motion and the script have to be the same picture
     # for a handoff between them to read as one line changing color.
     lines.append(f"trace_seconds={hud.trace_seconds:.3f}")
     if hud.let_go is not None:

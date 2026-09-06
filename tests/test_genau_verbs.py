@@ -773,7 +773,7 @@ class TestAnUnhandledCommand:
         assert "CYCLE_PROJECTION" in caplog.text
 
     def test_a_verb_this_build_did_not_wire_is_named_too(self, caplog):
-        """SPEED_UP with no stroke state: as unanswerable as a typo."""
+        """SPEED_UP with no motion state: as unanswerable as a typo."""
         self._run("SPEED_UP", caplog)
 
         assert "SPEED_UP" in caplog.text

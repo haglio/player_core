@@ -1,21 +1,21 @@
-"""Which frame of the clip the stroke is showing.
+"""Which frame of the clip the motion is showing.
 
-Genau scrubs a looping clip with the stroke it is driving the device with. The
+Genau scrubs a looping clip with the motion it is driving the device with. The
 loop is one action and back: through its front half the clip travels from A to
 B, through its back half from B to A, and the two ends are the one place a jump
 between halves is invisible, because the frame there serves both.
 
 What the frame means is the whole question, and there are three answers. Two of
-them — timing it off the stroke's turning points, and carrying it along by how
-far the stroke has travelled — tie the frame to the motion but not to where the
+them — timing it off the motion's turning points, and carrying it along by how
+far the axis has traveled — tie the frame to the motion but not to where the
 device actually is.
 
 This module is the third answer, and the only one where the picture is *of* the
 device: the frame is where the device is. Parked shows A, fully retracted shows
-B, and everything between shows the frame that far through the half. A stroke
+B, and everything between shows the frame that far through the half. A motion
 that only ever works the middle of the axis therefore only ever shows the middle
 of the half — the extent of what you watch is the extent of what moves — and a
-stroke that turns back before an end rewinds the half it is in rather than
+motion that turns back before an end rewinds the half it is in rather than
 rolling on into the other one. The half changes only on arriving at A or B,
 where the frames coincide.
 
@@ -30,7 +30,7 @@ Inside that slice the swap waits for the turn, rather than firing on the way in.
 The two halves agree on the frame only at the very end, and disagree by however
 far short of it you are, so swapping the moment the slice is entered would step
 the picture by a frame or two. At the turn there is nothing left to be short by:
-that is the highest (or lowest) the stroke got, and it is also, exactly, the
+that is the highest (or lowest) the motion got, and it is also, exactly, the
 moment it reached the end and started back.
 """
 from __future__ import annotations
@@ -49,10 +49,10 @@ B_END = "B"
 @dataclass
 class ClipScrub:
     """Which half of the clip is showing, and what is known about the end the
-    stroke is at — enough to swap halves once a visit, at the turn."""
+    motion is at — enough to swap halves once a visit, at the turn."""
 
     back_half: bool = False
-    # The end the stroke is inside, if it is inside one, and whether this visit
+    # The end the motion is inside, if it is inside one, and whether this visit
     # has already had its swap.
     at_end: str | None = None
     spent: bool = True
@@ -64,7 +64,7 @@ class ClipScrub:
 
 
 def _turned(end: str, height: float, was: float) -> bool:
-    """Whether the stroke has just started back from *end*."""
+    """Whether the motion has just started back from *end*."""
     return height < was if end is B_END else height > was
 
 

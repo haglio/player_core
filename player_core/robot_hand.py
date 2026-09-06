@@ -1,10 +1,10 @@
-"""The Robot Hand: the stroke this family generates itself, a waveform shaped
+"""The Robot Hand: the motion this family generates itself, a waveform shaped
 by speed, amplitude and center.
 
 It is what drives the OSR2 whenever no funscript has it — the family's own auto
-mode, made so the stroke could be steered from the room instead of left to the
+mode, made so the motion could be steered from the room instead of left to the
 device's built-in one.  Genau drives it from a clip's beats and visualizes it;
-Origenerator free-runs it over slideshows of stills.  Both stroke from this one
+Origenerator free-runs it over slideshows of stills.  Both take it from this one
 arithmetic, so :func:`phase_advanced` is offered here rather than owned here:
 what advances the phase is the caller's own clock.
 
@@ -151,7 +151,7 @@ def _waveform_raw(phase: float, shape: WaveformShape) -> float:
         if frac < rise:
             return frac / rise
         return 1 - (frac - rise) / (1 - rise)
-    # SINE, and the fall-through with it: an unhandled shape strokes.
+    # SINE, and the fall-through with it: an unhandled shape still moves.
     return (1 - math.cos(2 * math.pi * phase)) / 2
 
 
@@ -181,7 +181,7 @@ def position_fraction(
     amplitude: int = 100,
     center: int = 50,
 ) -> float:
-    """Where the stroke sits at *phase*, 0 (the floor of the axis) to 1 (top).
+    """Where the motion sits at *phase*, 0 (the floor of the axis) to 1 (top).
 
     The scale-free form of :func:`phase_to_position`. Callers speaking T-Code
     want that one's 0-9999; a readout drawing a trace, or an app whose device
@@ -206,11 +206,11 @@ def phase_to_position(
 
 
 def phase_advanced(phase: float, bpm: float, dt_s: float) -> float:
-    """*phase* moved on by *dt_s* seconds of stroking at *bpm* strokes a minute.
+    """*phase* moved on by *dt_s* seconds of motion at *bpm* cycles a minute.
 
     The step is capped at :data:`MAX_TICK_SECONDS`, because a clock that stalled
     — the app blocked, the machine suspended — comes back owing a step no device
-    should be asked to take at once. The stroke slows through the gap instead of
+    should be asked to take at once. The motion slows through the gap instead of
     slingshotting across it, which is the same cap Genau's engine puts on its
     own tick.
     """
@@ -238,7 +238,7 @@ class ControlLimits:
 
 
 def control_limits(hand: RobotHandState) -> ControlLimits:
-    # The center's range is what the travel leaves it: it cannot push a stroke
+    # The center's range is what the travel leaves it: it cannot push a motion
     # off the top or floor of the device, so it stops half a travel in from
     # each end.
     half = hand.amplitude // 2

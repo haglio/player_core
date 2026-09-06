@@ -1,10 +1,10 @@
-"""The summed stroke's arithmetic — the part with no dice in it.
+"""The summed motion's arithmetic — the part with no dice in it.
 
 Two promises are what matter here. Every wave carries its own travel and its own
 center, so one can drift while another holds and the console's numbers are read
 back off what they came to rather than handed down to them. And however many
 waves there are and whatever their parameters are doing, the sum lands on the
-axis: the stroke the device is sent can never run off either end of it.
+axis: the motion the device is sent can never run off either end of it.
 """
 
 import math
@@ -55,7 +55,7 @@ def test_a_ramp_picked_up_by_hand_carries_on_from_there():
     assert moved.seconds == pytest.approx(6.0)
 
 
-def test_one_wave_is_the_plain_single_stroke():
+def test_one_wave_is_the_plain_single_motion():
     # The stack is not a different kind of motion — with one wave it is exactly
     # the wave the dials have always described.
     stack = WaveStack(waves=[Wave(shape=WaveformShape.TRIANGLE, phase=0.3,
@@ -67,8 +67,8 @@ def test_one_wave_is_the_plain_single_stroke():
 
 
 def test_every_wave_carries_its_own_center():
-    # The stroke's center is what the waves' centers came to, not something they
-    # were each handed a share of: move one wave's center and the stroke moves
+    # The motion's center is what the waves' centers came to, not something they
+    # were each handed a share of: move one wave's center and the motion moves
     # with it, while the other wave stays exactly where it was sitting.
     slow = Wave(amplitude=Ramp(20.0, 20.0), center=Ramp(20.0, 20.0))
     main = Wave(amplitude=Ramp(30.0, 30.0), center=Ramp(30.0, 30.0), phase=0.25)
@@ -82,7 +82,7 @@ def test_every_wave_carries_its_own_center():
     assert main.center.at(0.0) == 30.0  # the other wave never moved
 
 
-def test_the_summed_stroke_never_leaves_the_axis():
+def test_the_summed_motion_never_leaves_the_axis():
     # Summed carelessly, waves climb: two each swinging 50 around 50 reach 150,
     # and the device spends its evening pinned at the top.
     rng = random.Random(11)
@@ -111,21 +111,21 @@ def test_the_swing_gives_way_only_when_the_waves_ask_for_more_than_the_axis():
 
 
 def test_the_center_gives_way_when_the_swing_will_not_fit():
-    # A stroke 90 wide cannot sit at 25 with a quarter of it under the floor.
+    # A motion 90 wide cannot sit at 25 with a quarter of it under the floor.
     assert wave_stack.room(90.0, 25.0) == 45.0
     assert wave_stack.room(90.0, 75.0) == 55.0
     assert wave_stack.room(40.0, 25.0) == 25.0   # room to spare: left alone
     assert wave_stack.room(100.0, 10.0) == 50.0  # no room at all: pinned
 
 
-def test_aiming_ahead_by_nothing_is_where_the_stroke_is():
+def test_aiming_ahead_by_nothing_is_where_the_motion_is():
     rng = random.Random(2)
     stack = _stack(rng, 2)
     assert wave_stack.position_ahead(stack, 5.0, 0.0) == pytest.approx(
         wave_stack.position(stack, 5.0))
 
 
-def test_aiming_ahead_lands_where_carrying_the_stroke_forward_gets_to():
+def test_aiming_ahead_lands_where_carrying_the_motion_forward_gets_to():
     # The claim every command on the wire makes: be at this place in this long.
     stack = WaveStack(waves=[
         Wave(speed=Ramp(60.0, 60.0), amplitude=Ramp(40.0, 40.0),
@@ -161,7 +161,7 @@ def test_the_trace_is_the_motion_being_sent_not_a_drawing_of_it():
     assert not all(math.isclose(height, moving[0]) for height in moving)
 
 
-def test_the_console_is_told_the_whole_stroke_and_the_wave_you_can_feel():
+def test_the_console_is_told_the_whole_motion_and_the_wave_you_can_feel():
     stack = WaveStack(waves=[
         Wave(shape=WaveformShape.SAWTOOTH, speed=Ramp(30.0, 30.0),
              amplitude=Ramp(14.0, 14.0), center=Ramp(14.0, 14.0)),

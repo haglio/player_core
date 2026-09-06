@@ -24,7 +24,7 @@ from player_core.robot_hand_beat import BeatEngine
 
 class FakeSender:
     let_go_position = None
-    stroke_phase = 0.0
+    motion_phase = 0.0
 
     def current_position(self) -> int:
         return 5000

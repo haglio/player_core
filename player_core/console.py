@@ -449,7 +449,7 @@ def _transport_row(model: ConsoleModel) -> list[Button]:
 def _playback_speed_row(model: ConsoleModel, label_width: int = PLAYBACK_LABEL_W) -> list[Button]:
     """Nau's video playback rate: slower, the rate itself, faster.
 
-    Named, because "Speed" already means the *stroke* rate down on the drive
+    Named, because "Speed" already means the *motion* rate down on the drive
     readout and an unlabelled −/+ pair beside a number said neither.
     """
     return [
@@ -481,13 +481,13 @@ def _clip_seconds_row(model: ConsoleModel, label_width: int = PLAYBACK_LABEL_W) 
 
 
 def _control_row(model: ConsoleModel) -> list[Button]:
-    """The hands-free stroke switch, the waveform and the offset — everything
+    """The hands-free motion switch, the waveform and the offset — everything
     the Robot Hand does that is not a level on the readout."""
     return [
         Button("robot_hand_toggle_cruise", "cc",
-               "Cruise control: vary the stroke hands-free", lit=model.cruise),
+               "Cruise control: vary the motion hands-free", lit=model.cruise),
         Button("robot_hand_cycle_shape", WAVE_ICON, f"Waveform: {shape_label(model.shape)}"),
-        Button("quarter_button", _GLYPHS["quarter"], "Offset the stroke a ¼ cycle"),
+        Button("quarter_button", _GLYPHS["quarter"], "Offset the motion a ¼ cycle"),
     ]
 
 

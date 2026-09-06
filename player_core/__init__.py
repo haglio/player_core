@@ -5,7 +5,7 @@ Fun Time's satellites, its VR player and the orchestrator itself (``fun_time``);
 and Origenerator, which floats this family's console and drive readout over its
 own slideshows.  Everything they had to agree on lives here — the libmpv
 wrapper, the playlist file format, the command and paused-flag file channel, the
-status writer, the T-Code wire, the stroke, and the chrome their in-video HUDs
+status writer, the T-Code wire, the motion, and the chrome their in-video HUDs
 are drawn on — so no application has to import another application's internals
 to get it.
 

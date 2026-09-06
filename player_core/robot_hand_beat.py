@@ -1,9 +1,9 @@
-"""The beat the Robot Hand strokes to.
+"""The beat the Robot Hand moves to.
 
 A phase that runs round once per loop at a BPM, and two things that bend it:
 the BPM it is told is smoothed into rather than jumped to, and a sync pulse pulls
 the phase back onto the downbeat by a fraction of the error.  The phase is what
-the stroke is sampled at and what a clip is scrubbed by, so it is the one clock
+the motion is sampled at and what a clip is scrubbed by, so it is the one clock
 the hand and the picture share.
 
 Where the beat comes from is the caller's question, and :class:`Beat` is its
@@ -24,7 +24,7 @@ __all__ = [
 
 # The most wall time one tick may move the phase, the same cap
 # :func:`player_core.robot_hand.phase_advanced` puts on a caller's own clock: a
-# clock that stalled comes back owing a step the stroke should not take at once.
+# clock that stalled comes back owing a step the motion should not take at once.
 _MAX_TICK_SECONDS = 0.1
 
 

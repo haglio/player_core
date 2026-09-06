@@ -24,10 +24,10 @@ __all__ = [
 _BASE_THRESHOLD = 95
 _MIN_LOOP_MS = 500
 
-# How far a marked loop boundary may travel to land on a stroke base.  Snapping
-# exists so the seam falls at the foot of a stroke rather than mid-stroke, and a
-# stroke runs a few hundred milliseconds to about a second — so a base further
-# out than this belongs to some other action, not to the stroke the mark landed
+# How far a marked loop boundary may travel to land on a cycle base.  Snapping
+# exists so the seam falls at the foot of a cycle rather than mid-cycle, and a
+# cycle runs a few hundred milliseconds to about a second — so a base further
+# out than this belongs to some other action, not to the cycle the mark landed
 # in, and honoring the mark beats looping something nobody marked.
 _SNAP_TOLERANCE_MS = 1000
 
@@ -60,16 +60,16 @@ PARK_SETTLE_MS = 500
 # next one's first, at a video-mode handoff.  A couple of seconds: long enough to
 # read as a hand-over rather than a jump, short enough to leave the device
 # resting for most of the buffer.  Both directions use it — down onto the park
-# when the script takes over, up to the stroke's floor when the hand does — so the
+# when the script takes over, up to the motion's floor when the hand does — so the
 # two ramps are the same shape mirrored, which is what the buffer looks like.
 HANDOFF_RAMP_MS = 2000
 
-# How long the arbiter will wait, past a turn boundary, for a stroke whose
+# How long the arbiter will wait, past a turn boundary, for a motion whose
 # floor rests ON the park to come down and touch it — the one case where the
 # handoff needs no ramp at all: the blue swings on to its touch-down and the
 # grey runs flat from there, so the device is set down exactly where the line
-# ends.  Long enough for a slow stroke's whole cycle, short enough that a
-# stroke that never comes down cannot stall the script.  Shared with the trace,
+# ends.  Long enough for a slow motion's whole cycle, short enough that a
+# motion that never comes down cannot stall the script.  Shared with the trace,
 # which scans the same span for the same touch it draws the blue ending on.
 PARK_TOUCH_WAIT_CAP_MS = 2500
 
@@ -77,7 +77,7 @@ PARK_TOUCH_WAIT_CAP_MS = 2500
 # Not the same as the lead-in: the lead-in is long because the device needs a
 # run-up to the opening action, while at this end the script is done and only
 # has to be out of the way in time for the other driver's climb.  Sized so the
-# climb lands exactly at the far end of the quiet, where the stroke has always
+# climb lands exactly at the far end of the quiet, where the motion has always
 # resumed — the buffer keeps its shape (glide down, rest, climb) instead of
 # either being spent on nothing or eaten whole by the ramp.
 QUIET_LEAD_OUT_MS = QUIET_LEAD_IN_MS - HANDOFF_RAMP_MS
@@ -120,7 +120,7 @@ class Funscript:
         """Whether the device's plan at *position_ms* is its parked position.
 
         The neutral pose through every stretch the script is not actively
-        stroking — the quiet lead-in, interior gaps, the tail past the last
+        driving — the quiet lead-in, interior gaps, the tail past the last
         action — is the park, not wherever the last action happened to leave
         the device: it drops to park as a cluster ends and rises again
         ``_RISE_MS`` ahead of the next one, timed to meet its opening action.
@@ -134,7 +134,7 @@ class Funscript:
         prv = self._dense_times[i - 1] if i > 0 else None
         if nxt is not None and nxt - position_ms <= _RISE_MS:
             return False
-        # Between two dense actions of one cluster the device is mid-stroke;
+        # Between two dense actions of one cluster the device is mid-cycle;
         # between clusters (or past the last) it rests.
         return not (
             prv is not None and nxt is not None and nxt - prv < _QUIET_LEAD_IN_MS
@@ -234,7 +234,7 @@ class Funscript:
     def next_active_ms(self, position_ms: int) -> int | None:
         """Where scripted action next starts up after *position_ms*, else None.
 
-        The answer is the first stroke of the next dense cluster, not the buffer
+        The answer is the first cycle of the next dense cluster, not the buffer
         :meth:`is_resting_at` allows ahead of it: this is where a seek asking for
         the action lands, and landing in the buffer would leave several seconds
         of nothing on the near side of it.  A position inside a cluster is
@@ -280,7 +280,7 @@ class Funscript:
 
         One per dense cluster, opened _QUIET_LEAD_IN_MS before its first action
         and closed QUIET_LEAD_OUT_MS after its last — early enough that the next
-        driver's climb out of the park lands where the stroke has always
+        driver's climb out of the park lands where the motion has always
         resumed.
 
         Two clusters merge when their _QUIET_LEAD_IN_MS neighbourhoods overlap:
@@ -306,7 +306,7 @@ class Funscript:
         starts and stops, and None at either end means it runs past the edge of
         the video.  Whoever draws the handoff needs the *boundary*, not the
         classification: a ramp that walks the device between the park and a
-        stroke has to be anchored to the moment the device changed hands, and
+        motion has to be anchored to the moment the device changed hands, and
         anchored to anything recomputed per frame it slides around under its
         own picture.
         """
@@ -336,7 +336,7 @@ class Funscript:
 
 def snap_loop(fs: Funscript | None, in_ms: int, out_ms: int) -> tuple[int, int]:
     """The marked range as a loop: ordered, at least _MIN_LOOP_MS long, and each
-    end pulled outward onto a nearby stroke base so the seam is not mid-stroke.
+    end pulled outward onto a nearby cycle base so the seam is not mid-cycle.
 
     A boundary with no base within _SNAP_TOLERANCE_MS keeps the time it was
     marked at: unbounded, a snap walks to whatever base comes next, and on a

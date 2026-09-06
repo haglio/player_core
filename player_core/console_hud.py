@@ -154,7 +154,7 @@ def _driven_by(osr2: str) -> str:
 # The drive readout's own arrows are drawn by the readout, but the console still
 # has to know what each posts and name it on hover.
 _DRIVE_TIPS = {
-    "robot_hand_speed_down": "Stroke slower", "robot_hand_speed_up": "Stroke faster",
+    "robot_hand_speed_down": "Motion slower", "robot_hand_speed_up": "Motion faster",
     "robot_hand_amplitude_up": "Amplitude up", "robot_hand_amplitude_down": "Amplitude down",
     "robot_hand_center_up": "Center up", "robot_hand_center_down": "Center down",
 }
@@ -386,7 +386,7 @@ class ConsolePainter:
             return hud
         # Genau cannot see the handoff, so whoever draws the console tells the
         # readout who has the device.  Anything but Genau dims every control on
-        # it: adjusting a stroke Genau is not sending is what woke it against the
+        # it: adjusting a motion Genau is not sending is what woke it against the
         # funscript.
         # Not where a composed trace already names who has the device at the
         # playhead — set by the same function that drew the line under the dot —
@@ -394,20 +394,20 @@ class ConsolePainter:
         # seconds before the device is done riding the blue.
         if not (nau_displays(hud.console.mode) and drive.segments):
             drive = replace(drive, driven=_driven_by(hud.console.osr2))
-        # In video mode the readout is not a picture of the Robot Hand's stroke: it is the
+        # In video mode the readout is not a picture of the Robot Hand's motion: it is the
         # picture of the handoff, and the device changes hands inside it.  The
         # OSR2 reads "off" whenever nothing is answering on the wire, which is
         # exactly the gap between Genau letting go and the script's driver
         # picking up.
-        # Frozen ONLY when the trace is Genau's own resampled stroke — a
-        # motion nobody is sending, which must not keep animating.  A composed
+        # Frozen ONLY when the trace is Genau's own resampled motion — one
+        # nobody is sending, which must not keep animating.  A composed
         # trace (video mode) is the script's plan, computed fresh per
         # frame from the playhead: it keeps sliding through every rest and
         # every handoff whatever the OSR2 state says, because the rests ARE
         # part of what it draws — freezing it on the round-tripped "idle"/"off"
         # was the picture that stopped scrolling for the length of each gap.
         if not drive.live and not nau_displays(hud.console.mode):
-            # Genau goes on stroking regardless — it cannot see that the OSR2 is
+            # Genau goes on driving regardless — it cannot see that the OSR2 is
             # off — so both the trace and the position it publishes keep moving,
             # and either one left running is a dead readout still claiming to be
             # live.  The slide freezes with them, or the "still" trace would go on

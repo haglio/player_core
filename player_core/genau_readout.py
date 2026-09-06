@@ -93,7 +93,7 @@ class GenauReadout:
         let_go = None
         if self.tcode_sender is not None:
             position = self.tcode_sender.current_position()
-            start_phase = self.tcode_sender.stroke_phase
+            start_phase = self.tcode_sender.motion_phase
             if self.tcode_sender.let_go_position is not None:
                 # The height the device was handed over at, 0-1 — the one number
                 # the trace cannot recompute once the phase has rested.
@@ -132,10 +132,10 @@ class GenauReadout:
 
     def _trace(self, display_seconds: float, start_phase: float,
                phase_per_second: float) -> list[float]:
-        """The stroke sampled forward as the readout draws it — and as the
+        """The motion sampled forward as the readout draws it — and as the
         console draws a funscript over it, which is why both are the same span.
 
-        Cruise control's stroke cannot be sampled by walking one phase: its
+        Cruise control's motion cannot be sampled by walking one phase: its
         waves each run at their own speed, and every parameter of every one of
         them is moving over a span this long. It is walked in time instead.
         """

@@ -81,7 +81,7 @@ class Seam:
                 condemn_clip=self.selection.condemn_current,
                 robot_hand=self.direct,
                 cruise_control_state=self.cruise,
-                set_stroke_phase=self.tcode.set_stroke_phase,
+                set_motion_phase=self.tcode.set_motion_phase,
                 clip_advance_state=self.advance,
                 stop_event=self.stop_event,
                 hud=self.hud,

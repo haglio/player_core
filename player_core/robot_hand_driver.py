@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from .robot_hand import RobotHandState
 
 # The rise only exists when there is a gap to climb: at full amplitude the
-# stroke's floor IS the park, and holding the swing there would delay a resume
+# motion's floor IS the park, and holding the swing there would delay a resume
 # that already starts from where the device sits.  Two percent of the travel,
 # the trace's own park epsilon.
 _RISE_SKIP_BELOW = 200
@@ -46,24 +46,24 @@ class RobotHandTCodeDriver:
     ) -> None:
         self._sink = sink
         self._robot_hand = robot_hand
-        # Cruise control's own stroke, when it has one: several waves summed,
+        # Cruise control's own motion, when it has one: several waves summed,
         # each at its own speed, so there is no one phase to read it off — the
         # stack is asked where it is instead.  None, or holding no waves, and
-        # the stroke is the single wave this has always sent.
+        # the motion is the single wave this has always sent.
         self._cruise = cruise
         self._min_interval = min_interval
         self._last_send_time: float = 0.0
         self._last_phase: float = 0.0
-        self._stroke_phase: float = 0.0
+        self._motion_phase: float = 0.0
         # The hand does not drive the device the whole time — in video mode a
         # funscript takes it for every scripted stretch — so it comes back to a
         # device parked wherever the script left it.  Armed here and on every
         # takeover.
         self._glide = HandoffGlide()
         self._glide.begin()
-        # The rise out of the park: 1.0 is the stroke's own motion; anything
-        # lower scales the held phase-0 position, so the device climbs from the
-        # park to the stroke's floor before the swing begins — the mirror of
+        # The rise out of the park: 1.0 is the motion at its own full size;
+        # anything lower scales the held phase-0 position, so the device climbs
+        # from the park to the motion's floor before the swing begins — the mirror of
         # the glide down that ends the hand's turn.  A takeover zeroes it; the
         # clock starts on the first send after that.
         self._rise = 1.0
@@ -74,16 +74,16 @@ class RobotHandTCodeDriver:
         self._let_go_position: int | None = None
 
     def take_over(self) -> None:
-        """The hand has the device again: resume the stroke from the foot of its
+        """The hand has the device again: resume the motion from the foot of its
         swing, and ease onto it.
 
         The funscript's turn leaves the device at its park and the frozen phase
-        could be anywhere in the cycle, so the stroke resumes from the floor
-        rather than from wherever it froze.  The stroke's floor can sit well
+        could be anywhere in the cycle, so the motion resumes from the floor
+        rather than from wherever it froze.  The motion's floor can sit well
         above the park (amplitude under 100, a raised center), so the swing
         holds while the device climbs park-to-floor over
         :data:`~player_core.funscript.HANDOFF_RAMP_MS`, then begins.  A floor
-        already on the park skips the climb and the stroke starts at once.
+        already on the park skips the climb and the motion starts at once.
         """
         self.rest_at_floor()
         if self._compute_position() > _RISE_SKIP_BELOW:
@@ -96,7 +96,7 @@ class RobotHandTCodeDriver:
             # edge (the trace's descent top after an OmniPause realign) need
             # the edge to land when the realigned wave is finally live.
         else:
-            # No gap to climb — the stroke starts at once, so the publish is
+            # No gap to climb — the motion starts at once, so the publish is
             # live from this tick — and a climb this takeover interrupted must
             # not leave its fraction scaling every position from here on.
             self._rise = 1.0
@@ -107,7 +107,7 @@ class RobotHandTCodeDriver:
         """The hand is losing the device: remember where, and let go.
 
         The height the swing was at is latched BEFORE the phase rests, because
-        resting destroys it — a paused driver publishes the stroke it will
+        resting destroys it — a paused driver publishes the motion it will
         resume with, not the position it stopped at — and it is the one number
         the trace cannot recompute when it draws the descent.  Nothing is sent:
         the driver taking the device owns walking it down (its first park is
@@ -117,24 +117,24 @@ class RobotHandTCodeDriver:
         self.rest_at_floor()
 
     def rest_at_floor(self) -> None:
-        """Put the stroke at the foot of its swing — phase 0, where every
+        """Put the motion at the foot of its swing — phase 0, where every
         waveform shape's raw value is 0: the lowest point the current center
-        and amplitude reach, and the nearest the stroke comes to the park.
+        and amplitude reach, and the nearest the motion comes to the park.
 
         Called when the hand loses the device as well as when it takes it back
         (:meth:`take_over`), so the readout published through a funscript's
-        turn shows the stroke that will actually resume, not wherever the
+        turn shows the motion that will actually resume, not wherever the
         swing froze.
         """
-        self._stroke_phase = 0.0
+        self._motion_phase = 0.0
         if self._cruise is not None:
             wave_stack.rest_at_floor(self._cruise.stack)
 
-    def set_stroke_phase(self, phase: float) -> None:
+    def set_motion_phase(self, phase: float) -> None:
         """Put the single wave at *phase* — what cruise control hands back when
-        it lets go, so the stroke carries on from the wave that had most of the
+        it lets go, so the motion carries on from the wave that had most of the
         travel rather than from wherever the free-running phase had got to."""
-        self._stroke_phase = phase
+        self._motion_phase = phase
 
     def _compute_position(self) -> int:
         if self._cruise is not None and self._cruise.stack:
@@ -142,12 +142,12 @@ class RobotHandTCodeDriver:
                 self._cruise.stack, self._cruise.clock) / 100)
         if self._robot_hand is not None:
             return phase_to_position(
-                self._stroke_phase,
+                self._motion_phase,
                 shape=self._robot_hand.shape,
                 amplitude=self._robot_hand.amplitude,
                 center=self._robot_hand.center,
             )
-        return phase_to_position(self._stroke_phase)
+        return phase_to_position(self._motion_phase)
 
     def current_position(self) -> int:
         """Where the device is being sent right now — scaled by the rise while
@@ -156,8 +156,8 @@ class RobotHandTCodeDriver:
         return round(self._compute_position() * self._rise)
 
     @property
-    def stroke_phase(self) -> float:
-        return self._stroke_phase
+    def motion_phase(self) -> float:
+        return self._motion_phase
 
     @property
     def let_go_position(self) -> int | None:
@@ -180,11 +180,11 @@ class RobotHandTCodeDriver:
                 self._let_go_position = None
             self._last_phase = phase
         else:
-            # Accumulate continuous stroke phase, detecting wraps.
+            # Accumulate continuous motion phase, detecting wraps.
             delta = phase - self._last_phase
             if delta < -0.5:
                 delta += 1.0
-            self._stroke_phase += max(0.0, delta)
+            self._motion_phase += max(0.0, delta)
             self._last_phase = phase
 
         elapsed = now - self._last_send_time
@@ -192,7 +192,7 @@ class RobotHandTCodeDriver:
             return
         interval_ms = max(1, min(9999, round(elapsed * 1000)))
         position = round(self._compute_position() * self._rise)
-        # A stroke tick asks the device to be at the next phase position in the
+        # A motion tick asks the device to be at the next phase position in the
         # time one tick takes, which is right while the hand has been driving
         # all along and is a slam the moment it has just taken the device back:
         # the device is where a funscript left it, and the phase has run on
@@ -212,7 +212,7 @@ class DeviceHandoff:
 
     The hand drives the device while it is playing and lets go of it when it is
     not, and the driver is told on that edge, so it can climb out of the park or
-    walk the stroke down and rest it -- deliberately asymmetric: letting go
+    walk the motion down and rest it -- deliberately asymmetric: letting go
     latches where the device was, which is the one number the drive readout's
     trace cannot recompute afterwards.  The broker is the orchestrator's to park
     and resume.

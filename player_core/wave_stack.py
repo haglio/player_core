@@ -1,15 +1,15 @@
-"""The stroke as a sum of waves, each of them always on its way somewhere.
+"""The motion as a sum of waves, each of them always on its way somewhere.
 
 One wave is one shape at one speed, and a minute of it is the same sentence over
-and over. Several make a stroke: the main wave at the pace the dial is set to,
-and under it a much slower swell of its own size, so the place the stroke is
-working drifts from base to tip and back while the stroking goes on. Nothing
+and over. Several make a motion: the main wave at the pace the dial is set to,
+and under it a much slower swell of its own size, so the place the motion is
+working drifts from base to tip and back while the motion goes on. Nothing
 inside a wave holds still either — its speed, its travel and its center are all
 :class:`Ramp`s rather than numbers, each on its way from what it was to
 somewhere else over its own stretch of seconds, drawing a new somewhere when it
 arrives.
 
-Every wave owns its own travel and its own center outright. The stroke's travel
+Every wave owns its own travel and its own center outright. The motion's travel
 and center — the numbers on the console, the dashed line on the readout — are
 read back off the sum rather than handed down to the waves, so a wave can drift
 where it likes without asking the others. What keeps that from walking off the
@@ -51,7 +51,7 @@ __all__ = [
 class Ramp:
     """A value on its way from *start* to *end*, taking *seconds* over it.
 
-    This is the dynamic half of the stroke: a travel that is 40 going on 20
+    This is the dynamic half of the motion: a travel that is 40 going on 20
     rather than a travel that is 30. Before it begins it reads *start* and after
     it ends it reads *end*, so a finished ramp is simply a number until
     something draws it a new one.
@@ -99,7 +99,7 @@ class Wave:
 
     The center is the wave's alone. Only the sum of them is a place on the axis,
     which is what the console shows — but a wave whose center is ramping while
-    another's holds is a different stroke from one where they move together, and
+    another's holds is a different motion from one where they move together, and
     that difference is the whole reason each carries its own.
     """
 
@@ -112,9 +112,9 @@ class Wave:
 
 @dataclass
 class WaveStack:
-    """The waves that are summed to make the stroke.
+    """The waves that are summed to make the motion.
 
-    The first is the stroke's own pace — the one the speed dial is set to and
+    The first is the motion's own pace — the one the speed dial is set to and
     the one a hand on that dial is turning. The ones after it run slower, and
     are the swells that carry it about (:mod:`player_core.cruise_control` is what
     makes that so, and the console's speed and shape name that first wave
@@ -124,7 +124,7 @@ class WaveStack:
     waves: list[Wave] = field(default_factory=list)
 
     def __bool__(self) -> bool:
-        """False while there are no waves — while the stroke is the single
+        """False while there are no waves — while the motion is the single
         hand-driven one and this is not what the device is following."""
         return bool(self.waves)
 
@@ -132,7 +132,7 @@ class WaveStack:
 @dataclass
 class Fit:
     """The sum squeezed into the axis: how much every wave's travel had to give
-    (``scale``, 1.0 nearly always), and what the stroke's travel and center come
+    (``scale``, 1.0 nearly always), and what the motion's travel and center come
     to once it has."""
 
     scale: float
@@ -153,7 +153,7 @@ class Dials:
 def room(travel: float, center: float) -> float:
     """*center*, moved in far enough that a swing of *travel* still fits.
 
-    A stroke 90 wide cannot sit at 25 — a quarter of it would be under the floor
+    A motion 90 wide cannot sit at 25 — a quarter of it would be under the floor
     — so the center gives way, the same way it gives way on the dials when the
     amplitude opens past it. Here it gives way continuously, because every ramp
     under it moves on its own schedule and none waits for the others.
@@ -165,10 +165,10 @@ def room(travel: float, center: float) -> float:
 def fit(stack: WaveStack, now: float) -> Fit:
     """The waves added up and made to land on the axis.
 
-    Their travels sum to the stroke's travel and their centers to its center —
+    Their travels sum to the motion's travel and their centers to its center —
     that way round, so no wave has to be told where to sit. Only when the sum
     asks for more swing than the axis has does anything give: every travel is
-    scaled by the same fraction, which shrinks the stroke without changing which
+    scaled by the same fraction, which shrinks the motion without changing which
     wave is the big one.
     """
     travel = sum(wave.amplitude.at(now) for wave in stack.waves)
@@ -180,7 +180,7 @@ def fit(stack: WaveStack, now: float) -> Fit:
 
 def position(stack: WaveStack, now: float,
              phases: list[float] | None = None) -> float:
-    """Where the summed stroke sits at *now*, 0-100.
+    """Where the summed motion sits at *now*, 0-100.
 
     *phases* is where each wave is, defaulting to where they actually are — the
     projections below pass their own rather than moving the waves to ask.
@@ -197,7 +197,7 @@ def position(stack: WaveStack, now: float,
 
 
 def advance(stack: WaveStack, now: float, dt_s: float) -> None:
-    """Carry every wave's phase forward by *dt_s* seconds of stroking."""
+    """Carry every wave's phase forward by *dt_s* seconds of motion."""
     for wave in stack.waves:
         wave.phase = phase_advanced(
             wave.phase, bpm_for_speed(wave.speed.at(now)), dt_s)
@@ -246,12 +246,12 @@ def biggest(stack: WaveStack, now: float) -> Wave:
 
 
 def dials(stack: WaveStack, now: float) -> Dials:
-    """What the console reads while the stack has the stroke.
+    """What the console reads while the stack has the motion.
 
     The travel and the center are read off the sum, so the readout's bar and its
     dashed line are the envelope the device is really working in rather than
     anything the waves were told. Speed and shape are the main wave's: there is
-    no single number for two speeds at once, and the pace of the stroke you set
+    no single number for two speeds at once, and the pace of the motion you set
     is the one a reader is asking after — the swells under it are slow by
     construction, and naming whichever wave is momentarily the biggest would
     have the number stepping between them while the motion did nothing.
@@ -263,11 +263,11 @@ def dials(stack: WaveStack, now: float) -> Dials:
 
 
 def rest_at_floor(stack: WaveStack) -> None:
-    """Put every wave at phase 0 — the foot of the stroke's swing.
+    """Put every wave at phase 0 — the foot of the motion's swing.
 
     Phase 0 is where every waveform shape's raw value is 0, so all of them at
     once is the lowest point the stack's travel and center reach: the nearest
-    the stroke comes to the device's park, and where it should resume from after
+    the motion comes to the device's park, and where it should resume from after
     something else has had the device.
     """
     for wave in stack.waves:
