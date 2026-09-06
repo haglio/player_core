@@ -78,14 +78,14 @@ class RobotHandTCodeDriver:
         swing, and ease onto it.
 
         The funscript's turn leaves the device at its park and the frozen phase
-        could be anywhere in the cycle, so the stroke resumes from the bottom
+        could be anywhere in the cycle, so the stroke resumes from the floor
         rather than from wherever it froze.  The stroke's floor can sit well
         above the park (amplitude under 100, a raised center), so the swing
         holds while the device climbs park-to-floor over
         :data:`~player_core.funscript.HANDOFF_RAMP_MS`, then begins.  A floor
         already on the park skips the climb and the stroke starts at once.
         """
-        self.rest_at_bottom()
+        self.rest_at_floor()
         if self._compute_position() > _RISE_SKIP_BELOW:
             self._rise = 0.0
             self._rise_started = None
@@ -114,9 +114,9 @@ class RobotHandTCodeDriver:
         the handoff ramp).
         """
         self._let_go_position = self.current_position()
-        self.rest_at_bottom()
+        self.rest_at_floor()
 
-    def rest_at_bottom(self) -> None:
+    def rest_at_floor(self) -> None:
         """Put the stroke at the foot of its swing — phase 0, where every
         waveform shape's raw value is 0: the lowest point the current center
         and amplitude reach, and the nearest the stroke comes to the park.
@@ -128,7 +128,7 @@ class RobotHandTCodeDriver:
         """
         self._stroke_phase = 0.0
         if self._cruise is not None:
-            wave_stack.rest_at_bottom(self._cruise.stack)
+            wave_stack.rest_at_floor(self._cruise.stack)
 
     def set_stroke_phase(self, phase: float) -> None:
         """Put the single wave at *phase* — what cruise control hands back when

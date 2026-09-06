@@ -133,7 +133,7 @@ class TestTakingOver:
         assert sink.closed is True
 
 
-class TestRestingAtTheBottom:
+class TestRestingAtTheFloor:
     """The funscript's turn leaves the device at its park, so the stroke resumes
     from the foot of its swing — phase 0, where every shape's raw value is 0 —
     instead of lunging to wherever the swing happened to freeze."""
@@ -150,14 +150,14 @@ class TestRestingAtTheBottom:
 
     def test_losing_the_device_rests_the_published_stroke_too(self):
         """The readout Nau draws through a funscript's turn samples forward from
-        ``stroke_phase`` — rested at the bottom the moment Genau loses the
+        ``stroke_phase`` — rested at the floor the moment Genau loses the
         device, so the waiting stroke on screen is the one that will resume."""
         sink = FakeTCodeSink()
         sender = RobotHandTCodeDriver(sink, min_interval=0.0)
         sender.maybe_send(phase=0.5, now=1.0)
         assert sender.current_position() == 9999   # frozen at the tip without this
 
-        sender.rest_at_bottom()
+        sender.rest_at_floor()
 
         assert sender.stroke_phase == 0.0
         assert sender.current_position() == 0

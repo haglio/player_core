@@ -118,7 +118,7 @@ def _ink_center(size: int, paint) -> tuple[float, float]:
 
 
 def test_a_glyph_is_centred_on_its_ink_not_on_the_fonts_box():
-    """``anchor="mm"`` centres the font's box, whose bottom is the descender line
+    """``anchor="mm"`` centres the font's box, whose lower edge is the descender line
     however short the glyph — which is why every icon button drew its mark low.
     Centring the ink puts it in the middle of the button, for the transport
     arrows, the padlock and the bare minus sign alike."""

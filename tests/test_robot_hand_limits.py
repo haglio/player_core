@@ -23,7 +23,7 @@ class TestTheTravelEnds:
 
         assert (limits.amp_at_max, limits.amp_at_min) == (True, False)
 
-    def test_a_travel_at_the_bottom_dims_only_the_down_arrow(self):
+    def test_a_travel_at_the_floor_dims_only_the_down_arrow(self):
         limits = _limits(amplitude=0)
 
         assert (limits.amp_at_max, limits.amp_at_min) == (False, True)
@@ -35,7 +35,7 @@ class TestTheTravelEnds:
 
 
 class TestTheCenterIsClampedByTheTravel:
-    """The center cannot push a stroke off the top or bottom of the device, so
+    """The center cannot push a stroke off the top or floor of the device, so
     the range it has is what the travel leaves it: half the travel in from each
     end.  This is the rule the two publications used to spell out separately."""
 
@@ -53,11 +53,11 @@ class TestTheCenterIsClampedByTheTravel:
     def test_the_range_is_half_the_travel_in_from_each_end(
         self, amplitude, at_max, at_min,
     ):
-        top = _limits(amplitude=amplitude, center=at_max, intended_center=at_max)
-        bottom = _limits(amplitude=amplitude, center=at_min, intended_center=at_min)
+        ceiling = _limits(amplitude=amplitude, center=at_max, intended_center=at_max)
+        floor = _limits(amplitude=amplitude, center=at_min, intended_center=at_min)
 
-        assert top.ctr_at_max is True
-        assert bottom.ctr_at_min is True
+        assert ceiling.ctr_at_max is True
+        assert floor.ctr_at_min is True
 
     def test_a_center_inside_that_range_dims_neither(self):
         limits = _limits(amplitude=60, center=50, intended_center=50)

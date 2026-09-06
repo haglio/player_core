@@ -236,10 +236,10 @@ def test_thumbnail_rects_positions_the_map_and_drops_overflow():
     """The corner anchors the map; seeds walk right and actions walk down, each
     dropped (not clipped) when it would cross the panel edge."""
     corner, seeds, actions = thumbnail_rects(
-        map_x=100, map_y=50, right=300, bottom=280,
+        map_x=100, map_y=50, right=300, lower=280,
         corner_size=(30, 54),
         seed_sizes=[(30, 54), (30, 54), (200, 54)],   # the third would cross right=300
-        action_sizes=[(30, 54), (30, 200)],           # the second would cross bottom=280
+        action_sizes=[(30, 54), (30, 200)],           # the second would cross lower=280
     )
 
     assert corner == (100, 50, 30, 54)
@@ -253,7 +253,7 @@ def test_the_action_column_hangs_under_the_playing_seed():
     """Mid-loop the column is the playing seed's own acts, so its cells sit under
     the lit cell — under the corner they would read as the corner seed's."""
     corner, seeds, actions = thumbnail_rects(
-        map_x=100, map_y=50, right=400, bottom=400,
+        map_x=100, map_y=50, right=400, lower=400,
         corner_size=(30, 54),
         seed_sizes=[(40, 54), (30, 54)],
         action_sizes=[(30, 54), (30, 54)],
@@ -274,7 +274,7 @@ def test_the_column_stays_under_the_corner_off_the_seed_row():
     keeps its usual place under the corner."""
     for playing in (("corner", 0), ("action", 0)):
         _corner, _seeds, actions = thumbnail_rects(
-            map_x=100, map_y=50, right=400, bottom=400,
+            map_x=100, map_y=50, right=400, lower=400,
             corner_size=(30, 54), seed_sizes=[(30, 54)], action_sizes=[(30, 54)],
             playing=playing,
         )
@@ -283,7 +283,7 @@ def test_the_column_stays_under_the_corner_off_the_seed_row():
 
 def test_a_playing_seed_that_was_not_drawn_leaves_the_column_on_the_corner():
     _corner, _seeds, actions = thumbnail_rects(
-        map_x=100, map_y=50, right=400, bottom=400,
+        map_x=100, map_y=50, right=400, lower=400,
         corner_size=(30, 54), seed_sizes=[(30, 54)], action_sizes=[(30, 54)],
         playing=("seed", 5),
     )
@@ -300,7 +300,7 @@ def test_the_columns_chrome_follows_it_under_the_playing_seed():
     actions = [(40, 42, 24, 20)]
 
     loop_action, _loop_seed = loop_button_rects(
-        corner, [column], actions, right=300, bottom=300, column_rect=column)
+        corner, [column], actions, right=300, lower=300, column_rect=column)
     assert loop_action == (40, 42 + 20 + MAP_GAP, 24, LOOP_BTN)
 
     box = looped_group_box(corner, [column], actions, "action", column_rect=column)
@@ -326,7 +326,7 @@ def test_map_reach_covers_a_column_hanging_past_the_rows_end():
 def test_loop_button_rects_places_below_the_column_and_right_of_the_row():
     corner = (10, 10, 20, 20)
     loop_action, loop_seed = loop_button_rects(
-        corner, [(35, 10, 20, 20)], [(10, 35, 20, 20)], right=200, bottom=200,
+        corner, [(35, 10, 20, 20)], [(10, 35, 20, 20)], right=200, lower=200,
     )
 
     assert loop_action == (10, 35 + 20 + MAP_GAP, 20, LOOP_BTN)   # below the lowest action
@@ -334,9 +334,9 @@ def test_loop_button_rects_places_below_the_column_and_right_of_the_row():
 
     # A panel too small for either drops it rather than overflowing.
     assert loop_button_rects(
-        corner, [(35, 10, 20, 20)], [(10, 35, 20, 20)], right=70, bottom=70,
+        corner, [(35, 10, 20, 20)], [(10, 35, 20, 20)], right=70, lower=70,
     ) == (None, None)
-    assert loop_button_rects(None, [], [], right=200, bottom=200) == (None, None)
+    assert loop_button_rects(None, [], [], right=200, lower=200) == (None, None)
 
 
 def test_expand_button_sits_in_the_row_right_of_the_seed_loop_button():
