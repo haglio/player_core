@@ -15,7 +15,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 __all__ = [
-    "HANDOFF_RAMP_MS",
     "PARK_TOUCH_WAIT_CAP_MS",
     "Funscript",
     "load",

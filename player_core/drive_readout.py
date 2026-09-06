@@ -41,8 +41,6 @@ from .hud_panel import (
 from .robot_hand import POSITION_MAX
 
 __all__ = [
-    "DRIVEN_BY_FUNSCRIPT",
-    "DRIVEN_BY_NEUTRAL",
     "DRIVEN_BY_NOTHING",
     "DRIVEN_BY_ROBOT_HAND",
     "DriveHud",
