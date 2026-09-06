@@ -135,7 +135,7 @@ class TestHowOftenTheConsoleIsReRead:
         assert shown[-1].console.mode == "video"
 
     def test_a_standalone_genau_names_itself(self, tmp_path):
-        """No file behind it, and the panel still draws sensibly."""
+        """No file backing it, and the panel still draws sensibly."""
         shown = []
 
         _readout(set_console=shown.append).update(1.0)

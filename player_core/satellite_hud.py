@@ -814,7 +814,7 @@ def split_acts(name: str) -> list[str]:
     """*name* as the separate acts it carries, in order and unnormalized.
 
     Commas separate acts ("Alpha, Theta Motion"), and a leading modifier is an act
-    of its own.  The single split behind both the drawing and the filter comparisons,
+    of its own.  The single split backing both the drawing and the filter comparisons,
     so a row cannot be lit act by act along one seam and drawn along another.
     """
     acts: list[str] = []

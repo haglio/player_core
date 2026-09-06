@@ -15,7 +15,7 @@ is here instead, so the three say what they mean and there is one place a
 fourth would come to.
 
 Holding also means letting go: a session runs for hours and every turn it
-approaches leaves an entry behind it, so the ones the playhead is long past are
+approaches leaves an entry in place, so the ones the playhead is long past are
 dropped as new ones arrive.
 """
 from __future__ import annotations
@@ -27,7 +27,7 @@ from .drive_readout import DriveHud
 __all__: list[str] = []
 
 # How many entries make it worth scanning for ones to drop.  Housekeeping, not
-# a rule about what is true: a turn just behind the playhead is still the one a
+# a rule about what is true: a turn just before the playhead is still the one a
 # status read lands on, so nothing is dropped while there is no crowd.
 _CROWDED = 16
 

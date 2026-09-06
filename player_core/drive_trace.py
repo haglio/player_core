@@ -271,7 +271,7 @@ def drive_readout(
             # Genau's stretch.  It opens with the climb out of the park.
             if stroke is None:
                 # Nobody is going to take these stretches: nothing published
-                # means no Genau behind the screen, and the script's driver
+                # means no Genau backing the screen, and the script's driver
                 # rests the device through them.
                 return 0.0, DRIVEN_BY_NOTHING
             began, ends_at = script.turn_bounds_at(sample_ms)

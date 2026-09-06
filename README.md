@@ -1,6 +1,6 @@
 # player_core
 
-The shared playback core behind the video players in this project family.
+The shared playback core backing the video players in this project family.
 
 Six players and hosts across three repos read it. Four of them embed a video
 player and are driven by an orchestrator through files on disk; the other two

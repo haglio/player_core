@@ -389,7 +389,7 @@ class TestDimmedForTheScript:
 
     def test_the_dimmed_marks_are_dark_not_translucent(self):
         """"Very dimmed" is the ask, and the first try got it backwards: muted
-        ink at part alpha let the video behind shine through, so the "disabled"
+        ink at part alpha let the video beneath shine through, so the "disabled"
         controls glowed bright white.  Disabled ink is a dark grey laid down
         opaque — darker than the muted grey a live readout's key labels wear —
         so it reads as switched off over any video."""

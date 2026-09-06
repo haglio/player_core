@@ -424,7 +424,7 @@ def _transport_row(model: ConsoleModel) -> list[Button]:
         # The narrowing switches sit straight after the lock, in the order the
         # other branch puts them in: both say what there is to step through
         # rather than acting on what is on screen or on where it ends.  F leads,
-        # holding the place it holds over there, and the rest group behind it.
+        # holding the place it holds over there, and the rest group after it.
         # Each appears only where the host has that filter at all — see
         # ConsoleModel.favorites_filter and .enhanced_filter.
         *([] if model.favorites_filter is None else [

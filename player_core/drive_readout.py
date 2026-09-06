@@ -328,7 +328,7 @@ class DriveSection:
         s = _SUPERSAMPLE
         box = Image.new("RGBA", (w * s, h * s))
         draw = ImageDraw.Draw(box)
-        # Opaque, and the same grey whatever is behind it: a part-strength edge
+        # Opaque, and the same grey whatever is beneath it: a part-strength edge
         # takes its brightness from the video and reads as two different borders.
         draw.rectangle([0, 0, w * s - 1, h * s - 1], fill=(*_TRACK, 255),
                        outline=(*TEXT_MUTED, 255), width=s)

@@ -126,7 +126,7 @@ class TestStatusWriter:
     def test_an_unwritable_path_is_reported_not_raised(self, tmp_path):
         # A locked or vanished status file must never take down a run loop; the
         # next tick will try again — and a publish that never landed leaves
-        # nothing behind, not even the file it staged.
+        # nothing on disk, not even the file it staged.
         status_path = tmp_path / "status.txt"
         status_path.mkdir()  # a directory where the file should be
         writer = StatusWriter(status_path, _fields, now_source=lambda: 0.0)

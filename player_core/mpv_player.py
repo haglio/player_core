@@ -107,7 +107,7 @@ class _MpvControl:
 
     Subclasses construct ``self._mpv``; every method here only drives it, so
     the session classes (Nau's, a satellite's, fun_time_vr's roles) can hold
-    either player without knowing which rendering path is behind it.
+    either player without knowing which rendering path is backing it.
     """
 
     _mpv: object

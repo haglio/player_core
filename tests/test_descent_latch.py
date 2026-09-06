@@ -63,16 +63,16 @@ class TestWhatIsHeldForATurn:
         assert latch.choice_for(TURN_MS) is None
 
 
-class TestTurnsThePlayheadHasLeftBehind:
+class TestTurnsThePlayheadHasPassed:
     """A session runs for hours and every turn it approaches leaves an entry,
     so the ones it is long past are dropped.  Only once there are enough to be
     worth scanning: this is housekeeping, not a rule about what is true, and a
-    turn just behind the playhead is still the one a status read lands on.
+    turn just before the playhead is still the one a status read lands on.
     """
 
     CROWD = range(1_000, 18_000, 1_000)  # 17 turns: one more than it takes
 
-    def test_a_turn_left_behind_goes_once_there_are_enough_to_scan(self):
+    def test_a_turn_left_over_goes_once_there_are_enough_to_scan(self):
         latch = DescentLatch()
 
         for turn in self.CROWD:

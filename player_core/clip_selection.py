@@ -83,7 +83,7 @@ class ClipSelectionController:
         self.loader.request_clip_load(path)
 
     def condemn_current(self) -> bool:
-        """Condemn the clip on screen and move on to the one behind it.
+        """Condemn the clip on screen and move on to the one after it.
 
         Unlike :meth:`step` there is nothing to defer to: the condemned clip is
         on its way out of the folder, so the successor takes the screen at once

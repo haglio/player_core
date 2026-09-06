@@ -212,7 +212,7 @@ class TestReorder:
     def test_takes_the_head_of_the_new_order_at_once(self):
         """Never deferred the way a step is: the point of asking for an order is
         to be shown what it puts first, so the head takes the screen and decodes
-        there rather than behind the clip that was up."""
+        there rather than after the clip that was up."""
         controller, _store, loader, renderer, notifier = _build_controller("a.mp4", "b.mp4")
         renderer.current_clip_path = Path("a.mp4")
 

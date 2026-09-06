@@ -294,7 +294,7 @@ def test_a_playing_seed_that_was_not_drawn_leaves_the_column_on_the_corner():
 def test_the_columns_chrome_follows_it_under_the_playing_seed():
     """The loop button below the column, the loop box around it and its "…" slots
     all stand on the cell the column hangs under, so the column's chrome cannot
-    stay behind on an empty corner while the column sits mid-row."""
+    stay put on an empty corner while the column sits mid-row."""
     corner = (10, 10, 20, 20)
     column = (40, 10, 24, 20)
     actions = [(40, 42, 24, 20)]

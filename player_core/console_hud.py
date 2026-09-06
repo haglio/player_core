@@ -9,7 +9,7 @@ Its top block is Nau's own answer to "what am I playing?" — the status line (t
 length mode, or the compilation and your place in it) beside the active-player
 dot, with the file on screen as a muted line under it, the same shape each
 satellite's HUD leads with.  Both are empty in genau mode, where there is no Nau
-playlist behind the screen.  Everything else is the console the orchestrator
+playlist backing the screen.  Everything else is the console the orchestrator
 publishes (:mod:`player_core.console`) plus the Robot Hand's drive readout
 (:mod:`player_core.drive_readout`) with its own controls.
 
@@ -172,7 +172,7 @@ class ModeHud:
 
     *video* is the name of the clip on screen, drawn as the muted line beneath the
     status.  The rest is what the status line is built from:
-    *length_mode* is the library's filter, empty when there is no library behind
+    *length_mode* is the library's filter, empty when there is no library backing
     the playlist; *compilation* is the volume holding the playlist, with
     *position*/*total* placing the current video in it; *f_mode* is Fun Time's
     filter over whichever of those runs.  All empty in genau mode, where there is
@@ -306,7 +306,7 @@ class ConsoleHud:
 
         Two players fill it and neither can fill it at once: Nau narrows a
         library by length, and Origenerator keeps only the pictures it has
-        enhanced — a genau-mode console with no Nau playlist behind it, so the
+        enhanced — a genau-mode console with no Nau playlist backing it, so the
         length mode is empty there by construction.  One slot rather than two
         because a reader glancing between screens is reading one sentence, and
         the answer to "what is left" is one phrase wherever it is asked.
@@ -438,7 +438,7 @@ class ConsolePainter:
         as posting: :meth:`drag_to` then goes on setting that level as the pointer
         moves, so a bar can be dragged and not only clicked.  Anything already
         held is let go first, so a press on an ordinary button never leaves a band
-        latched behind it.
+        still latched.
         """
         self.release()
         px, py = self._local(mx, my)
@@ -734,7 +734,7 @@ class ConsolePainter:
                                fill=(*fill, 255) if fill else None,
                                outline=(*edge, 255), width=1)
         # The mark stays white over a colored fill and reverses out of a white
-        # one, so a control that changes state changes only what is behind its
+        # one, so a control that changes state changes only what is beneath its
         # mark — the way the Dash's mic keeps its white glyph while the panel
         # under it goes blue.  The gray grounds are both dark, so a mark on
         # either keeps its own ink rather than reversing -- only a light fill

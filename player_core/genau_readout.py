@@ -75,7 +75,7 @@ class GenauReadout:
             if published is not None:
                 self._console_model = published
         # The same top block the video player draws: the status line, and the
-        # clip on screen under it.  Genau has no playlist behind its screen and
+        # clip on screen under it.  Genau has no playlist backing its screen and
         # so none of the modes a video player reports — its own two states, the
         # lock and the pace an unheld clip moves on at, are read off the console
         # and the drive readout by ConsoleHud.status_line, so there is nothing to

@@ -354,7 +354,7 @@ def snap_loop(fs: Funscript | None, in_ms: int, out_ms: int) -> tuple[int, int]:
 
 
 def _snap_back(bases: list[int], boundary_ms: int) -> int:
-    """*boundary_ms* pulled back to the latest base close enough behind it."""
+    """*boundary_ms* pulled back to the latest base close enough before it."""
     i = bisect.bisect_right(bases, boundary_ms)
     if i and boundary_ms - bases[i - 1] <= _SNAP_TOLERANCE_MS:
         return bases[i - 1]
