@@ -110,7 +110,7 @@ def test_parse_hud_defaults_an_empty_panel():
     assert model.playing == ("corner", 0)
 
 
-def test_parse_hud_rejects_junk():
+def test_parse_hud_rejects_garbage():
     """A half-written file (fun_time writes it while the player reads) must not
     crash the player — it just keeps the HUD it already had."""
     assert parse_hud('{"side": "portrait"') is None
