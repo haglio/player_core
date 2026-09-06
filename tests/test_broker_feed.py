@@ -21,7 +21,7 @@ class TestBrokerFeed:
         """The listener's state is the read surface, not a log of the wire.
 
         Genau acts on three verbs. The broker also sends SHOW, HIDE, BEATS,
-        STROKE and PATTERN, and fields once existed to hold all of them --
+        MOTION and PATTERN, and fields once existed to hold all of them --
         copied into the snapshot every tick and read by nobody. Naming the
         set here is what stops a write-only field growing back.
         """
@@ -155,11 +155,11 @@ class TestActingOnOneLine:
         assert self._applied("auto 1").auto_active is True
 
     @pytest.mark.parametrize("line", [
-        "SHOW", "HIDE", "BEATS 4", "STROKE twist", "PATTERN 2.5", "UNKNOWN payload",
+        "SHOW", "HIDE", "BEATS 4", "MOTION twist", "PATTERN 2.5", "UNKNOWN payload",
         "", "   ",
     ])
     def test_a_verb_genau_does_not_act_on_leaves_the_state_where_it_was(self, line):
-        """The broker still sends SHOW, HIDE, BEATS, STROKE and PATTERN.
+        """The broker still sends SHOW, HIDE, BEATS, MOTION and PATTERN.
 
         Genau acts on AUTO, BPM and SYNC. The other five arrive and fall
         through exactly as an unrecognized line does -- no crash, nothing
