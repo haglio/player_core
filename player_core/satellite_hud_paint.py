@@ -628,7 +628,7 @@ class HudRenderer:
             row(ay, ah, model.actions[i].label if i < len(model.actions) else "")
 
     def _button_square(self, draw, rect: Rect, *, on: bool,
-                    on_color=BG_BUTTON_ACTIVE, ink=None) -> tuple[int, int, int, int]:
+                       on_color=BG_BUTTON_ACTIVE, ink=None) -> tuple[int, int, int, int]:
         """The panel's square button, and the color to draw its mark in — the
         single button shape every control on this HUD is drawn with, so a new one
         cannot invent its own look.
@@ -738,7 +738,7 @@ class HudRenderer:
             # blue the console's Video/Genau row lights, because it is the
             # same question asked about the other half of the room.
             ink = self._button_square(draw, rect, on=action == lit_action,
-                                   on_color=BLUE)
+                                      on_color=BLUE)
             bx, by, bw, bh = rect
             draw.text((bx + bw / 2, by + bh / 2), labels[action],
                       font=self._tiny, anchor="mm", fill=ink)
@@ -750,8 +750,8 @@ class HudRenderer:
 
         The lock, F-mode and the enhanced-only switch are states, so they light
         while they are on; the others do a thing rather than be in one.  The
-        star is a readout, not a button, so it gets no button: a button would invite a
-        press that does nothing.
+        star is a readout, not a button, so it gets no square: a square would
+        invite a press that does nothing.
 
         Both lit states are green rather than white, and so is the star: locking a
         clip puts it in the favorites and F-mode is the filter over them, so all
@@ -807,7 +807,7 @@ class HudRenderer:
             kind: (
                 button,
                 looped_group_rect(corner_rect, seed_rects, action_rects, kind,
-                                 reserve=ELLIPSIS_ROOM, column_rect=column_rect),
+                                  reserve=ELLIPSIS_ROOM, column_rect=column_rect),
             )
             for kind, button in (("action", loop_action_rect), ("seed", loop_seed_rect))
         }

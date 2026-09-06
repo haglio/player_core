@@ -419,7 +419,7 @@ class TestPainter:
             cell = (xs.max() - xs.min() + 1) / 5
             drawn = [
                 "".join("#" if magenta[int(ys.min() + (r + 0.5) * cell),
-                                    int(xs.min() + (c + 0.5) * cell)] else "."
+                                       int(xs.min() + (c + 0.5) * cell)] else "."
                         for c in range(5))
                 for r in range(5)
             ]
@@ -493,9 +493,9 @@ class TestPainter:
         and the whole button once it is on."""
         amber = (255, 200, 120)
         off = self._button_pixels("genau_filter_enhanced",
-                               ConsoleModel(mode="genau", enhanced_filter=False))
+                                  ConsoleModel(mode="genau", enhanced_filter=False))
         on = self._button_pixels("genau_filter_enhanced",
-                              ConsoleModel(mode="genau", enhanced_filter=True))
+                                 ConsoleModel(mode="genau", enhanced_filter=True))
 
         assert (np.abs(off.astype(int) - amber).sum(axis=2) < 30).any()  # the mark
         shades, counts = np.unique(on.astype(int).reshape(-1, 3), axis=0,

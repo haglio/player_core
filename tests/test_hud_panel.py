@@ -120,7 +120,7 @@ def _ink_center(size: int, paint) -> tuple[float, float]:
 def test_a_glyph_is_centered_on_its_ink_not_on_the_fonts_bounds():
     """``anchor="mm"`` centers the font's bounds, whose lower edge is the descender line
     however short the glyph — which is why every icon button drew its mark low.
-    Centring the ink puts it in the middle of the button, for the transport
+    Centering the ink puts it in the middle of the button, for the transport
     arrows, the padlock and the bare minus sign alike."""
     font = load_font(20, "seguisym.ttf")
 
