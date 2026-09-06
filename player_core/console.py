@@ -233,7 +233,7 @@ ENHANCE_FILTER_ICON = shared_mark("enhance_filter")
 WAVE_ICON = shared_mark("wave")
 
 # The two controls that stand for an app rather than for an action, and so wear
-# that app's mark: the pink five-by-five letter its .ico carries.  The broker's
+# that app's mark: the magenta five-by-five letter its .ico carries.  The broker's
 # "B" sits on blue while the service is up and red while it is down; F-mode's "F"
 # on the green the funscripts own.  These are app marks rather than family ones,
 # so they keep their own markers rather than naming a shared glyph.

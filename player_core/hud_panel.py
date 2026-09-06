@@ -18,7 +18,7 @@ from shared_ui.icons_pil import paste_glyph
 # The palette is shared_ui's, read without Qt: shared_ui.palette imports
 # nothing, and these HUDs are Pillow.  Every HUD painter reads it there too,
 # so a player reaching for its own blue has the family's to reach for.
-from shared_ui.palette import BG_PRIMARY, BORDER_PANEL, PINK, TEXT_MUTED, TEXT_PRIMARY, WHITE
+from shared_ui.palette import BG_PRIMARY, BORDER_PANEL, MAGENTA, TEXT_MUTED, TEXT_PRIMARY, WHITE
 
 __all__: list[str] = []  # package-internal: no sibling reaches anything here
 
@@ -165,7 +165,7 @@ def draw_active_dot(draw: ImageDraw.ImageDraw, x: int, y: int, active: bool) -> 
                  fill=(*(WHITE if active else TEXT_MUTED), 255))
 
 
-# The app marks, cell by cell.  Every icon in this family is a pink letter laid
+# The app marks, cell by cell.  Every icon in this family is a magenta letter laid
 # out on a five-by-five grid — the shape each app's own .ico carries — and a HUD
 # that wants one draws it from the grid rather than loading the file: the .ico
 # files live in the apps' own repos, and no app here may reach into another's.
@@ -193,7 +193,7 @@ def draw_icon(draw: ImageDraw.ImageDraw, rect: tuple[int, int, int, int],
             if painted != "#":
                 continue
             cx, cy = left + column * cell, top + row * cell
-            draw.rectangle([cx, cy, cx + cell - 1, cy + cell - 1], fill=(*PINK, 255))
+            draw.rectangle([cx, cy, cx + cell - 1, cy + cell - 1], fill=(*MAGENTA, 255))
 
 
 TOOLTIP_PAD = 5
