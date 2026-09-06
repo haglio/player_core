@@ -33,6 +33,8 @@ __all__ = [
     "MARGIN",
     "MAX_VOLUME",
     "MIN_VOLUME",
+    "PAD",
+    "SPEAKER_W",
     "VolumeHud",
     "VolumeHudPainter",
     "chip_local",
