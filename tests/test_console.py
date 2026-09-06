@@ -135,7 +135,7 @@ class TestFavoritesFilter:
 
     def test_it_leads_the_switches_where_it_leads_them_in_the_other_branch(self):
         """F holds one place on this console whichever branch drew it, and the
-        rest of the narrowing switches group behind it."""
+        rest of the narrowing switches group after it."""
         row = next(row for row in console_rows(
             ConsoleModel(mode="genau", favorites_filter=False, enhanced_filter=False))
             if any(b.action == "main_fmode" for b in row))
@@ -334,7 +334,7 @@ class TestDriveControls:
     console buttons any more; the hands-free switches still are."""
 
     def test_the_switch_row_is_there_in_both_modes(self):
-        """The Robot Hand is behind the screen in both: driving outright in
+        """The Robot Hand is backing the screen in both: driving outright in
         genau mode, taking the funscript's gaps in video mode."""
         for mode in ("video", "genau"):
             actions = _actions(ConsoleModel(mode=mode))

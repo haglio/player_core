@@ -65,7 +65,7 @@ class TestLine:
         assert _line(length_mode=FULL) == "Locked · Shuffle · Full length"
         assert _line(length_mode=SHORTS) == "Locked · Shuffle · Shorts"
 
-    def test_claims_no_length_mode_without_a_library_behind_the_playlist(self):
+    def test_claims_no_length_mode_without_a_library_backing_the_playlist(self):
         """A playlist Fun Time drives has no length filter of its own to report, so
         that slot stays empty.  The lock is still said: it belongs to the main player
         slot whatever is feeding it."""
@@ -140,7 +140,7 @@ class TestLine:
         rather than the browse it came from — so it leads the line the way a
         satellite's loop does, and displaces "Unlocked" there for the same reason:
         a loop is repeat-all, and nothing is being held.  "Locked" still joins it,
-        being a hold at one place inside the set.  The length mode stays on behind
+        being a hold at one place inside the set.  The length mode stays on beneath
         it, since ending the compilation drops you back into it."""
         def line(**over) -> str:
             return _line(compilation="Vol6", position=9, total=20, **over)
@@ -503,9 +503,9 @@ class TestPainter:
         assert tuple(shades[counts.argmax()]) == amber                  # the fill
 
     def test_the_slab_is_the_canvas_grey_unless_a_host_asks_for_another(self):
-        """Floating over a video the panel reads against the picture behind it,
+        """Floating over a video the panel reads against the picture beneath it,
         so it is the canvas colour. A host drawing it on its own chrome has no
-        picture behind it — on a window painted that very grey the slab is
+        picture beneath it — on a window painted that very grey the slab is
         invisible and only its border shows — so it says which grey it wants."""
         from shared_ui.palette import BG_PRIMARY
 
@@ -676,7 +676,7 @@ class TestDrags:
         assert painter.holding is False
         assert painter.drag_to(*self._at(self._band(painter, SPEED), 1.0)) == ""
 
-    def test_a_press_on_a_button_leaves_no_bar_latched_behind_it(self):
+    def test_a_press_on_a_button_leaves_no_bar_still_latched(self):
         """Otherwise the bar a previous press held would keep taking the pointer
         long after the gesture that grabbed it was over."""
         painter = self._painted()

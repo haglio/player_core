@@ -161,7 +161,7 @@ def test_an_app_mark_draws_the_grid_its_icon_carries():
         assert _icon_cells(letter) == list(grid), letter
 
 
-def test_an_app_mark_leaves_its_counters_clear_for_the_fill_behind_it():
+def test_an_app_mark_leaves_its_counters_clear_for_the_fill_beneath_it():
     """The .ico's blank cells are transparent, so the panel color shows through
     the letter's counters; painting them would make the mark a solid block."""
     from PIL import Image, ImageDraw

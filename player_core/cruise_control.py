@@ -109,7 +109,7 @@ class CruiseControlState:
     # be told from this module's own writing.
     wrote: tuple | None = None
     # None until the first tick: the wall clock a caller hands in is whatever
-    # its own clock reads, so the first tick has no interval behind it and must
+    # its own clock reads, so the first tick has no interval before it and must
     # not be given one — the stroke would jump the whole of it in a step.
     _last_tick: float | None = None
 

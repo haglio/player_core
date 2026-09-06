@@ -393,7 +393,7 @@ def test_pause_command_stops_direct_mode_playback():
 def test_losing_the_device_walks_it_down_and_rests_the_stroke():
     """The readout published through a funscript's turn (or any pause) samples
     forward from the sender's stroke phase — rested at the swing's foot the
-    moment playback stops, so what Nau draws waiting behind the seam is the
+    moment playback stops, so what Nau draws waiting after the seam is the
     stroke that will actually resume, rising out of the park."""
     dc = RobotHandState(playing=True, bpm=120.0)
     tcode = FakeTCodeSender()
@@ -835,7 +835,7 @@ class TestTheOrderTheTickDoesThingsIn:
     def test_commands_are_drained_before_anything_reads_what_they_moved(self):
         """A PAUSE that lands this tick has to be a falling edge this tick, not
         next: drained late, the stroke goes out once more after the hand stopped
-        and the broker is told a tick behind."""
+        and the broker is told a tick late."""
         self._before("self._drain_commands", "self._who_is_driving")
         self._before("self._drain_commands", "self.handoff.watch")
         self._before("self._drain_commands", "self.tcode_sender.maybe_send")

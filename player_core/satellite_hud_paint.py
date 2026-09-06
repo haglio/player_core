@@ -1,7 +1,7 @@
 """Draw the satellite's lock HUD as a bitmap mpv composites into the video.
 
 Drawing it into the frame rather than into a window of its own is the whole
-point: an mpv overlay has no z-order, so it can neither fall behind the video nor
+point: an mpv overlay has no z-order, so it can neither fall beneath the video nor
 float above the desktop.
 
 The slab it is drawn on — the rounded translucent panel, the palette, the Segoe

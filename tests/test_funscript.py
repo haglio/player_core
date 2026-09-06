@@ -258,7 +258,7 @@ class TestSnapLoop:
         assert result == (500, 2500)
 
     def test_no_base_after_out_keeps_the_mark(self):
-        # The last base is behind the out point, and snapping is outward only, so
+        # The last base is before the out point, and snapping is outward only, so
         # the loop still ends where it was marked — never short of it.
         fs = Funscript(actions=[
             (0, 100), (1000, 0), (2000, 100), (3000, 0),
@@ -410,7 +410,7 @@ class TestThePlanAsAPicture:
 
         assert stepped[:3] == first[1:4]
 
-    def test_a_playhead_between_two_knots_reads_the_knot_behind_it(self):
+    def test_a_playhead_between_two_knots_reads_the_knot_before_it(self):
         """The script does not change while it plays, so its picture is computed
         once and reread, and the leftover fraction goes to the drawer to shift the
         stable shape by.  Reading blended values instead morphed the heights at

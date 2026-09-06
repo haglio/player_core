@@ -114,7 +114,7 @@ class TestOneLineTwoDrivers:
 
     def test_the_end_of_a_scripted_stretch_hands_over_through_the_buffer(self):
         """Green while the script runs, gray for the buffer that belongs to
-        neither driver, blue for the stroke waiting behind it."""
+        neither driver, blue for the stroke waiting to take over."""
         hud = _read(_script(until_ms=2_000), at=1_000,
                     published=_parked_stroke())
 
@@ -462,7 +462,7 @@ class TestStillPicture:
         assert later[:-2] == first[2:]
 
     def test_a_playhead_between_two_samples_slides_the_stable_picture(self):
-        """Between two knots the values stay the knot-behind's — blending them
+        """Between two knots the values stay the knot-before's — blending them
         morphed the wave's shape at fixed columns every frame — and the leftover
         fraction rides along for the painter to shift the whole line by."""
         script = _script(until_ms=120_000)
@@ -483,7 +483,7 @@ class TestStillPicture:
         run, and the two disagreed by the slide at each seam between them."""
         script = _script_ahead()
 
-        # Column 0's sample time sits a fraction of a knot BEHIND the playhead,
+        # Column 0's sample time sits a fraction of a knot BEFORE the playhead,
         # where a forward-window publish has nothing; it clamps to now and is
         # drawn off the box's left edge — so the invariant starts at column 1.
         pictures = [

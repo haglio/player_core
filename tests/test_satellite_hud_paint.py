@@ -400,7 +400,7 @@ def test_f_mode_wears_its_own_badge_rather_than_a_typed_letter():
     """`fmode_icon.ico` is a pink five-by-five "F" — the mark the mode has on the
     taskbar and on the main console — and a letter set in the body face is a
     thin thing beside it.  The mark holds whether or not the mode is on; only what
-    is behind it changes."""
+    is beneath it changes."""
     for f_mode in (False, True):
         rendered = HudRenderer("landscape").render(
             HudModel(side="landscape", lock_label="Unlocked", f_mode=f_mode))

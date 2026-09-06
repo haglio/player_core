@@ -14,7 +14,7 @@ entry points by name (e.g. wrapping ``glfw.get_proc_address``), because libmpv
 binds its own GL functions through it.
 
 The control surface is ``_MpvControl`` — MpvPlayer's own — so a session class
-drives either player without knowing which rendering path is behind it.  Not
+drives either player without knowing which rendering path is backing it.  Not
 unit-tested for MpvPlayer's reason: it needs the libmpv DLL and a live GL
 context.
 """

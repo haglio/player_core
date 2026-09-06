@@ -2,7 +2,7 @@
 
 Every player in this family paints its HUD into the video as a BGRA bitmap mpv
 composites, rather than into a window of its own: an mpv overlay has no z-order,
-so it can neither fall behind the video nor float above the desktop.
+so it can neither fall beneath the video nor float above the desktop.
 
 What the HUDs share is the look, not the contents: a rounded translucent slab,
 the Segoe UI face sized the way Qt sized it, and the RGBA -> BGRA hand-off mpv
@@ -182,7 +182,7 @@ def draw_icon(draw: ImageDraw.ImageDraw, rect: tuple[int, int, int, int],
     """Draw the app mark for *letter*, centred in *rect* and sized to fill it.
 
     The grid's blank cells are left alone rather than painted, so whatever is
-    behind shows through the letter's counters — exactly as the .ico's own
+    beneath shows through the letter's counters — exactly as the .ico's own
     transparent cells let the panel under it through.
     """
     x, y, w, h = rect
@@ -264,10 +264,10 @@ class HudPanel:
     not a layout — and finish with :meth:`to_bgra`.
 
     *ground* is the grey the slab is made of.  It defaults to the canvas colour,
-    which is right where the panel floats over a video: the picture behind it is
+    which is right where the panel floats over a video: the picture beneath it is
     what it reads against, and a HUD the colour of a dark frame still reads as a
     panel over one.  A host that draws this on its own chrome instead has no
-    picture behind it, and on a window painted that very grey the slab vanishes
+    picture beneath it, and on a window painted that very grey the slab vanishes
     and leaves its one-pixel border outlining nothing — so it says which grey it
     wants, and gets a panel that sits on that window the way the window's own
     panels do.
