@@ -14,6 +14,7 @@ from player_core.hud_panel import (
     draw_glyph,
     draw_icon,
     draw_tooltip,
+    fit_text,
     load_font,
     px,
     text_width,
@@ -195,3 +196,24 @@ def test_a_glyph_with_no_ink_draws_nothing_rather_than_raising():
     draw_glyph(ImageDraw.Draw(image), 5, 5, " ", load_font(11), (255, 255, 255, 255))
 
     assert np.asarray(image)[:, :, 3].max() == 0
+
+
+class TestFitText:
+    def test_text_that_fits_is_left_alone(self):
+        font = load_font(8)
+
+        assert fit_text(font, "scene one", text_width(font, "scene one")) == "scene one"
+
+    def test_text_that_does_not_keeps_its_head_and_ends_in_an_ellipsis(self):
+        font = load_font(8)
+        title = "Jane Doe - scene one - the long descriptor"
+        room = text_width(font, "Jane Doe - scene one")
+
+        fitted = fit_text(font, title, room)
+
+        assert fitted.endswith("…") and len(fitted) > 1
+        assert title.startswith(fitted[:-1])
+        assert text_width(font, fitted) <= room
+
+    def test_room_for_not_even_the_ellipsis_leaves_nothing(self):
+        assert fit_text(load_font(8), "scene one", 2) == ""
