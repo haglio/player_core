@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import numpy as np
-from shared_ui.palette import BG_PRIMARY, PINK, TEXT_MUTED, WHITE
+from shared_ui.palette import BG_PRIMARY, MAGENTA, TEXT_MUTED, WHITE
 
 from player_core import hud_panel
 from player_core.hud_panel import (
@@ -30,7 +30,7 @@ def test_the_palette_is_shared_uis_own_read_without_qt():
 
     assert hud_panel.WHITE is palette.WHITE
     assert hud_panel.BG_PRIMARY is palette.BG_PRIMARY
-    assert hud_panel.PINK is palette.PINK
+    assert hud_panel.MAGENTA is palette.MAGENTA
 
 
 def test_panel_is_a_translucent_rounded_slab_of_the_asked_size():
@@ -170,7 +170,7 @@ def test_an_app_mark_leaves_its_counters_clear_for_the_fill_beneath_it():
     draw_icon(ImageDraw.Draw(image), (0, 0, 18, 18), "B")
     pixels = np.asarray(image)
 
-    assert (pixels[:, :, :3] == PINK).all(axis=2).any()   # the letter is drawn …
+    assert (pixels[:, :, :3] == MAGENTA).all(axis=2).any()   # the letter is drawn …
     assert (pixels[:, :, :3] == 0).all(axis=2).any()      # … and its counters are not
 
 

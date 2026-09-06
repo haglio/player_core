@@ -31,7 +31,7 @@ from shared_ui.palette import (
     BG_PRIMARY,
     BLUE,
     GREEN,
-    PINK,
+    MAGENTA,
     RED,
     TEXT_MUTED,
     TEXT_PRIMARY,
@@ -112,7 +112,7 @@ FULL, SHORTS = "full", "shorts"
 _LENGTH_LABELS = {FULL: "Full length", SHORTS: "Shorts"}
 
 # The two controls that wear an app mark rather than a glyph, and which mark:
-# the broker's "B" and F-mode's "F", each the pink five-by-five letter its .ico
+# the broker's "B" and F-mode's "F", each the magenta five-by-five letter its .ico
 # carries (:data:`player_core.hud_panel.ICON_GRIDS`).  Keyed by the marker the
 # console puts on the button, the way the waveform's is.
 _APP_MARKS = {BROKER_ICON: "B", FMODE_ICON: "F"}
@@ -125,7 +125,7 @@ _REVISION = re.compile(r"\s*\(v\d+\)$")
 
 # What the OSR2 line says by what is driving the device, and the color it says
 # it in — green when a funscript is driving, blue when the Robot Hand is, muted
-# when nothing is, and the device's own pink when it is running itself in auto.
+# when nothing is, and the device's own magenta when it is running itself in auto.
 OSR2_ROBOT_HAND = "robot_hand"  # the one state in which the drive readout can be pressed
 OSR2_FUNSCRIPT = "funscript"
 OSR2_BUFFER = "buffer"
@@ -137,7 +137,7 @@ _OSR2_LABELS = {
     OSR2_ROBOT_HAND: "Robot Hand", "idle": "Idle", OSR2_BUFFER: "Buffer",
 }
 _OSR2_COLORS = {
-    "funscript": GREEN, OSR2_ROBOT_HAND: BLUE, "auto": PINK,
+    "funscript": GREEN, OSR2_ROBOT_HAND: BLUE, "auto": MAGENTA,
     "off": TEXT_MUTED, "idle": TEXT_MUTED, OSR2_BUFFER: _NEUTRAL_PILL,
 }
 
@@ -682,7 +682,7 @@ class ConsolePainter:
         mode, cruise or auto advance does not; and yellow is what an enhanced
         picture is marked with, so the switch that keeps only those wears its
         mark in yellow at rest and fills with it when it is on.  Two controls wear an app mark instead of a glyph and
-        keep its pink whatever the button is doing: F-mode's "F", and the broker's
+        keep its magenta whatever the button is doing: F-mode's "F", and the broker's
         "B" on blue or red, the face it wore on the dashboard — the broker being
         the room's own service and not one of these controls at all.
 

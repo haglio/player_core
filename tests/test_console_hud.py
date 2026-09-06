@@ -396,7 +396,7 @@ class TestPainter:
         assert (abs(edge - np.array(muted)).max(axis=1) <= 2).any()
 
     def test_the_broker_wears_the_face_it_had_on_the_dashboard(self):
-        """Its own pink mark on blue while the service is up and red while it is
+        """Its own magenta mark on blue while the service is up and red while it is
         down — the broker acts on the room's own service rather than on a player,
         so it does not take the on/off colors the controls beside it use."""
         for broker, fill in ((True, (48, 128, 224)), (False, (255, 60, 60))):
@@ -408,17 +408,17 @@ class TestPainter:
     def test_a_control_that_stands_for_an_app_wears_that_apps_mark(self):
         """`broker_icon.ico` and `fmode_icon.ico` are five-by-five letters, and one
         set in the body face is a thin thing beside them.  What has to hold is the
-        shape: the grid the .ico carries, in its pink, whatever the button is
+        shape: the grid the .ico carries, in its magenta, whatever the button is
         doing underneath it."""
         for action, grid in (("broker_panel", ICON_GRIDS["B"]),
                              ("main_fmode", ICON_GRIDS["F"])):
             pixels = self._button_pixels(action, ConsoleModel(
                 mode="video", broker=True, f_mode=True))
-            pink = (pixels == np.array((200, 80, 160), dtype=pixels.dtype)).all(axis=2)
-            ys, xs = np.nonzero(pink)
+            magenta = (pixels == np.array((200, 80, 160), dtype=pixels.dtype)).all(axis=2)
+            ys, xs = np.nonzero(magenta)
             cell = (xs.max() - xs.min() + 1) / 5
             drawn = [
-                "".join("#" if pink[int(ys.min() + (r + 0.5) * cell),
+                "".join("#" if magenta[int(ys.min() + (r + 0.5) * cell),
                                     int(xs.min() + (c + 0.5) * cell)] else "."
                         for c in range(5))
                 for r in range(5)

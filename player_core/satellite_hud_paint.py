@@ -130,7 +130,7 @@ _CONTROL_GLYPHS = {
     "trash": shared_mark("trash"), "reset": shared_mark("reset"),
 }
 # F-mode wears its own mark rather than a glyph: no symbol says "favorites
-# only", and the mode already has a face — the pink "F" of ``fmode_icon.ico``,
+# only", and the mode already has a face — the magenta "F" of ``fmode_icon.ico``,
 # the five-by-five letter every app in this family is marked with.  A letter set
 # in the body face is a thin thing beside it, reading as a caption rather than a
 # badge (:func:`player_core.hud_panel.draw_icon`).
@@ -756,7 +756,7 @@ class HudRenderer:
         Both lit states are green rather than white, and so is the star: locking a
         clip puts it in the favorites and F-mode is the filter over them, so all
         three are the same fact and read as one color.  F-mode's button carries
-        its own pink mark on top of that green, the same badge it wears on the
+        its own magenta mark on top of that green, the same badge it wears on the
         main console and on the taskbar.  The enhanced switch is the one control
         here in another color: amber is what an enhanced picture is marked with
         across this family, so its mark is amber at rest and its ground amber

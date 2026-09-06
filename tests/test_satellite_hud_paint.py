@@ -397,7 +397,7 @@ def test_the_bin_draws_red_because_it_takes_something_away():
 
 
 def test_f_mode_wears_its_own_badge_rather_than_a_typed_letter():
-    """`fmode_icon.ico` is a pink five-by-five "F" — the mark the mode has on the
+    """`fmode_icon.ico` is a magenta five-by-five "F" — the mark the mode has on the
     taskbar and on the main console — and a letter set in the body face is a
     thin thing beside it.  The mark holds whether or not the mode is on; only what
     is beneath it changes."""
@@ -406,11 +406,11 @@ def test_f_mode_wears_its_own_badge_rather_than_a_typed_letter():
             HudModel(side="landscape", lock_label="Unlocked", f_mode=f_mode))
         x, y, w, h = {name: rect for rect, name in rendered.targets.control}["fmode"]
         pixels = _rgb(rendered.bgra)[y:y + h, x:x + w]
-        pink = (pixels == np.array((200, 80, 160), dtype=pixels.dtype)).all(axis=2)
-        ys, xs = np.nonzero(pink)
+        magenta = (pixels == np.array((200, 80, 160), dtype=pixels.dtype)).all(axis=2)
+        ys, xs = np.nonzero(magenta)
         cell = (xs.max() - xs.min() + 1) / 5
         drawn = [
-            "".join("#" if pink[int(ys.min() + (r + 0.5) * cell),
+            "".join("#" if magenta[int(ys.min() + (r + 0.5) * cell),
                                 int(xs.min() + (c + 0.5) * cell)] else "."
                     for c in range(5))
             for r in range(5)
