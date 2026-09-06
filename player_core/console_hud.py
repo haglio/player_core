@@ -195,7 +195,7 @@ _SIZE_BODY = 11
 _SIZE_TINY = 8
 _PAD = 10
 # How far in a word NAMING its row starts: not at all.  Its cell begins on the
-# same left edge as every box in the rows above and below it, so the word lines
+# same left edge as every button in the rows above and below it, so the word lines
 # up with that column -- which is what "the margin everything else has" means
 # here, the panel's own _PAD.  Anything added on top of that reads as an indent.
 # (What made the label look unindented in the first place was its cell being too
@@ -686,7 +686,7 @@ class ConsolePainter:
         "B" on blue or red, the face it wore on the dashboard — the broker being
         the room's own service and not one of these controls at all.
 
-        A read-out — an item with nothing to post — is bare text with no box, in
+        A read-out — an item with nothing to post — is bare text with no button, in
         the readout's own key/value colors: a muted word names the value beside
         it, which is bright."""
         x, y, w, h = rect
@@ -695,7 +695,7 @@ class ConsolePainter:
             if x == _PAD:
                 # A word NAMING its row, at the panel's left edge.  Centered in
                 # its cell it started hard against that edge while every other
-                # row opens with a box whose mark is inset -- so the one row
+                # row opens with a button whose mark is inset -- so the one row
                 # that leads with a word read as unindented beside them.  Left
                 # aligned on the family's tight button pad, it lines up with
                 # them instead.

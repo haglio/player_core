@@ -627,19 +627,19 @@ class HudRenderer:
         for i, (_ax, ay, _aw, ah) in enumerate(action_rects):
             row(ay, ah, model.actions[i].label if i < len(model.actions) else "")
 
-    def _button_box(self, draw, rect: Rect, *, on: bool,
+    def _button_square(self, draw, rect: Rect, *, on: bool,
                     on_color=BG_BUTTON_ACTIVE, ink=None) -> tuple[int, int, int, int]:
         """The panel's square button, and the color to draw its mark in — the
         single button shape every control on this HUD is drawn with, so a new one
         cannot invent its own look.
 
-        Off, the box sits on the family's own button ground -- an outline over
+        Off, the square sits on the family's own button ground -- an outline over
         the slab and nothing else read as a gap cut in the panel rather than as
         the raised button every window here offers -- with an edge in the muted
         gray the rest of the chrome uses, and the MARK is full-strength -- the same way the main player's console
         draws its own.  Both were muted here, which left these panels reading as
         dim and half-disabled beside the console's, for controls that were
-        neither.  On, the box fills *on_color*: the family's ACTIVE ground, one
+        neither.  On, the square fills *on_color*: the family's ACTIVE ground, one
         step up from the resting one, which is the step Origenerator's checked
         buttons take and now the step every HUD here takes with them.  It used to
         fill white, the loudest thing on the panel for a control whose whole news
@@ -683,7 +683,7 @@ class HudRenderer:
         transport arrows sit high in a box that runs to the descender, so the
         font's own centering dropped every one of them toward its button's floor.
         """
-        ink = self._button_box(draw, rect, on=on, on_color=on_color, ink=ink)
+        ink = self._button_square(draw, rect, on=on, on_color=on_color, ink=ink)
         if glyph.startswith(SHARED_MARK):
             draw_mark(image, shared_mark_name(glyph), rect, ink)
             return
@@ -692,7 +692,7 @@ class HudRenderer:
 
     def _filter_button(self, draw, rect: Rect, *, on: bool = False) -> None:
         """The same square button with a funnel drawn on it, for the act filter."""
-        ink = self._button_box(draw, rect, on=on)
+        ink = self._button_square(draw, rect, on=on)
         bx, by, bw, bh = rect
         cx, cy = bx + bw / 2, by + bh / 2
         mouth, neck = _FUNNEL_W / 2, _FUNNEL_NECK / 2
@@ -710,7 +710,7 @@ class HudRenderer:
         panel is gone the moment it takes effect, so there would be nobody left to
         read a lit button anyway.
         """
-        ink = self._button_box(draw, rect, on=False)
+        ink = self._button_square(draw, rect, on=False)
         bx, by, bw, bh = rect
         cx, cy = bx + bw / 2, by + bh / 2
         top = cy - _MINIMIZE_H / 2
@@ -737,7 +737,7 @@ class HudRenderer:
             # a difference to find the mode you are in at a glance.  The same
             # blue the console's Video/Genau row lights, because it is the
             # same question asked about the other half of the room.
-            ink = self._button_box(draw, rect, on=action == lit_action,
+            ink = self._button_square(draw, rect, on=action == lit_action,
                                    on_color=BLUE)
             bx, by, bw, bh = rect
             draw.text((bx + bw / 2, by + bh / 2), labels[action],
@@ -750,7 +750,7 @@ class HudRenderer:
 
         The lock, F-mode and the enhanced-only switch are states, so they light
         while they are on; the others do a thing rather than be in one.  The
-        star is a readout, not a button, so it gets no box: a box would invite a
+        star is a readout, not a button, so it gets no button: a button would invite a
         press that does nothing.
 
         Both lit states are green rather than white, and so is the star: locking a
@@ -771,7 +771,7 @@ class HudRenderer:
                                    on=lit[name], on_color=AMBER, ink=AMBER)
                 continue
             if name in _ICON_CONTROLS:
-                self._button_box(draw, rect, on=lit.get(name, False), on_color=GREEN)
+                self._button_square(draw, rect, on=lit.get(name, False), on_color=GREEN)
                 draw_icon(draw, rect, _ICON_CONTROLS[name])
                 continue
             if name == "minimize":

@@ -80,12 +80,12 @@ def test_the_expand_arrow_is_drawn_rather_than_typed():
 def test_a_resting_button_draws_its_mark_full_strength():
     # The satellite panels read as dim and half-disabled beside the main
     # player's console, which draws its own resting marks at full strength.
-    # Both had muted the mark AND the box; only the box should be muted.
+    # Both had muted the mark AND the square; only the square should be muted.
     from PIL import Image, ImageDraw
     from shared_ui.palette import TEXT_PRIMARY
 
     from player_core.satellite_hud_paint import HudRenderer
 
-    ink = HudRenderer("portrait")._button_box(
+    ink = HudRenderer("portrait")._button_square(
         ImageDraw.Draw(Image.new("RGBA", (18, 18))), (0, 0, 18, 18), on=False)
     assert ink[:3] == TEXT_PRIMARY

@@ -77,7 +77,7 @@ class Button:
     hit targets, so a press that could do nothing is not offered.
 
     An empty ``action`` makes it a read-out: laid out in the row like anything
-    else, drawn as a bare value with no box, and never a hit target.
+    else, drawn as a bare value with no button, and never a hit target.
     """
 
     action: str

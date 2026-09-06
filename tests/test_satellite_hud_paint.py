@@ -350,7 +350,7 @@ def test_the_minimize_button_wears_a_bar_rather_than_a_font_glyph():
     ys, xs = np.nonzero((inside > 150).all(axis=2))
 
     assert len(ys), "the minimize button drew no mark at all"
-    assert xs.max() - xs.min() > ys.max() - ys.min()  # a bar, not a box or a glyph
+    assert xs.max() - xs.min() > ys.max() - ys.min()  # a bar, not a square or a glyph
 
 
 def _lit_ink(rect, rendered) -> int:
@@ -389,8 +389,8 @@ def test_the_bin_draws_red_because_it_takes_something_away():
     def red_ink(name: str) -> int:
         """How far the reddest pixel of *name*'s button leads its own green."""
         x, y, w, h = rects[name]
-        box = _rgb(rendered.bgra)[y:y + h, x:x + w].astype(int)
-        return int((box[:, :, 0] - box[:, :, 1]).max())
+        pixels = _rgb(rendered.bgra)[y:y + h, x:x + w].astype(int)
+        return int((pixels[:, :, 0] - pixels[:, :, 1]).max())
 
     assert red_ink("trash") > 60
     assert red_ink("prev") == 0  # and the red is the bin's, not the whole band's
@@ -405,8 +405,8 @@ def test_f_mode_wears_its_own_badge_rather_than_a_typed_letter():
         rendered = HudRenderer("landscape").render(
             HudModel(side="landscape", lock_label="Unlocked", f_mode=f_mode))
         x, y, w, h = {name: rect for rect, name in rendered.targets.control}["fmode"]
-        box = _rgb(rendered.bgra)[y:y + h, x:x + w]
-        pink = (box == np.array((200, 80, 160), dtype=box.dtype)).all(axis=2)
+        pixels = _rgb(rendered.bgra)[y:y + h, x:x + w]
+        pink = (pixels == np.array((200, 80, 160), dtype=pixels.dtype)).all(axis=2)
         ys, xs = np.nonzero(pink)
         cell = (xs.max() - xs.min() + 1) / 5
         drawn = [
@@ -788,15 +788,15 @@ def test_a_leading_camera_word_stays_gray_when_its_act_is_filtered(camera, thumb
     assert all(half > 0 for half in halves(f"{camera} gamma"))
 
 
-def test_the_filter_button_carries_a_funnel_and_not_an_empty_box(thumb):
+def test_the_filter_button_carries_a_funnel_and_not_an_empty_square(thumb):
     """The funnel is drawn rather than typed — no face on the machine carries one —
     so what has to hold is that there is a mark inside the button's border at all:
-    an empty box says nothing about what the button does."""
+    an empty square says nothing about what the button does."""
     rendered = HudRenderer("portrait").render(
         _model(corner=HudCell(path="c.mp4", thumb=thumb), current_action="alpha"))
 
     x, y, w, h = dict((name, rect) for rect, name in rendered.targets.filter)["alpha"]
-    # Inside the rounded border, so the box itself can't be what is counted.
+    # Inside the rounded border, so the square itself can't be what is counted.
     inside = _rgb(rendered.bgra)[y + 3:y + h - 3, x + 3:x + w - 3]
     assert (inside > 80).all(axis=2).sum() > 0
 
