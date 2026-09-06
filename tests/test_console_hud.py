@@ -326,7 +326,7 @@ class TestPainter:
             assert action in actions
 
     def test_the_osr2_state_is_shown(self):
-        """A boxed word, lower in the HUD — a read-out of what has the device, not
+        """A framed word, lower in the HUD — a read-out of what has the device, not
         a line jammed in with the mode."""
         painter = ConsolePainter()
         bgra = painter.bgra(ConsoleHud(
@@ -341,9 +341,9 @@ class TestPainter:
         rgb = _rgb(painter.bgra(ConsoleHud(console=model)))
         (bx, by, bw, bh), _b = next(
             (rect, b) for rect, b in painter.buttons if b.action == action)
-        box = rgb[by:by + bh, bx:bx + bw].astype(int)
-        shades, counts = np.unique(box.reshape(-1, 3), axis=0, return_counts=True)
-        return tuple(shades[counts.argmax()]), box
+        pixels = rgb[by:by + bh, bx:bx + bw].astype(int)
+        shades, counts = np.unique(pixels.reshape(-1, 3), axis=0, return_counts=True)
+        return tuple(shades[counts.argmax()]), pixels
 
     def test_the_mode_you_are_in_lights_blue(self):
         """Every button carries a lit ground now, so one shade lighter was too
@@ -356,10 +356,10 @@ class TestPainter:
         this family, and the mode you are in is neither."""
         from shared_ui.palette import BLUE
 
-        shade, box = self._busiest_shade("main_video_activate", ConsoleModel(mode="video"))
+        shade, pixels = self._busiest_shade("main_video_activate", ConsoleModel(mode="video"))
 
         assert shade == BLUE
-        green = (box[:, :, 1] > 130) & (box[:, :, 0] < 110) & (box[:, :, 2] < 110)
+        green = (pixels[:, :, 1] > 130) & (pixels[:, :, 0] < 110) & (pixels[:, :, 2] < 110)
         assert not green.any()
 
     def test_an_ordinary_toggle_that_is_on_lights_the_active_ground(self):
@@ -370,7 +370,7 @@ class TestPainter:
         from shared_ui.colors import BG_BUTTON, BG_BUTTON_ACTIVE
 
         active = (BG_BUTTON_ACTIVE.red(), BG_BUTTON_ACTIVE.green(), BG_BUTTON_ACTIVE.blue())
-        shade, _box = self._busiest_shade(
+        shade, _pixels = self._busiest_shade(
             "robot_hand_toggle_cruise", ConsoleModel(mode="genau", cruise=True))
 
         assert shade == active
@@ -388,11 +388,11 @@ class TestPainter:
         (bx, by, bw, bh), _b = next(
             (rect, b) for rect, b in painter.buttons
             if b.action and b.action != "main_video_activate")
-        box = rgb[by:by + bh, bx:bx + bw].astype(int)
+        pixels = rgb[by:by + bh, bx:bx + bw].astype(int)
         muted = (TEXT_MUTED.red(), TEXT_MUTED.green(), TEXT_MUTED.blue())
 
         # Along the top edge, between the rounded corners.
-        edge = box[0, 4:bw - 4]
+        edge = pixels[0, 4:bw - 4]
         assert (abs(edge - np.array(muted)).max(axis=1) <= 2).any()
 
     def test_the_broker_wears_the_face_it_had_on_the_dashboard(self):
@@ -400,10 +400,10 @@ class TestPainter:
         down — the broker acts on the room's own service rather than on a player,
         so it does not take the on/off colors the controls beside it use."""
         for broker, fill in ((True, (48, 128, 224)), (False, (255, 60, 60))):
-            box = self._broker_box(broker)
+            pixels = self._broker_pixels(broker)
 
-            assert tuple(box[box.shape[0] // 2, 2]) == fill
-            assert (box == np.array((200, 80, 160), dtype=box.dtype)).all(axis=2).any()
+            assert tuple(pixels[pixels.shape[0] // 2, 2]) == fill
+            assert (pixels == np.array((200, 80, 160), dtype=pixels.dtype)).all(axis=2).any()
 
     def test_a_control_that_stands_for_an_app_wears_that_apps_mark(self):
         """`broker_icon.ico` and `fmode_icon.ico` are five-by-five letters, and one
@@ -412,9 +412,9 @@ class TestPainter:
         doing underneath it."""
         for action, grid in (("broker_panel", ICON_GRIDS["B"]),
                              ("main_fmode", ICON_GRIDS["F"])):
-            box = self._button_box(action, ConsoleModel(
+            pixels = self._button_pixels(action, ConsoleModel(
                 mode="video", broker=True, f_mode=True))
-            pink = (box == np.array((200, 80, 160), dtype=box.dtype)).all(axis=2)
+            pink = (pixels == np.array((200, 80, 160), dtype=pixels.dtype)).all(axis=2)
             ys, xs = np.nonzero(pink)
             cell = (xs.max() - xs.min() + 1) / 5
             drawn = [
@@ -442,49 +442,49 @@ class TestPainter:
             assert glyph_font.getmask(glyph).getbbox() != notdef, name
 
     def test_reset_is_a_thing_done_so_nothing_ever_lights_it(self):
-        """The lock and F-mode fill their boxes while they are on; a reset is over
+        """The lock and F-mode fill their buttons while they are on; a reset is over
         the moment it lands, and it is what turns those two back off — a lit reset
         would read as a third state the player was sitting in."""
         for model in (ConsoleModel(mode="video"),
                       ConsoleModel(mode="video", locked=True, f_mode=True)):
-            box = self._button_box("main_reset", model)
-            filled = (box > 100).all(axis=2).sum()
+            pixels = self._button_pixels("main_reset", model)
+            filled = (pixels > 100).all(axis=2).sum()
 
-            assert filled < box.shape[0] * box.shape[1] // 2
+            assert filled < pixels.shape[0] * pixels.shape[1] // 2
 
     def test_minimize_is_drawn_as_a_bar_rather_than_left_to_a_font(self):
         """Windows' minimize mark lives in Segoe MDL2 Assets, which this HUD does
         not load, and Pillow draws a ".notdef" box for what a face lacks.  So the
         painter draws it: a run of ink across the middle of the button, wider than
         it is tall, which is the mark every Windows title bar uses."""
-        box = self._button_box("main_minimize", ConsoleModel(mode="video"))
+        pixels = self._button_pixels("main_minimize", ConsoleModel(mode="video"))
         # The button's own rounded outline is its border, so only the interior
         # holds the mark -- and the interior is the button's ground now, which is
         # itself gray, so the mark is what is BRIGHTER than that ground.
-        inside = box[2:-2, 2:-2]
+        inside = pixels[2:-2, 2:-2]
         ys, xs = np.nonzero((inside > 150).all(axis=2))
 
         assert len(ys), "the minimize button drew no mark at all"
         assert xs.max() - xs.min() > ys.max() - ys.min()
 
     @staticmethod
-    def _button_box(action: str, model: ConsoleModel) -> np.ndarray:
+    def _button_pixels(action: str, model: ConsoleModel) -> np.ndarray:
         painter = ConsolePainter()
         rgb = _rgb(painter.bgra(ConsoleHud(console=model)))
         (bx, by, bw, bh), _b = next(
             (rect, b) for rect, b in painter.buttons if b.action == action)
         return rgb[by:by + bh, bx:bx + bw]
 
-    def _broker_box(self, broker: bool) -> np.ndarray:
-        return self._button_box("broker_panel", ConsoleModel(mode="video", broker=broker))
+    def _broker_pixels(self, broker: bool) -> np.ndarray:
+        return self._button_pixels("broker_panel", ConsoleModel(mode="video", broker=broker))
 
     def test_f_mode_is_the_one_lit_control_that_stays_green(self):
         """It narrows the playlist to the videos that have a funscript, and green
         is what the funscripts and the favorites own."""
-        box = self._button_box("main_fmode",
-                               ConsoleModel(mode="video", f_mode=True)).astype(int)
+        pixels = self._button_pixels("main_fmode",
+                                     ConsoleModel(mode="video", f_mode=True)).astype(int)
 
-        shades, counts = np.unique(box.reshape(-1, 3), axis=0, return_counts=True)
+        shades, counts = np.unique(pixels.reshape(-1, 3), axis=0, return_counts=True)
         assert tuple(shades[counts.argmax()]) == (48, 160, 48)
 
     def test_the_enhanced_filter_wears_yellow_off_and_on(self):
@@ -492,9 +492,9 @@ class TestPainter:
         that keeps only those is yellow wherever you find it: the mark at rest,
         and the whole button once it is on."""
         amber = (255, 200, 120)
-        off = self._button_box("genau_filter_enhanced",
+        off = self._button_pixels("genau_filter_enhanced",
                                ConsoleModel(mode="genau", enhanced_filter=False))
-        on = self._button_box("genau_filter_enhanced",
+        on = self._button_pixels("genau_filter_enhanced",
                               ConsoleModel(mode="genau", enhanced_filter=True))
 
         assert (np.abs(off.astype(int) - amber).sum(axis=2) < 30).any()  # the mark
@@ -538,10 +538,10 @@ class TestPainter:
             ConsoleHud(console=ConsoleModel(mode="video", record="recording"))))
         (bx, by, bw, bh), _b = next(
             (rect, b) for rect, b in painter.buttons if b.action == "nau_record_tap")
-        box = rgb[by:by + bh, bx:bx + bw].astype(int)
+        pixels = rgb[by:by + bh, bx:bx + bw].astype(int)
 
-        assert tuple(box[bh // 2, 2]) == (255, 60, 60)   # the fill went red …
-        assert (box > 240).all(axis=2).any()             # … and the circle did not
+        assert tuple(pixels[bh // 2, 2]) == (255, 60, 60)   # the fill went red …
+        assert (pixels > 240).all(axis=2).any()             # … and the circle did not
 
 
 class TestPresses:
@@ -886,8 +886,8 @@ class TestTheLockIsGreen:
         rgb = _rgb(painter.bgra(ConsoleHud(console=ConsoleModel(mode="video", locked=True))))
         (bx, by, bw, bh), _b = next(
             (rect, b) for rect, b in painter.buttons if b.action == "main_lock")
-        box = rgb[by:by + bh, bx:bx + bw].astype(int)
-        shades, counts = np.unique(box.reshape(-1, 3), axis=0, return_counts=True)
+        pixels = rgb[by:by + bh, bx:bx + bw].astype(int)
+        shades, counts = np.unique(pixels.reshape(-1, 3), axis=0, return_counts=True)
 
         assert tuple(shades[counts.argmax()]) == GREEN
 
@@ -898,15 +898,15 @@ class TestTheLockIsGreen:
         rgb = _rgb(painter.bgra(ConsoleHud(console=ConsoleModel(mode="video", locked=False))))
         (bx, by, bw, bh), _b = next(
             (rect, b) for rect, b in painter.buttons if b.action == "main_lock")
-        box = rgb[by:by + bh, bx:bx + bw].astype(int)
-        shades, counts = np.unique(box.reshape(-1, 3), axis=0, return_counts=True)
+        pixels = rgb[by:by + bh, bx:bx + bw].astype(int)
+        shades, counts = np.unique(pixels.reshape(-1, 3), axis=0, return_counts=True)
 
         assert tuple(shades[counts.argmax()]) == (
             BG_BUTTON.red(), BG_BUTTON.green(), BG_BUTTON.blue())
 
 
 class TestARowsNameLinesUpWithItsControls:
-    """A word naming its row starts on the same left edge as every box below
+    """A word naming its row starts on the same left edge as every button below
     it, and its cell is wide enough to hold it.
 
     Both halves are one bug.  The cell was a fixed 66px while "Playback speed"

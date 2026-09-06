@@ -275,7 +275,7 @@ class DriveSection:
                     center=g.speed_label_x, ink=value_ink)
 
     def _draw_control(self, draw, control: DriveControl) -> None:
-        """One integrated mark: an outline box with its glyph, dimmed at a limit."""
+        """One integrated mark: an outline square with its glyph, dimmed at a limit."""
         x, y, w, h = control.rect
         ink = _DISABLED if control.dim else (*TEXT_PRIMARY, 255)
         draw.rounded_rectangle([x, y, x + w - 1, y + h - 1], radius=3,
