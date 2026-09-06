@@ -8,6 +8,6 @@ from player_core import file_channel
 
 def test_every_name_the_players_import_is_app_supports_own():
     # Re-exported, not copied: a second implementation is how the broker's
-    # drifted into a read-then-truncate with a hole one verb wide.
+    # drifted into a read-then-truncate with a gap one verb wide.
     for name in file_channel.__all__:
         assert getattr(file_channel, name) is getattr(the_familys, name), name

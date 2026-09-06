@@ -717,7 +717,7 @@ class ConsolePainter:
         lit = (GREEN if button.favorite else AMBER if button.enhanced
                else BLUE if button.choice else BG_BUTTON_ACTIVE)
         # A control at rest sits on the family's button ground rather than on
-        # nothing: an outline over the slab read as a hole in it, and made these
+        # nothing: an outline over the slab read as a gap in it, and made these
         # look like a different kind of control from the ones in the windows.
         fill = (lit if button.lit else RED if button.warn else BLUE if button.hold
                 else BG_BUTTON)
