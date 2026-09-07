@@ -11,25 +11,36 @@ and then never stops: every ramp that arrives somewhere is given somewhere else
 to be, over its own stretch of seconds, so no dial in the motion is ever simply
 a number.
 
-Three things it is careful about.
+Four things it is careful about.
 
-**What rides on what.** The first wave runs near the pace the dial is set to.
-Every other one runs *much* slower — a half to a fifth of it — and is drawn a
-travel from the same range, so what it adds is a swell that carries the motion
-from base to tip and back, not a vibration on top of it. Which wave is the big
-one is a separate draw again, so the slow swell is as often the larger.
+**Every range is pinned to the dials you set.** The speed, the travel and the
+center the motion had when this took it over are kept as anchors, and every draw
+here is an excursion around one of them rather than a draw from the axis at
+large. Nothing accumulates: the tenth minute is drawn from the same ranges as
+the first, so an hour of cruising is still recognizably the motion you asked
+for, at a pace within sight of the one you set. Only a hand on a dial moves an
+anchor, and it moves it by exactly what the hand turned.
+
+**What rides on what.** The first wave *is* the motion: it keeps most of the
+travel and runs at the pace the dial names. Every other one runs far slower — a
+fifth of it down to a fortieth — and gets what travel is left, so what it adds
+is a swell carrying the whole motion from base to tip and back. A wave at half
+the main pace with as much travel is not a swell; it is a second motion
+interfering with the first, and that interference is what makes a stack sound
+busy while feeling weak — no two swings the same depth, and none of them the
+depth you asked for.
 
 **Room to be dramatic.** A ramp that moves a dial five points over twenty
-seconds is a ramp nobody can feel. The ranges here are the width of the axis and
-the times are long: a speed crossing most of the dial over half a minute, a
-travel opening from nearly shut to nearly the whole axis, a center walking from
-base to tip over a minute. The motion should be plainly somewhere different from
-where it was a minute ago.
+seconds is a ramp nobody can feel. The times here are long and the bands as wide
+as being anchored allows: a speed crossing its whole band over half a minute, a
+travel closing to two thirds of yours and opening back to all of it, a center
+walking as far either way as the swing leaves room for. The motion should be
+plainly somewhere different from where it was a minute ago.
 
 **The sum, not the parts.** Every range here is what the *whole* motion is drawn
-from, divided by how many waves are sharing it — so two waves average what one
-used to, rather than piling two full motions on top of each other and sitting
-the device high and wide.
+from, split among the waves — so two waves average what one used to, rather than
+piling two full motions on top of each other and sitting the device high and
+wide.
 """
 from __future__ import annotations
 
@@ -63,11 +74,21 @@ if TYPE_CHECKING:
 # How many waves a session gets: a pair most of the time, sometimes the plain
 # single wave, sometimes three.
 _COUNTS = (1, 2, 2, 2, 3)
-# What the *whole* motion's travel and center are drawn from, before being
-# divided among the waves. Nearly the width of the axis, both of them, so the
-# motion has somewhere to travel to.
-_TRAVEL = (10.0, 100.0)
-_CENTER = (10.0, 90.0)
+# What the whole motion's travel wanders over, as a fraction of the travel the
+# dial was set to. It reaches what you asked for and never passes it — there is
+# no room above — and the shallow end is still most of what you asked for.
+_TRAVEL_BAND = (0.62, 1.0)
+# How far the whole motion's center may wander either side of the one you set,
+# and the ends of the axis it is kept off. How much of that wander survives is
+# the swing's to say: :func:`wave_stack.room` pulls the center in far enough
+# that the travel still lands, so a motion using the whole axis has nowhere to
+# walk and a shallow one has the width of this.
+_CENTER_SWING = 25.0
+_CENTER_LIMITS = (10.0, 90.0)
+# What the wave the speed dial names keeps of the travel. The rest is split
+# among the swells — enough to carry the motion about, not enough to be a second
+# motion of its own.
+_MAIN_SHARE = (0.68, 0.88)
 # How long a ramp on each axis takes. Long, because what is wanted is a motion
 # gradually speeding up or opening out, not a dial being flicked.
 _SPEED_S = (10.0, 40.0)
@@ -75,13 +96,19 @@ _TRAVEL_S = (8.0, 30.0)
 _CENTER_S = (15.0, 60.0)
 # Where each wave's speed wanders, in dial units either side of the session's
 # base. The dial is exponential — about 18 units doubles the cycles a minute —
-# so the first wave is the motion you set, and the ones under it run at a half
-# to a fifth of that: swells, not vibration.
-_MAIN_SPAN = (-15.0, 15.0)
-_UNDER_SPANS = ((-45.0, -20.0), (-70.0, -40.0))
-# The base itself drifts, so an hour of cruising is not all one pace.
+# so the first wave is the motion you set, and the ones under it run at a fifth
+# to a fortieth of it: swells, not partials.
+_MAIN_SPAN = (-12.0, 12.0)
+_UNDER_SPANS = ((-72.0, -45.0), (-95.0, -70.0))
+# The base drifts, so an hour of cruising is not all one pace — but only within
+# sight of the speed you set. Unbounded, the same walk arrives an hour later at
+# half the pace you asked for and has no way back to it.
 _BASE_STEP = (-10.0, -5.0, 5.0, 10.0)
+_BASE_SWING = 10.0
 _BASE_S = (60.0, 120.0)
+# What a swell may be shaped like. The main wave can be any of them; a swell is
+# an envelope, and one that snaps between two levels is a lurch, not a carry.
+_SWELL_SHAPES = (WaveformShape.SINE, WaveformShape.TRIANGLE)
 
 
 @dataclass
@@ -96,14 +123,23 @@ class CruiseControlState:
     what the device follows while it is set; ``clock`` is the motion's own
     seconds, which move only while it is actually running, so every ramp
     freezes where it stood through a pause.
+
+    The three anchors are the dials as the session set them. Every range the
+    dice are drawn from is measured off one of them, and only a hand on a dial
+    moves one — which is what keeps an hour of this from wandering off.
     """
 
     active: bool = False
     rng: random.Random = field(default_factory=random.Random)
     stack: WaveStack = field(default_factory=WaveStack)
     clock: float = 0.0
+    anchor_speed: float = 50.0
+    anchor_travel: float = 100.0
+    anchor_center: float = 50.0
     base_speed: float = 50.0
     bands: list[tuple[float, float]] = field(default_factory=list)
+    # How the travel is divided: most of it to the wave the dial names.
+    shares: list[float] = field(default_factory=list)
     next_base: float = 0.0
     # The dials as this last wrote them, so a hand that has moved one since can
     # be told from this module's own writing.
@@ -141,6 +177,7 @@ def disable_cruise_control(state: CruiseControlState) -> float | None:
     state.active = False
     state.stack = WaveStack()
     state.bands = []
+    state.shares = []
     state.wrote = None
     return phase
 
@@ -190,6 +227,10 @@ def _clamped(speed: float) -> float:
     return min(float(MAX_SPEED), max(float(MIN_SPEED), speed))
 
 
+def _within(low: float, high: float, value: float) -> float:
+    return min(high, max(low, value))
+
+
 def _bands(base: float, count: int) -> list[tuple[float, float]]:
     """Where each wave's speed may wander: the main one first, then the swells,
     each running slower than the one before it."""
@@ -197,10 +238,33 @@ def _bands(base: float, count: int) -> list[tuple[float, float]]:
     return [(_clamped(base + low), _clamped(base + high)) for low, high in spans]
 
 
-def _share(span: tuple[float, float], count: int) -> tuple[float, float]:
-    """*span*, as one wave's share of it — what keeps the waves summing to what
-    a single one used to be."""
-    return (span[0] / count, span[1] / count)
+def _shares(rng: random.Random, count: int) -> list[float]:
+    """How the travel is divided among the waves: most of it to the first, the
+    rest split evenly among the swells under it.
+
+    Drawn once, when the waves are, so which wave is the big one is settled for
+    the session rather than swapping about — the pace the dial names is the pace
+    with most of the travel under it, every minute this is on.
+    """
+    if count == 1:
+        return [1.0]
+    main = rng.uniform(*_MAIN_SHARE)
+    return [main] + [(1.0 - main) / (count - 1)] * (count - 1)
+
+
+def _travel_span(cc: CruiseControlState, index: int) -> tuple[float, float]:
+    """What one wave's travel is drawn from: its share of the whole motion's
+    band, which is itself a fraction of the travel the dial was set to."""
+    share = cc.anchor_travel * cc.shares[index]
+    return (share * _TRAVEL_BAND[0], share * _TRAVEL_BAND[1])
+
+
+def _center_span(cc: CruiseControlState, count: int) -> tuple[float, float]:
+    """What one wave's center is drawn from: the whole motion's wander either
+    side of the center the dial was set to, divided among the waves."""
+    low, high = _CENTER_LIMITS
+    return (_within(low, high, cc.anchor_center - _CENTER_SWING) / count,
+            _within(low, high, cc.anchor_center + _CENTER_SWING) / count)
 
 
 def _settled(value: float, now: float) -> Ramp:
@@ -222,15 +286,19 @@ def _draw_the_waves(cc: CruiseControlState, robot_hand: RobotHandState,
                     phase: float) -> None:
     """Take the motion over, from exactly where the dials have it.
 
-    The dial's travel and center are divided evenly among the waves and every
-    ramp is born already arrived, so the sum is the dials to the point — and
-    with every wave at the phase the motion is already at and running the same
-    speed, the sum *is* the single wave. The rest of this tick draws them all
-    somewhere to go, and the motion opens out from where it stood.
+    The dials become the anchors every later draw is measured off, and the
+    travel is divided among the waves in the shares they will keep. Every ramp
+    is born already arrived, so the sum is the dials to the point — and with
+    every wave at the phase the motion is already at and running the same speed,
+    the sum *is* the single wave. The rest of this tick draws them all somewhere
+    to go, and the motion opens out from where it stood.
     """
     count = cc.rng.choice(_COUNTS)
     now = cc.clock
-    cc.base_speed = float(robot_hand.speed)
+    cc.anchor_speed = cc.base_speed = float(robot_hand.speed)
+    cc.anchor_travel = float(robot_hand.amplitude)
+    cc.anchor_center = float(robot_hand.intended_center)
+    cc.shares = _shares(cc.rng, count)
     cc.bands = _bands(cc.base_speed, count)
     cc.next_base = now + cc.rng.uniform(*_BASE_S)
     cc.wrote = None
@@ -238,11 +306,11 @@ def _draw_the_waves(cc: CruiseControlState, robot_hand: RobotHandState,
         Wave(
             shape=robot_hand.shape,
             speed=_settled(float(robot_hand.speed), now),
-            amplitude=_settled(robot_hand.amplitude / count, now),
+            amplitude=_settled(robot_hand.amplitude * share, now),
             center=_settled(robot_hand.center / count, now),
             phase=phase,
         )
-        for _ in range(count)
+        for share in cc.shares
     ])
 
 
@@ -251,24 +319,27 @@ def _onward_all(cc: CruiseControlState) -> None:
     waves = cc.stack.waves
     count = len(waves)
     if now >= cc.next_base:
-        cc.base_speed = _clamped(cc.base_speed + cc.rng.choice(_BASE_STEP))
+        cc.base_speed = _clamped(_within(
+            cc.anchor_speed - _BASE_SWING, cc.anchor_speed + _BASE_SWING,
+            cc.base_speed + cc.rng.choice(_BASE_STEP)))
         cc.bands = _bands(cc.base_speed, count)
         cc.next_base = now + cc.rng.uniform(*_BASE_S)
-    for wave, band in zip(waves, cc.bands):
+    for index, (wave, band) in enumerate(zip(waves, cc.bands)):
         if wave.speed.finished(now):
             # A shape swapping under the phase steps the position a little, so
             # it is not free: a wave takes one only when its speed arrives
             # somewhere, and never on the ramp born finished at the takeover,
             # whose whole point is that it cannot be felt.
             if wave.speed.seconds > 0:
-                wave.shape = cc.rng.choice(list(WaveformShape))
+                wave.shape = cc.rng.choice(
+                    list(WaveformShape) if index == 0 else list(_SWELL_SHAPES))
             wave.speed = _onward(cc, wave.speed, band, _SPEED_S)
         if wave.amplitude.finished(now):
             wave.amplitude = _onward(cc, wave.amplitude,
-                                     _share(_TRAVEL, count), _TRAVEL_S)
+                                     _travel_span(cc, index), _TRAVEL_S)
         if wave.center.finished(now):
             wave.center = _onward(cc, wave.center,
-                                  _share(_CENTER, count), _CENTER_S)
+                                  _center_span(cc, count), _CENTER_S)
 
 
 def _write_dials(cc: CruiseControlState, robot_hand: RobotHandState) -> None:
@@ -288,9 +359,10 @@ def _hand_turns(cc: CruiseControlState, robot_hand: RobotHandState) -> None:
     carries on from there rather than yanking it back.
 
     Every dial is the whole motion's, and the motion is several waves, so each
-    turn has to be spread over them: travel in proportion, so which wave is the
-    big one survives the turn; center and pace by the same amount each, so their
-    spacing does.
+    turn has to be spread over them: travel in proportion, so the shares survive
+    the turn; center and pace by the same amount each, so their spacing does.
+    The anchor moves by what the hand turned as well — a hand asking for more
+    travel is asking for it from here on, not for one ramp's worth of it.
     """
     if cc.wrote is None:
         return
@@ -299,18 +371,24 @@ def _hand_turns(cc: CruiseControlState, robot_hand: RobotHandState) -> None:
     waves = cc.stack.waves
     count = len(waves)
     if robot_hand.amplitude != amplitude:
+        cc.anchor_travel = _within(
+            0.0, 100.0, cc.anchor_travel + robot_hand.amplitude - amplitude)
         travel = sum(wave.amplitude.at(now) for wave in waves)
         for wave in waves:
             part = (wave.amplitude.at(now) * robot_hand.amplitude / travel
                     if travel > 0 else robot_hand.amplitude / count)
             wave.amplitude = wave.amplitude.resumed(part, now)
     if robot_hand.intended_center != center:
+        cc.anchor_center = _within(
+            *_CENTER_LIMITS,
+            cc.anchor_center + robot_hand.intended_center - center)
         moved = (robot_hand.intended_center
                  - sum(wave.center.at(now) for wave in waves)) / count
         for wave in waves:
             wave.center = wave.center.resumed(wave.center.at(now) + moved, now)
     if robot_hand.speed != speed:
         delta = robot_hand.speed - speed
+        cc.anchor_speed = _clamped(cc.anchor_speed + delta)
         cc.base_speed = _clamped(cc.base_speed + delta)
         cc.bands = _bands(cc.base_speed, count)
         for wave in waves:
