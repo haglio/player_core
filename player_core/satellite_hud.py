@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from shared_ui.spacing import BUTTON_SIZE_HUD
 
 from .geometry import Rect, contains
+from .hud_status import LATEST_LABEL, SHUFFLE_LABEL
 
 __all__ = [
     "MARGIN",
@@ -129,6 +130,13 @@ class HudModel:
     # The same shape the main console's ``enhanced_filter`` takes, for the same
     # reason: None is "has no such switch", not "switched off".
     enhanced_filter: bool | None = None
+    # Which browse order this side is in — True for newest-first, False for
+    # shuffled — or None for a side that cannot be switched between them.  The
+    # same three-state shape ``enhanced_filter`` above takes, for the same
+    # reason: the pair of buttons is drawn only for a HUD whose owner can
+    # actually change the order, so a surface that merely HAS an order (a hosted
+    # Origenerator's show) does not grow two buttons nothing answers.
+    latest: bool | None = None
     corner: HudCell | None = None
     seeds: tuple[HudCell, ...] = ()
     actions: tuple[HudCell, ...] = ()
@@ -437,25 +445,51 @@ def ellipsis_rects(
 
 
 # --- the side's own controls -------------------------------------------------
-# The buttons this satellite carries for itself, in the order they sit in the
-# band: browse first (the pair reached for most), then the two that act on the
-# clip on screen, then F-mode — which acts on neither, but on the library the
-# browse draws from, so it sits past the ones that do.  A hosted Origenerator's
-# show slots its enhanced-only switch in right after F-mode, being the same kind
-# of thing (a filter over the library) — see the paint module, which adds it
-# only for a model that names the filter, since fun_time's own players have no
-# enhanced pictures to keep.  Reset follows the filters because it is the widest
-# of them: it puts the side back to every default
-# at once, F-mode and the filter and the lock and the loop together, so it stands
-# past the single switches rather than among them.  Minimize comes last, being
-# about none of the video at all: it acts on the window the whole panel is drawn
-# in.  That window is borderless (``satellite.app`` opens it NOFRAME so the video
-# fills its slot), so it has no title bar to carry a minimize button — the HUD is the
-# only place the gesture can live.
+# The buttons this satellite carries for itself, grouped by what each group is
+# about — the same four groups, in the same order, the main console's own rows
+# are cut into, because a reader glancing between the two screens is reading one
+# control panel in two places.
+#
+#   * stepping — the browse pair, reached for most, so it leads.
+#   * the clip on screen — hold it, throw it out — and F-mode, the filter over
+#     the library it was browsed from.  Set apart from the stepping because a
+#     switch is a state the side sits IN, where a step is over as soon as it is
+#     taken.
+#   * the browse itself — which pictures are in it, and what order they come in.
+#     The enhanced-only switch narrows it (a hosted Origenerator's shows only —
+#     see :func:`satellite_hud_paint._row_names`), reset puts the whole side back
+#     to its defaults, and the shuffle/latest pair says which way round the
+#     browse runs.  Reset stands past the filter because it is the wider gesture:
+#     the switches each turn one thing on or off, this puts the lot back.
+#   * the window — minimize, about none of the video at all.  That window is
+#     borderless (``satellite.app`` opens it NOFRAME so the video fills its
+#     slot), so it has no title bar to carry the gesture and the HUD is the only
+#     place it can live.
+#
 # Each name is also its command's verb, so "portrait_prev" and "landscape_trash"
 # fall out of the same tuple that draws them and the button can never post a
 # command it isn't labeled for.
-CONTROLS = ("prev", "next", "lock", "trash", "fmode", "reset", "minimize")
+CONTROL_GROUPS = (
+    ("prev", "next"),
+    ("lock", "trash", "fmode"),
+    ("enhanced", "reset", "shuffle", "latest"),
+    ("minimize",),
+)
+
+# The two controls above that only some HUDs carry, so they are not in the
+# default row: the paint module puts each back in its group for a model that
+# says it has the switch.
+_OPTIONAL_CONTROLS = ("enhanced",)
+
+CONTROLS = tuple(name for group in CONTROL_GROUPS for name in group
+                 if name not in _OPTIONAL_CONTROLS)
+
+# Which group each control belongs to.  A wider gap opens where the number
+# changes, so a control that is about something else than its neighbours reads
+# as separate without a rule drawn between them — the way the console's rows
+# already break (``console.GROUP_GAP``).
+_GROUP_OF = {name: index for index, group in enumerate(CONTROL_GROUPS) for name in group}
+CTRL_GROUP_GAP = 12
 
 
 def control_button_rects(x: int, y: int,
@@ -464,12 +498,20 @@ def control_button_rects(x: int, y: int,
 
     *names* is which controls the row carries: all of them by default, but with
     a hosted Origenerator the mode row above takes minimize with it (see
-    :data:`MODE_BUTTONS`), and this row lays out the rest.
+    :data:`MODE_BUTTONS`), and this row lays out the rest.  Whatever the row
+    holds, a :data:`CTRL_GROUP_GAP` opens wherever it crosses from one of
+    :data:`CONTROL_GROUPS` to the next.
     """
-    return [
-        ((x + index * (CTRL_BTN + MAP_GAP), y, CTRL_BTN, CTRL_BTN), name)
-        for index, name in enumerate(names)
-    ]
+    rects: list[tuple[Rect, str]] = []
+    previous = ""
+    for name in names:
+        if rects:
+            x += CTRL_BTN + (CTRL_GROUP_GAP
+                             if _GROUP_OF.get(name) != _GROUP_OF.get(previous)
+                             else MAP_GAP)
+        rects.append(((x, y, CTRL_BTN, CTRL_BTN), name))
+        previous = name
+    return rects
 
 
 # The satellite side's mode pair, drawn like the main console's Video/Genau
@@ -665,6 +707,8 @@ CONTROL_TOOLTIPS = {
     "fmode": "F-Mode — browse only the favorites on this player",
     "enhanced": "Enhanced only — show just the pictures that have been enhanced",
     "reset": "Reset — no filter, no lock, no loop, no F-Mode, shuffled from the top",
+    "shuffle": f"{SHUFFLE_LABEL} — reshuffle this player's browse",
+    "latest": f"{LATEST_LABEL} — reload this player's browse newest-first",
     "minimize": "Minimize this player — bring it back from the taskbar",
 }
 FAVORITE_TOOLTIP = "In the favorites"
@@ -883,6 +927,10 @@ def parse_hud(text: str) -> HudModel | None:
         # only for a side that says it has the filter at all.
         enhanced_filter=(None if raw.get("enhanced_filter") is None
                          else bool(raw.get("enhanced_filter"))),
+        # Absent is None the same way, and for the same reason: a publisher that
+        # says nothing about the order has no switch for it, so the pair is not
+        # drawn rather than drawn stuck on "Shuffle".
+        latest=(None if raw.get("latest") is None else bool(raw.get("latest"))),
         corner=_cell(raw.get("corner")),
         seeds=tuple(cell for cell in seeds if cell is not None),
         actions=tuple(cell for cell in actions if cell is not None),

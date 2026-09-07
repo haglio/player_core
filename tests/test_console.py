@@ -248,10 +248,69 @@ class TestReset:
         placed = place_rows(console_rows(ConsoleModel(mode="video")), x=0, y=0)
         by_action = {b.action: rect for rect, b in placed}
         fmode, reset = by_action["main_fmode"], by_action["main_reset"]
-        browse = by_action["browse_library"]
 
         assert reset[0] - (fmode[0] + fmode[2]) == GROUP_GAP
-        assert browse[0] - (reset[0] + reset[2]) == GROUP_GAP
+
+
+class TestBrowseOrder:
+    """Shuffle and Latest: which way round what plays was put in order."""
+
+    def test_both_players_can_be_reordered_from_the_console(self):
+        """The order was a spoken command and a status word with no control at
+        all.  It is one question in both modes — video reorders the playlist Fun
+        Time built for Nau, genau tells Genau to rescan the other way round."""
+        for mode in ("video", "genau"):
+            actions = _actions(ConsoleModel(mode=mode, latest=False))
+            assert "main_shuffle" in actions and "main_latest" in actions
+
+    def test_exactly_one_of_the_pair_is_lit(self):
+        """Neither is ever off — the player is in one order or the other — so the
+        light says which one you are in rather than "this is engaged"."""
+        shuffled = ConsoleModel(mode="video", latest=False)
+        newest = ConsoleModel(mode="video", latest=True)
+
+        assert _button(shuffled, "main_shuffle").lit is True
+        assert _button(shuffled, "main_latest").lit is False
+        assert _button(newest, "main_shuffle").lit is False
+        assert _button(newest, "main_latest").lit is True
+
+    def test_the_lit_one_fills_the_family_mode_color(self):
+        """Blue, the way the Video/Genau pair above it fills: one of a set, not a
+        toggle that happens to be on."""
+        for action in ("main_shuffle", "main_latest"):
+            assert _button(ConsoleModel(mode="video", latest=False), action).choice is True
+
+    def test_the_pair_sits_with_the_reset_that_puts_the_order_back(self):
+        """One group saying what there is to play and which way round it comes —
+        reset returns the browse to shuffled, so it belongs beside them."""
+        placed = place_rows(console_rows(ConsoleModel(mode="video", latest=False)),
+                            x=0, y=0)
+        by_action = {b.action: rect for rect, b in placed}
+        reset = by_action["main_reset"]
+        shuffle, latest = by_action["main_shuffle"], by_action["main_latest"]
+
+        assert shuffle[0] - (reset[0] + reset[2]) == GAP
+        assert latest[0] - (shuffle[0] + shuffle[2]) == GAP
+
+    def test_a_host_with_no_browse_order_is_offered_neither(self):
+        """Origenerator's motion panel draws this console over a show's own set,
+        which is not a browse at all — two buttons nothing there answers would be
+        two dead buttons."""
+        actions = _actions(ConsoleModel(mode="genau"))
+
+        assert "main_shuffle" not in actions and "main_latest" not in actions
+        assert ConsoleModel().latest is None
+
+    def test_a_published_panel_says_which_order_it_is_in(self, tmp_path: Path):
+        """Fun Time publishes the flag every tick, so its own consoles always draw
+        the pair; a file that says nothing about it is not one of them."""
+        import json
+        path = tmp_path / "nau_console.json"
+        path.write_text(json.dumps({"mode": "video", "latest": True}), encoding="utf-8")
+        assert read_console(path).latest is True
+
+        path.write_text(json.dumps({"mode": "video"}), encoding="utf-8")
+        assert read_console(path).latest is None
 
 
 class TestLock:
@@ -477,8 +536,32 @@ class TestLayout:
     def test_the_mode_row_leads_so_it_holds_its_place_across_modes(self):
         for mode in ("video", "genau"):
             first = console_rows(ConsoleModel(mode=mode))[0]
-            assert [b.action for b in first] == [
+            assert [b.action for b in first][:3] == [
                 "main_video_activate", "genau_activate", "main_minimize"]
+
+    def test_the_file_actions_ride_the_mode_row_where_there_is_a_video(self):
+        """Browsing for another video, recording a loop and saving what it caught
+        are about files rather than about the video on screen — and the transport
+        row had grown long enough that its own groups stopped reading as groups."""
+        video = [b.action for b in console_rows(ConsoleModel(mode="video"))[0]]
+        genau = [b.action for b in console_rows(ConsoleModel(mode="genau"))[0]]
+
+        assert video[3:] == ["browse_library", "nau_record_tap", "clipper_save"]
+        # Nothing for them to act on in genau mode, so the row stops at minimize —
+        # the same branch the transport row takes, one row down.
+        assert genau[3:] == []
+
+    def test_the_file_actions_stand_apart_from_minimize_and_from_each_other(self):
+        """Three different things sharing one row: the window, the browser, and
+        the two presses that make a clip."""
+        placed = place_rows(console_rows(ConsoleModel(mode="video")), x=0, y=0)
+        by_action = {b.action: rect for rect, b in placed}
+        minimize, browse = by_action["main_minimize"], by_action["browse_library"]
+        record, save = by_action["nau_record_tap"], by_action["clipper_save"]
+
+        assert browse[0] - (minimize[0] + minimize[2]) == GROUP_GAP
+        assert record[0] - (browse[0] + browse[2]) == GROUP_GAP
+        assert save[0] - (record[0] + record[2]) == GAP
 
     def test_minimize_rides_the_row_that_never_changes(self):
         """It parks the slot's window whatever is on it, so it must be in the row

@@ -1037,6 +1037,62 @@ def test_the_enhanced_switch_is_drawn_only_for_a_side_that_has_the_filter():
     ]
 
 
+def _blue_ink(rect, rendered) -> int:
+    """How many pixels inside *rect* are the family's mode blue."""
+    x, y, w, h = rect
+    rgb = _rgb(rendered.bgra)[y:y + h, x:x + w].astype(int)
+    blue = (rgb[:, :, 2] > 140) & (rgb[:, :, 2] > rgb[:, :, 0] + 40) & (
+        rgb[:, :, 2] > rgb[:, :, 1] + 30)
+    return int(blue.sum())
+
+
+def _order_band(**overrides):
+    return HudRenderer("landscape").render(
+        HudModel(side="landscape", lock_label="Unlocked", **overrides))
+
+
+def test_the_browse_order_pair_is_drawn_only_where_the_order_can_be_switched():
+    """A hosted Origenerator's show has an order but no way to change it from
+    here, and two buttons nothing answers are two dead buttons.  fun_time
+    publishes the flag on every panel, so its own players always carry them."""
+    def names(**overrides):
+        return [name for _rect, name in _order_band(**overrides).targets.control]
+
+    assert "shuffle" not in names() and "latest" not in names()
+    assert names(latest=False) == names(latest=True) == [
+        "prev", "next", "lock", "trash", "fmode", "reset", "shuffle", "latest",
+        "minimize",
+    ]
+
+
+def test_exactly_one_of_the_browse_order_pair_is_lit_and_it_lights_blue():
+    """Neither is ever off — the side browses in one order or the other — so the
+    light says which of the two you are in, and it says it in the family's mode
+    blue rather than in the active gray a plain toggle takes."""
+    shuffled, newest = _order_band(latest=False), _order_band(latest=True)
+    rects = {name: rect for rect, name in newest.targets.control}
+
+    assert _blue_ink(rects["shuffle"], shuffled) > _blue_ink(rects["shuffle"], newest)
+    assert _blue_ink(rects["latest"], newest) > _blue_ink(rects["latest"], shuffled)
+    # And never the favorites' green, which would say the wrong thing entirely.
+    assert _lit_ink(rects["shuffle"], shuffled) == 0
+    assert _lit_ink(rects["latest"], newest) == 0
+
+
+def test_the_panel_is_wide_enough_for_the_band_it_grew():
+    """The control band is four groups now and outruns a portrait map on its own.
+    A row the panel cannot hold clips away in silence — the buttons past the edge
+    are simply not drawn — so the panel is measured around the band, with the
+    favorite star still landing inside it."""
+    rendered = _order_band(latest=False)
+    width = rendered.bgra.shape[1]
+    last = max(x + w for (x, _y, w, _h), _name in rendered.targets.control)
+    star_x, _sy, star_w, _sh = rendered.targets.favorite
+
+    assert last < star_x
+    assert star_x + star_w <= width
+
+
 def _amber_ink(rect, rendered) -> int:
     """How many pixels inside *rect* are the amber an enhanced mark is drawn in."""
     x, y, w, h = rect

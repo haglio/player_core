@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import json
+from itertools import pairwise
 
 from player_core.satellite_hud import (
     CTRL_BTN,
+    CTRL_GROUP_GAP,
     DOUBLE_CLICK_S,
     ELLIPSIS,
     FILTER_BTN,
@@ -443,38 +445,79 @@ def test_button_tooltip_names_each_button():
         filter=[((0, 100, FILTER_BTN, 54), "gamma")],
         expand=(30, 30, 18, 18),
         control=control_button_rects(0, 60),
-        favorite=(200, 60, CTRL_BTN, CTRL_BTN),
+        favorite=(300, 60, CTRL_BTN, CTRL_BTN),
     )
 
     assert button_tooltip(targets, 5, 5) == "Loop this action column"
     assert button_tooltip(targets, 35, 5) == "Loop this seed row"
     assert button_tooltip(targets, 5, 105) == "Filter to this action"
     assert button_tooltip(targets, 35, 35) == "More seeds — widen the net"
-    assert button_tooltip(targets, 5, 65) == "Previous clip"
-    assert button_tooltip(targets, CTRL_BTN + MAP_GAP + 5, 65) == "Next clip"
-    assert button_tooltip(targets, 5 * (CTRL_BTN + MAP_GAP) + 5, 65) == (
+    # Probed off the rects the row was actually laid out at rather than off a
+    # fixed pitch: the band breaks into groups now, so a stride is not the answer.
+    at = {name: (rect[0] + 5, rect[1] + 5) for rect, name in targets.control}
+    assert button_tooltip(targets, *at["prev"]) == "Previous clip"
+    assert button_tooltip(targets, *at["next"]) == "Next clip"
+    assert button_tooltip(targets, *at["reset"]) == (
         "Reset — no filter, no lock, no loop, no F-Mode, shuffled from the top")
-    assert button_tooltip(targets, 6 * (CTRL_BTN + MAP_GAP) + 5, 65) == (
+    assert button_tooltip(targets, *at["shuffle"]).startswith("Shuffle")
+    assert button_tooltip(targets, *at["latest"]).startswith("Latest")
+    assert button_tooltip(targets, *at["minimize"]) == (
         "Minimize this player — bring it back from the taskbar")
-    assert button_tooltip(targets, 205, 65) == "In the favorites"
+    assert button_tooltip(targets, 305, 65) == "In the favorites"
     assert button_tooltip(targets, 400, 400) == ""
 
 
 def test_control_button_rects_lays_the_sides_own_controls_out_in_a_row():
-    """The browse pair, then the two that act on the clip on screen, then F-mode,
-    then reset, then minimize — the buttons the dashboard used to carry for this
-    side, now in the side's own HUD, widening from the clip on screen out to the
-    whole side and ending with the one that acts on the window rather than on
-    anything in it."""
+    """The browse pair, then the three about the clip on screen and the library it
+    came from, then the browse itself, then minimize — the buttons the dashboard
+    used to carry for this side, now in the side's own HUD, widening from the clip
+    on screen out to the whole side and ending with the one that acts on the
+    window rather than on anything in it."""
     rects = control_button_rects(10, 40)
 
     assert [name for _rect, name in rects] == [
-        "prev", "next", "lock", "trash", "fmode", "reset", "minimize",
+        "prev", "next", "lock", "trash", "fmode", "reset", "shuffle", "latest",
+        "minimize",
     ]
-    assert [rect for rect, _name in rects] == [
-        (10 + step * (CTRL_BTN + MAP_GAP), 40, CTRL_BTN, CTRL_BTN)
-        for step in range(7)
-    ]
+    assert all(rect[1:] == (40, CTRL_BTN, CTRL_BTN) for rect, _name in rects)
+
+
+def test_the_control_band_breaks_into_the_groups_the_console_breaks_into():
+    """A run of evenly spaced squares reads as one long undifferentiated strip,
+    and the main console already answers this by opening a wider gap where the
+    controls stop being about the same thing.  The bands do it the same way and
+    at the same four seams, so a reader glancing between the two screens is
+    reading one control panel in two places."""
+    rects = control_button_rects(0, 0)
+    gap_before = {
+        name: rect[0] - (previous[0] + previous[2])
+        for (previous, _p), (rect, name) in pairwise(rects)
+    }
+
+    assert gap_before["next"] == MAP_GAP          # stepping
+    assert gap_before["lock"] == CTRL_GROUP_GAP   # …then the clip on screen
+    assert gap_before["trash"] == MAP_GAP
+    assert gap_before["fmode"] == MAP_GAP
+    assert gap_before["reset"] == CTRL_GROUP_GAP  # …then the browse itself
+    assert gap_before["shuffle"] == MAP_GAP
+    assert gap_before["latest"] == MAP_GAP
+    assert gap_before["minimize"] == CTRL_GROUP_GAP  # …then the window
+
+
+def test_the_enhanced_switch_joins_the_browse_group_rather_than_the_switches():
+    """It narrows what there is to browse, which is what reset puts back and what
+    the order pair runs through — so it belongs in that group rather than beside
+    F-mode, where it read as a second switch on the clip."""
+    names = ("prev", "next", "lock", "trash", "fmode", "enhanced", "reset",
+             "shuffle", "latest", "minimize")
+    rects = control_button_rects(0, 0, names)
+    gap_before = {
+        name: rect[0] - (previous[0] + previous[2])
+        for (previous, _p), (rect, name) in pairwise(rects)
+    }
+
+    assert gap_before["enhanced"] == CTRL_GROUP_GAP
+    assert gap_before["reset"] == MAP_GAP
 
 
 def test_action_label_blocks_separate_comma_joined_acts():
@@ -546,15 +589,11 @@ def test_clicking_a_side_control_posts_that_sides_command():
     "portrait_prev", "landscape_trash", "portrait_fmode" — so the dispatch loop
     needs no new verbs for a button, only for the thing it does."""
     targets = _targets(control=control_button_rects(0, 0))
-    ctrl = CTRL_BTN + MAP_GAP
 
-    assert HudClicks("portrait").press(targets, 5, 5, now=0.0) == "portrait_prev"
-    assert HudClicks("portrait").press(targets, ctrl + 5, 5, now=0.0) == "portrait_next"
-    assert HudClicks("landscape").press(targets, 2 * ctrl + 5, 5, now=0.0) == "landscape_lock"
-    assert HudClicks("landscape").press(targets, 3 * ctrl + 5, 5, now=0.0) == "landscape_trash"
-    assert HudClicks("portrait").press(targets, 4 * ctrl + 5, 5, now=0.0) == "portrait_fmode"
-    assert HudClicks("portrait").press(targets, 5 * ctrl + 5, 5, now=0.0) == "portrait_reset"
-    assert HudClicks("landscape").press(targets, 6 * ctrl + 5, 5, now=0.0) == "landscape_minimize"
+    for rect, name in targets.control:
+        for side in ("portrait", "landscape"):
+            assert HudClicks(side).press(
+                targets, rect[0] + 5, rect[1] + 5, now=0.0) == f"{side}_{name}"
 
 
 def test_parse_hud_reads_this_sides_f_mode():
@@ -655,13 +694,25 @@ def test_parse_hud_reads_an_enhanced_filter_only_where_the_side_names_one():
 
 
 def test_the_enhanced_switch_names_itself_and_posts_its_sides_command():
-    """Slotted in after F-mode, the switch is one more control on the band: it
-    carries a tooltip like every glyph here, and a press posts "<side>_enhanced"
-    — the verb falls out of the name, as every other control's does."""
-    names = ("prev", "next", "lock", "trash", "fmode", "enhanced", "reset", "minimize")
+    """Slotted into the browse group, the switch is one more control on the band:
+    it carries a tooltip like every glyph here, and a press posts
+    "<side>_enhanced" — the verb falls out of the name, as every other
+    control's does."""
+    names = ("prev", "next", "lock", "trash", "fmode", "enhanced", "reset",
+             "shuffle", "latest", "minimize")
     targets = _targets(control=control_button_rects(0, 0, names))
-    ctrl = CTRL_BTN + MAP_GAP
+    at = {name: (rect[0] + 5, rect[1] + 5) for rect, name in targets.control}
 
-    assert HudClicks("portrait").press(targets, 5 * ctrl + 5, 5, now=0.0) == "portrait_enhanced"
-    assert HudClicks("landscape").press(targets, 6 * ctrl + 5, 5, now=0.0) == "landscape_reset"
-    assert "enhanced" in button_tooltip(targets, 5 * ctrl + 5, 5).lower()
+    assert HudClicks("portrait").press(targets, *at["enhanced"], now=0.0) == "portrait_enhanced"
+    assert HudClicks("landscape").press(targets, *at["reset"], now=0.0) == "landscape_reset"
+    assert "enhanced" in button_tooltip(targets, *at["enhanced"]).lower()
+
+
+def test_parse_hud_reads_the_browse_order_only_where_the_side_names_one():
+    """None is "this side's order cannot be switched here" — a hosted
+    Origenerator's show, whose set is not a browse — and only a publisher that
+    says on or off gets the pair of buttons.  The two must not collapse: a HUD
+    that read "absent" as "shuffled" would grow two buttons nothing answers."""
+    assert parse_hud(json.dumps({"side": "portrait"})).latest is None
+    assert parse_hud(json.dumps({"side": "portrait", "latest": False})).latest is False
+    assert parse_hud(json.dumps({"side": "portrait", "latest": True})).latest is True

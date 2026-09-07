@@ -283,15 +283,19 @@ class ConsoleHud:
         ) if self.modes.compilation else ""
         # The browse order, said the same way for whichever player is on this slot:
         # both of them browse in these two orders, so a reader who has just asked
-        # for Latest reads the same word back wherever they asked it.
-        order = LATEST_LABEL if self.console.latest else SHUFFLE_LABEL
+        # for Latest reads the same word back wherever they asked it.  Nothing at
+        # all for a host with no browse order (see :attr:`ConsoleModel.latest`) —
+        # an empty slot takes no room, the way every other optional slot here does.
+        order = "" if self.console.latest is None else (
+            LATEST_LABEL if self.console.latest else SHUFFLE_LABEL)
         # The pace an unheld Genau clip moves on at, after the order rather than in
         # place of it: the order says which clip is next, the pace says when.  Only
         # while Genau is the one showing — video mode draws the drive readout too, but
         # an unlocked Nau there plays through a playlist rather than on a timer —
         # and only unheld, since nothing is going to move a held clip.
         if not nau_displays(self.console.mode) and not self.console.locked and self.advance_interval:
-            order = f"{order}{SEPARATOR}{self.advance_interval}s"
+            pace = f"{self.advance_interval}s"
+            order = f"{order}{SEPARATOR}{pace}" if order else pace
         return status_line(
             playing_set=compilation,
             locked=self.console.locked,
