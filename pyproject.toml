@@ -23,6 +23,11 @@ dev = [
     "pytest>=9,<10",
     "pytest-timeout>=2.4,<3",
     "ruff==0.16.6",
+    # The suite's, not the package's: the HUD paint tests read the family's
+    # colors, and `shared_ui.colors` builds them out of QColor. Nothing player_core
+    # ships imports Qt, so it stays out of [project.dependencies] and the three
+    # apps that install this package do not get a Qt wheel with it.
+    "PyQt6>=6,<7",
 ]
 
 # Consumers install this editable from a local path (see README); it is never
