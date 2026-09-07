@@ -6,6 +6,7 @@ back off what they came to rather than handed down to them. And however many
 waves there are and whatever their parameters are doing, the sum lands on the
 axis: the motion the device is sent can never run off either end of it.
 """
+from __future__ import annotations
 
 import math
 import random
