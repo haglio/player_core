@@ -1,11 +1,27 @@
 from __future__ import annotations
 
+import pytest
+
 from player_core.tcode import (
     POSITION_MAX,
     UdpTCodeSink,
     format_tcode_command,
     to_tcode_position,
 )
+
+
+class RaisingSock:
+    """A socket that refuses every datagram, the way a closed one does."""
+
+    def __init__(self):
+        self.sent: list[tuple[bytes, tuple[str, int]]] = []
+        self.closed = False
+
+    def sendto(self, data: bytes, addr: tuple[str, int]) -> None:
+        raise OSError(10038, "An operation was attempted on something that is not a socket")
+
+    def close(self) -> None:
+        self.closed = True
 
 
 class FakeSock:
@@ -38,6 +54,23 @@ class TestUdpTCodeSink:
         sink = UdpTCodeSink(sock=sock)
         sink.send("L09999I50")
         assert sock.sent == [(b"L09999I50\n", ("127.0.0.1", 50557))]
+
+    def test_a_send_after_close_is_silence_not_a_raise(self):
+        """A closed sink is still reached at shutdown by whatever thread is
+        driving it — Fun Time's VR worker ticks its main role after the render
+        thread has closed that role's driver — and a raise there kills the
+        worker mid-teardown (WSAENOTSOCK, observed in the integration suite)."""
+        sock = RaisingSock()
+        sink = UdpTCodeSink(sock=sock)
+        sink.close()
+        sink.send("L05000I33")
+        assert sock.sent == []
+
+    def test_a_send_that_fails_while_the_sink_is_open_still_raises(self):
+        """Only closing is forgiven; a misaddressed sink stays as loud as it was."""
+        sink = UdpTCodeSink(sock=RaisingSock())
+        with pytest.raises(OSError):
+            sink.send("L05000I33")
 
 
 class TestFormatTcodeCommand:

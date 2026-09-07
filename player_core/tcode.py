@@ -114,10 +114,29 @@ class UdpTCodeSink:
     ) -> None:
         self._host = host
         self._port = port
+        self._closed = False
         self._sock = sock if sock is not None else socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     def send(self, command: str) -> None:
-        self._sock.sendto((command + "\n").encode("ascii"), (self._host, self._port))
+        """Put one command on the wire; a sink that has been closed sends nothing.
+
+        Closing while another thread is still driving is the ordinary shape of
+        shutdown here — Fun Time's VR player closes its main role from the
+        render thread while the file-channel worker is still ticking it — and a
+        raise there kills that worker mid-teardown (WSAENOTSOCK, observed).
+        Silence is the honest answer either way: a datagram sent where nobody
+        is listening is already indistinguishable, to this sink, from one the
+        broker received.  A send that fails while the sink is still OPEN still
+        raises, so a misaddressed sink is as loud as it ever was.
+        """
+        if self._closed:
+            return
+        try:
+            self._sock.sendto((command + "\n").encode("ascii"), (self._host, self._port))
+        except OSError:
+            if not self._closed:
+                raise
 
     def close(self) -> None:
+        self._closed = True
         self._sock.close()
