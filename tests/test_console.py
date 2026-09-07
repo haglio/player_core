@@ -10,6 +10,7 @@ from player_core.console import (
     GROUP_GAP,
     MINIMIZE_ICON,
     ConsoleModel,
+    ModeHud,
     console_rows,
     hit_test,
     nau_displays,
@@ -274,11 +275,12 @@ class TestBrowseOrder:
         assert _button(newest, "main_shuffle").lit is False
         assert _button(newest, "main_latest").lit is True
 
-    def test_the_lit_one_fills_the_family_mode_color(self):
-        """Blue, the way the Video/Genau pair above it fills: one of a set, not a
-        toggle that happens to be on."""
+    def test_neither_of_the_pair_wears_a_color_of_its_own(self):
+        """A lit control fills the family's blue, and these are lit controls —
+        neither of them is the favorites' green or an enhanced picture's amber."""
         for action in ("main_shuffle", "main_latest"):
-            assert _button(ConsoleModel(mode="video", latest=False), action).choice is True
+            button = _button(ConsoleModel(mode="video", latest=False), action)
+            assert button.favorite is False and button.enhanced is False
 
     def test_the_pair_is_its_own_group_after_the_reset(self):
         """The two are one control asked twice, so they sit together — and apart
@@ -312,6 +314,101 @@ class TestBrowseOrder:
 
         path.write_text(json.dumps({"mode": "video"}), encoding="utf-8")
         assert read_console(path).latest is None
+
+
+class TestLengthPair:
+    """Full length and shorts, as the two lengths each button includes."""
+
+    def _pair(self, length_mode: str, **over):
+        rows = console_rows(ConsoleModel(mode="video", latest=False),
+                            nau=ModeHud(length_mode=length_mode, **over))
+        buttons = {b.action: b for row in rows for b in row if b.action}
+        by_icon = [b for row in rows for b in row
+                   if b.action.startswith("nau_length")]
+        return by_icon, buttons
+
+    def test_mixed_is_both_of_them_lit(self):
+        """Every length there is, which is what Mixed means — and why it needs no
+        button of its own."""
+        pair, _ = self._pair("mixed")
+
+        assert [b.lit for b in pair] == [True, True]
+
+    def test_one_length_is_that_one_lit_and_the_other_dark(self):
+        full, _ = self._pair("full")
+        shorts, _ = self._pair("shorts")
+
+        assert [b.lit for b in full] == [True, False]
+        assert [b.lit for b in shorts] == [False, True]
+
+    def test_dropping_one_from_mixed_asks_for_the_other_alone(self):
+        pair, _ = self._pair("mixed")
+
+        assert [b.action for b in pair] == ["nau_length_shorts", "nau_length_full"]
+
+    def test_putting_the_dark_one_back_asks_for_mixed(self):
+        pair, _ = self._pair("full")
+
+        assert pair[1].action == "nau_length_mixed"
+
+    def test_the_only_lit_one_cannot_be_turned_off(self):
+        """Neither length playing is not a thing the player can do, so the press
+        that would ask for it is not offered."""
+        pair, _ = self._pair("full")
+
+        assert pair[0].dim is True
+        assert pair[1].dim is False
+
+    def test_no_pair_at_all_without_a_library_to_filter(self):
+        _pair, buttons = self._pair("")
+
+        assert not [a for a in buttons if a.startswith("nau_length")]
+
+
+class TestCompilationAndJumps:
+    """The set a video belongs to, the scene it came from, and its other cuts."""
+
+    def _button_for(self, action: str, **over):
+        rows = console_rows(ConsoleModel(mode="video", latest=False),
+                            nau=ModeHud(length_mode="mixed", **over))
+        return next(b for row in rows for b in row if b.action == action)
+
+    def test_the_compilation_button_enters_and_the_lit_one_leaves(self):
+        """One button for both halves: there is no second control for "end", and
+        the light is what says which of the two a press will do."""
+        outside = self._button_for("nau_compilation", has_compilation=True)
+        inside = self._button_for("nau_end_compilation", compilation="Volume 6")
+
+        assert outside.lit is False and outside.dim is False
+        assert inside.lit is True
+
+    def test_a_video_in_no_compilation_cannot_be_pressed_into_one(self):
+        assert self._button_for("nau_compilation").dim is True
+
+    def test_inside_a_compilation_the_order_and_length_read_as_held(self):
+        """A compilation replaces both while it plays and gives them back on the
+        way out, so they are set-but-not-in-force rather than off."""
+        rows = console_rows(ConsoleModel(mode="video", latest=False),
+                            nau=ModeHud(length_mode="mixed", compilation="Volume 6"))
+        held = {b.action: b for row in rows for b in row
+                if b.action in ("main_shuffle", "nau_length_shorts")}
+
+        assert all(b.remembered and not b.lit for b in held.values())
+
+    def test_the_clip_jump_says_which_way_it_would_go(self):
+        to_scene = self._button_for("nau_full_vid", jump_to="scene")
+        to_clip = self._button_for("nau_clip_jump", jump_to="clip")
+
+        assert to_scene.glyph != to_clip.glyph
+        assert to_scene.dim is False and to_clip.dim is False
+
+    def test_a_video_with_nothing_on_the_other_end_is_dim(self):
+        """Most clips' source scenes are not in the library at all."""
+        assert self._button_for("nau_clip_jump").dim is True
+
+    def test_the_version_step_is_dim_without_another_version(self):
+        assert self._button_for("nau_cycle_version").dim is True
+        assert self._button_for("nau_cycle_version", has_other_versions=True).dim is False
 
 
 class TestLock:
