@@ -22,6 +22,7 @@ from pathlib import Path
 
 from .geometry import Rect, contains
 from .hud_marks import shared_mark
+from .hud_status import LATEST_LABEL, SHUFFLE_LABEL
 
 __all__ = [
     "CONSOLE_VERBS",
@@ -146,10 +147,15 @@ class ConsoleModel:
     # and only one of them is the player.
     f_mode: bool = False
     # Which browse order the main player is in: newest-first ("Latest") when set,
-    # else shuffled.  Published for the same reason F-mode is — the order is Fun
-    # Time's to set, and the playlist Nau is handed looks the same either way round,
-    # so nothing in the file says which order built it.
-    latest: bool = False
+    # shuffled when clear.  Published for the same reason F-mode is — the order is
+    # Fun Time's to set, and the playlist Nau is handed looks the same either way
+    # round, so nothing in the file says which order built it.  None is a third
+    # answer, the one ``enhanced_filter`` and ``favorites_filter`` below give: this
+    # host has no browse order to switch at all, so the console neither draws the
+    # pair of buttons for it nor names an order on its status line.  Origenerator's
+    # motion panel is the one console that answers that way — its slides are a
+    # show's own set, not a browse.
+    latest: bool | None = None
     cruise: bool = False
     shape: str = "sine"
     # Nau's video playback rate, shown while Nau is on screen.  Not published —
@@ -193,7 +199,10 @@ def read_console(path: Path) -> ConsoleModel | None:
         mode=str(raw.get("mode", "video")),
         active=bool(raw.get("active", False)),
         f_mode=bool(raw.get("f_mode", False)),
-        latest=bool(raw.get("latest", False)),
+        # Absent is None — no browse order to switch — rather than "shuffled":
+        # the pair of buttons is drawn only for a publisher that says which order
+        # it is in, so a panel nothing would answer does not grow two dead ones.
+        latest=(None if raw.get("latest") is None else bool(raw.get("latest"))),
         osr2=str(raw.get("osr2", "off") or "off"),
         broker=bool(raw.get("broker", False)),
         record=str(raw.get("record", "normal") or "normal"),
@@ -225,6 +234,14 @@ _GLYPHS = {
 # funnel hanging off it.  A bare plus is Enhance — the button that MAKES one, which
 # Origenerator's toolbar already has — so the funnel is what tells the two apart.
 ENHANCE_FILTER_ICON = shared_mark("enhance_filter")
+
+# The two browse orders, each with a mark of its own: the family's crossed arrows
+# for shuffle and the same arrows uncrossed for latest.  A pair rather than one
+# button that cycles, because which of the two the player is in is what the panel
+# has to say at a glance, and a cycling button says only "press me".  The same
+# pair each satellite's HUD carries, so one order wears one face across the room.
+SHUFFLE_ICON = shared_mark("shuffle")
+LATEST_ICON = shared_mark("latest")
 
 # The waveform control wears a drawn mark rather than a glyph: ∿ is a small mark
 # low in the bounds its face lays out, so it read as a smudge in the corner of
@@ -263,6 +280,7 @@ CONSOLE_VERBS = frozenset({
     "genau_prev_clip",
     "genau_weird_clip",
     "main_fmode",
+    "main_latest",
     "main_lock",
     "main_minimize",
     "main_next",
@@ -270,6 +288,7 @@ CONSOLE_VERBS = frozenset({
     "main_nudge_prev",
     "main_prev",
     "main_reset",
+    "main_shuffle",
     "main_video_activate",
     "nau_record_tap",
     "nau_speed_down",
@@ -311,11 +330,19 @@ def console_rows(model: ConsoleModel, *, modes: bool = True,
     readout's amplitude/center/speed arrows are drawn on the readout itself, not
     here).
 
-    *modes* off drops that leading row, and the minimize button riding it with
-    it.  A player embedded in another app's window is not one of the two that
-    row switches between, and has no borderless window of its own to park — but
-    everything below it means exactly what it means here, which is the whole
-    point of asking for this console rather than building a second one.
+    The file controls ride the mode row rather than the transport: browsing for
+    another video, recording a loop and saving what it caught are all about
+    files rather than about the video on screen, and the transport row below had
+    grown long enough that its own groups stopped reading as groups.  They are
+    video-mode only, like the rest of that branch, so the mode row's leading
+    half — the two mode buttons and the minimize riding them — is what holds its
+    place across a mode switch.
+
+    *modes* off drops that whole row.  A player embedded in another app's window
+    is not one of the two that row switches between, has no borderless window of
+    its own to park, and does its own file handling — but everything below it
+    means exactly what it means here, which is the whole point of asking for this
+    console rather than building a second one.
     """
     rows: list[list[Button]] = [] if not modes else [
         [
@@ -334,6 +361,7 @@ def console_rows(model: ConsoleModel, *, modes: bool = True,
             Button("main_minimize", MINIMIZE_ICON,
                    "Minimize this player — bring it back from the taskbar",
                    group_break=True),
+            *_file_controls(model),
         ],
     ]
     rows.append(_transport_row(model))
@@ -345,13 +373,65 @@ def console_rows(model: ConsoleModel, *, modes: bool = True,
     return rows
 
 
-def _transport_row(model: ConsoleModel) -> list[Button]:
-    """Stepping and the actions on what is on screen.
+def _file_controls(model: ConsoleModel) -> list[Button]:
+    """The file actions, riding the mode row: browse for another video, record a
+    loop, save the clip it caught.
 
-    In video mode that is Nau's video — step it, nudge inside it, hold it against
-    the end of the playlist's advance, browse for another, save a clip, record a
-    loop.  In genau it is Genau's own clips — step them, hold one, mark one weird;
-    nudge/browse/clip/record have no video to act on.
+    Nau's own, so nothing in genau mode, where there is no video for any of them
+    to act on — the same branch the transport row takes, one row up.
+    """
+    if not nau_displays(model.mode):
+        return []
+    return [
+        Button("browse_library", _GLYPHS["open"], "Browse the library"),
+        # Recording a loop and saving what it caught are one job in two presses,
+        # so they sit together and apart from the browser.  The record button
+        # carries the loop machine: red while the out point is still being
+        # marked, blue once the loop is running — the two halves of the gesture
+        # look different, so a press that is still open cannot be mistaken for
+        # one that landed.
+        Button("nau_record_tap", _GLYPHS["record"],
+               "Stop recording — mark the loop's out point"
+               if model.record == "recording" else
+               "Looping — press to drop the loop" if model.record == "looping"
+               else "Record loop",
+               warn=model.record == "recording",
+               hold=model.record == "looping"),
+        Button("clipper_save", _GLYPHS["save"], "Save clip"),
+    ]
+
+
+def _browse_order_buttons(model: ConsoleModel) -> list[Button]:
+    """Which way round the browse runs: shuffled, or newest-first.
+
+    A button each, with exactly one of them lit — the pair each satellite's HUD
+    carries, meaning the same thing there.  Both modes have it: in video mode it
+    reorders the playlist Fun Time built for Nau, in genau mode it tells Genau to
+    rescan its clips the other way round.
+
+    Nothing at all for a host with no browse order to name (``latest`` None) —
+    see :attr:`ConsoleModel.latest`.
+    """
+    if model.latest is None:
+        return []
+    return [
+        # Lit BLUE rather than the active gray a plain toggle takes: neither of
+        # these is ever "off", so the news is not "this is engaged" but "this is
+        # the one of the two you are in", which is what ``choice`` is for.
+        Button("main_shuffle", SHUFFLE_ICON, f"{SHUFFLE_LABEL} — reshuffle what plays",
+               lit=not model.latest, choice=True),
+        Button("main_latest", LATEST_ICON, f"{LATEST_LABEL} — reload it newest-first",
+               lit=model.latest, choice=True),
+    ]
+
+
+def _transport_row(model: ConsoleModel) -> list[Button]:
+    """Stepping and the actions on what is on screen, then the browse itself.
+
+    In video mode the stepping is Nau's video — step it, nudge inside it, hold it
+    against the end of the playlist's advance.  In genau it is Genau's own clips
+    — step them, hold one, mark one weird; the nudges have no video to act on.
+    Both branches end with what narrows the browse and what orders it.
 
     The padlock is in both, because both players have one and it means the same
     thing on each: hold what is on screen.  Which player it reaches is the mode's
@@ -397,21 +477,10 @@ def _transport_row(model: ConsoleModel) -> list[Button]:
             # for either of them to be narrowing.
             Button("main_reset", _GLYPHS["reset"],
                    "Reset — the whole library back, with F-Mode off"),
-            Button("browse_library", _GLYPHS["open"], "Browse the library"),
-            # Recording a loop and saving what it caught are one job in two
-            # presses, so they sit together and apart from the browser.  The
-            # record button carries the loop machine: red while the out point is
-            # still being marked, blue once the loop is running — the two halves
-            # of the gesture look different, so a press that is still open cannot
-            # be mistaken for one that landed.
-            Button("nau_record_tap", _GLYPHS["record"],
-                   "Stop recording — mark the loop's out point"
-                   if model.record == "recording" else
-                   "Looping — press to drop the loop" if model.record == "looping"
-                   else "Record loop",
-                   warn=model.record == "recording",
-                   hold=model.record == "looping"),
-            Button("clipper_save", _GLYPHS["save"], "Save clip"),
+            # The order the browse runs in, beside the button that puts that
+            # order back to its default — one group saying what there is to play
+            # and which way round it comes.
+            *_browse_order_buttons(model),
         ]
     return [
         Button("genau_prev_clip", _GLYPHS["prev"], "Previous clip"),
@@ -444,6 +513,9 @@ def _transport_row(model: ConsoleModel) -> list[Button]:
         ]),
         Button("genau_weird_clip", _GLYPHS["trash"], "Mark weird — move it out",
                danger=True),
+        # And which way round Genau walks its clips — the same pair the video
+        # branch ends on, because the question is the same one.
+        *_browse_order_buttons(model),
     ]
 
 
@@ -554,10 +626,12 @@ _CAPTURE_CONTROLS = frozenset({"nau_record_tap", "clipper_save"})
 # shares the transport's command prefix, so it has to be named here to leave
 # that run.
 _SWITCH_CONTROLS = frozenset({"main_lock", "main_fmode"})
-# Reset stands alone between the switches and the browser: it shares the
-# transport's command prefix but is not one of that run, and it is what turns
-# the two switches back off, so it must not read as a third one.
-_RESET_CONTROLS = frozenset({"main_reset"})
+# The browse itself, closing the transport row: reset puts everything narrowing
+# it back, and the pair beside it says which way round it runs.  One group, apart
+# from the switches before it — reset is what turns those back off, so it must
+# not read as a third one — and named here because all three share the
+# transport's command prefix without being one of that run.
+_BROWSE_CONTROLS = frozenset({"main_reset", "main_shuffle", "main_latest"})
 # The controls that act on the window rather than on anything inside it, so they
 # stand apart from whatever they share a row with.  Named rather than left to the
 # main_ prefix below: minimize sits beside the mode buttons and would otherwise
@@ -579,8 +653,8 @@ def _family(action: str) -> str:
         return "capture"
     if action in _SWITCH_CONTROLS:
         return "switch"
-    if action in _RESET_CONTROLS:
-        return "reset"
+    if action in _BROWSE_CONTROLS:
+        return "browse"
     # Stepping the video and nudging inside it are one run of four marks, so they
     # are one family: prev, back ten, forward ten, next, evenly spaced.
     for prefix in ("main_", "nau_speed", "robot_hand_", "genau_"):

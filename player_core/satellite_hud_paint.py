@@ -128,7 +128,17 @@ _EXPAND_GLYPH = shared_mark("expand_horizontal")
 _CONTROL_GLYPHS = {
     "prev": "⏮", "next": "⏭", "lock": "🔒",
     "trash": shared_mark("trash"), "reset": shared_mark("reset"),
+    # The browse-order pair, drawn by the family: two arrows running left to
+    # right, crossed for shuffle and uncrossed for latest.  One mark each rather
+    # than one button that cycles, because which of the two you are in is what
+    # the panel has to say at a glance, and a cycling button says only "press me".
+    "shuffle": shared_mark("shuffle"), "latest": shared_mark("latest"),
 }
+# The controls that are one of a set of mutually exclusive choices: exactly one
+# of them is lit, and it fills BLUE — the family's mode color, the same one the
+# mode pair above the band takes — rather than the active gray a plain toggle
+# lights.  A press on the dark one moves the light onto it.
+_CHOICE_CONTROLS = ("shuffle", "latest")
 # F-mode wears its own mark rather than a glyph: no symbol says "favorites
 # only", and the mode already has a face — the magenta "F" of ``fmode_icon.ico``,
 # the five-by-five letter every app in this family is marked with.  A letter set
@@ -171,16 +181,26 @@ _MINIMIZE_H = 2
 def _row_names(model: HudModel, *, mode_row: bool) -> tuple[str, ...]:
     """Which controls the band carries for *model*, in order.
 
-    :data:`CONTROLS`, with the enhanced-only switch slotted in after F-mode for a
-    side that has one (``enhanced_filter`` not None â€” a hosted Origenerator's
-    show; fun_time's own players have no enhanced pictures to keep, so their
-    bands are as they were), and minimize taken off where the mode row above
-    carries it (see :data:`MODE_BUTTONS`).  One answer for both the row's
-    measurement and its drawing, so a widened band cannot be measured short.
+    :data:`CONTROLS`, adjusted three ways and each time by what the model says it
+    has rather than by who is drawing it:
+
+    * the enhanced-only switch is slotted into the browse group, ahead of reset,
+      for a side that has one (``enhanced_filter`` not None â€” a hosted
+      Origenerator's show; fun_time's own players have no enhanced pictures to
+      keep, so their bands are as they were);
+    * the shuffle/latest pair comes off for a side whose browse order cannot be
+      switched (``latest`` None), so a HUD nothing would answer does not grow two
+      dead buttons;
+    * minimize comes off where the mode row above carries it (:data:`MODE_BUTTONS`).
+
+    One answer for both the row's measurement and its drawing, so a widened band
+    cannot be measured short.
     """
     names = list(CONTROLS)
     if model.enhanced_filter is not None:
-        names.insert(names.index("fmode") + 1, "enhanced")
+        names.insert(names.index("reset"), "enhanced")
+    if model.latest is None:
+        names = [name for name in names if name not in _CHOICE_CONTROLS]
     if mode_row:
         names.remove("minimize")
     return tuple(names)
@@ -324,21 +344,22 @@ class HudRenderer:
         # The row's reach covers the action column too: it hangs under the cell
         # ``playing`` lights, which can be partway along the row.
         reach = map_reach(row, [thumb.width for thumb in action_thumbs], model.playing)
-        # The bands' own demand: with a hosted Origenerator the mode row (the
-        # labeled pair plus the minimize that rides it) can outrun a portrait
-        # map's width, and a row the panel cannot hold would clip away in
-        # silence.  The control row keeps room for the favorite star at its far
-        # end the same way.
+        # The bands' own demand.  The control row is measured every time now: at
+        # four groups it outruns a portrait map on its own, and a row the panel
+        # cannot hold clips away in silence — the buttons past the edge are simply
+        # not there, with nothing raised.  It keeps room for the favorite star at
+        # its far end.  With a hosted Origenerator the mode row (the labeled pair
+        # plus the minimize that rides it) can ask for more still.
         mode_widths = self._mode_label_widths(model)
         row_names = _row_names(model, mode_row=bool(mode_widths))
-        band_width = 0
+        controls_end = control_button_rects(PAD, 0, row_names)[-1][0][0] + CTRL_BTN
+        band_width = controls_end + 2 * MAP_GAP + CTRL_BTN + PAD
         if mode_widths:
-            controls_end = control_button_rects(PAD, 0, row_names)[-1][0][0] + CTRL_BTN
             pair = sum(w + 2 * MODE_LABEL_PAD for w in mode_widths) + MAP_GAP
             band_width = max(
-                PAD + pair + MAP_GAP + CTRL_BTN,        # the mode row, minimize riding it
-                controls_end + 2 * MAP_GAP + CTRL_BTN,  # the controls, star at the end
-            ) + PAD
+                band_width,
+                PAD + pair + MAP_GAP + CTRL_BTN + PAD,  # the mode row, minimize riding it
+            )
         width = panel_width(gutter_w, reach, text_width(self._body, model.lock_label),
                             text_width(self._tiny, video), band_width=band_width)
         height = panel_height(
@@ -750,8 +771,12 @@ class HudRenderer:
 
         The lock, F-mode and the enhanced-only switch are states, so they light
         while they are on; the others do a thing rather than be in one.  The
-        star is a readout, not a button, so it gets no square: a square would
-        invite a press that does nothing.
+        browse-order pair is a third kind: neither of them is ever off, so
+        exactly one is lit and it lights BLUE — the family's mode color, the one
+        the mode pair above the band takes — because the news there is not "this
+        is engaged" but "this is the one of the two you are in".  The star is a
+        readout, not a button, so it gets no square: a square would invite a
+        press that does nothing.
 
         Both lit states are green rather than white, and so is the star: locking a
         clip puts it in the favorites and F-mode is the filter over them, so all
@@ -764,11 +789,16 @@ class HudRenderer:
         favorites".
         """
         lit = {"lock": model.locked, "fmode": model.f_mode,
-               "enhanced": bool(model.enhanced_filter)}
+               "enhanced": bool(model.enhanced_filter),
+               "latest": bool(model.latest), "shuffle": not model.latest}
         for rect, name in controls:
             if name == "enhanced":
                 self._glyph_button(image, draw, rect, _ENHANCED_GLYPH,
                                    on=lit[name], on_color=AMBER, ink=AMBER)
+                continue
+            if name in _CHOICE_CONTROLS:
+                self._glyph_button(image, draw, rect, _CONTROL_GLYPHS[name],
+                                   on=lit[name], on_color=BLUE)
                 continue
             if name in _ICON_CONTROLS:
                 self._button_square(draw, rect, on=lit.get(name, False), on_color=GREEN)

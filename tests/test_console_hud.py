@@ -79,7 +79,7 @@ class TestLine:
         pace says when.  Held, there is no pace to report: the clip stays until
         something moves it."""
         def line(**over) -> str:
-            return ConsoleHud(console=ConsoleModel(mode="genau", **over),
+            return ConsoleHud(console=ConsoleModel(mode="genau", latest=False, **over),
                               drive=_drive(advance_interval=5)).status_line
 
         assert line(locked=False) == "Unlocked · Shuffle · 5s"
@@ -100,7 +100,7 @@ class TestLine:
         """Video mode draws the readout, so the pace is there to read — but Nau is on
         screen and an unlocked Nau plays through its playlist rather than moving on
         a timer, so saying seconds would describe the wrong player."""
-        assert ConsoleHud(console=ConsoleModel(mode="video", locked=False),
+        assert ConsoleHud(console=ConsoleModel(mode="video", locked=False, latest=False),
                           drive=_drive(advance_interval=5)).status_line == "Unlocked · Shuffle"
 
     def test_an_enhanced_only_host_says_so_in_the_filter_slot(self):
@@ -108,7 +108,7 @@ class TestLine:
         is the same kind of fact as Nau's length mode — what has been cut out of
         what is playing — so it takes the same slot, at the end of the line."""
         def line(**over) -> str:
-            return ConsoleHud(console=ConsoleModel(mode="genau", **over),
+            return ConsoleHud(console=ConsoleModel(mode="genau", latest=False, **over),
                               drive=_drive(advance_interval=5)).status_line
 
         assert line(locked=True, enhanced_filter=False) == "Locked · Shuffle"
@@ -121,17 +121,27 @@ class TestLine:
         F-mode for the playlist it owns, and a genau host folds in its own."""
         def line(**over) -> str:
             return ConsoleHud(console=ConsoleModel(mode="genau", locked=True,
-                                                   **over)).status_line
+                                                   latest=False, **over)).status_line
 
         assert line(favorites_filter=False) == "Locked · Shuffle"
         assert line(favorites_filter=True) == "Locked · Shuffle · F-Mode"
         assert line(favorites_filter=True, enhanced_filter=True) == (
             "Locked · Shuffle · F-Mode · Enhanceds")
 
+    def test_a_host_with_no_browse_order_names_none(self):
+        """Origenerator's motion panel draws this console over a show's own set —
+        a fixed run, not a browse — so there is no order to name and that slot
+        stays empty, exactly as both filter slots do for a host without them.
+        The pace it does have still prints."""
+        assert ConsoleHud(console=ConsoleModel(mode="genau", locked=True)).status_line == (
+            "Locked")
+        assert ConsoleHud(console=ConsoleModel(mode="genau", locked=False),
+                          drive=_drive(advance_interval=5)).status_line == "Unlocked · 5s"
+
     def test_a_host_with_no_such_filter_says_nothing_there(self):
         """None is "this player has no such filter" — not "it is off" — and both
         print nothing, so the slot is free for the length mode Nau fills."""
-        assert ConsoleHud(console=ConsoleModel(mode="genau")).status_line == (
+        assert ConsoleHud(console=ConsoleModel(mode="genau", latest=False)).status_line == (
             "Locked · Shuffle")
         assert _line(length_mode=SHORTS) == "Locked · Shuffle · Shorts"
 
