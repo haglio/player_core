@@ -13,4 +13,4 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def test_every_module_defers_its_annotations():
-    assert_every_module_defers_annotations(ROOT, [ROOT / "player_core", ROOT / "tests"])
+    assert_every_module_defers_annotations(ROOT, [ROOT / "player_core", ROOT / "tests", ROOT / "tools"])

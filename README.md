@@ -89,8 +89,17 @@ root wins as an implicit namespace package: submodules still import, but
 `libmpv_loader` looks beside the installed package rather than inside each
 consuming repo.
 
-Grab the libmpv dev build for Windows x86_64 and copy `libmpv-2.dll` out of it
-into `vendor/`.
+```bash
+python tools/fetch_libmpv.py
+```
+
+`tools/libmpv.lock` names the build: source repository, release tag, asset and
+its SHA-256. The script verifies that digest and refuses a mismatch, so this
+machine and the merge gate link the same DLL and both can say which one. Upstream
+keeps about a month of releases; once the pinned tag is gone the script says so,
+names the lock file and takes the newest build instead, which is what every run
+did before the pin. Bumping the pin is one pull request, and it is where a
+version change gets a reason written down.
 
 ## Tests
 
