@@ -12,6 +12,8 @@ from __future__ import annotations
 import socket
 from typing import Protocol
 
+from app_support import ports
+
 __all__ = [
     "PARK_COMMAND",
     "POSITION_MAX",
@@ -107,7 +109,9 @@ class TCodeSink(Protocol):
 
 
 class UdpTCodeSink:
-    def __init__(self, host: str = "127.0.0.1", port: int = 50557, *, sock=None) -> None:
+    def __init__(
+        self, host: str = "127.0.0.1", port: int = ports.TCODE_UDP, *, sock=None,
+    ) -> None:
         self._host = host
         self._port = port
         self._sock = sock if sock is not None else socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
