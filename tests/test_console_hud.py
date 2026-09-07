@@ -346,9 +346,9 @@ class TestPainter:
         green = (rgb[:, :, 1] > 130) & (rgb[:, :, 0] < 110) & (rgb[:, :, 2] < 110)
         assert green.any()
 
-    def _busiest_shade(self, action: str, model: ConsoleModel):
+    def _busiest_shade(self, action: str, model: ConsoleModel, modes=None):
         painter = ConsolePainter()
-        rgb = _rgb(painter.bgra(ConsoleHud(console=model)))
+        rgb = _rgb(painter.bgra(ConsoleHud(console=model, modes=modes or ModeHud())))
         (bx, by, bw, bh), _b = next(
             (rect, b) for rect, b in painter.buttons if b.action == action)
         pixels = rgb[by:by + bh, bx:bx + bw].astype(int)
@@ -372,20 +372,32 @@ class TestPainter:
         green = (pixels[:, :, 1] > 130) & (pixels[:, :, 0] < 110) & (pixels[:, :, 2] < 110)
         assert not green.any()
 
-    def test_an_ordinary_toggle_that_is_on_lights_the_active_ground(self):
-        """What every other lit control takes: the family's ACTIVE ground, one
-        step up from the resting one — the step Origenerator's checked buttons
-        take.  It used to fill white, which is what made the console read as a
-        different app from the windows beside it."""
-        from shared_ui.colors import BG_BUTTON, BG_BUTTON_ACTIVE
+    def test_an_ordinary_toggle_that_is_on_fills_the_familys_blue(self):
+        """One color for "this is in force", across every panel in the room.  The
+        active gray it used to take was a step up from the resting ground and
+        little more — at a glance a lit control and a dark one were the same
+        button."""
+        from shared_ui.colors import BLUE
 
-        active = (BG_BUTTON_ACTIVE.red(), BG_BUTTON_ACTIVE.green(), BG_BUTTON_ACTIVE.blue())
+        blue = (BLUE.red(), BLUE.green(), BLUE.blue())
         shade, _pixels = self._busiest_shade(
             "robot_hand_toggle_cruise", ConsoleModel(mode="genau", cruise=True))
 
-        assert shade == active
-        # And visibly a step up from a control at rest, or "on" says nothing.
-        assert active != (BG_BUTTON.red(), BG_BUTTON.green(), BG_BUTTON.blue())
+        assert shade == blue
+
+    def test_a_choice_the_player_is_holding_but_not_applying_fills_the_gray(self):
+        """A compilation replaces the browse order and the length filter while it
+        plays and gives them back on the way out, so those buttons say "set, not
+        in force" — the family's active gray, which is neither the blue of
+        something running nor the ground of something off."""
+        from shared_ui.colors import BG_BUTTON_ACTIVE
+
+        gray = (BG_BUTTON_ACTIVE.red(), BG_BUTTON_ACTIVE.green(), BG_BUTTON_ACTIVE.blue())
+        shade, _pixels = self._busiest_shade(
+            "main_shuffle", ConsoleModel(mode="video", latest=False),
+            modes=ModeHud(length_mode="mixed", compilation="Volume 6"))
+
+        assert shade == gray
 
     def test_a_control_at_rest_still_carries_the_familys_thin_edge(self):
         """The edge used to be the resting fill's own color, which is no edge at

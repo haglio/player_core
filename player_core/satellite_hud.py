@@ -549,13 +549,6 @@ def mode_button_rects(x: int, y: int, label_widths: list[int]) -> list[tuple[Rec
     return rects
 
 
-# The favorite mark's own square — smaller than a control button, because it is
-# not one: it sits in the column the active-side dot heads, on the file-name line
-# under it, and has to look like a mark on that line rather than a control that
-# lost its square.
-FAVORITE_MARK = 12
-
-
 def favorite_mark_rect(y: int, line_h: int) -> Rect:
     """The favorite mark: at the head of the file-name line, under the dot.
 
@@ -565,10 +558,11 @@ def favorite_mark_rect(y: int, line_h: int) -> Rect:
     true of this side" — the active dot is directly above it — and immediately
     left of the name of the very clip it is answering about.
 
-    *y* is the file-name line's top and *line_h* its height, so the mark centers
-    on the words beside it whatever face they are set in.
+    *y* is the file-name line's top and *line_h* its height, and the mark is as
+    tall as that line: a mark beside words wants to be the size of the words,
+    and anything smaller reads as a speck rather than as a state.
     """
-    return (PAD, y + (line_h - FAVORITE_MARK) // 2, FAVORITE_MARK, FAVORITE_MARK)
+    return (PAD, y, line_h, line_h)
 
 
 # The strike under the current clip's act: this act is wrong, ask about it again.

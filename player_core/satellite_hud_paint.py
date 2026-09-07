@@ -138,11 +138,11 @@ _CONTROL_GLYPHS = {
     # the panel has to say at a glance, and a cycling button says only "press me".
     "shuffle": shared_mark("shuffle"), "latest": shared_mark("latest"),
 }
-# The controls that are one of a set of mutually exclusive choices: exactly one
-# of them is lit, and it fills BLUE — the family's mode color, the same one the
-# mode pair above the band takes — rather than the active gray a plain toggle
-# lights.  A press on the dark one moves the light onto it.
-_CHOICE_CONTROLS = ("shuffle", "latest")
+# The browse-order pair: a side that cannot switch its order carries neither,
+# so they come off the row together (see :func:`_row_names`).  Exactly one of
+# them is always lit, which is what the family's blue says — the news is not
+# "this is engaged" but "this is the one of the two you are in".
+_ORDER_CONTROLS = ("shuffle", "latest")
 # F-mode wears its own mark rather than a glyph: no symbol says "favorites
 # only", and the mode already has a face — the magenta "F" of ``fmode_icon.ico``,
 # the five-by-five letter every app in this family is marked with.  A letter set
@@ -204,7 +204,7 @@ def _row_names(model: HudModel, *, mode_row: bool) -> tuple[str, ...]:
     if model.enhanced_filter is not None:
         names.insert(names.index("reset"), "enhanced")
     if model.latest is None:
-        names = [name for name in names if name not in _CHOICE_CONTROLS]
+        names = [name for name in names if name not in _ORDER_CONTROLS]
     if mode_row:
         names.remove("minimize")
     return tuple(names)
@@ -684,7 +684,7 @@ class HudRenderer:
         return wrong
 
     def _button_square(self, draw, rect: Rect, *, on: bool,
-                       on_color=BG_BUTTON_ACTIVE, ink=None) -> tuple[int, int, int, int]:
+                       on_color=BLUE, ink=None) -> tuple[int, int, int, int]:
         """The panel's square button, and the color to draw its mark in — the
         single button shape every control on this HUD is drawn with, so a new one
         cannot invent its own look.
@@ -817,9 +817,7 @@ class HudRenderer:
         The lock, F-mode and the enhanced-only switch are states, so they light
         while they are on; the others do a thing rather than be in one.  The
         browse-order pair is a third kind: neither of them is ever off, so
-        exactly one is lit and it lights BLUE — the family's mode color, the one
-        the mode pair above the band takes — because the news there is not "this
-        is engaged" but "this is the one of the two you are in".
+        exactly one of the two is always lit.
 
         Both lit states are green rather than white, and so is the favorite star
         up on the file-name line: locking a clip puts it in the favorites and
@@ -840,10 +838,6 @@ class HudRenderer:
                 self._glyph_button(image, draw, rect, _ENHANCED_GLYPH,
                                    on=lit[name], on_color=AMBER, ink=AMBER)
                 continue
-            if name in _CHOICE_CONTROLS:
-                self._glyph_button(image, draw, rect, _CONTROL_GLYPHS[name],
-                                   on=lit[name], on_color=BLUE)
-                continue
             if name in _ICON_CONTROLS:
                 self._button_square(draw, rect, on=lit.get(name, False), on_color=GREEN)
                 draw_icon(draw, rect, _ICON_CONTROLS[name])
@@ -852,7 +846,11 @@ class HudRenderer:
                 self._minimize_button(draw, rect)
                 continue
             self._glyph_button(image, draw, rect, _CONTROL_GLYPHS[name],
-                               on=lit.get(name, False), on_color=GREEN,
+                               on=lit.get(name, False),
+                               # The lock is the one control here that earns a
+                               # color: locking a clip favorites it.  Everything
+                               # else lit takes the family's blue.
+                               on_color=GREEN if name == "lock" else BLUE,
                                ink=RED if name in _DESTRUCTIVE else None)
 
     def _draw_filter_buttons(self, draw, rects: list[tuple[Rect, str]],

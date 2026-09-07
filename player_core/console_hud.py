@@ -51,6 +51,7 @@ from .console import (
     SHORTS,
     Button,
     ConsoleModel,
+    ModeHud,
     _row_width,
     console_rows,
     hit_test,
@@ -168,29 +169,6 @@ def compilation_label(title: str) -> str:
     """*title* cut down to what tells one compilation from another."""
     volume = title.rsplit(" - ", 1)[-1]
     return _REVISION.sub("", volume).strip()
-
-
-@dataclass(frozen=True)
-class ModeHud:
-    """Nau's own answer to "what am I playing?" — the console's top block.
-
-    *video* is the name of the clip on screen, drawn as the muted line beneath the
-    status.  The rest is what the status line is built from:
-    *length_mode* is the library's filter, empty when there is no library backing
-    the playlist; *compilation* is the volume holding the playlist, with
-    *position*/*total* placing the current video in it; *f_mode* is Fun Time's
-    filter over whichever of those runs.  All empty in genau mode, where there is
-    no Nau playlist to describe and the line is the lock and Genau's own pace —
-    see :attr:`ConsoleHud.status_line`, which is where these are put in order,
-    since the lock they are said beside is the console's rather than Nau's.
-    """
-
-    video: str = ""
-    length_mode: str = ""
-    compilation: str = ""
-    position: int = 0
-    total: int = 0
-    f_mode: bool = False
 
 
 # --- the panel ---------------------------------------------------------------
@@ -540,7 +518,7 @@ class ConsolePainter:
                       and nau_displays(console.mode)) else None)
         rows = console_rows(console, modes=hud.modes_row,
                             label_width=self._row_label_width(),
-                            length_mode=hud.modes.length_mode)
+                            nau=hud.modes)
         status = hud.status_line
         filename = hud.modes.video
         drive_w, drive_h = section_size() if drive is not None else (0, 0)
@@ -723,13 +701,12 @@ class ConsolePainter:
         # already MEANS something it still wins: green is the favorites and the
         # funscripts, amber is an enhanced picture, and those say more than
         # "engaged".
-        lit = (GREEN if button.favorite else AMBER if button.enhanced
-               else BLUE if button.choice else BG_BUTTON_ACTIVE)
+        lit = (GREEN if button.favorite else AMBER if button.enhanced else BLUE)
         # A control at rest sits on the family's button ground rather than on
         # nothing: an outline over the slab read as a gap in it, and made these
         # look like a different kind of control from the ones in the windows.
         fill = (lit if button.lit else RED if button.warn else BLUE if button.hold
-                else BG_BUTTON)
+                else BG_BUTTON_ACTIVE if button.remembered else BG_BUTTON)
         if broker:
             fill = BLUE if button.lit else RED
         # And it carries the family's thin edge whatever it is doing.  The edge
