@@ -5,13 +5,15 @@ import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
+
 from player_core.broker_feed import BrokerFeed
 from player_core.clip_advance import ClipAdvanceState
 from player_core.cruise_control import CruiseControlState
 from player_core.flag import Flag
 from player_core.genau_controls import GenauControls
 from player_core.genau_refresh import GenauRefreshController
-from player_core.robot_hand import RobotHandState
+from player_core.robot_hand import RobotHandState, position_fraction
 from player_core.robot_hand_beat import BeatEngine
 
 
@@ -861,3 +863,78 @@ class TestTheOrderTheTickDoesThingsIn:
         steps = self._steps()
 
         assert steps[-1] == "self._publish_status"
+
+
+class TestSeekingTheClip:
+    """A press on the clip's bar. The frame is a picture of where the device is,
+    so putting the picture somewhere is putting the DEVICE somewhere -- and its
+    sudden move along the axis is the point, not a side effect."""
+
+    def _built(self, *, frames=20):
+        return _build_controller(
+            entry={"frames": [object()] * frames},
+            robot_hand=RobotHandState(playing=True, speed=50, bpm=60.0),
+            tcode_sender=FakeTCodeSender(),
+        )
+
+    @staticmethod
+    def _height(controller) -> float:
+        """Where the seek put the device on its axis, 0 parked to 1 retracted."""
+        return position_fraction(
+            controller.tcode_sender.motion_phase,
+            shape=controller.robot_hand.shape,
+            amplitude=controller.robot_hand.amplitude,
+            center=controller.robot_hand.center,
+        )
+
+    def test_the_front_half_of_the_bar_is_the_device_on_its_way_up(self):
+        controller = self._built()["controller"]
+
+        controller.seek_the_clip(0.25)
+
+        assert controller._scrub.back_half is False
+        assert self._height(controller) == pytest.approx(0.5, abs=0.01)
+
+    def test_the_back_half_is_the_same_heights_on_the_way_down(self):
+        controller = self._built()["controller"]
+
+        controller.seek_the_clip(0.75)
+
+        assert controller._scrub.back_half is True
+        assert self._height(controller) == pytest.approx(0.5, abs=0.01)
+
+    def test_the_ends_of_the_bar_are_the_ends_of_the_stroke(self):
+        parked, retracted = self._built()["controller"], self._built()["controller"]
+
+        parked.seek_the_clip(0.0)
+        retracted.seek_the_clip(0.5)
+
+        assert self._height(parked) == pytest.approx(0.0, abs=0.01)
+        assert self._height(retracted) == pytest.approx(1.0, abs=0.01)
+
+    def test_a_press_past_either_end_lands_on_that_end(self):
+        controller = self._built()["controller"]
+
+        controller.seek_the_clip(-2.0)
+        assert self._height(controller) == pytest.approx(0.0, abs=0.01)
+
+        controller.seek_the_clip(9.0)
+        assert self._height(controller) == pytest.approx(0.0, abs=0.01)
+
+    def test_the_next_tick_does_not_swap_the_half_back(self):
+        """The seek did not arrive at an end by travelling, and clip_scrub swaps
+        halves on arriving at one -- so a seek would otherwise be undone by the
+        tick that follows it."""
+        controller = self._built()["controller"]
+
+        controller.seek_the_clip(0.6)
+        controller.refresh()
+
+        assert controller._scrub.back_half is True
+
+    def test_a_clip_still_decoding_is_not_seekable(self):
+        built = _build_controller(entry=None, tcode_sender=FakeTCodeSender())
+
+        built["controller"].seek_the_clip(0.5)
+
+        assert built["controller"].tcode_sender.motion_phase == 0.0

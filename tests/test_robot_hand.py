@@ -11,7 +11,9 @@ from player_core.robot_hand import (
     bpm_for_speed,
     cycle_shape,
     pause_playing,
+    phase_for_position_fraction,
     phase_to_position,
+    position_fraction,
     sample_waveform,
     set_amplitude,
     set_center,
@@ -498,3 +500,36 @@ def test_a_stalled_clock_cannot_slingshot_the_phase():
     capped = phase_advanced(0.0, 60.0, 5.0)
     assert capped == pytest.approx(phase_advanced(0.0, 60.0, MAX_TICK_SECONDS))
     assert phase_advanced(0.0, 60.0, -1.0) == 0.0  # a clock that went backwards
+
+
+class TestThePhaseForAHeight:
+    """position_fraction inverted, for a seek that has to put the device at a
+    named point on its axis. Every shape takes each height twice a cycle -- once
+    climbing, once falling -- so the caller says which visit it means."""
+
+    @pytest.mark.parametrize("shape", list(WaveformShape))
+    @pytest.mark.parametrize("height", [0.0, 0.25, 0.5, 0.75, 1.0])
+    @pytest.mark.parametrize("rising", [True, False])
+    def test_it_lands_on_the_height_it_was_asked_for(self, shape, height, rising):
+        phase = phase_for_position_fraction(height, shape=shape, rising=rising)
+
+        assert position_fraction(phase, shape=shape) == pytest.approx(height, abs=0.01)
+
+    @pytest.mark.parametrize("shape", list(WaveformShape))
+    def test_climbing_and_falling_are_two_different_places_in_the_cycle(self, shape):
+        up = phase_for_position_fraction(0.25, shape=shape, rising=True)
+        down = phase_for_position_fraction(0.25, shape=shape, rising=False)
+
+        assert up < down
+
+    def test_a_height_the_amplitude_never_reaches_lands_on_the_nearest(self):
+        """Turned down to the middle of the axis, the motion cannot be sent to
+        the top; the top of its own travel is where the picture would be."""
+        phase = phase_for_position_fraction(1.0, amplitude=40, center=50, rising=True)
+
+        assert position_fraction(phase, amplitude=40, center=50) == pytest.approx(0.7, abs=0.01)
+
+    def test_it_is_asked_for_past_either_end_and_answers_within_them(self):
+        for height in (-3.0, 4.0):
+            phase = phase_for_position_fraction(height)
+            assert 0.0 <= phase < 1.0

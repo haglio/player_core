@@ -205,6 +205,41 @@ def phase_to_position(
         phase, shape=shape, amplitude=amplitude, center=center))
 
 
+def phase_for_position_fraction(
+    fraction: float,
+    *,
+    shape: WaveformShape = WaveformShape.SINE,
+    amplitude: int = 100,
+    center: int = 50,
+    rising: bool = True,
+    samples: int = 720,
+) -> float:
+    """The phase that puts the motion at *fraction* of the axis, on its way up
+    (*rising*) or on its way down.
+
+    :func:`position_fraction` inverted.  Every shape here is one round trip a
+    cycle, so it takes each height twice and the caller has to say which visit it
+    means.  Found by walking a sampled cycle rather than by four hand-written
+    inversions -- a seek asks for this once, and half a degree of phase is finer
+    than the frame a clip can show for it.  With the amplitude turned down the
+    wave never reaches the ends, and the nearest phase to an unreachable height
+    is the peak or the trough, which is where the motion would put the picture.
+    """
+    fraction = min(1.0, max(0.0, fraction))
+    heights = [
+        position_fraction(i / samples, shape=shape, amplitude=amplitude, center=center)
+        for i in range(samples)
+    ]
+    best, best_gap = 0.0, None
+    for i, height in enumerate(heights):
+        if (heights[(i + 1) % samples] >= height) is not rising:
+            continue
+        gap = abs(height - fraction)
+        if best_gap is None or gap < best_gap:
+            best, best_gap = i / samples, gap
+    return best
+
+
 def phase_advanced(phase: float, bpm: float, dt_s: float) -> float:
     """*phase* moved on by *dt_s* seconds of motion at *bpm* cycles a minute.
 

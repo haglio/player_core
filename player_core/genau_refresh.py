@@ -19,7 +19,7 @@ from .file_channel import consume_command_file
 from .genau_controls import GenauControls, apply_runtime_command
 from .genau_readout import GenauReadout
 from .genau_status import GENAU_STATUS_FILENAME, write_status_file
-from .robot_hand import POSITION_MAX
+from .robot_hand import POSITION_MAX, phase_for_position_fraction
 from .robot_hand_beat import Beat, advance_beat
 from .robot_hand_driver import DeviceHandoff
 from .tick_failures import TickFailures
@@ -266,6 +266,36 @@ class GenauRefreshController:
             hud_active=hud_on,
             clip=self.renderer.current_clip_path,
         )
+
+    def seek_the_clip(self, fraction: float) -> None:
+        """Put the clip *fraction* of the way along its bar, and the device where
+        that is.
+
+        The frame is a picture of where the device is (:mod:`player_core.clip_scrub`),
+        so seeking the picture is moving the device rather than moving the picture
+        away from it.  Which half of the loop the fraction falls in says which way
+        the motion is travelling -- the front half runs A to B, the back half back
+        -- and how far into that half says how far up the axis it has to be.  The
+        jump is the point: it is what the hand would have had to travel to get the
+        picture there.
+        """
+        entry = self.renderer.current_clip_entry()
+        if self.tcode_sender is None or not (entry and entry["frames"]):
+            return
+        fraction = min(1.0, max(0.0, fraction))
+        back_half = fraction > 0.5
+        height = 2 * (1 - fraction) if back_half else 2 * fraction
+        self._scrub.back_half = back_half
+        # Not arrived at either end by travelling, so the next tick may not read
+        # this as a turn and swap the half back out from under the seek.
+        self._scrub.started = False
+        self.tcode_sender.set_motion_phase(phase_for_position_fraction(
+            height,
+            shape=self.robot_hand.shape,
+            amplitude=self.robot_hand.amplitude,
+            center=self.robot_hand.center,
+            rising=not back_half,
+        ))
 
     def _scrub_the_clip(self, frame_count: int) -> float:
         """How far through the clip to be: exactly as far as the device is up
