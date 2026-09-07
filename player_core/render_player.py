@@ -9,9 +9,10 @@ the OSD into that frame too, so overlays pushed through ``overlay_add`` (the
 players' in-video HUDs) carry over unchanged.
 
 The caller owns the GL context and must have it current on the calling thread
-for construction and for every ``render``; *get_proc_address* resolves GL
-entry points by name (e.g. wrapping ``glfw.get_proc_address``), because libmpv
-binds its own GL functions through it.
+for construction, for every ``render`` and for ``close`` (which frees the
+render context); *get_proc_address* resolves GL entry points by name (e.g.
+wrapping ``glfw.get_proc_address``), because libmpv binds its own GL functions
+through it.
 
 The control surface is ``_MpvControl`` — MpvPlayer's own — so a session class
 drives either player without knowing which rendering path is backing it.  Not
@@ -22,6 +23,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from .mpv_gate import mpv_call
 from .mpv_player import _import_mpv, _MpvControl, _shared_options
 
 __all__ = [
@@ -38,6 +40,7 @@ class MpvRenderPlayer(_MpvControl):
         prefetch: bool = False,
         audio: bool = True,
     ) -> None:
+        super().__init__()
         mpv = _import_mpv()
         options = _shared_options(muted=muted, loop_file=loop_file, prefetch=prefetch)
         # No window to own: libmpv renders on demand into the caller's FBO.
@@ -82,10 +85,12 @@ class MpvRenderPlayer(_MpvControl):
             self._video_dims = (0, 0)
 
     @property
+    @mpv_call(False)
     def has_new_frame(self) -> bool:
         """Whether mpv holds a frame newer than the last one rendered."""
         return bool(self._render_context.update())
 
+    @mpv_call()
     def render(self, fbo: int, width: int, height: int, *, flip_y: bool = False) -> None:
         """Draw the current frame (video + OSD overlays) into *fbo* at width x height.
 
@@ -118,9 +123,18 @@ class MpvRenderPlayer(_MpvControl):
         """
         return self._video_dims
 
-    def close(self) -> None:
+    def _release(self) -> None:
+        """The render context first, then the core it was created against.
+
+        That order is libmpv's: a render context outstanding when the core is
+        destroyed is undefined behavior.  Both frees reach here only once, and
+        only once :meth:`close` has established that no thread is inside a
+        ``render``, an ``update`` or a property read — python-mpv's
+        ``MpvRenderContext.free`` is a bare ``mpv_render_context_free`` with no
+        guard of its own, and a second one would free a freed context.
+        """
         try:
             self._render_context.free()
         except Exception:
             pass
-        super().close()
+        super()._release()

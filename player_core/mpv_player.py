@@ -13,6 +13,10 @@ explicitly, while a satellite opens letting end-of-file walk a prefetched
 playlist.  Either can be told to behave like the other — that is what a lock is
 on either — so a constructor option is a *default* and never a rule.
 
+Every method below that touches mpv holds :mod:`player_core.mpv_gate` open for
+its whole body, because a host drives one player from more than one thread and
+closing it from any of them would otherwise free the handle under the others.
+
 ``_MpvControl`` is driven against a fake in ``tests/test_mpv_control.py``.  What
 needs the DLL and a real window is constructing an ``MpvPlayer``, and Fun Time's
 hidden-desktop integration suite is what exercises that.
@@ -20,11 +24,13 @@ hidden-desktop integration suite is what exercises that.
 from __future__ import annotations
 
 import logging
+import time
 from pathlib import Path
 
 import numpy as np
 
 from .libmpv_loader import add_libmpv_to_path
+from .mpv_gate import CallGate, mpv_call
 
 __all__ = [
     "MpvPlayer",
@@ -102,16 +108,36 @@ def _shared_options(*, muted: bool, loop_file: bool, prefetch: bool) -> dict:
     return options
 
 
+# How long close() waits for calls already inside mpv before giving up on
+# freeing the handle at all.  Generous because it is only ever spent on calls
+# that are genuinely in flight: the gate turns every *later* call into a no-op
+# the instant close() starts, so a worker looping on mpv does not extend this.
+# A single property read waiting on the core lock of a file being opened
+# measured 72-492ms in the shutdown probe, and a cold clip off the network
+# drive is slower again.
+CLOSE_DRAIN_TIMEOUT_S = 10.0
+
+
 class _MpvControl:
     """The control surface shared by the windowed and offscreen players.
 
-    Subclasses construct ``self._mpv``; every method here only drives it, so
-    the session classes (Nau's, a satellite's, fun_time_vr's roles) can hold
-    either player without knowing which rendering path is backing it.
+    Subclasses construct ``self._mpv`` and must call ``super().__init__()``;
+    every method here only drives it, so the session classes (Nau's, a
+    satellite's, fun_time_vr's roles) can hold either player without knowing
+    which rendering path is backing it.
+
+    Each of those methods runs under :class:`player_core.mpv_gate.CallGate`,
+    which is what makes a player safe to close from a thread other than the one
+    driving it — and, after :meth:`close`, turns every straggler into a no-op
+    instead of a dereference of a freed handle.
     """
 
     _mpv: object
 
+    def __init__(self) -> None:
+        self._gate = CallGate()
+
+    @mpv_call()
     def load(self, path: Path) -> None:
         self._mpv.play(str(path))
         # Reset to just this file: drop any entry the previous clip had staged as
@@ -132,6 +158,7 @@ class _MpvControl:
     # healthy process, a running loop and nothing raised anywhere.  There is no
     # window to lose here: ``playlist-clear`` resolves "current" inside mpv.
 
+    @mpv_call()
     def stage_next(self, path: Path) -> None:
         """Make *path* the single entry queued after the current clip.
 
@@ -142,11 +169,13 @@ class _MpvControl:
         self._mpv.playlist_clear()
         self._mpv.loadfile(str(path), "append")
 
+    @mpv_call()
     def clear_next(self) -> None:
         """Drop the staged next entry (used when a lock pins the current clip)."""
         self._mpv.playlist_clear()
 
     @property
+    @mpv_call(False)
     def advanced_to_next(self) -> bool:
         """True once mpv has reached end-of-file and auto-advanced off the current
         clip onto the staged next one (its playlist position moved past the head).
@@ -156,6 +185,7 @@ class _MpvControl:
         pos = self._mpv.playlist_pos
         return pos is not None and pos >= 1
 
+    @mpv_call()
     def drop_consumed(self) -> None:
         """Remove the played-out head sitting ahead of the clip now playing.
 
@@ -166,17 +196,21 @@ class _MpvControl:
         self._mpv.playlist_clear()
 
     @property
+    @mpv_call(0.0)
     def position_ms(self) -> float:
         return (self._mpv.time_pos or 0.0) * 1000.0
 
     @property
+    @mpv_call(0.0)
     def duration_ms(self) -> float:
         return (self._mpv.duration or 0.0) * 1000.0
 
 
+    @mpv_call()
     def set_paused(self, paused: bool) -> None:
         self._mpv.pause = paused
 
+    @mpv_call()
     def set_loop_file(self, loop: bool) -> None:
         """Toggle infinite single-file looping at runtime.
 
@@ -188,6 +222,7 @@ class _MpvControl:
         """
         self._mpv.loop_file = "inf" if loop else "no"
 
+    @mpv_call()
     def set_speed(self, speed: float) -> None:
         """Set the playback rate (1.0 = normal). mpv retimes video and audio,
         and its ``time_pos`` clock advances at this rate — so the session's
@@ -195,6 +230,7 @@ class _MpvControl:
         (the T-Code driver only rescales its move durations)."""
         self._mpv.speed = speed
 
+    @mpv_call()
     def set_volume(self, volume: int) -> None:
         """Set the audio volume (0-100, a percentage of the source's own level).
 
@@ -204,11 +240,13 @@ class _MpvControl:
         """
         self._mpv.volume = volume
 
+    @mpv_call()
     def set_muted(self, muted: bool) -> None:
         """Silence or unsilence the player at runtime, leaving the volume alone
         (so unmuting restores whatever level was set — the mixer convention)."""
         self._mpv.mute = muted
 
+    @mpv_call()
     def set_audio_device_matching(self, substring: str) -> str | None:
         """Route audio to the first output device whose name or description
         contains *substring*, case-insensitively.
@@ -225,22 +263,27 @@ class _MpvControl:
                 return str(device.get("description") or device["name"])
         return None
 
+    @mpv_call()
     def seek_ms(self, ms: float) -> None:
         self._mpv.command("seek", max(0.0, ms) / 1000.0, "absolute", "exact")
 
+    @mpv_call()
     def set_ab_loop(self, in_ms: float, out_ms: float) -> None:
         self._mpv.ab_loop_a = in_ms / 1000.0
         self._mpv.ab_loop_b = out_ms / 1000.0
 
+    @mpv_call()
     def clear_ab_loop(self) -> None:
         self._mpv.ab_loop_a = "no"
         self._mpv.ab_loop_b = "no"
 
     @property
+    @mpv_call(False)
     def eof(self) -> bool:
         return bool(self._mpv.eof_reached)
 
 
+    @mpv_call()
     def screenshot_bgra(self, height: int = 64):
         """Current displayed frame, resized to *height*, as a BGRA array.
 
@@ -255,6 +298,7 @@ class _MpvControl:
         arr = np.asarray(img.convert("RGBA").resize((w, height)))
         return np.ascontiguousarray(arr[:, :, [2, 1, 0, 3]], dtype=np.uint8)
 
+    @mpv_call()
     def overlay(self, ident: int, x: int, y: int, rgba) -> None:
         """Composite an (H, W, 4) BGRA uint8 array at (x, y) over the video."""
         arr = np.ascontiguousarray(rgba, dtype=np.uint8)
@@ -266,11 +310,41 @@ class _MpvControl:
         self._overlays = getattr(self, "_overlays", {})
         self._overlays[ident] = arr
 
+    @mpv_call()
     def remove_overlay(self, ident: int) -> None:
         self._mpv.overlay_remove(ident)
         getattr(self, "_overlays", {}).pop(ident, None)
 
     def close(self) -> None:
+        """Free this player's mpv, once no thread is inside a call on it.
+
+        The only method here that does NOT take a lease — it is what closes the
+        gate — and the only one that can decline to do its job: a call that has
+        not come back within :data:`CLOSE_DRAIN_TIMEOUT_S` leaves the handle
+        alive and the process to reap it, because destroying mpv underneath a
+        live call is an access violation and a leaked handle on the way out is
+        not.  Calling this twice frees nothing twice.
+        """
+        started = time.monotonic()
+        if not self._gate.close(CLOSE_DRAIN_TIMEOUT_S):
+            if self._gate.inside:
+                logger.error(
+                    "Leaving this player's mpv alive: %d call(s) still inside it after "
+                    "%.1fs.  Freeing it now would crash the process.",
+                    self._gate.inside, CLOSE_DRAIN_TIMEOUT_S,
+                )
+            return
+        waited_ms = (time.monotonic() - started) * 1e3
+        if waited_ms >= 1.0:
+            logger.info("Waited %.0fms for mpv calls to return before closing", waited_ms)
+        self._release()
+
+    def _release(self) -> None:
+        """Hand mpv's own resources back.  Subclasses free theirs first.
+
+        Reached only through :meth:`close`, and only once, so an override needs
+        no guard of its own.
+        """
         try:
             self._mpv.terminate()
         except Exception:
@@ -281,6 +355,7 @@ class MpvPlayer(_MpvControl):
     def __init__(
         self, wid: int, *, muted: bool = False, loop_file: bool = True, prefetch: bool = False
     ) -> None:
+        super().__init__()
         mpv = _import_mpv()
         options = _shared_options(muted=muted, loop_file=loop_file, prefetch=prefetch)
         options.update(
