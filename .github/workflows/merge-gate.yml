@@ -19,5 +19,17 @@ jobs:
     with:
       siblings: "app_support shared_ui"
       python-version: "3.12"
-      timeout-minutes: 4
+      timeout-minutes: 6
       reverse: false
+      # tests/test_consumer_imports.py is this repo's dead-code gate, and it
+      # asks the consumers: every caller of this package lives in another repo,
+      # so it holds what each module declares against what genau, fun_time and
+      # origenerator import. With nothing beside the checkout it can only skip,
+      # which is what it did on every run here until now. Cloned and not
+      # installed -- the scan reads their source, and installing three
+      # applications to read it would cost more than the whole suite.
+      prepare: |
+        set -euo pipefail
+        for repo in genau fun_time origenerator; do
+          git clone --quiet --depth 1 "https://github.com/haglio/$repo.git" "../$repo"
+        done

@@ -16,10 +16,12 @@ nothing is package-internal, and says so.
 **What it costs.** The answer depends on the sibling checkouts as they sit on
 disk. One that is absent, or one on a branch that has dropped an import, moves
 names into the unreached set and turns this red -- with the checkouts it read
-named in the message, so the cause is in front of whoever sees it. A tree with
-no consumer beside it at all, which is what CI clones, has nothing to compare
-against and skips: the gate's authority is the developer machine, where the
-siblings live and where every suite in this family is run before it lands.
+named in the message, so the cause is in front of whoever sees it. The merge
+gate clones the three consumers beside this repo for exactly that reason, so
+what it holds the surface against there is their default branches; on the
+developer machine it is the checkouts as they sit. A tree with no consumer
+beside it at all -- a public clone, and nothing else now -- has nothing to
+compare against and skips.
 """
 from __future__ import annotations
 
@@ -188,7 +190,7 @@ def reached_and_consumers():
         pytest.skip(
             "no sibling checkout beside this one imports player_core, so there is "
             "nothing to compare the declared surface against -- this is what a "
-            "public clone and a fresh CI checkout look like"
+            "public clone with nothing beside it looks like"
         )
     return reached, consumers
 
