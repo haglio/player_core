@@ -1,0 +1,22 @@
+# The libmpv build this family runs against, pinned.
+#
+# The DLL is the video engine every player in the suite stands on, it is ~117 MB,
+# and it is in no package. Until this file existed, fun_time's merge gate asked
+# the GitHub API for the newest asset matching a glob in a community repository's
+# last fifteen releases, downloaded it, and copied it next to the interpreter --
+# no version, no checksum, no signature, in a job holding the workflow token. The
+# developer machines got their copy by hand from a README paragraph that named
+# neither a source nor a version, so the DLL CI linked was a different,
+# unrecorded build from the one production ran.
+#
+# tools/fetch_libmpv.py reads this file. It verifies the digest and refuses a
+# mismatch. Upstream keeps roughly a month of releases, so a pinned tag
+# eventually stops existing; when that happens the script says so loudly, names
+# this file, and falls back to resolving the newest build -- unverified, exactly
+# as every run behaved before the pin. Bumping the pin is one PR and it is where
+# a version change gets a reason written down.
+source = zhongfly/mpv-winbuild
+fallback = shinchiro/mpv-winbuild-cmake
+tag = 2026-09-07-989d32716e
+asset = mpv-dev-x86_64-20260907-git-989d32716e.7z
+sha256 = 098417b1f5843727339f5db2c0e25078f22e2b4ea187c50d7ce4f1fc538fec65
