@@ -7,6 +7,7 @@ integration suite.
 """
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 
 from player_core.mpv_player import _MpvControl
@@ -40,6 +41,7 @@ class FakeMpv:
 
 class Control(_MpvControl):
     def __init__(self, mpv) -> None:
+        super().__init__()  # the call gate every method here runs under
         self._mpv = mpv
 
 
@@ -93,3 +95,75 @@ def test_no_entry_playing_does_not_read_as_having_advanced():
     assert Control(FakeMpv(pos=-1)).advanced_to_next is False
     assert Control(FakeMpv(pos=0)).advanced_to_next is False
     assert Control(FakeMpv(pos=1)).advanced_to_next is True
+
+
+class BlockingMpv(FakeMpv):
+    """A handle whose property read can be held open, the way a real one is
+    while a file it is opening holds the core's lock."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.entered = threading.Event()
+        self.release = threading.Event()
+        self.terminated = 0
+
+    @property
+    def time_pos(self):
+        self.entered.set()
+        self.release.wait(10.0)
+        return 1.0
+
+    def terminate(self) -> None:
+        self.terminated += 1
+        self.calls.append(("terminate",))
+
+
+def test_close_waits_for_a_read_that_is_still_inside_mpv():
+    """The shutdown crash, in miniature: python-mpv's terminate() nulls its
+    handle before destroying the core, so a property read that began a moment
+    earlier dereferences NULL.  close() may not run until the read is out."""
+    mpv = BlockingMpv()
+    control = Control(mpv)
+    reading = threading.Thread(target=lambda: control.position_ms)
+    reading.start()
+    assert mpv.entered.wait(5.0)
+
+    closing = threading.Thread(target=control.close)
+    closing.start()
+    closing.join(timeout=0.3)
+    assert closing.is_alive()
+    assert mpv.terminated == 0
+
+    mpv.release.set()
+    closing.join(timeout=10.0)
+    reading.join(timeout=10.0)
+    assert mpv.terminated == 1
+
+
+def test_a_call_arriving_after_the_close_reaches_no_handle():
+    """A worker that never noticed the stop flag keeps calling; every one of
+    those calls has to become a no-op rather than a use-after-free."""
+    mpv = BlockingMpv()
+    mpv.release.set()
+    control = Control(mpv)
+    control.close()
+    assert mpv.terminated == 1
+
+    control.load(Path("alpha.mp4"))
+    control.seek_ms(1000)
+    assert control.position_ms == 0.0
+    assert control.duration_ms == 0.0
+    assert control.eof is False
+    assert control.advanced_to_next is False
+    assert mpv.calls == [("terminate",)]
+
+
+def test_closing_twice_frees_once():
+    """``MpvRenderContext.free`` is a bare ``mpv_render_context_free`` with no
+    double-free guard of its own, so the guard is here."""
+    mpv = BlockingMpv()
+    mpv.release.set()
+    control = Control(mpv)
+    control.close()
+    control.close()
+    assert mpv.terminated == 1
