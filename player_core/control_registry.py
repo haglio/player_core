@@ -20,6 +20,8 @@ from typing import Any
 __all__ = [
     "Control",
     "Verb",
+    "act",
+    "bind",
 ]
 
 # What a verb does when it lands: move something on the controls, and say
