@@ -498,8 +498,8 @@ def test_the_control_band_breaks_into_the_groups_the_console_breaks_into():
     assert gap_before["lock"] == CTRL_GROUP_GAP   # …then the clip on screen
     assert gap_before["trash"] == MAP_GAP
     assert gap_before["fmode"] == MAP_GAP
-    assert gap_before["reset"] == CTRL_GROUP_GAP  # …then the browse itself
-    assert gap_before["shuffle"] == MAP_GAP
+    assert gap_before["reset"] == CTRL_GROUP_GAP  # …then the browse pool
+    assert gap_before["shuffle"] == CTRL_GROUP_GAP  # …then the order it comes in
     assert gap_before["latest"] == MAP_GAP
     assert gap_before["minimize"] == CTRL_GROUP_GAP  # …then the window
 
@@ -518,6 +518,7 @@ def test_the_enhanced_switch_joins_the_browse_group_rather_than_the_switches():
 
     assert gap_before["enhanced"] == CTRL_GROUP_GAP
     assert gap_before["reset"] == MAP_GAP
+    assert gap_before["shuffle"] == CTRL_GROUP_GAP
 
 
 def test_action_label_blocks_separate_comma_joined_acts():

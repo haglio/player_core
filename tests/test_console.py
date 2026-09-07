@@ -280,16 +280,17 @@ class TestBrowseOrder:
         for action in ("main_shuffle", "main_latest"):
             assert _button(ConsoleModel(mode="video", latest=False), action).choice is True
 
-    def test_the_pair_sits_with_the_reset_that_puts_the_order_back(self):
-        """One group saying what there is to play and which way round it comes —
-        reset returns the browse to shuffled, so it belongs beside them."""
+    def test_the_pair_is_its_own_group_after_the_reset(self):
+        """The two are one control asked twice, so they sit together — and apart
+        from reset, which is what puts the order back rather than a third way of
+        setting it."""
         placed = place_rows(console_rows(ConsoleModel(mode="video", latest=False)),
                             x=0, y=0)
         by_action = {b.action: rect for rect, b in placed}
         reset = by_action["main_reset"]
         shuffle, latest = by_action["main_shuffle"], by_action["main_latest"]
 
-        assert shuffle[0] - (reset[0] + reset[2]) == GAP
+        assert shuffle[0] - (reset[0] + reset[2]) == GROUP_GAP
         assert latest[0] - (shuffle[0] + shuffle[2]) == GAP
 
     def test_a_host_with_no_browse_order_is_offered_neither(self):
@@ -656,9 +657,17 @@ def test_the_published_verbs_are_exactly_what_the_buttons_post():
     posted = set()
     for node in ast.walk(ast.parse(source.read_text(encoding="utf-8"))):
         if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "Button" and node.args:
+            # Every string literal in the action slot, not only a bare one: a
+            # button whose verb depends on what it is showing picks between two
+            # of them there -- a lit length button asks for mixed, a dark one for
+            # its own length -- and both are verbs a press can post.
             first = node.args[0]
-            if isinstance(first, ast.Constant) and isinstance(first.value, str) and first.value:
-                posted.add(first.value)
+            branches = [first.body, first.orelse] if isinstance(first, ast.IfExp) else [first]
+            posted.update(
+                branch.value for branch in branches
+                if isinstance(branch, ast.Constant) and isinstance(branch.value, str)
+                and branch.value
+            )
         if isinstance(node, ast.Assign) and any(getattr(t, "id", "") == "_MODE_BUTTONS" for t in node.targets):
             posted.update(entry.elts[0].value for entry in node.value.elts)
     assert posted == CONSOLE_VERBS

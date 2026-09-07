@@ -44,9 +44,11 @@ from .console import (
     BROKER_ICON,
     BUTTON,
     FMODE_ICON,
+    FULL,
     GAP,
     MINIMIZE_ICON,
     PLAYBACK_LABEL_W,
+    SHORTS,
     Button,
     ConsoleModel,
     _row_width,
@@ -104,11 +106,13 @@ __all__ = [
     "with_playback_speed",
 ]
 
-# Nau's two length modes, named here because the console prints them and nothing
-# else in this package cares what they are.  MIXED is deliberately absent: it
-# applies no length filter at all, so it narrows nothing and prints nothing — the
-# same silence a satellite keeps where its act filter would go when it has none.
-FULL, SHORTS = "full", "shorts"
+# What the two length modes are called on the line.  The modes themselves are
+# named in :mod:`player_core.console`, which is where the buttons for them are
+# built — a font-free module, so it can hold the names a painter also needs.
+# MIXED is deliberately absent from this mapping: it applies no length filter at
+# all, so it narrows nothing and prints nothing — the same silence a satellite
+# keeps where its act filter would go when it has none, and the same silence the
+# two buttons keep by both sitting dark.
 _LENGTH_LABELS = {FULL: "Full length", SHORTS: "Shorts"}
 
 # The two controls that wear an app mark rather than a glyph, and which mark:
@@ -535,7 +539,8 @@ class ConsolePainter:
             drive if (drive is not None and drive.segments
                       and nau_displays(console.mode)) else None)
         rows = console_rows(console, modes=hud.modes_row,
-                            label_width=self._row_label_width())
+                            label_width=self._row_label_width(),
+                            length_mode=hud.modes.length_mode)
         status = hud.status_line
         filename = hud.modes.video
         drive_w, drive_h = section_size() if drive is not None else (0, 0)
