@@ -47,6 +47,12 @@ GAP = 4       # between buttons along a row
 ROW_GAP = 5   # between rows
 GROUP_GAP = 12  # between groups of buttons that mean different things
 
+# Nau's length modes, named here because the buttons for them are built here and
+# nothing else in this package cares what they are.  MIXED is the one with no
+# button: it is every length there is, so it narrows nothing, and it is what the
+# console says by leaving both the others dark.
+FULL, SHORTS, MIXED = "full", "shorts", "mixed"
+
 _SHAPE_LABELS = {"rounded_square": "Square"}
 
 
@@ -218,7 +224,7 @@ _GLYPHS = {
     # ten seconds either way without one.
     "prev": "⏮", "next": "⏭", "back": "⏪", "fwd": "⏩",
     "open": "📂", "record": "⏺", "save": "💾",
-    "lock": "🔒", "quarter": "¼", "minus": "−", "plus": "+",
+    "lock": "🔒", "minus": "−", "plus": "+",
     # These two are the family's own drawings rather than characters out of a
     # symbol face: the bin is the very bin Origenerator's toolbar wears, and
     # reset is a gear with a circular arrow at its corner — a bare circular
@@ -242,6 +248,31 @@ ENHANCE_FILTER_ICON = shared_mark("enhance_filter")
 # pair each satellite's HUD carries, so one order wears one face across the room.
 SHUFFLE_ICON = shared_mark("shuffle")
 LATEST_ICON = shared_mark("latest")
+
+# The two length filters, as one dial read twice: a sector filled to say how much
+# of a scene the filter keeps.  Mixed gets no mark of its own — it keeps every
+# length there is, so it narrows nothing, and it is what the panel says by
+# lighting neither of these.
+FULL_LENGTH_ICON = shared_mark("clock_full")
+SHORTS_ICON = shared_mark("clock_short")
+
+# Stepping to another cut of the video on screen: two pages offset along a
+# diagonal with a double-headed arrow across them.
+VERSIONS_ICON = shared_mark("versions")
+
+# Skipping ahead to where this video's scripting starts up again: an arrow
+# running into the F every scripted thing in this family is marked with.
+FUNSCRIPT_JUMP_ICON = shared_mark("funscript_jump")
+
+# The three motion holds, as one drawing of the device from above read three
+# ways — the sleeve at the near end, at the far end, or free in between.
+PARK_ICON = shared_mark("park")
+RETRACT_ICON = shared_mark("retract")
+RELEASE_ICON = shared_mark("release")
+
+# The phase nudge: the fraction stacked rather than typed, which makes it as tall
+# as the marks beside it and leaves room for the arrow saying which way it goes.
+QUARTER_ICON = shared_mark("quarter_offset")
 
 # The waveform control wears a drawn mark rather than a glyph: ∿ is a small mark
 # low in the bounds its face lays out, so it read as a smudge in the corner of
@@ -290,11 +321,19 @@ CONSOLE_VERBS = frozenset({
     "main_reset",
     "main_shuffle",
     "main_video_activate",
+    "nau_cycle_version",
+    "nau_funscript_jump",
+    "nau_length_full",
+    "nau_length_mixed",
+    "nau_length_shorts",
     "nau_record_tap",
     "nau_speed_down",
     "nau_speed_up",
     "quarter_button",
     "robot_hand_cycle_shape",
+    "robot_hand_park",
+    "robot_hand_release",
+    "robot_hand_retract",
     "robot_hand_toggle_cruise",
 })
 
@@ -320,7 +359,8 @@ def _format_rate(rate: float) -> str:
 
 
 def console_rows(model: ConsoleModel, *, modes: bool = True,
-                 label_width: int = PLAYBACK_LABEL_W) -> list[list[Button]]:
+                 label_width: int = PLAYBACK_LABEL_W,
+                 length_mode: str = "") -> list[list[Button]]:
     """The console's buttons, row by row, for the mode Fun Time says it is in.
 
     The mode row leads, so it holds the same place in every mode.  Then the
@@ -343,6 +383,11 @@ def console_rows(model: ConsoleModel, *, modes: bool = True,
     its own to park, and does its own file handling — but everything below it
     means exactly what it means here, which is the whole point of asking for this
     console rather than building a second one.
+
+    *length_mode* is which of Nau's length filters is running, and it is a
+    parameter rather than a field on the model because it already has a home:
+    Nau owns it and says so on :class:`~player_core.console_hud.ModeHud`, which
+    is what the status line reads.  Two copies of one fact is what drifts.
     """
     rows: list[list[Button]] = [] if not modes else [
         [
@@ -364,7 +409,7 @@ def console_rows(model: ConsoleModel, *, modes: bool = True,
             *_file_controls(model),
         ],
     ]
-    rows.append(_transport_row(model))
+    rows.append(_transport_row(model, length_mode))
     if nau_displays(model.mode):
         rows.append(_playback_speed_row(model, label_width))
     else:
@@ -425,7 +470,36 @@ def _browse_order_buttons(model: ConsoleModel) -> list[Button]:
     ]
 
 
-def _transport_row(model: ConsoleModel) -> list[Button]:
+def _length_buttons(length_mode: str) -> list[Button]:
+    """How long a thing has to be to play: full length, or shorts.
+
+    Two independent switches rather than a choice pair, which is what makes the
+    third mode reachable without a button of its own: Mixed is every length there
+    is, so it narrows nothing and is what the row says by lighting neither.  A
+    press on the lit one therefore asks for Mixed — the way back out — and a
+    press on the dark one asks for that length.
+
+    Nothing at all where there is no length mode to name: a playlist Fun Time
+    handed over with no library under it has no length filter running, exactly
+    as the status line's own slot is empty there.
+    """
+    if not length_mode:
+        return []
+    return [
+        Button("nau_length_mixed" if length_mode == FULL else "nau_length_full",
+               FULL_LENGTH_ICON,
+               "Full length only — press for every length"
+               if length_mode == FULL else "Play the full-length scenes only",
+               lit=length_mode == FULL),
+        Button("nau_length_mixed" if length_mode == SHORTS else "nau_length_shorts",
+               SHORTS_ICON,
+               "Shorts only — press for every length"
+               if length_mode == SHORTS else "Play the shorts only",
+               lit=length_mode == SHORTS),
+    ]
+
+
+def _transport_row(model: ConsoleModel, length_mode: str = "") -> list[Button]:
     """Stepping and the actions on what is on screen, then the browse itself.
 
     In video mode the stepping is Nau's video — step it, nudge inside it, hold it
@@ -477,10 +551,14 @@ def _transport_row(model: ConsoleModel) -> list[Button]:
             # for either of them to be narrowing.
             Button("main_reset", _GLYPHS["reset"],
                    "Reset — the whole library back, with F-Mode off"),
-            # The order the browse runs in, beside the button that puts that
-            # order back to its default — one group saying what there is to play
-            # and which way round it comes.
+            # Then the browse itself, in three groups of its own: which way round
+            # it runs, how long a thing has to be to be in it, and stepping to
+            # another cut of the one on screen.  Reset stands apart from all
+            # three, being what puts them back rather than one more of them.
             *_browse_order_buttons(model),
+            *_length_buttons(length_mode),
+            Button("nau_cycle_version", VERSIONS_ICON,
+                   "Another version of this video"),
         ]
     return [
         Button("genau_prev_clip", _GLYPHS["prev"], "Previous clip"),
@@ -554,13 +632,35 @@ def _clip_seconds_row(model: ConsoleModel, label_width: int = PLAYBACK_LABEL_W) 
 
 
 def _control_row(model: ConsoleModel) -> list[Button]:
-    """The hands-free motion switch, the waveform and the offset — everything
-    the Robot Hand does that is not a level on the readout."""
+    """Everything the Robot Hand does that is not a level on the readout: the
+    shape of the motion, then the three ways to stop it and start it again.
+
+    The holds are a group of their own because they are a different kind of
+    thing from the three before them — those say what the motion IS, these say
+    whether there is one.  Park settles the device home and retract sends it to
+    the far end, away; release puts back whatever it was doing before either,
+    cruise included.  Unlike OmniPause the room plays on through all three.
+
+    The funscript jump rides the end of this row rather than the transport's:
+    the transport row is full, and this is the row about what the device is
+    doing, which is the very thing that jump goes looking for.  Nau's, so it is
+    not there in genau mode, where there is no scripted video to skip inside.
+    """
     return [
         Button("robot_hand_toggle_cruise", "cc",
                "Cruise control: vary the motion hands-free", lit=model.cruise),
         Button("robot_hand_cycle_shape", WAVE_ICON, f"Waveform: {shape_label(model.shape)}"),
-        Button("quarter_button", _GLYPHS["quarter"], "Offset the motion a ¼ cycle"),
+        Button("quarter_button", QUARTER_ICON, "Offset the motion a ¼ cycle"),
+        Button("robot_hand_park", PARK_ICON,
+               "Park — hold the motion still, settled home"),
+        Button("robot_hand_retract", RETRACT_ICON,
+               "Retract — hold it still at the far end, away from you"),
+        Button("robot_hand_release", RELEASE_ICON,
+               "Release — back to whatever the motion was doing, cruise included"),
+        *([
+            Button("nau_funscript_jump", FUNSCRIPT_JUMP_ICON,
+                   "Skip ahead to where this video's scripting starts up again"),
+        ] if nau_displays(model.mode) else []),
     ]
 
 
@@ -626,17 +726,44 @@ _CAPTURE_CONTROLS = frozenset({"nau_record_tap", "clipper_save"})
 # shares the transport's command prefix, so it has to be named here to leave
 # that run.
 _SWITCH_CONTROLS = frozenset({"main_lock", "main_fmode"})
-# The browse itself, closing the transport row: reset puts everything narrowing
-# it back, and the pair beside it says which way round it runs.  One group, apart
-# from the switches before it — reset is what turns those back off, so it must
-# not read as a third one — and named here because all three share the
-# transport's command prefix without being one of that run.
-_BROWSE_CONTROLS = frozenset({"main_reset", "main_shuffle", "main_latest"})
+# The tail of the transport row, in four groups.  Reset stands alone between the
+# switches and the rest: it is what turns all of them back off, so it must read
+# as neither a third switch nor one of the three things it undoes.  Then which
+# way round the browse runs, then how long a thing has to be to be in it, then
+# stepping to another cut of the one on screen.  Named here because most of them
+# share a command prefix with a run they are not part of.
+_RESET_CONTROLS = frozenset({"main_reset"})
+_ORDER_CONTROLS = frozenset({"main_shuffle", "main_latest"})
+_LENGTH_CONTROLS = frozenset({"nau_length_full", "nau_length_shorts", "nau_length_mixed"})
+_VERSION_CONTROLS = frozenset({"nau_cycle_version"})
+# The three ways to stop the motion and start it again, on the control row.  A
+# different kind of thing from the shape controls before them — those say what
+# the motion IS, these say whether there is one — and they share the Robot Hand's
+# prefix, so they have to be named to leave that run.  The funscript jump is not
+# the Robot Hand's at all, and closes that row on its own.
+_HOLD_CONTROLS = frozenset({"robot_hand_park", "robot_hand_retract", "robot_hand_release"})
+_JUMP_CONTROLS = frozenset({"nau_funscript_jump"})
 # The controls that act on the window rather than on anything inside it, so they
 # stand apart from whatever they share a row with.  Named rather than left to the
 # main_ prefix below: minimize sits beside the mode buttons and would otherwise
 # read as a fourth mode.
 _WINDOW_CONTROLS = frozenset({"main_minimize"})
+
+# Every group named by a set rather than by a command prefix, in the order the
+# question is asked.  A dict rather than a run of ifs: each new group was one
+# more branch in a function whose whole body was branches.
+_NAMED_GROUPS: dict[str, frozenset[str]] = {
+    "window": _WINDOW_CONTROLS,
+    "robot_hand_": _ROBOT_HAND_CONTROLS,
+    "hold": _HOLD_CONTROLS,
+    "jump": _JUMP_CONTROLS,
+    "capture": _CAPTURE_CONTROLS,
+    "switch": _SWITCH_CONTROLS,
+    "reset": _RESET_CONTROLS,
+    "order": _ORDER_CONTROLS,
+    "length": _LENGTH_CONTROLS,
+    "version": _VERSION_CONTROLS,
+}
 
 
 def _family(action: str) -> str:
@@ -645,16 +772,9 @@ def _family(action: str) -> str:
     # to the Genau controls' prefix below.
     if action.endswith("_activate"):
         return "mode"
-    if action in _WINDOW_CONTROLS:
-        return "window"
-    if action in _ROBOT_HAND_CONTROLS:
-        return "robot_hand_"
-    if action in _CAPTURE_CONTROLS:
-        return "capture"
-    if action in _SWITCH_CONTROLS:
-        return "switch"
-    if action in _BROWSE_CONTROLS:
-        return "browse"
+    for group, verbs in _NAMED_GROUPS.items():
+        if action in verbs:
+            return group
     # Stepping the video and nudging inside it are one run of four marks, so they
     # are one family: prev, back ten, forward ten, next, evenly spaced.
     for prefix in ("main_", "nau_speed", "robot_hand_", "genau_"):

@@ -67,6 +67,8 @@ from .satellite_hud import (
     STATUS_BASELINE,
     STATUS_TEXT_X,
     SUBTITLE_GAP,
+    WRONG_BTN,
+    WRONG_GAP,
     HudCell,
     HudModel,
     HudTargets,
@@ -83,6 +85,7 @@ from .satellite_hud import (
     filter_button_rects,
     friendly_action_label,
     label_is_filtered,
+    label_stack_top,
     loop_button_rects,
     looped_group_rect,
     map_column_height,
@@ -94,6 +97,7 @@ from .satellite_hud import (
     playing_rect,
     seed_column_label,
     thumbnail_rects,
+    wrong_action_rect,
 )
 
 __all__ = [
@@ -345,15 +349,14 @@ class HudRenderer:
         # ``playing`` lights, which can be partway along the row.
         reach = map_reach(row, [thumb.width for thumb in action_thumbs], model.playing)
         # The bands' own demand.  The control row is measured every time now: at
-        # four groups it outruns a portrait map on its own, and a row the panel
+        # five groups it outruns a portrait map on its own, and a row the panel
         # cannot hold clips away in silence — the buttons past the edge are simply
-        # not there, with nothing raised.  It keeps room for the favorite star at
-        # its far end.  With a hosted Origenerator the mode row (the labeled pair
-        # plus the minimize that rides it) can ask for more still.
+        # not there, with nothing raised.  With a hosted Origenerator the mode row
+        # (the labeled pair plus the minimize that rides it) can ask for more still.
         mode_widths = self._mode_label_widths(model)
         row_names = _row_names(model, mode_row=bool(mode_widths))
         controls_end = control_button_rects(PAD, 0, row_names)[-1][0][0] + CTRL_BTN
-        band_width = controls_end + 2 * MAP_GAP + CTRL_BTN + PAD
+        band_width = controls_end + PAD
         if mode_widths:
             pair = sum(w + 2 * MODE_LABEL_PAD for w in mode_widths) + MAP_GAP
             band_width = max(
@@ -369,7 +372,7 @@ class HudRenderer:
         image, draw = panel.image, panel.draw
 
         x, y = PAD, PAD
-        self._draw_status_band(draw, y, model, video)
+        favorite = self._draw_status_band(image, draw, y, model, video)
         y += STATUS_BAND_H + subtitle_h
 
         modes: list[tuple[Rect, str]] = []
@@ -379,8 +382,7 @@ class HudRenderer:
         # Laid out against the panel rather than against the map: they act on the
         # side and the clip on screen, and are there whether or not there is a map.
         controls = control_button_rects(x, y, row_names)
-        favorite = favorite_mark_rect(width - PAD, y)
-        self._draw_controls(image, draw, controls, favorite, model)
+        self._draw_controls(image, draw, controls, model)
         if mode_widths:
             # HudClicks prefixes the side, so minimize posts the same verb from
             # whichever row it is riding.
@@ -421,9 +423,9 @@ class HudRenderer:
             hx, hy, hw, hh = held
             draw.rectangle([hx, hy, hx + hw - 1, hy + hh - 1],
                            outline=(*WHITE, 255), width=_BORDER_W)
-        self._draw_labels(image, draw, model, x, y, gutter_w,
-                          corner_rect, seed_rects, action_rects,
-                          seed_offset=seed_win.start if seed_win else 0)
+        wrong_rect = self._draw_labels(image, draw, model, x, y, gutter_w,
+                                       corner_rect, seed_rects, action_rects,
+                                       seed_offset=seed_win.start if seed_win else 0)
         filter_rects = filter_button_rects(corner_rect, action_rects, x,
                                            model.current_action,
                                            [cell.label for cell in model.actions])
@@ -456,11 +458,14 @@ class HudRenderer:
             control=controls,
             favorite=favorite,
             modes=modes,
+            wrong_action=wrong_rect,
         )
         return RenderedHud(panel.to_bgra(), targets)
 
-    def _draw_status_band(self, draw, y: int, model: HudModel, video: str) -> None:
-        """The active-side dot, the status line, and the file on screen under it.
+    def _draw_status_band(self, image, draw, y: int, model: HudModel,
+                          video: str) -> Rect | None:
+        """The active-side dot, the status line, the file on screen under it, and
+        the favorite mark at the head of that line.  Returns the mark's rect.
 
         The status is fun_time's own sentence — lock, loop, browse order, F-mode,
         filter — drawn full strength on one line always, in the room the panel was
@@ -469,14 +474,27 @@ class HudRenderer:
         reads as two states rather than one side's.  The file name hangs off that
         line's descender, muted: the status is what the side is doing, and the
         name only says which clip it is doing it to.
+
+        The star sits in the column the dot heads, immediately left of that name.
+        It used to keep the far end of the control band, where a small green mark
+        adrift in a row of squares was easy to miss altogether; here it is beside
+        the very clip it is answering about, in the column this panel already
+        uses for what is true of the side.  No name, no line, and so no star —
+        there is nothing for it to be beside.
         """
         draw_active_dot(draw, PAD, y + 2, model.active)
         draw.text((STATUS_TEXT_X, y + STATUS_BASELINE), model.lock_label,
                   font=self._body, anchor="ls", fill=(*TEXT_PRIMARY, 255))
-        if video:
-            _ascent, descent = self._body.getmetrics()
-            draw.text((STATUS_TEXT_X, y + STATUS_BASELINE + descent + SUBTITLE_GAP), video,
-                      font=self._tiny, anchor="la", fill=(*TEXT_MUTED, 255))
+        if not video:
+            return None
+        _ascent, descent = self._body.getmetrics()
+        line_y = y + STATUS_BASELINE + descent + SUBTITLE_GAP
+        draw.text((STATUS_TEXT_X, line_y), video,
+                  font=self._tiny, anchor="la", fill=(*TEXT_MUTED, 255))
+        favorite = favorite_mark_rect(line_y, sum(self._tiny.getmetrics()))
+        draw_mark(image, shared_mark_name(_FAVORITE_GLYPH), favorite,
+                  (*(GREEN if model.is_favorite else TEXT_MUTED), 255))
+        return favorite
 
     def _draw_mode_row(self, draw, y: int, model: HudModel,
                        mode_widths: list[int]) -> tuple[list[tuple[Rect, str]], Rect]:
@@ -603,9 +621,13 @@ class HudRenderer:
             image.alpha_composite(thumb, (rx, ry))
 
     def _draw_labels(self, image, draw, model, x, y, gutter_w, corner_rect, seed_rects,
-                     action_rects, *, seed_offset: int = 0) -> None:
+                     action_rects, *, seed_offset: int = 0) -> Rect | None:
         """Column labels ("Seed N") in the header strip and action names down the
-        left gutter, drawn over the (possibly dimmed) thumbnails at full opacity."""
+        left gutter, drawn over the (possibly dimmed) thumbnails at full opacity.
+
+        Returns the strike's rect — the button under the current clip's act that
+        says the act is wrong — or None where no act is named.
+        """
         def column(cx: int, cw: int, text: str) -> None:
             # Clipped to its own column: a portrait map's columns are barely wider
             # than the label, and neighbouring "Seed N"s running together is
@@ -615,7 +637,7 @@ class HudRenderer:
                                        anchor="mm", fill=(*TEXT_MUTED, 255))
             image.alpha_composite(strip, (cx, y))
 
-        def row(row_y: int, row_h: int, text: str) -> None:
+        def row(row_y: int, row_h: int, text: str, *, extra: int = 0) -> int:
             # One block of tight word-lines per act, with a bigger gap between
             # acts, so a two-word act ("Motion" / "Bounce") wraps close but two acts
             # ("Alpha" then "Theta Motion") are clearly separated.  Each act is lit
@@ -628,7 +650,11 @@ class HudRenderer:
             line_h = ascent + descent - 4
             blocks = action_label_blocks(text)
             total = sum(len(block) for block in blocks) * line_h + (len(blocks) - 1) * ACT_GAP
-            ty = row_y + (row_h - total) // 2
+            # *extra* is room kept under the words — the corner row's strike.  The
+            # words and it are centered in the row together, so a two-act label
+            # cannot run down into the button.
+            ty = label_stack_top(row_y, row_h, total, extra)
+            words_end = ty + total
             for block in blocks:
                 lit = row_lit and act_is_filtered(" ".join(block), model.filter_query)
                 color = TEXT_PRIMARY if lit else TEXT_MUTED
@@ -637,16 +663,25 @@ class HudRenderer:
                               font=self._row, anchor="rm", fill=(*color, 255))
                     ty += line_h
                 ty += ACT_GAP
+            return words_end
 
         cx, cy, cw, ch = corner_rect
         # Offset by where a windowed loop opens, so the headers carry each seed's
         # real place in the family instead of restarting at one every window.
         column(cx, cw, seed_column_label(seed_offset))
-        row(cy, ch, model.current_action)
+        # Only the corner row keeps room for the strike: it is the clip on screen
+        # whose act would be wrong, and the rows under it are other clips'.
+        strike = WRONG_BTN + WRONG_GAP if model.current_action else 0
+        words_end = row(cy, ch, model.current_action, extra=strike)
+        wrong = (wrong_action_rect(x + gutter_w - MAP_GAP, words_end)
+                 if model.current_action else None)
+        if wrong is not None:
+            self._strike_button(image, draw, wrong)
         for i, (sx, _sy, sw, _sh) in enumerate(seed_rects):
             column(sx, sw, seed_column_label(seed_offset + i + 1))
         for i, (_ax, ay, _aw, ah) in enumerate(action_rects):
             row(ay, ah, model.actions[i].label if i < len(model.actions) else "")
+        return wrong
 
     def _button_square(self, draw, rect: Rect, *, on: bool,
                        on_color=BG_BUTTON_ACTIVE, ink=None) -> tuple[int, int, int, int]:
@@ -724,6 +759,17 @@ class HudRenderer:
             fill=ink,
         )
 
+    def _strike_button(self, image, draw, rect: Rect) -> None:
+        """The strike under the current clip's act: the family's cross, drawn red.
+
+        Red because it takes something away — the same red the bin on the control
+        band wears, and the one color on this panel worth stopping at before
+        pressing.  Never lit: striking an act is a thing done, not a state the
+        side sits in, and the act is relabeled out from under it.
+        """
+        self._button_square(draw, rect, on=False, ink=RED)
+        draw_mark(image, "cross", rect, (*RED, 255))
+
     def _minimize_button(self, draw, rect: Rect) -> None:
         """The same square button with a minimize bar drawn on it.
 
@@ -764,23 +810,21 @@ class HudRenderer:
             draw.text((bx + bw / 2, by + bh / 2), labels[action],
                       font=self._tiny, anchor="mm", fill=ink)
 
-    def _draw_controls(self, image, draw, controls: list[tuple[Rect, str]], favorite: Rect,
+    def _draw_controls(self, image, draw, controls: list[tuple[Rect, str]],
                        model: HudModel) -> None:
-        """The side's own buttons, and the mark saying whether the clip on screen
-        is one of the favorites.
+        """The side's own buttons.
 
         The lock, F-mode and the enhanced-only switch are states, so they light
         while they are on; the others do a thing rather than be in one.  The
         browse-order pair is a third kind: neither of them is ever off, so
         exactly one is lit and it lights BLUE — the family's mode color, the one
         the mode pair above the band takes — because the news there is not "this
-        is engaged" but "this is the one of the two you are in".  The star is a
-        readout, not a button, so it gets no square: a square would invite a
-        press that does nothing.
+        is engaged" but "this is the one of the two you are in".
 
-        Both lit states are green rather than white, and so is the star: locking a
-        clip puts it in the favorites and F-mode is the filter over them, so all
-        three are the same fact and read as one color.  F-mode's button carries
+        Both lit states are green rather than white, and so is the favorite star
+        up on the file-name line: locking a clip puts it in the favorites and
+        F-mode is the filter over them, so all three are the same fact and read
+        as one color.  F-mode's button carries
         its own magenta mark on top of that green, the same badge it wears on the
         main console and on the taskbar.  The enhanced switch is the one control
         here in another color: amber is what an enhanced picture is marked with
@@ -810,8 +854,6 @@ class HudRenderer:
             self._glyph_button(image, draw, rect, _CONTROL_GLYPHS[name],
                                on=lit.get(name, False), on_color=GREEN,
                                ink=RED if name in _DESTRUCTIVE else None)
-        draw_mark(image, shared_mark_name(_FAVORITE_GLYPH), favorite,
-                  (*(GREEN if model.is_favorite else TEXT_MUTED), 255))
 
     def _draw_filter_buttons(self, draw, rects: list[tuple[Rect, str]],
                              filter_query: str) -> None:

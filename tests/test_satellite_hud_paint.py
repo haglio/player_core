@@ -332,7 +332,6 @@ def test_render_draws_the_sides_own_controls_even_with_no_clip():
     assert [name for _rect, name in rendered.targets.control] == [
         "prev", "next", "lock", "trash", "fmode", "reset", "minimize",
     ]
-    assert rendered.targets.favorite is not None
 
 
 def test_the_minimize_button_wears_a_bar_rather_than_a_font_glyph():
@@ -367,7 +366,8 @@ def test_the_state_controls_and_favorite_mark_light_up_when_they_apply():
     side is in F-mode, the star while the clip is a favorite."""
     def rendered_with(**overrides):
         return HudRenderer("landscape").render(
-            HudModel(side="landscape", lock_label="Unlocked", **overrides))
+            HudModel(side="landscape", lock_label="Unlocked", **overrides),
+            video="example - scene one")
 
     off = rendered_with()
     on = rendered_with(locked=True, is_favorite=True, f_mode=True)
@@ -650,13 +650,14 @@ def test_the_filtered_actions_label_is_lit(thumb):
             actions=(HudCell(path="a1.mp4", thumb=thumb, label="gamma"),),
             current_action="alpha", filter_query=filter_query,
         ))
-        (cx, cy, _cw, ch), _path = rendered.targets.click[0]
         # The corner's own row label, in the gutter beside it — "alpha".  Past
         # the filter button at the gutter's head: its funnel is drawn at full
         # strength like every resting mark on this panel, so counting from the
         # gutter's left edge would count the button rather than the label.
-        band = _rgb(rendered.bgra)[cy:cy + ch, PAD + FILTER_ROOM:cx - MAP_GAP]
-        return int((band > 200).sum())  # near-white only; a plain label is gray
+        band = _label_band(rendered)
+        # Near-white in all three channels: the strike under the act is drawn
+        # red, whose own red channel is as bright as a lit label's.
+        return int(band.sum())
 
     assert gutter_ink("alpha") > 0
     assert gutter_ink("") == 0
@@ -716,16 +717,30 @@ def test_a_row_the_filter_only_partly_matches_still_lights(thumb):
     assert lit_ink("alpha") == 0
 
 
+def _label_band(rendered):
+    """The corner row's act names as a near-white mask: the gutter between the
+    filter button at its head and the map beside it, down as far as the strike
+    that hangs under the words.
+
+    Bounded by the strike rather than by the row, because the words and the
+    strike are centered in the row together — so half the ROW is no longer the
+    seam between a two-act label's two acts.
+    """
+    (cx, cy, _cw, ch), _path = rendered.targets.click[0]
+    lower = rendered.targets.wrong_action[1] if rendered.targets.wrong_action else cy + ch
+    return (_rgb(rendered.bgra)[cy:lower, PAD + FILTER_ROOM:cx - MAP_GAP] > 200).all(axis=2)
+
+
 def _white_halves(rendered) -> tuple[int, int]:
-    """Near-white ink across the corner row's act names, split into the row's upper
-    and lower halves — a row carrying two acts draws one in each.
+    """Near-white ink across the corner row's act names, split into the upper and
+    lower halves of the words — a row carrying two acts draws one in each.
 
     Measured past the filter button at the head of the row: that button fills white
     when it is lit, which is the same ink the labels use.
     """
-    (cx, cy, _cw, ch), _path = rendered.targets.click[0]
-    band = (_rgb(rendered.bgra)[cy:cy + ch, PAD + FILTER_ROOM:cx - MAP_GAP] > 200).all(axis=2)
-    return int(band[:ch // 2].sum()), int(band[ch // 2:].sum())
+    band = _label_band(rendered)
+    half = band.shape[0] // 2
+    return int(band[:half].sum()), int(band[half:].sum())
 
 
 def test_only_the_act_the_filter_matched_is_lit_on_a_two_act_row(thumb):
@@ -1080,17 +1095,14 @@ def test_exactly_one_of_the_browse_order_pair_is_lit_and_it_lights_blue():
 
 
 def test_the_panel_is_wide_enough_for_the_band_it_grew():
-    """The control band is four groups now and outruns a portrait map on its own.
+    """The control band is five groups now and outruns a portrait map on its own.
     A row the panel cannot hold clips away in silence — the buttons past the edge
-    are simply not drawn — so the panel is measured around the band, with the
-    favorite star still landing inside it."""
+    are simply not drawn — so the panel is measured around the band."""
     rendered = _order_band(latest=False)
     width = rendered.bgra.shape[1]
     last = max(x + w for (x, _y, w, _h), _name in rendered.targets.control)
-    star_x, _sy, star_w, _sh = rendered.targets.favorite
 
-    assert last < star_x
-    assert star_x + star_w <= width
+    assert last + PAD <= width
 
 
 def _amber_ink(rect, rendered) -> int:
@@ -1120,9 +1132,8 @@ def test_the_enhanced_switch_wears_amber_and_fills_with_it_when_on():
 
 def test_the_enhanced_switch_keeps_its_place_under_a_mode_row(thumb):
     """With the mode pair leading the panel, the switch stays on the control band
-    between F-mode and reset, and the band is measured with it — so a portrait
-    panel, whose map is narrower than its controls, still holds the whole row
-    and the star at its end."""
+    just ahead of reset, and the band is measured with it — so a portrait panel,
+    whose map is narrower than its controls, still holds the whole row."""
     rendered = HudRenderer("portrait").render(
         _model(corner=HudCell(path="c.mp4", thumb=thumb),
                satellites_mode="origenerator", enhanced_filter=False))
@@ -1131,5 +1142,4 @@ def test_the_enhanced_switch_keeps_its_place_under_a_mode_row(thumb):
 
     assert by_name["enhanced"][1] == by_name["fmode"][1] == by_name["reset"][1]
     assert by_name["fmode"][0] < by_name["enhanced"][0] < by_name["reset"][0]
-    assert by_name["reset"][0] + by_name["reset"][2] + MAP_GAP <= rendered.targets.favorite[0]
-    assert rendered.targets.favorite[0] + rendered.targets.favorite[2] <= width - PAD
+    assert by_name["reset"][0] + by_name["reset"][2] + PAD <= width

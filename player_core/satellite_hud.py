@@ -455,12 +455,14 @@ def ellipsis_rects(
 #     the library it was browsed from.  Set apart from the stepping because a
 #     switch is a state the side sits IN, where a step is over as soon as it is
 #     taken.
-#   * the browse itself — which pictures are in it, and what order they come in.
-#     The enhanced-only switch narrows it (a hosted Origenerator's shows only —
-#     see :func:`satellite_hud_paint._row_names`), reset puts the whole side back
-#     to its defaults, and the shuffle/latest pair says which way round the
-#     browse runs.  Reset stands past the filter because it is the wider gesture:
-#     the switches each turn one thing on or off, this puts the lot back.
+#   * the browse pool — the enhanced-only switch that narrows it (a hosted
+#     Origenerator's shows only — see :func:`satellite_hud_paint._row_names`) and
+#     the reset that puts the whole side back to its defaults.  Reset stands past
+#     the filter because it is the wider gesture: the switch turns one thing on
+#     or off, this puts the lot back.
+#   * the order that pool comes in — shuffled, or newest first.  Apart from reset
+#     rather than with it, because reset is what puts the order back rather than
+#     one more way to set it.
 #   * the window — minimize, about none of the video at all.  That window is
 #     borderless (``satellite.app`` opens it NOFRAME so the video fills its
 #     slot), so it has no title bar to carry the gesture and the HUD is the only
@@ -472,7 +474,8 @@ def ellipsis_rects(
 CONTROL_GROUPS = (
     ("prev", "next"),
     ("lock", "trash", "fmode"),
-    ("enhanced", "reset", "shuffle", "latest"),
+    ("enhanced", "reset"),
+    ("shuffle", "latest"),
     ("minimize",),
 )
 
@@ -546,13 +549,50 @@ def mode_button_rects(x: int, y: int, label_widths: list[int]) -> list[tuple[Rec
     return rects
 
 
-def favorite_mark_rect(right: int, y: int) -> Rect:
-    """The favorite mark, at the far end of the control band.
+# The favorite mark's own square — smaller than a control button, because it is
+# not one: it sits in the column the active-side dot heads, on the file-name line
+# under it, and has to look like a mark on that line rather than a control that
+# lost its square.
+FAVORITE_MARK = 12
 
-    A readout, not a button.  It keeps the row's far end rather than following the
-    buttons, so it does not move when they change.
+
+def favorite_mark_rect(y: int, line_h: int) -> Rect:
+    """The favorite mark: at the head of the file-name line, under the dot.
+
+    A readout, not a button.  It used to keep the far end of the control band,
+    where it was a small green star adrift in a row of squares and easy to miss
+    entirely.  Here it is in the one column this panel already uses for "what is
+    true of this side" — the active dot is directly above it — and immediately
+    left of the name of the very clip it is answering about.
+
+    *y* is the file-name line's top and *line_h* its height, so the mark centers
+    on the words beside it whatever face they are set in.
     """
-    return (right - CTRL_BTN, y, CTRL_BTN, CTRL_BTN)
+    return (PAD, y + (line_h - FAVORITE_MARK) // 2, FAVORITE_MARK, FAVORITE_MARK)
+
+
+# The strike under the current clip's act: this act is wrong, ask about it again.
+# Smaller than a control button and in the gutter rather than on the band,
+# because it is about the words above it rather than about the side — the one
+# place on the panel where that act is named is the only place the strike can
+# say which act it means.
+WRONG_BTN = 14
+WRONG_GAP = 3   # between the act's last line and the strike under it
+
+
+def label_stack_top(row_y: int, row_h: int, label_h: int, extra: int = 0) -> int:
+    """Where a gutter row's label starts, centered in its row with *extra* room
+    kept under it.
+
+    The corner row keeps that room for the strike; every other row asks for none
+    and centers the words alone, exactly as before.
+    """
+    return row_y + (row_h - label_h - extra) // 2
+
+
+def wrong_action_rect(gutter_right: int, label_bottom: int) -> Rect:
+    """The strike, under the act it strikes and right-aligned with it."""
+    return (gutter_right - WRONG_BTN, label_bottom + WRONG_GAP, WRONG_BTN, WRONG_BTN)
 
 
 def seed_column_label(index: int) -> str:
@@ -592,6 +632,8 @@ class HudTargets:
     control: list[tuple[Rect, str]] = field(default_factory=list)
     # The favorite mark is a readout, so it is here only to carry its tooltip.
     favorite: Rect | None = None
+    # The strike under the current clip's act, or None where no act is named.
+    wrong_action: Rect | None = None
     # The mode pair, each carrying its dispatch command verbatim (side-less).
     modes: list[tuple[Rect, str]] = field(default_factory=list)
 
@@ -712,6 +754,7 @@ CONTROL_TOOLTIPS = {
     "minimize": "Minimize this player — bring it back from the taskbar",
 }
 FAVORITE_TOOLTIP = "In the favorites"
+WRONG_ACTION_TOOLTIP = "Wrong action — strike it, and it gets asked about again"
 MODE_TOOLTIPS = {
     "satellites_video_activate": "Video mode — the satellite players and the Random Favs Browser",
     "origenerator_activate":
@@ -738,6 +781,8 @@ def button_tooltip(targets: HudTargets, px: int, py: int) -> str:
             return tooltips.get(hit, "")
     # The filter buttons all say the same thing — each one names the act beside it,
     # so the tooltip only has to say what pressing it does.
+    if _in(targets.wrong_action, px, py):
+        return WRONG_ACTION_TOOLTIP
     if hit_test_targets(targets.filter, px, py):
         return FILTER_TOOLTIP
     if _in(targets.expand, px, py):
@@ -792,6 +837,10 @@ class HudClicks:
             return self._toggle_loop(loop)
         if _in(targets.expand, px, py):
             return f"{self._side}_more_seeds"
+        # Tested before the row's filter button: the strike sits inside the
+        # corner row's own band, and the filter button spans that whole band.
+        if _in(targets.wrong_action, px, py):
+            return f"{self._side}_wrong_action"
         action = hit_test_targets(targets.filter, px, py)
         if action:
             # Narrow before you lift: a press on a row the filter only partly keeps
