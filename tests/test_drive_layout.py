@@ -4,6 +4,7 @@ The layout can be wrong and still look right: a hit target that has drifted from
 the mark drawn over it shows up only when a press lands on the wrong control. So
 these press the rects the geometry hands out, rather than trusting them.
 """
+from __future__ import annotations
 
 from player_core import drive_layout as layout
 from player_core.geometry import contains
