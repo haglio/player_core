@@ -35,6 +35,18 @@ SYMBOL_FONT = "seguisym.ttf"
 PANEL_ALPHA = 224
 CORNER_RADIUS = 8
 
+# How much lighter a control sits while the pointer is over it.  One step, taken
+# from whatever ground it already has, so a resting button lands on exactly the
+# family's active gray and a lit one goes a shade brighter than its own color —
+# the point being to say "this is the one you are about to press" before the
+# press, not to say what the control is.
+HOVER_LIFT = 30
+
+
+def hovered_fill(fill: tuple[int, int, int]) -> tuple[int, int, int]:
+    """*fill* one step lighter — the ground under the pointer."""
+    return tuple(min(255, channel + HOVER_LIFT) for channel in fill)
+
 
 def px(points: int) -> int:
     """A Qt point size as pixels, at the standard 96 dpi Windows reports.

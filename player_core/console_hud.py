@@ -86,6 +86,7 @@ from .hud_panel import (
     draw_mark,
     draw_tooltip,
     fit_text,
+    hovered_fill,
     load_font,
     text_width,
     to_bgra,
@@ -555,10 +556,11 @@ class ConsolePainter:
 
         self.buttons, self.tracks = place_rows(rows, x=_PAD, y=y), []
         for rect, button in self.buttons:
-            self._button(panel.image, draw, rect, button)
+            self._button(panel.image, draw, rect, button,
+                         hovered=hover is not None and contains(rect, *hover))
         y += rows_height(rows) + _ROW_GAP
 
-        self._osr2(panel.image, draw, _PAD, y, console)
+        self._osr2(panel.image, draw, _PAD, y, console, hover)
         y += _OSR2_H
 
         if drive is not None:
@@ -616,7 +618,8 @@ class ConsolePainter:
                 + text_width(self._tiny, "OSR2") + _OSR2_LABEL_GAP
                 + self._osr2_pill_width(model))
 
-    def _osr2(self, image, draw, x: int, y: int, model: ConsoleModel) -> None:
+    def _osr2(self, image, draw, x: int, y: int, model: ConsoleModel,
+              hover: tuple[int, int] | None = None) -> None:
         """The device's own line: its two controls, then what has it.
 
         The broker and the takeover switch act on the OSR2 rather than on any
@@ -630,7 +633,8 @@ class ConsolePainter:
         run_x = x
         for button in controls:
             rect = (run_x, y, button.width, _OSR2_H)
-            self._button(image, draw, rect, button)
+            self._button(image, draw, rect, button,
+                         hovered=hover is not None and contains(rect, *hover))
             self.buttons.append((rect, button))
             run_x += button.width + GAP
 
@@ -659,7 +663,8 @@ class ConsolePainter:
         widest = max(text_width(self._tiny, label) for label in _ROW_LABELS)
         return max(PLAYBACK_LABEL_W, widest + _ROW_LABEL_INSET + BUTTON_GAP)
 
-    def _button(self, image, draw, rect: Rect, button: Button) -> None:
+    def _button(self, image, draw, rect: Rect, button: Button, *,
+                hovered: bool = False) -> None:
         """One control, in the one button shape this family's HUDs use: an outline
         when off, filled when on, faded when it cannot be pressed.
 
@@ -709,6 +714,11 @@ class ConsolePainter:
                 else BG_BUTTON_ACTIVE if button.remembered else BG_BUTTON)
         if broker:
             fill = BLUE if button.lit else RED
+        # One step lighter under the pointer, so a press lands where you meant.
+        # Not on a dimmed control: it cannot be pressed, and lighting it would
+        # promise otherwise.
+        if hovered and not button.dim:
+            fill = hovered_fill(fill)
         # And it carries the family's thin edge whatever it is doing.  The edge
         # used to be the fill's own color at rest, which is no edge at all --
         # the satellite HUDs beside this one draw theirs in the muted gray the
@@ -726,7 +736,12 @@ class ConsolePainter:
         # either keeps its own ink rather than reversing -- only a light fill
         # (white, amber) reverses.
         resting = fill in (BG_BUTTON, BG_BUTTON_ACTIVE)
-        ink = (BG_PRIMARY if fill in (WHITE, AMBER) else TEXT_MUTED if button.dim
+        # A dim control fades its mark only while it is sitting at rest.  Over a
+        # colored ground the fade is what made a lit-but-unpressable button —
+        # the length filter with nothing left to drop — read as a blue square
+        # with an illegible smudge on it, which says neither "on" nor "why not".
+        ink = (BG_PRIMARY if fill in (WHITE, AMBER)
+               else TEXT_MUTED if button.dim and resting
                else RED if button.danger
                else AMBER if button.enhanced
                else TEXT_PRIMARY if resting else WHITE)
