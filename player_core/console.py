@@ -220,6 +220,14 @@ class ConsoleModel:
     # the same F, because a reader glancing between two screens is looking at
     # one switch: play the favorites only.
     favorites_filter: bool | None = None
+    # Which shape of video the main player's browse may reach: the VR masters
+    # that wrap the view, the flat ones that hang on a screen, or both.  Two
+    # flags rather than one word, because all four answers are legal here —
+    # including neither, which asks for a browse with nothing in it.  None from
+    # a session whose library holds one shape only, which is every one outside
+    # the headset: no pair of buttons, exactly as ``latest`` None draws none.
+    plays_vr: bool | None = None
+    plays_flat: bool | None = None
 
 
 def read_console(path: Path) -> ConsoleModel | None:
@@ -248,6 +256,8 @@ def read_console(path: Path) -> ConsoleModel | None:
         locked=bool(raw.get("locked", True)),
         cruise=bool(raw.get("cruise", False)),
         shape=str(raw.get("shape", "sine") or "sine"),
+        plays_vr=(None if raw.get("plays_vr") is None else bool(raw.get("plays_vr"))),
+        plays_flat=(None if raw.get("plays_flat") is None else bool(raw.get("plays_flat"))),
     )
 
 
@@ -283,11 +293,16 @@ SHUFFLE_ICON = shared_mark("shuffle")
 LATEST_ICON = shared_mark("latest")
 
 # The two length filters, as one dial read twice: a sector filled to say how much
-# of a scene the filter keeps.  Mixed gets no mark of its own — it keeps every
-# length there is, so it narrows nothing, and it is what the panel says by
-# lighting neither of these.
+# of a scene the filter keeps.  Mixed gets no mark of its own — it is every
+# length there is, which is what the panel says by lighting both of these.
 FULL_LENGTH_ICON = shared_mark("clock_full")
 SHORTS_ICON = shared_mark("clock_short")
+
+# The two shapes a video is watched on, read the same way: a gridded hemisphere
+# for a VR master that wraps the view, a gridded panel seen at an angle for an
+# ordinary flat one.
+VR_ICON = shared_mark("vr_hemisphere")
+FLAT_ICON = shared_mark("flat_2d")
 
 # Stepping to another cut of the video on screen: two pages offset along a
 # diagonal with a double-headed arrow across them.
@@ -359,6 +374,10 @@ CONSOLE_VERBS = frozenset({
     "main_nudge_next",
     "main_nudge_prev",
     "main_prev",
+    "main_projection_both",
+    "main_projection_flat",
+    "main_projection_none",
+    "main_projection_vr",
     "main_reset",
     "main_shuffle",
     "main_video_activate",
@@ -516,6 +535,42 @@ def _browse_order_buttons(model: ConsoleModel, *,
     ]
 
 
+def _projection_buttons(model: ConsoleModel, *, remembered: bool) -> list[Button]:
+    """Which shape of video the browse may reach: VR masters, flat ones, or both.
+
+    Each button is a shape it INCLUDES, exactly as the length pair beside it is a
+    length it includes, so both lit is every shape there is.  Unlike the lengths,
+    turning the last one off is allowed: it asks for a browse with nothing in it,
+    which is a degenerate answer but a real one, and no press here is refused.
+
+    Nothing at all where the library holds one shape only — see
+    :attr:`ConsoleModel.plays_vr`.
+    """
+    if model.plays_vr is None or model.plays_flat is None:
+        return []
+    vr, flat = bool(model.plays_vr), bool(model.plays_flat)
+
+    def state(on: bool) -> dict:
+        return {"lit": on and not remembered, "remembered": on and remembered}
+
+    return [
+        Button(
+            ("main_projection_flat" if flat else "main_projection_none") if vr
+            else ("main_projection_both" if flat else "main_projection_vr"),
+            VR_ICON,
+            "Only the VR videos are playing" if vr and not flat
+            else "Drop the VR videos" if vr
+            else "Put the VR videos back", **state(vr)),
+        Button(
+            ("main_projection_vr" if vr else "main_projection_none") if flat
+            else ("main_projection_both" if vr else "main_projection_flat"),
+            FLAT_ICON,
+            "Only the flat videos are playing" if flat and not vr
+            else "Drop the flat videos" if flat
+            else "Put the flat videos back", **state(flat)),
+    ]
+
+
 def _length_buttons(nau: ModeHud, *, remembered: bool) -> list[Button]:
     """How long a thing has to be to play: full length, shorts, or both.
 
@@ -569,8 +624,8 @@ def _compilation_button(nau: ModeHud) -> Button:
         "nau_end_compilation" if inside else "nau_compilation",
         COMPILATION_ICON,
         "Playing this compilation in order — press to leave it" if inside
-        else "Play this video's compilation, in order" if nau.has_compilation
-        else "This video is not part of a compilation",
+        else "Play this video's compilation, in order"
+        + ("" if nau.has_compilation else " (this one belongs to none)"),
         lit=inside, dim=not (inside or nau.has_compilation),
     )
 
@@ -590,7 +645,7 @@ def _clip_scene_button(nau: ModeHud) -> Button:
         CLIP_TO_SCENE_ICON if to_scene else SCENE_TO_CLIP_ICON,
         "Play the full scene this clip came from" if to_scene
         else "Back to the clip taken from this scene" if nau.jump_to == "clip"
-        else "Nothing on the other end of this one",
+        else "Jump between a clip and its full scene (neither for this video)",
         dim=not nau.jump_to,
     )
 
@@ -648,18 +703,20 @@ def _transport_row(model: ConsoleModel, nau: ModeHud) -> list[Button]:
             Button("main_reset", _GLYPHS["reset"],
                    "Reset — the whole library back, with F-Mode off"),
             # Then the browse itself, group by group: which way round it runs,
-            # how long a thing has to be to be in it, the set the video belongs
-            # to, the scene it came from, and another cut of it.  Reset stands
+            # which shape of video is in it, how long a thing has to be to be in
+            # it, the set the video belongs to, the scene it came from, and
+            # another cut of it.  Reset stands
             # apart from all of them, being what puts them back rather than one
             # more of them.  A compilation replaces the browse while it plays, so
             # the order and the length show as held rather than in force.
             *_browse_order_buttons(model, remembered=bool(nau.compilation)),
+            *_projection_buttons(model, remembered=bool(nau.compilation)),
             *_length_buttons(nau, remembered=bool(nau.compilation)),
             _compilation_button(nau),
             _clip_scene_button(nau),
             Button("nau_cycle_version", VERSIONS_ICON,
-                   "Another version of this video" if nau.has_other_versions
-                   else "This video has no other version",
+                   "Another version of this video"
+                   + ("" if nau.has_other_versions else " (none for this one)"),
                    dim=not nau.has_other_versions),
         ]
     return [
@@ -836,6 +893,10 @@ _SWITCH_CONTROLS = frozenset({"main_lock", "main_fmode"})
 # share a command prefix with a run they are not part of.
 _RESET_CONTROLS = frozenset({"main_reset"})
 _ORDER_CONTROLS = frozenset({"main_shuffle", "main_latest"})
+_PROJECTION_CONTROLS = frozenset({
+    "main_projection_both", "main_projection_vr",
+    "main_projection_flat", "main_projection_none",
+})
 _LENGTH_CONTROLS = frozenset({"nau_length_full", "nau_length_shorts", "nau_length_mixed"})
 _COMPILATION_CONTROLS = frozenset({"nau_compilation", "nau_end_compilation"})
 _CLIP_JUMP_CONTROLS = frozenset({"nau_full_vid", "nau_clip_jump"})
@@ -865,6 +926,7 @@ _NAMED_GROUPS: dict[str, frozenset[str]] = {
     "switch": _SWITCH_CONTROLS,
     "reset": _RESET_CONTROLS,
     "order": _ORDER_CONTROLS,
+    "projection": _PROJECTION_CONTROLS,
     "length": _LENGTH_CONTROLS,
     "compilation": _COMPILATION_CONTROLS,
     "clip_jump": _CLIP_JUMP_CONTROLS,

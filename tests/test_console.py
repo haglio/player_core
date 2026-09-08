@@ -316,6 +316,65 @@ class TestBrowseOrder:
         assert read_console(path).latest is None
 
 
+class TestProjectionPair:
+    """VR and flat, as the two shapes of video each button includes."""
+
+    def _pair(self, plays_vr, plays_flat, **over):
+        rows = console_rows(
+            ConsoleModel(mode="video", latest=False,
+                         plays_vr=plays_vr, plays_flat=plays_flat),
+            nau=ModeHud(length_mode="mixed", **over))
+        return [b for row in rows for b in row
+                if b.action.startswith("main_projection")]
+
+    def test_both_shapes_is_both_of_them_lit(self):
+        assert [b.lit for b in self._pair(True, True)] == [True, True]
+
+    def test_dropping_one_from_both_asks_for_the_other_alone(self):
+        assert [b.action for b in self._pair(True, True)] == [
+            "main_projection_flat", "main_projection_vr"]
+
+    def test_putting_the_dark_one_back_asks_for_both(self):
+        pair = self._pair(True, False)
+
+        assert [b.lit for b in pair] == [True, False]
+        assert pair[1].action == "main_projection_both"
+
+    def test_the_last_lit_one_can_still_be_turned_off(self):
+        """Neither shape is a browse with nothing in it -- degenerate, but a real
+        answer, and unlike the lengths nothing here refuses the press."""
+        pair = self._pair(False, True)
+
+        assert [b.dim for b in pair] == [False, False]
+        assert pair[1].action == "main_projection_none"
+
+    def test_neither_lit_offers_each_shape_back(self):
+        assert [b.action for b in self._pair(False, False)] == [
+            "main_projection_vr", "main_projection_flat"]
+
+    def test_no_pair_at_all_where_the_library_holds_one_shape(self):
+        """Every session outside the headset: the VR masters are not in its
+        library, so a filter over them would be two dead buttons."""
+        assert self._pair(None, None) == []
+        assert ConsoleModel().plays_vr is None
+
+    def test_inside_a_compilation_the_shapes_read_as_held(self):
+        pair = self._pair(True, True, compilation="Volume 6")
+
+        assert all(b.remembered and not b.lit for b in pair)
+
+    def test_a_published_panel_says_which_shapes_it_is_playing(self, tmp_path: Path):
+        import json
+        path = tmp_path / "nau_console.json"
+        path.write_text(json.dumps({"mode": "video", "plays_vr": True,
+                                    "plays_flat": False}), encoding="utf-8")
+        panel = read_console(path)
+        assert (panel.plays_vr, panel.plays_flat) == (True, False)
+
+        path.write_text(json.dumps({"mode": "video"}), encoding="utf-8")
+        assert read_console(path).plays_vr is None
+
+
 class TestLengthPair:
     """Full length and shorts, as the two lengths each button includes."""
 
@@ -751,20 +810,22 @@ def test_the_published_verbs_are_exactly_what_the_buttons_post():
     from player_core.console import CONSOLE_VERBS
 
     source = Path(__file__).resolve().parent.parent / "player_core" / "console.py"
+
+    def literals(node):
+        """Every string a verb slot can evaluate to.  Not only a bare one: a
+        button whose verb depends on what it is showing picks among them there
+        -- a lit length button asks for mixed, a dark one for its own length --
+        and the projection pair, with four states to reach, nests the choice."""
+        if isinstance(node, ast.IfExp):
+            return literals(node.body) | literals(node.orelse)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value:
+            return {node.value}
+        return set()
+
     posted = set()
     for node in ast.walk(ast.parse(source.read_text(encoding="utf-8"))):
         if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "Button" and node.args:
-            # Every string literal in the action slot, not only a bare one: a
-            # button whose verb depends on what it is showing picks between two
-            # of them there -- a lit length button asks for mixed, a dark one for
-            # its own length -- and both are verbs a press can post.
-            first = node.args[0]
-            branches = [first.body, first.orelse] if isinstance(first, ast.IfExp) else [first]
-            posted.update(
-                branch.value for branch in branches
-                if isinstance(branch, ast.Constant) and isinstance(branch.value, str)
-                and branch.value
-            )
+            posted.update(literals(node.args[0]))
         if isinstance(node, ast.Assign) and any(getattr(t, "id", "") == "_MODE_BUTTONS" for t in node.targets):
             posted.update(entry.elts[0].value for entry in node.value.elts)
     assert posted == CONSOLE_VERBS

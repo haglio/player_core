@@ -39,11 +39,12 @@ from player_core.hud_panel import (
     draw_icon,
     draw_mark,
     draw_tooltip,
+    hovered_fill,
     load_font,
     text_width,
 )
 
-from .geometry import Rect
+from .geometry import Rect, contains
 from .satellite_hud import (
     ACT_GAP,
     COL_LABEL_GAP,
@@ -266,6 +267,7 @@ class HudRenderer:
         self._body = load_font(_SIZE_BODY)
         self._tiny = load_font(_SIZE_TINY)
         self._row = load_font(_ROW_LABEL_PT)
+        self._pointer: tuple[int, int] | None = None
         self._glyph = load_font(_SIZE_BODY, SYMBOL_FONT)
         self._thumbs: dict[str, Image.Image] = {}
 
@@ -329,6 +331,10 @@ class HudRenderer:
         own — the same split the main player draws, which names its file from its own
         session and takes the rest of its console off the wire.
         """
+        # Where the pointer is for this frame, or None off the panel.  The
+        # position is only current while something under it has a tooltip —
+        # every control here has one — so an empty tip means "not on a button".
+        self._pointer = hover_pos if hover_tip else None
         # The gutter is sized from the WHOLE model, before any windowing, so it does
         # not change width as a loop's window slides along — and never narrower than
         # the axis counts printed above it.
@@ -683,6 +689,16 @@ class HudRenderer:
             row(ay, ah, model.actions[i].label if i < len(model.actions) else "")
         return wrong
 
+    def _pointer_is_on(self, rect: Rect) -> bool:
+        """Whether the pointer is inside *rect* in the frame being drawn.
+
+        Read off the hover the render was handed rather than passed down through
+        every button: the panel is redrawn on every hover change anyway, and
+        threading a flag through six drawing helpers to say one thing is how the
+        lock ended up with three ways to be told it was on.
+        """
+        return self._pointer is not None and contains(rect, *self._pointer)
+
     def _button_square(self, draw, rect: Rect, *, on: bool,
                        on_color=BLUE, ink=None) -> tuple[int, int, int, int]:
         """The panel's square button, and the color to draw its mark in — the
@@ -713,6 +729,11 @@ class HudRenderer:
         # fill's own color only where that fill carries a meaning (the lock's
         # green).  A gray-on-gray edge would be no edge at all.
         edge = TEXT_MUTED if fill in (BG_BUTTON, BG_BUTTON_ACTIVE) else fill
+        # One step lighter under the pointer, so a press lands where you meant.
+        # Taken after the edge is chosen, so hovering does not also change which
+        # color the outline is drawn in.
+        if self._pointer_is_on(rect):
+            fill = hovered_fill(fill)
         draw.rounded_rectangle(
             [bx, by, bx + bw - 1, by + bh - 1], radius=3,
             fill=(*fill, 255), outline=(*edge, 255), width=1,
