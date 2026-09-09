@@ -18,7 +18,15 @@ from shared_ui.icons_pil import paste_glyph
 # The palette is shared_ui's, read without Qt: shared_ui.palette imports
 # nothing, and these HUDs are Pillow.  Every HUD painter reads it there too,
 # so a player reaching for its own blue has the family's to reach for.
-from shared_ui.palette import BG_PRIMARY, BORDER_PANEL, MAGENTA, TEXT_MUTED, TEXT_PRIMARY, WHITE
+from shared_ui.palette import (
+    BG_PRIMARY,
+    BORDER_PANEL,
+    MAGENTA,
+    TEXT_MUTED,
+    TEXT_PRIMARY,
+    WHITE,
+    hovered,
+)
 
 __all__: list[str] = []  # package-internal: no sibling reaches anything here
 
@@ -35,17 +43,9 @@ SYMBOL_FONT = "seguisym.ttf"
 PANEL_ALPHA = 224
 CORNER_RADIUS = 8
 
-# How much lighter a control sits while the pointer is over it.  One step, taken
-# from whatever ground it already has, so a resting button lands on exactly the
-# family's active gray and a lit one goes a shade brighter than its own color —
-# the point being to say "this is the one you are about to press" before the
-# press, not to say what the control is.
-HOVER_LIFT = 30
-
-
-def hovered_fill(fill: tuple[int, int, int]) -> tuple[int, int, int]:
-    """*fill* one step lighter — the ground under the pointer."""
-    return tuple(min(255, channel + HOVER_LIFT) for channel in fill)
+# The family's own hover step, re-exported under the name this package's
+# painters already call it.
+hovered_fill = hovered
 
 
 def px(points: int) -> int:

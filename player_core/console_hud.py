@@ -646,8 +646,8 @@ class ConsolePainter:
         color = _OSR2_COLORS.get(osr2, TEXT_PRIMARY)
         pill_x = label_x + text_width(self._tiny, "OSR2") + _OSR2_LABEL_GAP
         pill_w = self._osr2_pill_width(model)
-        draw.rounded_rectangle([pill_x, y, pill_x + pill_w - 1, y + _OSR2_H - 1],
-                               radius=3, outline=(*color, 255), width=1)
+        # No frame around it: what has the device is a read-out, and an outlined
+        # word beside two real buttons reads as a third one you can press.
         draw.text((pill_x + pill_w / 2, y + _OSR2_H / 2), state, font=self._tiny,
                   anchor="mm", fill=(*color, 255))
 
