@@ -410,13 +410,20 @@ class TestLengthPair:
 
         assert pair[1].action == "nau_length_mixed"
 
-    def test_the_only_lit_one_cannot_be_turned_off(self):
-        """Neither length playing is not a thing the player can do, so the press
-        that would ask for it is not offered."""
+    def test_the_last_lit_one_can_still_be_turned_off(self):
+        """Neither length is a browse with nothing in it -- degenerate, but a
+        real answer, and the same one the shapes pair beside it allows.  Refusing
+        it is what left a lit button wearing a gray mark for an unsayable reason."""
         pair, _ = self._pair("full")
 
-        assert pair[0].dim is True
-        assert pair[1].dim is False
+        assert [b.dim for b in pair] == [False, False]
+        assert pair[0].action == "nau_length_none"
+
+    def test_neither_lit_offers_each_length_back(self):
+        pair, _ = self._pair("none")
+
+        assert [b.lit for b in pair] == [False, False]
+        assert [b.action for b in pair] == ["nau_length_full", "nau_length_shorts"]
 
     def test_no_pair_at_all_without_a_library_to_filter(self):
         _pair, buttons = self._pair("")

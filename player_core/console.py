@@ -20,6 +20,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from shared_ui.spacing import BUTTON_SIZE_HUD
+
 from .geometry import Rect, contains
 from .hud_marks import shared_mark
 from .hud_status import LATEST_LABEL, SHUFFLE_LABEL
@@ -32,7 +34,7 @@ __all__ = [
     "tooltip_at",
 ]
 
-BUTTON = 18   # a square control; the wider ones are multiples plus the gaps
+BUTTON = BUTTON_SIZE_HUD  # a square control; the wider ones are multiples plus gaps
 VALUE_W = 22  # a value read-out between a pair of buttons (the playback rate)
 # The words naming that pair.  A FLOOR, not the width: the cell is widened to
 # whatever the row's own label measures (console_rows takes the measurement,
@@ -48,10 +50,10 @@ ROW_GAP = 5   # between rows
 GROUP_GAP = 12  # between groups of buttons that mean different things
 
 # Nau's length modes, named here because the buttons for them are built here and
-# nothing else in this package cares what they are.  MIXED is the one with no
-# button: it is every length there is, so it narrows nothing, and it is what the
-# console says by leaving both the others dark.
-FULL, SHORTS, MIXED = "full", "shorts", "mixed"
+# nothing else in this package cares what they are.  MIXED and NONE are the two
+# with no button of their own: mixed is every length there is, which the console
+# says by lighting both, and none is neither, which it says by lighting neither.
+FULL, SHORTS, MIXED, NONE = "full", "shorts", "mixed", "none"
 
 _SHAPE_LABELS = {"rounded_square": "Square"}
 
@@ -389,6 +391,7 @@ CONSOLE_VERBS = frozenset({
     "nau_funscript_jump",
     "nau_length_full",
     "nau_length_mixed",
+    "nau_length_none",
     "nau_length_shorts",
     "nau_record_tap",
     "nau_speed_down",
@@ -572,17 +575,13 @@ def _projection_buttons(model: ConsoleModel, *, remembered: bool) -> list[Button
 
 
 def _length_buttons(nau: ModeHud, *, remembered: bool) -> list[Button]:
-    """How long a thing has to be to play: full length, shorts, or both.
+    """How long a thing has to be to play: full length, shorts, both, or neither.
 
-    Each button is a length it INCLUDES, so both lit is every length there is,
-    which is Mixed.  Turning one off asks for the other on its own, and turning
-    it back on asks for Mixed again — the third mode reachable without a button
-    of its own, and no button ever meaning "off".  Turning off the only one
-    still lit would ask for nothing at all, which the player cannot play, so the
-    last lit button is dim rather than offering it.
-
-    Written out rather than looped: the verbs a button posts are read off this
-    source (``tests/test_console.py``), so each has to be a literal here.
+    Each button is a length it INCLUDES, exactly as the shapes pair beside it is
+    a shape it includes: both lit is every length there is, neither lit is a
+    browse with nothing in it.  Turning off the last one is allowed and holds
+    the video on screen rather than being refused — a control that cannot be
+    turned off is a control whose mark goes gray for a reason nobody can see.
 
     Nothing at all where there is no length mode to name: a playlist Fun Time
     handed over with no library under it has no length filter running, exactly
@@ -590,25 +589,28 @@ def _length_buttons(nau: ModeHud, *, remembered: bool) -> list[Button]:
     """
     if not nau.length_mode:
         return []
-    mixed = nau.length_mode not in (FULL, SHORTS)
-    full, shorts = mixed or nau.length_mode == FULL, mixed or nau.length_mode == SHORTS
+    mixed = nau.length_mode == MIXED
+    full = mixed or nau.length_mode == FULL
+    shorts = mixed or nau.length_mode == SHORTS
 
     def state(on: bool) -> dict:
-        # The last lit one is unpressable only while the length is what is
-        # actually running: inside a compilation it is held rather than in
-        # force, and naming a length there is one of the ways back out.
-        return {"lit": on and not remembered, "remembered": on and remembered,
-                "dim": on and not mixed and not remembered}
+        return {"lit": on and not remembered, "remembered": on and remembered}
 
     return [
-        Button("nau_length_shorts" if full else "nau_length_mixed", FULL_LENGTH_ICON,
-               "Only the full-length scenes are playing" if full and not mixed
-               else "Drop the full-length scenes" if full
-               else "Put the full-length scenes back", **state(full)),
-        Button("nau_length_full" if shorts else "nau_length_mixed", SHORTS_ICON,
-               "Only the shorts are playing" if shorts and not mixed
-               else "Drop the shorts" if shorts
-               else "Put the shorts back", **state(shorts)),
+        Button(
+            ("nau_length_shorts" if shorts else "nau_length_none") if full
+            else ("nau_length_mixed" if shorts else "nau_length_full"),
+            FULL_LENGTH_ICON,
+            "Only the full-length scenes are playing" if full and not shorts
+            else "Drop the full-length scenes" if full
+            else "Put the full-length scenes back", **state(full)),
+        Button(
+            ("nau_length_full" if full else "nau_length_none") if shorts
+            else ("nau_length_mixed" if full else "nau_length_shorts"),
+            SHORTS_ICON,
+            "Only the shorts are playing" if shorts and not full
+            else "Drop the shorts" if shorts
+            else "Put the shorts back", **state(shorts)),
     ]
 
 
@@ -645,7 +647,8 @@ def _clip_scene_button(nau: ModeHud) -> Button:
         CLIP_TO_SCENE_ICON if to_scene else SCENE_TO_CLIP_ICON,
         "Play the full scene this clip came from" if to_scene
         else "Back to the clip taken from this scene" if nau.jump_to == "clip"
-        else "Jump between a clip and its full scene (neither for this video)",
+        else "Play the full scene this clip came from"
+             " (no full scene in the library for this one)",
         dim=not nau.jump_to,
     )
 
@@ -897,7 +900,9 @@ _PROJECTION_CONTROLS = frozenset({
     "main_projection_both", "main_projection_vr",
     "main_projection_flat", "main_projection_none",
 })
-_LENGTH_CONTROLS = frozenset({"nau_length_full", "nau_length_shorts", "nau_length_mixed"})
+_LENGTH_CONTROLS = frozenset({
+    "nau_length_full", "nau_length_shorts", "nau_length_mixed", "nau_length_none",
+})
 _COMPILATION_CONTROLS = frozenset({"nau_compilation", "nau_end_compilation"})
 _CLIP_JUMP_CONTROLS = frozenset({"nau_full_vid", "nau_clip_jump"})
 _VERSION_CONTROLS = frozenset({"nau_cycle_version"})
