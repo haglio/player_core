@@ -1,18 +1,21 @@
-"""Funscript parsing and the timing questions every scripted player asks of one.
+"""The timing questions every scripted player asks of a funscript.
 
 A funscript is a JSON list of (time, position) actions authored against one
-video.  Beyond parsing, this answers where sustained action begins (so the OSR2
-rests through a long quiet lead-in instead of drifting toward it), whether a
-given playhead sits in a quiet stretch (``is_resting_at`` — what the video-mode
-handoff hands to the Robot Hand), where the action next picks up (``next_active_ms`` —
-where a jump-to-the-action lands), plus loop-boundary snapping for A-B loops.
+video; what the document itself is belongs to the whole family and lives in
+:mod:`app_support.funscript`.  What is here is what a *player* asks of one:
+where sustained action begins (so the OSR2 rests through a long quiet lead-in
+instead of drifting toward it), whether a given playhead sits in a quiet stretch
+(``is_resting_at`` — what the video-mode handoff hands to the Robot Hand), where
+the action next picks up (``next_active_ms`` — where a jump-to-the-action
+lands), plus loop-boundary snapping for A-B loops.
 """
 from __future__ import annotations
 
 import bisect
-import json
 from dataclasses import dataclass
 from pathlib import Path
+
+from app_support.funscript import read_actions
 
 __all__ = [
     "PARK_TOUCH_WAIT_CAP_MS",
@@ -370,7 +373,12 @@ def _snap_forward(bases: list[int], boundary_ms: int) -> int:
 
 
 def load(path: Path) -> Funscript:
-    data = json.loads(path.read_text())
-    raw = data["actions"]
-    actions = sorted(((a["at"], a["pos"]) for a in raw), key=lambda a: a[0])
-    return Funscript(actions=actions)
+    """The script at *path*, as the pairs the timing questions are asked of.
+
+    What a funscript is lives in :mod:`app_support.funscript`, which is where
+    the four repos that read one now agree -- this reader used to raise on a
+    document listing no actions where the others answered none.
+    """
+    return Funscript(
+        actions=sorted((a["at"], a["pos"]) for a in read_actions(path))
+    )
