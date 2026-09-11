@@ -27,6 +27,18 @@ class TestLoad:
 
         assert fs.actions == [(500, 50), (1000, 0), (2000, 100)]
 
+    def test_a_script_listing_no_actions_loads_as_one_that_drives_nothing(self, tmp_path):
+        """This reader used to raise where its two siblings answered none, so a
+        player had to know whose reader it held before it knew what an empty
+        script looked like.  It is a script now, resting the whole way."""
+        path = tmp_path / "empty.funscript"
+        path.write_text(json.dumps({"version": "1.0"}))
+
+        fs = load(path)
+
+        assert fs.actions == []
+        assert fs.is_resting_at(0)
+
 
 class TestFirstRealEventMs:
     def test_dense_from_start_has_no_lead_in(self):
