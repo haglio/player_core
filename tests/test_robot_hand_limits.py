@@ -1,6 +1,6 @@
 """Which of the hand's arrows would do nothing — computed once, published twice.
 
-The status file Fun Time reads and the drive readout Nau draws are two
+The status file Fun Time reads and the drive readout the main player draws are two
 publications of one fact, and they used to work it out separately: the same six
 booleans and the same `half = amplitude // 2` center clamp, in two modules, with
 a comment in one of them naming the duplication.  A change to the clamp had to

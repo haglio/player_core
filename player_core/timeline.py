@@ -1,10 +1,10 @@
 """The scrubber every player in this family draws along the lower edge of its video.
 
 An inset, floated, bordered track with a full-height playcursor and loop/record
-marks — Nau draws it under a funscript heatmap or as a plain bar, and a silent
+marks — the main player draws it under a funscript heatmap or as a plain bar, and a silent
 satellite draws the plain bar as a progress indicator.  Both players are separate
 processes in separate repos, so the track and its frame live here in the shared
-engine; the funscript heatmap that fills Nau's version stays in Nau, built on the
+engine; the funscript heatmap that fills the main player's version stays in the main player, built on the
 frame this module owns.
 
 The track stops short of the volume chip that shares its row — ``bar_track_x``

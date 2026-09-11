@@ -1,6 +1,6 @@
 """The volume chip every player in this family draws in its timeline row.
 
-A speaker and a slider, sized for the corner of a video: Nau and Genau each draw
+A speaker and a slider, sized for the corner of a video: the main player and Genau each draw
 it live and report presses to Fun Time (which holds the authoritative level for
 the whole primary display); a silent satellite draws the same chip as a muted
 *indicator*.  Because those players are separate processes in separate repos,
@@ -172,7 +172,7 @@ class VolumeHudPainter:
         self._bgra: np.ndarray | None = None
 
     def bgra(self, hud: VolumeHud) -> np.ndarray:
-        """*hud* as an mpv overlay bitmap — what Nau composites into its video."""
+        """*hud* as an mpv overlay bitmap — what the main player composites into its video."""
         if self._ensure(hud) or self._bgra is None:
             self._bgra = to_bgra(self._image)
         return self._bgra

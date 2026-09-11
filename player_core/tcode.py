@@ -78,7 +78,7 @@ class HandoffGlide:
         """Take the device: glide onto whatever this driver sends next.
 
         The clock starts on that first command rather than here, because a
-        driver can be handed the device well before it has anything to say — Nau
+        driver can be handed the device well before it has anything to say — the main player
         is told to drive at a handoff and sends nothing until the playhead
         reaches its next waypoint — and a glide that had already run out by then
         would smooth nothing.

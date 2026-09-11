@@ -395,7 +395,7 @@ def test_pause_command_stops_direct_mode_playback():
 def test_losing_the_device_walks_it_down_and_rests_the_motion():
     """The readout published through a funscript's turn (or any pause) samples
     forward from the sender's motion phase — rested at the swing's foot the
-    moment playback stops, so what Nau draws waiting after the seam is the
+    moment playback stops, so what the main player draws waiting after the seam is the
     motion that will actually resume, rising out of the park."""
     dc = RobotHandState(playing=True, bpm=120.0)
     tcode = FakeTCodeSender()

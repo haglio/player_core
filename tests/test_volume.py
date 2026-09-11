@@ -48,7 +48,7 @@ class TestPlacement:
         """Genau draws no timeline, but its window IS the primary display in genau
         mode — so reaching for the sound must not find the control somewhere other
         than where the same session shows it in video mode, which is the row
-        Nau draws.  Measuring its own margin off the lower edge instead put it
+        The main player draws.  Measuring its own margin off the lower edge instead put it
         nine pixels above that."""
         assert chip_xy(win_w=1200, win_h=900, timeline_h=0) == chip_xy(
             win_w=1200, win_h=900, timeline_h=ROW_H)
@@ -157,7 +157,7 @@ class TestPainter:
             painter.bgra(VolumeHud(volume=50)), painter.bgra(VolumeHud(volume=51)))
 
     def test_the_pygame_shape_is_the_same_chip_the_mpv_one_is(self):
-        """Nau composites an mpv overlay and Genau blits a pygame surface, so the
+        """The main player composites an mpv overlay and Genau blits a pygame surface, so the
         chip is handed out in both shapes — off one painting, or the two players
         would be free to show different chips."""
         painter = VolumeHudPainter()

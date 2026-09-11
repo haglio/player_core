@@ -236,7 +236,7 @@ class TestReadout:
 
 
 class TestPublishing:
-    """In video mode the readout is drawn by Nau, so Genau says it instead of drawing it."""
+    """In video mode the readout is drawn by the main player, so Genau says it instead of drawing it."""
 
     def test_a_published_readout_reads_back_whole_including_its_limits(self, tmp_path):
         hud = _hud(shape="sawtooth", advance_interval=7,
@@ -488,7 +488,7 @@ class TestRuns:
 
 class TestPublishedSpan:
     def test_the_trace_s_span_travels_with_it(self, tmp_path):
-        """Nau samples a funscript over the same stretch Genau's motion covers,
+        """The main player samples a funscript over the same stretch Genau's motion covers,
         and has nowhere else to learn what that is — two spans would make a
         handoff look like a jump."""
         path = tmp_path / "genau_drive.txt"

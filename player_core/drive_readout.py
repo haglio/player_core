@@ -119,7 +119,7 @@ class DriveHud:
     samples the device is being sent, so the trace is the thing itself rather than a
     picture of it — spanning ``trace_seconds`` from now.  Whoever is driving
     supplies them: the Robot Hand's motion while it runs, the funscript's shape
-    while a funscript has the device (Nau samples that; Genau cannot see it), and
+    while a funscript has the device (the main player samples that; Genau cannot see it), and
     the last shape drawn, held still, while nothing is being sent at all.  The
     ``*_at_max`` / ``*_at_min`` flags say which controls have run out of range,
     so the readout can dim the mark that would do nothing.  Frozen and compared
@@ -389,7 +389,7 @@ class DriveSection:
 
 
 # --- publishing --------------------------------------------------------------
-# In video mode the readout is drawn by Nau, inside its console, under the
+# In video mode the readout is drawn by the main player, inside its console, under the
 # controls that move it — so Genau stops drawing and starts saying.  A file, like every
 # other channel between these players: the reader polls per frame, and a torn or
 # missing read simply means "keep the readout you have".

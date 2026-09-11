@@ -1,7 +1,7 @@
 """Tests for player_core.status.
 
 The *fields* each player publishes are that player's own concern and are covered
-in its repo (genau's ``test_nau_status.py``, fun_time's ``test_satellite_status.py``).
+in its repo (fun_time's ``test_main_player_status.py`` and ``test_satellite_status.py``).
 What is shared — and tested here — is the publishing mechanism: the throttle, the
 directory, and surviving a file that cannot be written.
 """

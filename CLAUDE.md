@@ -41,7 +41,7 @@ suite pointed at it, or a fun_time verification session naming it in
   module defines is a contract, however public its spelling, so a helper the
   package shares between its own modules needs no leading underscore to say it
   is not the family's.
-- **No app knows another app exists.** Nothing here may import `nau`, `genau`,
+- **No app knows another app exists.** Nothing here may import `main_player`, `genau`,
   `satellite` or `fun_time`, and nothing here may be shaped around one caller's
   needs. `StatusWriter` takes a `fields` callable rather than hardcoding either
   player's keys for exactly this reason.

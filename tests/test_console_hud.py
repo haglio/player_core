@@ -107,16 +107,16 @@ class TestLine:
         assert line(locked=False, latest=True) == "Unlocked · Latest · 5s"
         assert line(locked=True, latest=True) == "Locked · Latest"
 
-    def test_the_pace_belongs_to_genau_and_is_not_claimed_while_nau_is_showing(self):
-        """Video mode draws the readout, so the pace is there to read — but Nau is on
-        screen and an unlocked Nau plays through its playlist rather than moving on
+    def test_the_pace_belongs_to_genau_and_is_not_claimed_while_main_player_is_showing(self):
+        """Video mode draws the readout, so the pace is there to read — but the main player is on
+        screen and an unlocked main player plays through its playlist rather than moving on
         a timer, so saying seconds would describe the wrong player."""
         assert ConsoleHud(console=ConsoleModel(mode="video", locked=False, latest=False),
                           drive=_drive(advance_interval=5)).status_line == "Unlocked · Shuffle"
 
     def test_an_enhanced_only_host_says_so_in_the_filter_slot(self):
         """Origenerator narrows a show to the pictures it has enhanced, and that
-        is the same kind of fact as Nau's length mode — what has been cut out of
+        is the same kind of fact as the main player's length mode — what has been cut out of
         what is playing — so it takes the same slot, at the end of the line."""
         def line(**over) -> str:
             return ConsoleHud(console=ConsoleModel(mode="genau", latest=False, **over),
@@ -151,7 +151,7 @@ class TestLine:
 
     def test_a_host_with_no_such_filter_says_nothing_there(self):
         """None is "this player has no such filter" — not "it is off" — and both
-        print nothing, so the slot is free for the length mode Nau fills."""
+        print nothing, so the slot is free for the length mode the main player fills."""
         assert ConsoleHud(console=ConsoleModel(mode="genau", latest=False)).status_line == (
             "Locked · Shuffle")
         assert _line(length_mode=SHORTS) == "Locked · Shuffle · Shorts"
@@ -567,7 +567,7 @@ class TestPainter:
         painter = ConsolePainter()
         rgb = _rgb(painter.bgra(
             ConsoleHud(console=ConsoleModel(mode="video", record="recording"))))
-        bx, by, bw, bh = _rect_of(painter, "nau_record_tap")
+        bx, by, bw, bh = _rect_of(painter, "main_player_record_tap")
         pixels = rgb[by:by + bh, bx:bx + bw].astype(int)
 
         assert tuple(pixels[bh // 2, 2]) == (255, 60, 60)   # the fill went red …
@@ -591,7 +591,7 @@ class TestPresses:
 
     def test_a_dimmed_button_posts_nothing_but_the_press_is_still_on_the_panel(self):
         painter = self._painted()
-        over = _over(painter, "nau_cycle_version")
+        over = _over(painter, "main_player_cycle_version")
 
         assert painter.press_at(*over) == ""
         assert painter.covers(*over)
@@ -741,7 +741,7 @@ class TestDrags:
         assert painter.holding is False
 
     def test_there_are_no_bars_at_all_where_nothing_is_driving(self):
-        """In nau mode the readout is not drawn, so its bands must not linger as
+        """With nothing driving, the readout is not drawn, so its bands must not linger as
         targets over whatever the console puts in that space instead."""
         painter = ConsolePainter()
         painter.bgra(ConsoleHud(console=ConsoleModel(mode="video")))
@@ -760,7 +760,7 @@ class TestDrags:
 
 class TestPlaybackSpeed:
     def test_the_drawing_player_folds_in_its_own_rate(self):
-        """Fun Time does not publish Nau's video rate — Nau knows it and adds it
+        """Fun Time does not publish the main player's video rate — the main player knows it and adds it
         at draw time, so the console shows the rate the video is really playing."""
         console = with_playback_speed(ConsoleModel(mode="video"), 1.75)
 
@@ -815,7 +815,7 @@ class TestEveryConsolePaints:
 
     The pill's Buffer state shipped referencing a name this module never
     imported, and no test painted a video-mode console with a composed drive — so
-    every suite was green while the real Nau crashed on its first console
+    every suite was green while the real main player crashed on its first console
     frame and the session came up with no main player at all.  A paint smoke
     over the whole grid makes that class of crash impossible to ship quietly.
     """
