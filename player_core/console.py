@@ -1,9 +1,9 @@
 """The controls on the main console, and where they sit.
 
-Whichever player holds the main slot draws it: Nau in video mode, Genau in
+Whichever player holds the main slot draws it: the main player in video mode, Genau in
 genau mode.  The console is the same in both, so the mode switch and the drive
 controls do not move as you flip between them; only the transport changes,
-because prev/next step Nau's video in video mode and Genau's clips in genau.
+because prev/next step the main player's video in video mode and Genau's clips in genau.
 
 Kept free of Pillow, as :mod:`player_core.satellite_hud` is, so the rows, the
 geometry and the hit-testing are testable without a font.  :mod:`player_core.console_hud` paints them; the
@@ -49,7 +49,7 @@ GAP = 4       # between buttons along a row
 ROW_GAP = 5   # between rows
 GROUP_GAP = 12  # between groups of buttons that mean different things
 
-# Nau's length modes, named here because the buttons for them are built here and
+# The main player's length modes, named here because the buttons for them are built here and
 # nothing else in this package cares what they are.  MIXED and NONE are the two
 # with no button of their own: mixed is every length there is, which the console
 # says by lighting both, and none is neither, which it says by lighting neither.
@@ -71,17 +71,17 @@ def shape_label(shape: str) -> str:
 
 @dataclass(frozen=True)
 class ModeHud:
-    """Nau's own answer to "what am I playing?" — what only the player knows.
+    """The main player's own answer to "what am I playing?" — what only the player knows.
 
     *video* is the name of the clip on screen, drawn as the muted line beneath
     the status.  *length_mode* is the library's filter, empty when there is no
     library backing the playlist; *compilation* is the volume holding the
     playlist, with *position*/*total* placing the current video in it; *f_mode*
     is Fun Time's filter over whichever of those runs.  All empty in genau mode,
-    where there is no Nau playlist to describe.
+    where there is no main player playlist to describe.
 
     The last three are what a control can and cannot do to the video on screen,
-    and each defaults to "cannot": a Nau too old to publish them leaves its
+    and each defaults to "cannot": a main player too old to publish them leaves its
     buttons dim, which is the honest answer when nothing has said otherwise.
     """
 
@@ -155,8 +155,8 @@ class ConsoleModel:
     """What Fun Time tells the main player about its slot, so the console can
     draw it — none of which the player can see for itself.
 
-    Everything here arrives published (``nau_console.json``) except
-    ``playback_speed``, which is Nau's own and folded in by whoever is drawing.
+    Everything here arrives published (``main_player_console.json``) except
+    ``playback_speed``, which is the main player's own and folded in by whoever is drawing.
     """
 
     mode: str = "video"
@@ -167,13 +167,13 @@ class ConsoleModel:
     osr2: str = "off"
     # Whether the OSR2 broker service is up — its own concern, only the main player's.
     broker: bool = False
-    # Where Nau's loop machine is: normal / recording (the record key is down and
-    # the out point has not landed yet) / looping.  Nau publishes it in its status
+    # Where the main player's loop machine is: normal / recording (the record key is down and
+    # the out point has not landed yet) / looping.  The main player publishes it in its status
     # file and Fun Time forwards it, because the console is drawn in genau mode too
     # — by a player that has no loop machine of its own to ask.
     record: str = "normal"
     # Whether the player on the main slot is holding what is on screen rather
-    # than letting it move on — Nau's video in video mode, Genau's clip in
+    # than letting it move on — the main player's video in video mode, Genau's clip in
     # genau.  One flag for one padlock, because whichever player is showing is the
     # one the lock holds.  On is where both players open, so it is the default
     # here too: a console drawn before the first panel arrives must not show the
@@ -182,14 +182,14 @@ class ConsoleModel:
     # describing.
     locked: bool = True
     # Whether the main player's own F-mode is on — its playlist narrowed to the videos
-    # that have a funscript.  Nau is told the flag directly as well (its subtitle
+    # that have a funscript.  The main player is told the flag directly as well (its subtitle
     # says so), but the button lights off what Fun Time publishes, because the
     # flag is set from three places — this button, the F key, and a spoken phrase —
     # and only one of them is the player.
     f_mode: bool = False
     # Which browse order the main player is in: newest-first ("Latest") when set,
     # shuffled when clear.  Published for the same reason F-mode is — the order is
-    # Fun Time's to set, and the playlist Nau is handed looks the same either way
+    # Fun Time's to set, and the playlist the main player is handed looks the same either way
     # round, so nothing in the file says which order built it.  None is a third
     # answer, the one ``enhanced_filter`` and ``favorites_filter`` below give: this
     # host has no browse order to switch at all, so the console neither draws the
@@ -199,8 +199,8 @@ class ConsoleModel:
     latest: bool | None = None
     cruise: bool = False
     shape: str = "sine"
-    # Nau's video playback rate, shown while Nau is on screen.  Not published —
-    # Nau knows its own rate and folds it in; Genau leaves it at 1.
+    # The main player's video playback rate, shown while the main player is on screen.  Not published —
+    # The main player knows its own rate and folds it in; Genau leaves it at 1.
     playback_speed: float = 1.0
     # Seconds an unlocked Genau leaves each clip on screen.  Also not published —
     # Genau owns the pace and says it on the drive readout, which whoever draws
@@ -383,19 +383,19 @@ CONSOLE_VERBS = frozenset({
     "main_reset",
     "main_shuffle",
     "main_video_activate",
-    "nau_clip_jump",
-    "nau_compilation",
-    "nau_cycle_version",
-    "nau_end_compilation",
-    "nau_full_vid",
-    "nau_funscript_jump",
-    "nau_length_full",
-    "nau_length_mixed",
-    "nau_length_none",
-    "nau_length_shorts",
-    "nau_record_tap",
-    "nau_speed_down",
-    "nau_speed_up",
+    "main_player_clip_jump",
+    "main_player_compilation",
+    "main_player_cycle_version",
+    "main_player_end_compilation",
+    "main_player_full_vid",
+    "main_player_funscript_jump",
+    "main_player_length_full",
+    "main_player_length_mixed",
+    "main_player_length_none",
+    "main_player_length_shorts",
+    "main_player_record_tap",
+    "main_player_speed_down",
+    "main_player_speed_up",
     "quarter_button",
     "robot_hand_cycle_shape",
     "robot_hand_park",
@@ -410,10 +410,10 @@ _MODE_BUTTONS = (
 )
 
 
-def nau_displays(mode: str) -> bool:
-    """Whether Nau's video is on the main slot — video mode.
+def main_player_displays(mode: str) -> bool:
+    """Whether the main player's video is on the main slot — video mode.
 
-    The transport steps Nau's video then, and the nudge / open / clip / record
+    The transport steps the main player's video then, and the nudge / open / clip / record
     that act on a video make sense; in genau mode the transport steps Genau's own
     clips instead and those video actions have nothing to act on.
     """
@@ -427,11 +427,11 @@ def _format_rate(rate: float) -> str:
 
 def console_rows(model: ConsoleModel, *, modes: bool = True,
                  label_width: int = PLAYBACK_LABEL_W,
-                 nau: ModeHud | None = None) -> list[list[Button]]:
+                 main_player: ModeHud | None = None) -> list[list[Button]]:
     """The console's buttons, row by row, for the mode Fun Time says it is in.
 
     The mode row leads, so it holds the same place in every mode.  Then the
-    transport — Nau's video or Genau's clips — then the pace of whatever that
+    transport — the main player's video or Genau's clips — then the pace of whatever that
     transport is stepping (the video's playback rate, or the seconds a clip holds
     the screen), and the Robot Hand's hands-free control row (the drive
     readout's amplitude/center/speed arrows are drawn on the readout itself, not
@@ -451,13 +451,13 @@ def console_rows(model: ConsoleModel, *, modes: bool = True,
     means exactly what it means here, which is the whole point of asking for this
     console rather than building a second one.
 
-    *nau* is what only the player on the slot knows — the length filter, the
+    *main_player* is what only the player on the slot knows — the length filter, the
     compilation it is inside, whether the video has another version or a scene to
     jump to.  It arrives whole rather than field by field because it already
     travels whole: :class:`ModeHud` is what the status line is built from too,
     and two copies of one fact is what drifts.
     """
-    nau = nau or ModeHud()
+    main_player = main_player or ModeHud()
     rows: list[list[Button]] = [] if not modes else [
         [
             *(
@@ -478,8 +478,8 @@ def console_rows(model: ConsoleModel, *, modes: bool = True,
             *_file_controls(model),
         ],
     ]
-    rows.append(_transport_row(model, nau))
-    if nau_displays(model.mode):
+    rows.append(_transport_row(model, main_player))
+    if main_player_displays(model.mode):
         rows.append(_playback_speed_row(model, label_width))
     else:
         rows.append(_clip_seconds_row(model, label_width))
@@ -491,10 +491,10 @@ def _file_controls(model: ConsoleModel) -> list[Button]:
     """The file actions, riding the mode row: browse for another video, record a
     loop, save the clip it caught.
 
-    Nau's own, so nothing in genau mode, where there is no video for any of them
+    The main player's own, so nothing in genau mode, where there is no video for any of them
     to act on — the same branch the transport row takes, one row up.
     """
-    if not nau_displays(model.mode):
+    if not main_player_displays(model.mode):
         return []
     return [
         Button("browse_library", _GLYPHS["open"], "Browse the library"),
@@ -504,7 +504,7 @@ def _file_controls(model: ConsoleModel) -> list[Button]:
         # marked, blue once the loop is running — the two halves of the gesture
         # look different, so a press that is still open cannot be mistaken for
         # one that landed.
-        Button("nau_record_tap", _GLYPHS["record"],
+        Button("main_player_record_tap", _GLYPHS["record"],
                "Stop recording — mark the loop's out point"
                if model.record == "recording" else
                "Looping — press to drop the loop" if model.record == "looping"
@@ -521,7 +521,7 @@ def _browse_order_buttons(model: ConsoleModel, *,
 
     A button each, with exactly one of them lit — the pair each satellite's HUD
     carries, meaning the same thing there.  Both modes have it: in video mode it
-    reorders the playlist Fun Time built for Nau, in genau mode it tells Genau to
+    reorders the playlist Fun Time built for the main player, in genau mode it tells Genau to
     rescan its clips the other way round.
 
     Nothing at all for a host with no browse order to name (``latest`` None) —
@@ -574,7 +574,7 @@ def _projection_buttons(model: ConsoleModel, *, remembered: bool) -> list[Button
     ]
 
 
-def _length_buttons(nau: ModeHud, *, remembered: bool) -> list[Button]:
+def _length_buttons(main_player: ModeHud, *, remembered: bool) -> list[Button]:
     """How long a thing has to be to play: full length, shorts, both, or neither.
 
     Each button is a length it INCLUDES, exactly as the shapes pair beside it is
@@ -587,26 +587,26 @@ def _length_buttons(nau: ModeHud, *, remembered: bool) -> list[Button]:
     handed over with no library under it has no length filter running, exactly
     as the status line's own slot is empty there.
     """
-    if not nau.length_mode:
+    if not main_player.length_mode:
         return []
-    mixed = nau.length_mode == MIXED
-    full = mixed or nau.length_mode == FULL
-    shorts = mixed or nau.length_mode == SHORTS
+    mixed = main_player.length_mode == MIXED
+    full = mixed or main_player.length_mode == FULL
+    shorts = mixed or main_player.length_mode == SHORTS
 
     def state(on: bool) -> dict:
         return {"lit": on and not remembered, "remembered": on and remembered}
 
     return [
         Button(
-            ("nau_length_shorts" if shorts else "nau_length_none") if full
-            else ("nau_length_mixed" if shorts else "nau_length_full"),
+            ("main_player_length_shorts" if shorts else "main_player_length_none") if full
+            else ("main_player_length_mixed" if shorts else "main_player_length_full"),
             FULL_LENGTH_ICON,
             "Only the full-length scenes are playing" if full and not shorts
             else "Drop the full-length scenes" if full
             else "Put the full-length scenes back", **state(full)),
         Button(
-            ("nau_length_full" if full else "nau_length_none") if shorts
-            else ("nau_length_mixed" if full else "nau_length_shorts"),
+            ("main_player_length_full" if full else "main_player_length_none") if shorts
+            else ("main_player_length_mixed" if full else "main_player_length_shorts"),
             SHORTS_ICON,
             "Only the shorts are playing" if shorts and not full
             else "Drop the shorts" if shorts
@@ -614,25 +614,25 @@ def _length_buttons(nau: ModeHud, *, remembered: bool) -> list[Button]:
     ]
 
 
-def _compilation_button(nau: ModeHud) -> Button:
+def _compilation_button(main_player: ModeHud) -> Button:
     """The set the video on screen belongs to, played in its own order.
 
     One button for both halves of the gesture: pressing it enters the
     compilation, and pressing the lit one leaves it again.  Dim for a video that
     belongs to no compilation, which is most of the library.
     """
-    inside = bool(nau.compilation)
+    inside = bool(main_player.compilation)
     return Button(
-        "nau_end_compilation" if inside else "nau_compilation",
+        "main_player_end_compilation" if inside else "main_player_compilation",
         COMPILATION_ICON,
         "Playing this compilation in order — press to leave it" if inside
         else "Play this video's compilation, in order"
-        + ("" if nau.has_compilation else " (this one belongs to none)"),
-        lit=inside, dim=not (inside or nau.has_compilation),
+        + ("" if main_player.has_compilation else " (this one belongs to none)"),
+        lit=inside, dim=not (inside or main_player.has_compilation),
     )
 
 
-def _clip_scene_button(nau: ModeHud) -> Button:
+def _clip_scene_button(main_player: ModeHud) -> Button:
     """The jump between a clip and the scene it was cut from.
 
     One button both ways: from a clip it goes to the scene, from a scene to the
@@ -641,22 +641,22 @@ def _clip_scene_button(nau: ModeHud) -> Button:
     Dim wherever there is nothing on the other end, which is the common case:
     most clips' source scenes are not in the library.
     """
-    to_scene = nau.jump_to == "scene"
+    to_scene = main_player.jump_to == "scene"
     return Button(
-        "nau_full_vid" if to_scene else "nau_clip_jump",
+        "main_player_full_vid" if to_scene else "main_player_clip_jump",
         CLIP_TO_SCENE_ICON if to_scene else SCENE_TO_CLIP_ICON,
         "Play the full scene this clip came from" if to_scene
-        else "Back to the clip taken from this scene" if nau.jump_to == "clip"
+        else "Back to the clip taken from this scene" if main_player.jump_to == "clip"
         else "Play the full scene this clip came from"
              " (no full scene in the library for this one)",
-        dim=not nau.jump_to,
+        dim=not main_player.jump_to,
     )
 
 
-def _transport_row(model: ConsoleModel, nau: ModeHud) -> list[Button]:
+def _transport_row(model: ConsoleModel, main_player: ModeHud) -> list[Button]:
     """Stepping and the actions on what is on screen, then the browse itself.
 
-    In video mode the stepping is Nau's video — step it, nudge inside it, hold it
+    In video mode the stepping is the main player's video — step it, nudge inside it, hold it
     against the end of the playlist's advance.  In genau it is Genau's own clips
     — step them, hold one, mark one weird; the nudges have no video to act on.
     Both branches end with what narrows the browse and what orders it.
@@ -665,7 +665,7 @@ def _transport_row(model: ConsoleModel, nau: ModeHud) -> list[Button]:
     thing on each: hold what is on screen.  Which player it reaches is the mode's
     business, not this row's — the same rule prev/next already follow.
     """
-    if nau_displays(model.mode):
+    if main_player_displays(model.mode):
         return [
             # Ordered as the video runs: back to the last one, back ten, forward
             # ten, on to the next.
@@ -701,7 +701,7 @@ def _transport_row(model: ConsoleModel, nau: ModeHud) -> list[Button]:
             # (with any compilation it was feeding) and F-mode together.  It sits
             # past the two switches because it is the wider gesture: they each
             # turn one thing on or off, this puts the lot back.  Only in this
-            # branch, like F-mode above — in genau mode there is no Nau playlist
+            # branch, like F-mode above — in genau mode there is no main player playlist
             # for either of them to be narrowing.
             Button("main_reset", _GLYPHS["reset"],
                    "Reset — the whole library back, with F-Mode off"),
@@ -712,15 +712,15 @@ def _transport_row(model: ConsoleModel, nau: ModeHud) -> list[Button]:
             # apart from all of them, being what puts them back rather than one
             # more of them.  A compilation replaces the browse while it plays, so
             # the order and the length show as held rather than in force.
-            *_browse_order_buttons(model, remembered=bool(nau.compilation)),
-            *_projection_buttons(model, remembered=bool(nau.compilation)),
-            *_length_buttons(nau, remembered=bool(nau.compilation)),
-            _compilation_button(nau),
-            _clip_scene_button(nau),
-            Button("nau_cycle_version", VERSIONS_ICON,
+            *_browse_order_buttons(model, remembered=bool(main_player.compilation)),
+            *_projection_buttons(model, remembered=bool(main_player.compilation)),
+            *_length_buttons(main_player, remembered=bool(main_player.compilation)),
+            _compilation_button(main_player),
+            _clip_scene_button(main_player),
+            Button("main_player_cycle_version", VERSIONS_ICON,
                    "Another version of this video"
-                   + ("" if nau.has_other_versions else " (none for this one)"),
-                   dim=not nau.has_other_versions),
+                   + ("" if main_player.has_other_versions else " (none for this one)"),
+                   dim=not main_player.has_other_versions),
         ]
     return [
         Button("genau_prev_clip", _GLYPHS["prev"], "Previous clip"),
@@ -760,16 +760,16 @@ def _transport_row(model: ConsoleModel, nau: ModeHud) -> list[Button]:
 
 
 def _playback_speed_row(model: ConsoleModel, label_width: int = PLAYBACK_LABEL_W) -> list[Button]:
-    """Nau's video playback rate: slower, the rate itself, faster.
+    """The main player's video playback rate: slower, the rate itself, faster.
 
     Named, because "Speed" already means the *motion* rate down on the drive
     readout and an unlabelled −/+ pair beside a number said neither.
     """
     return [
         Button("", "Playback speed", "", width=label_width),
-        Button("nau_speed_down", _GLYPHS["minus"], "Play the video slower"),
+        Button("main_player_speed_down", _GLYPHS["minus"], "Play the video slower"),
         Button("", _format_rate(model.playback_speed), "", width=VALUE_W),
-        Button("nau_speed_up", _GLYPHS["plus"], "Play the video faster"),
+        Button("main_player_speed_up", _GLYPHS["plus"], "Play the video faster"),
     ]
 
 
@@ -805,7 +805,7 @@ def _control_row(model: ConsoleModel) -> list[Button]:
 
     The funscript jump rides the end of this row rather than the transport's:
     the transport row is full, and this is the row about what the device is
-    doing, which is the very thing that jump goes looking for.  Nau's, so it is
+    doing, which is the very thing that jump goes looking for.  The main player's, so it is
     not there in genau mode, where there is no scripted video to skip inside.
     """
     return [
@@ -820,9 +820,9 @@ def _control_row(model: ConsoleModel) -> list[Button]:
         Button("robot_hand_release", RELEASE_ICON,
                "Release — back to whatever the motion was doing, cruise included"),
         *([
-            Button("nau_funscript_jump", FUNSCRIPT_JUMP_ICON,
+            Button("main_player_funscript_jump", FUNSCRIPT_JUMP_ICON,
                    "Skip ahead to where this video's scripting starts up again"),
-        ] if nau_displays(model.mode) else []),
+        ] if main_player_displays(model.mode) else []),
     ]
 
 
@@ -881,7 +881,7 @@ def _group_break(row: list[Button], index: int) -> bool:
 # Robot Hand controls whose command name does not begin with robot_hand_.
 _ROBOT_HAND_CONTROLS = frozenset({"quarter_button"})
 # Recording a loop and saving what it caught: one job, two presses.
-_CAPTURE_CONTROLS = frozenset({"nau_record_tap", "clipper_save"})
+_CAPTURE_CONTROLS = frozenset({"main_player_record_tap", "clipper_save"})
 # The two switches: the lock holds what is on screen against moving on, F-mode
 # narrows what there is to play at all.  Both are states the player sits *in*,
 # where everything around them does its thing once and is over.  The lock also
@@ -901,18 +901,18 @@ _PROJECTION_CONTROLS = frozenset({
     "main_projection_flat", "main_projection_none",
 })
 _LENGTH_CONTROLS = frozenset({
-    "nau_length_full", "nau_length_shorts", "nau_length_mixed", "nau_length_none",
+    "main_player_length_full", "main_player_length_shorts", "main_player_length_mixed", "main_player_length_none",
 })
-_COMPILATION_CONTROLS = frozenset({"nau_compilation", "nau_end_compilation"})
-_CLIP_JUMP_CONTROLS = frozenset({"nau_full_vid", "nau_clip_jump"})
-_VERSION_CONTROLS = frozenset({"nau_cycle_version"})
+_COMPILATION_CONTROLS = frozenset({"main_player_compilation", "main_player_end_compilation"})
+_CLIP_JUMP_CONTROLS = frozenset({"main_player_full_vid", "main_player_clip_jump"})
+_VERSION_CONTROLS = frozenset({"main_player_cycle_version"})
 # The three ways to stop the motion and start it again, on the control row.  A
 # different kind of thing from the shape controls before them — those say what
 # the motion IS, these say whether there is one — and they share the Robot Hand's
 # prefix, so they have to be named to leave that run.  The funscript jump is not
 # the Robot Hand's at all, and closes that row on its own.
 _HOLD_CONTROLS = frozenset({"robot_hand_park", "robot_hand_retract", "robot_hand_release"})
-_JUMP_CONTROLS = frozenset({"nau_funscript_jump"})
+_JUMP_CONTROLS = frozenset({"main_player_funscript_jump"})
 # The controls that act on the window rather than on anything inside it, so they
 # stand apart from whatever they share a row with.  Named rather than left to the
 # main_ prefix below: minimize sits beside the mode buttons and would otherwise
@@ -950,7 +950,9 @@ def _family(action: str) -> str:
             return group
     # Stepping the video and nudging inside it are one run of four marks, so they
     # are one family: prev, back ten, forward ten, next, evenly spaced.
-    for prefix in ("main_", "nau_speed", "robot_hand_", "genau_"):
+    # The video rate's own pair is checked before the transport prefix it shares
+    # a spelling with.
+    for prefix in ("main_player_speed", "main_", "robot_hand_", "genau_"):
         if action.startswith(prefix):
             return prefix
     return "file"

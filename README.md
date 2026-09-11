@@ -8,8 +8,8 @@ take the HUDs and the motion without the player.
 
 | Consumer | Repo | What it takes |
 | --- | --- | --- |
-| Nau | `../genau` | the player, the console, the drive readout, the T-Code driver |
 | Genau | `../genau` | the clip player's whole engine, under its pygame window |
+| Fun Time's main player | `../fun_time` | the player, the console, the drive readout, the T-Code driver |
 | Fun Time's satellites | `../fun_time` | the player, the satellite HUD |
 | Fun Time's VR player | `../fun_time` | the offscreen player, the T-Code driver, and the clip player's engine for its genau mode |
 | Fun Time itself | `../fun_time` | the file channel, the playlist, the status line |

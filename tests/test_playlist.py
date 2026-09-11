@@ -5,7 +5,7 @@ from player_core.playlist import read_playlist
 
 class TestReadPlaylist:
     def test_parses_video_and_funscript_pairs(self, tmp_path):
-        playlist = tmp_path / "nau_playlist.tsv"
+        playlist = tmp_path / "main_player_playlist.tsv"
         playlist.write_text(
             "C:/vids/a.mp4\tC:/scripts/a.funscript\n"
             "C:/vids/b.mp4\t\n"
@@ -23,7 +23,7 @@ class TestReadPlaylist:
         assert result[2][1] is None
 
     def test_skips_blank_and_comment_lines(self, tmp_path):
-        playlist = tmp_path / "nau_playlist.tsv"
+        playlist = tmp_path / "main_player_playlist.tsv"
         playlist.write_text(
             "# header comment\n"
             "\n"

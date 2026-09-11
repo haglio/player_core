@@ -6,7 +6,7 @@ float above the desktop.
 
 The slab it is drawn on — the rounded translucent panel, the palette, the Segoe
 face sized the way Qt sized it, the BGRA hand-off — comes from
-:mod:`player_core.hud_panel`, which Nau's own HUD is drawn on too, so the two
+:mod:`player_core.hud_panel`, which the main player's own HUD is drawn on too, so the two
 players go on looking like one another.  The layout and hit-test rects come from
 :mod:`player_core.satellite_hud`, so what is drawn and what is clickable cannot drift apart.
 """

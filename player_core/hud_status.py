@@ -1,6 +1,6 @@
 """The one status line every player's HUD leads with.
 
-Three players draw a HUD in this family — the two satellites and whichever of Nau
+Three players draw a HUD in this family — the two satellites and whichever of the main player
 or Genau holds the primary slot — and each one begins with a line saying what is
 selecting what you are looking at.  They say different *things*: a satellite has a
 loop over a map of clips, an act filter and a browse order; the primary has a

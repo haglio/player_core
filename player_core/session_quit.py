@@ -9,7 +9,7 @@ window: quit Fun Time.  The ask goes out on the dashboard's channel and the
 session comes down as a whole, under its closing cover, rather than this window
 blinking out ahead of the rest.
 
-Nau, Genau and the satellites all said this, in two copies; this is the one.
+The main player, Genau and the satellites all said this, in two copies; this is the one.
 """
 from __future__ import annotations
 

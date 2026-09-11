@@ -13,7 +13,7 @@ from player_core.console import (
     ModeHud,
     console_rows,
     hit_test,
-    nau_displays,
+    main_player_displays,
     osr2_row,
     place_rows,
     read_console,
@@ -73,14 +73,14 @@ class TestOsr2Row:
 
 
 class TestTransport:
-    """Prev/next step Nau's video where Nau is on screen, Genau's clips where it
+    """Prev/next step the main player's video where the main player is on screen, Genau's clips where it
     is — with the actions that only make sense for each."""
 
     def test_video_mode_steps_the_video_and_acts_on_it(self):
         actions = _actions(ConsoleModel(mode="video"))
         for action in ("main_prev", "main_next", "main_nudge_prev",
                        "main_nudge_next", "main_fmode", "browse_library",
-                       "clipper_save", "nau_record_tap"):
+                       "clipper_save", "main_player_record_tap"):
             assert action in actions, action
 
     def test_f_mode_is_the_main_players_own_and_lights_while_it_is_on(self):
@@ -93,7 +93,7 @@ class TestTransport:
         assert off.lit is False
         assert on.lit is True
 
-    def test_f_mode_is_not_offered_where_there_is_no_nau_playlist(self):
+    def test_f_mode_is_not_offered_where_there_is_no_main_player_playlist(self):
         """In genau mode the main slot is Genau's, and the playlist F-mode
         narrows is not what is playing — the same reason nudge and record go."""
         assert "main_fmode" not in _actions(ConsoleModel(mode="genau"))
@@ -110,7 +110,7 @@ class TestTransport:
         actions = _actions(ConsoleModel(mode="genau"))
 
         for action in ("main_nudge_prev", "browse_library", "clipper_save",
-                       "nau_record_tap", "main_fmode"):
+                       "main_player_record_tap", "main_fmode"):
             assert action not in actions
 
 
@@ -119,7 +119,7 @@ class TestFavoritesFilter:
 
     def test_no_button_where_the_host_has_no_such_filter(self):
         """Genau's own clips are not a set anybody has bookmarked, and F-mode in
-        the nau branch is Fun Time's own — this is the genau branch's, and it
+        the main player branch is Fun Time's own — this is the genau branch's, and it
         appears only where a host folded one in."""
         assert "main_fmode" not in _actions(ConsoleModel(mode="genau"))
 
@@ -145,7 +145,7 @@ class TestFavoritesFilter:
         assert actions.index("main_fmode") == actions.index("main_lock") + 1
         assert actions.index("genau_filter_enhanced") == actions.index("main_fmode") + 1
 
-    def test_the_nau_branchs_f_mode_is_untouched_by_it(self):
+    def test_the_main_player_branchs_f_mode_is_untouched_by_it(self):
         """Fun Time publishes that one for a playlist it owns; this field is the
         genau branch's and must not reach across."""
         assert "main_fmode" in _actions(ConsoleModel(mode="video"))
@@ -211,7 +211,7 @@ class TestEnhancedFilter:
         read off Fun Time's file must leave it unset rather than answer False —
         which would draw the button, unlit, on every player in the room."""
         import json
-        path = tmp_path / "nau_console.json"
+        path = tmp_path / "main_player_console.json"
         path.write_text(json.dumps({"mode": "genau"}), encoding="utf-8")
 
         assert read_console(path).enhanced_filter is None
@@ -223,13 +223,13 @@ class TestEnhancedFilter:
 class TestReset:
     """The way back out: drop everything narrowing what the main player plays."""
 
-    def test_the_main_player_can_be_reset_wherever_nau_is_on_screen(self):
+    def test_the_main_player_can_be_reset_wherever_main_player_is_on_screen(self):
         """Each satellite's HUD carries this button; the main player's console had
         no way to say "put it back" at all, so the length mode and F-mode could
         only be lifted one at a time and only by name."""
         assert "main_reset" in _actions(ConsoleModel(mode="video"))
 
-    def test_it_is_not_offered_where_there_is_no_nau_playlist(self):
+    def test_it_is_not_offered_where_there_is_no_main_player_playlist(self):
         """In genau mode neither of the things it drops is narrowing what is on
         screen — the same reason F-mode itself is not offered there."""
         assert "main_reset" not in _actions(ConsoleModel(mode="genau"))
@@ -259,7 +259,7 @@ class TestBrowseOrder:
     def test_both_players_can_be_reordered_from_the_console(self):
         """The order was a spoken command and a status word with no control at
         all.  It is one question in both modes — video reorders the playlist Fun
-        Time built for Nau, genau tells Genau to rescan the other way round."""
+        Time built for the main player, genau tells Genau to rescan the other way round."""
         for mode in ("video", "genau"):
             actions = _actions(ConsoleModel(mode=mode, latest=False))
             assert "main_shuffle" in actions and "main_latest" in actions
@@ -308,7 +308,7 @@ class TestBrowseOrder:
         """Fun Time publishes the flag every tick, so its own consoles always draw
         the pair; a file that says nothing about it is not one of them."""
         import json
-        path = tmp_path / "nau_console.json"
+        path = tmp_path / "main_player_console.json"
         path.write_text(json.dumps({"mode": "video", "latest": True}), encoding="utf-8")
         assert read_console(path).latest is True
 
@@ -323,7 +323,7 @@ class TestProjectionPair:
         rows = console_rows(
             ConsoleModel(mode="video", latest=False,
                          plays_vr=plays_vr, plays_flat=plays_flat),
-            nau=ModeHud(length_mode="mixed", **over))
+            main_player=ModeHud(length_mode="mixed", **over))
         return [b for row in rows for b in row
                 if b.action.startswith("main_projection")]
 
@@ -365,7 +365,7 @@ class TestProjectionPair:
 
     def test_a_published_panel_says_which_shapes_it_is_playing(self, tmp_path: Path):
         import json
-        path = tmp_path / "nau_console.json"
+        path = tmp_path / "main_player_console.json"
         path.write_text(json.dumps({"mode": "video", "plays_vr": True,
                                     "plays_flat": False}), encoding="utf-8")
         panel = read_console(path)
@@ -380,10 +380,10 @@ class TestLengthPair:
 
     def _pair(self, length_mode: str, **over):
         rows = console_rows(ConsoleModel(mode="video", latest=False),
-                            nau=ModeHud(length_mode=length_mode, **over))
+                            main_player=ModeHud(length_mode=length_mode, **over))
         buttons = {b.action: b for row in rows for b in row if b.action}
         by_icon = [b for row in rows for b in row
-                   if b.action.startswith("nau_length")]
+                   if b.action.startswith("main_player_length")]
         return by_icon, buttons
 
     def test_mixed_is_both_of_them_lit(self):
@@ -403,12 +403,12 @@ class TestLengthPair:
     def test_dropping_one_from_mixed_asks_for_the_other_alone(self):
         pair, _ = self._pair("mixed")
 
-        assert [b.action for b in pair] == ["nau_length_shorts", "nau_length_full"]
+        assert [b.action for b in pair] == ["main_player_length_shorts", "main_player_length_full"]
 
     def test_putting_the_dark_one_back_asks_for_mixed(self):
         pair, _ = self._pair("full")
 
-        assert pair[1].action == "nau_length_mixed"
+        assert pair[1].action == "main_player_length_mixed"
 
     def test_the_last_lit_one_can_still_be_turned_off(self):
         """Neither length is a browse with nothing in it -- degenerate, but a
@@ -417,18 +417,18 @@ class TestLengthPair:
         pair, _ = self._pair("full")
 
         assert [b.dim for b in pair] == [False, False]
-        assert pair[0].action == "nau_length_none"
+        assert pair[0].action == "main_player_length_none"
 
     def test_neither_lit_offers_each_length_back(self):
         pair, _ = self._pair("none")
 
         assert [b.lit for b in pair] == [False, False]
-        assert [b.action for b in pair] == ["nau_length_full", "nau_length_shorts"]
+        assert [b.action for b in pair] == ["main_player_length_full", "main_player_length_shorts"]
 
     def test_no_pair_at_all_without_a_library_to_filter(self):
         _pair, buttons = self._pair("")
 
-        assert not [a for a in buttons if a.startswith("nau_length")]
+        assert not [a for a in buttons if a.startswith("main_player_length")]
 
 
 class TestCompilationAndJumps:
@@ -436,51 +436,51 @@ class TestCompilationAndJumps:
 
     def _button_for(self, action: str, **over):
         rows = console_rows(ConsoleModel(mode="video", latest=False),
-                            nau=ModeHud(length_mode="mixed", **over))
+                            main_player=ModeHud(length_mode="mixed", **over))
         return next(b for row in rows for b in row if b.action == action)
 
     def test_the_compilation_button_enters_and_the_lit_one_leaves(self):
         """One button for both halves: there is no second control for "end", and
         the light is what says which of the two a press will do."""
-        outside = self._button_for("nau_compilation", has_compilation=True)
-        inside = self._button_for("nau_end_compilation", compilation="Volume 6")
+        outside = self._button_for("main_player_compilation", has_compilation=True)
+        inside = self._button_for("main_player_end_compilation", compilation="Volume 6")
 
         assert outside.lit is False and outside.dim is False
         assert inside.lit is True
 
     def test_a_video_in_no_compilation_cannot_be_pressed_into_one(self):
-        assert self._button_for("nau_compilation").dim is True
+        assert self._button_for("main_player_compilation").dim is True
 
     def test_inside_a_compilation_the_order_and_length_read_as_held(self):
         """A compilation replaces both while it plays and gives them back on the
         way out, so they are set-but-not-in-force rather than off."""
         rows = console_rows(ConsoleModel(mode="video", latest=False),
-                            nau=ModeHud(length_mode="mixed", compilation="Volume 6"))
+                            main_player=ModeHud(length_mode="mixed", compilation="Volume 6"))
         held = {b.action: b for row in rows for b in row
-                if b.action in ("main_shuffle", "nau_length_shorts")}
+                if b.action in ("main_shuffle", "main_player_length_shorts")}
 
         assert all(b.remembered and not b.lit for b in held.values())
 
     def test_the_clip_jump_says_which_way_it_would_go(self):
-        to_scene = self._button_for("nau_full_vid", jump_to="scene")
-        to_clip = self._button_for("nau_clip_jump", jump_to="clip")
+        to_scene = self._button_for("main_player_full_vid", jump_to="scene")
+        to_clip = self._button_for("main_player_clip_jump", jump_to="clip")
 
         assert to_scene.glyph != to_clip.glyph
         assert to_scene.dim is False and to_clip.dim is False
 
     def test_a_video_with_nothing_on_the_other_end_is_dim(self):
         """Most clips' source scenes are not in the library at all."""
-        assert self._button_for("nau_clip_jump").dim is True
+        assert self._button_for("main_player_clip_jump").dim is True
 
     def test_the_version_step_is_dim_without_another_version(self):
-        assert self._button_for("nau_cycle_version").dim is True
-        assert self._button_for("nau_cycle_version", has_other_versions=True).dim is False
+        assert self._button_for("main_player_cycle_version").dim is True
+        assert self._button_for("main_player_cycle_version", has_other_versions=True).dim is False
 
 
 class TestLock:
     """The padlock: whether the video repeats or plays on into the playlist."""
 
-    def test_the_video_can_be_held_wherever_nau_is_on_screen(self):
+    def test_the_video_can_be_held_wherever_main_player_is_on_screen(self):
         assert "main_lock" in _actions(ConsoleModel(mode="video"))
 
     def test_it_is_lit_while_the_video_is_held(self):
@@ -511,16 +511,16 @@ class TestLock:
 
 
 class TestPlaybackSpeed:
-    def test_the_video_rate_has_controls_where_nau_is_on_screen(self):
+    def test_the_video_rate_has_controls_where_main_player_is_on_screen(self):
         actions = _actions(ConsoleModel(mode="video"))
-        assert "nau_speed_down" in actions and "nau_speed_up" in actions
+        assert "main_player_speed_down" in actions and "main_player_speed_up" in actions
 
     def test_genau_has_no_video_rate(self):
         """Genau's clips play at the motion's rate, so there is no video rate to
         set — that Speed is the motion's, on the readout."""
         actions = _actions(ConsoleModel(mode="genau"))
 
-        assert "nau_speed_down" not in actions
+        assert "main_player_speed_down" not in actions
 
     def test_the_rate_is_shown_as_a_read_out_between_the_arrows(self):
         rows = console_rows(with_speed(ConsoleModel(mode="video"), 1.5))
@@ -539,10 +539,10 @@ class TestClipSeconds:
 
     def test_video_mode_shows_the_video_rate_instead(self):
         """The row is about what the transport is stepping, and in video mode
-        that is Nau's video, which has a playback rate rather than a pace."""
+        that is the main player's video, which has a playback rate rather than a pace."""
         actions = _actions(ConsoleModel(mode="video"))
         assert "genau_clip_seconds_down" not in actions
-        assert "nau_speed_down" in actions
+        assert "main_player_speed_down" in actions
 
     def test_the_seconds_are_shown_as_a_read_out_between_the_arrows(self):
         rows = console_rows(ConsoleModel(mode="genau", advance_interval=7))
@@ -568,7 +568,7 @@ class TestDriveControls:
     def test_auto_advance_is_no_longer_a_switch_of_its_own(self):
         """Arming it and holding a clip against it were two controls that could
         disagree, and the padlock beside them was a second lock on a console that
-        already had Nau's.  What is left is the pace, on its own row."""
+        already had the main player's.  What is left is the pace, on its own row."""
         actions = _actions(ConsoleModel(mode="genau"))
 
         assert "genau_toggle_auto_advance" not in actions
@@ -584,7 +584,7 @@ class TestDriveControls:
 
 
 class TestLockAcrossModes:
-    """One padlock on the console, whichever player is showing: it holds Nau's
+    """One padlock on the console, whichever player is showing: it holds the main player's
     video in video mode, and Genau's clip in genau."""
 
     def test_every_mode_offers_exactly_one_padlock(self):
@@ -635,9 +635,9 @@ class TestState:
         """One key does both halves, and they look identical otherwise: the mark
         is still open in one and the loop is running in the other.  Red while it
         is being recorded, blue once it repeats."""
-        idle = _button(ConsoleModel(mode="video"), "nau_record_tap")
-        marking = _button(ConsoleModel(mode="video", record="recording"), "nau_record_tap")
-        looping = _button(ConsoleModel(mode="video", record="looping"), "nau_record_tap")
+        idle = _button(ConsoleModel(mode="video"), "main_player_record_tap")
+        marking = _button(ConsoleModel(mode="video", record="recording"), "main_player_record_tap")
+        looping = _button(ConsoleModel(mode="video", record="looping"), "main_player_record_tap")
 
         assert (idle.warn, idle.hold) == (False, False)
         assert (marking.warn, marking.hold) == (True, False)
@@ -646,20 +646,20 @@ class TestState:
     def test_the_record_button_says_which_press_comes_next(self):
         for record, wanted in (("normal", "Record"), ("recording", "out point"),
                                ("looping", "drop the loop")):
-            button = _button(ConsoleModel(mode="video", record=record), "nau_record_tap")
+            button = _button(ConsoleModel(mode="video", record=record), "main_player_record_tap")
             assert wanted in button.tooltip
 
 
 class TestModePredicates:
-    def test_nau_displays_covers_video_mode_alone(self):
-        assert nau_displays("video")
-        assert not nau_displays("genau")
+    def test_main_player_displays_covers_video_mode_alone(self):
+        assert main_player_displays("video")
+        assert not main_player_displays("genau")
 
 
 class TestReadConsole:
     def test_it_reads_back_what_fun_time_published(self, tmp_path: Path):
         import json
-        path = tmp_path / "nau_console.json"
+        path = tmp_path / "main_player_console.json"
         path.write_text(json.dumps({
             "mode": "video", "active": True, "f_mode": True, "osr2": "robot_hand",
             "broker": True, "record": "looping", "locked": False, "cruise": True,
@@ -682,14 +682,14 @@ class TestReadConsole:
         """Which is where both players open, and what a Fun Time too old to
         publish the flag is still describing."""
         import json
-        path = tmp_path / "nau_console.json"
+        path = tmp_path / "main_player_console.json"
         path.write_text(json.dumps({"mode": "video"}), encoding="utf-8")
 
         assert read_console(path).locked is True
         assert ConsoleModel().locked is True
 
     def test_a_torn_or_missing_file_keeps_the_console_you_have(self, tmp_path: Path):
-        path = tmp_path / "nau_console.json"
+        path = tmp_path / "main_player_console.json"
         assert read_console(path) is None
 
         path.write_text('{"mode": "video"', encoding="utf-8")
@@ -710,7 +710,7 @@ class TestLayout:
         video = [b.action for b in console_rows(ConsoleModel(mode="video"))[0]]
         genau = [b.action for b in console_rows(ConsoleModel(mode="genau"))[0]]
 
-        assert video[3:] == ["browse_library", "nau_record_tap", "clipper_save"]
+        assert video[3:] == ["browse_library", "main_player_record_tap", "clipper_save"]
         # Nothing for them to act on in genau mode, so the row stops at minimize —
         # the same branch the transport row takes, one row down.
         assert genau[3:] == []
@@ -721,7 +721,7 @@ class TestLayout:
         placed = place_rows(console_rows(ConsoleModel(mode="video")), x=0, y=0)
         by_action = {b.action: rect for rect, b in placed}
         minimize, browse = by_action["main_minimize"], by_action["browse_library"]
-        record, save = by_action["nau_record_tap"], by_action["clipper_save"]
+        record, save = by_action["main_player_record_tap"], by_action["clipper_save"]
 
         assert browse[0] - (minimize[0] + minimize[2]) == GROUP_GAP
         assert record[0] - (browse[0] + browse[2]) == GROUP_GAP

@@ -8,7 +8,7 @@ framebuffer the caller supplies.  Both drive the ``_MpvControl`` surface below,
 and both put overlays on top through ``overlay_add``.
 
 The interface is a superset of what any one player needs, because the two use it
-differently: Nau opens one file at a time (``loop_file="inf"``) and navigates
+differently: the main player opens one file at a time (``loop_file="inf"``) and navigates
 explicitly, while a satellite opens letting end-of-file walk a prefetched
 playlist.  Either can be told to behave like the other — that is what a lock is
 on either — so a constructor option is a *default* and never a rule.
@@ -83,7 +83,7 @@ def _shared_options(*, muted: bool, loop_file: bool, prefetch: bool) -> dict:
         loglevel="warn",
         hwdec="auto-safe",
         # loop-1: the current file repeats, so a video never ends on its own;
-        # [ ] navigates.  Nau opens on this; a satellite constructs with
+        # [ ] navigates.  The main player opens on this; a satellite constructs with
         # loop_file=False ("no") so end-of-file advances its playlist.  Both
         # toggle it at runtime (see set_loop_file).
         loop_file="inf" if loop_file else "no",
@@ -102,7 +102,7 @@ def _shared_options(*, muted: bool, loop_file: bool, prefetch: bool) -> dict:
         # Open and demux the *next* playlist entry during the tail of the
         # current one, so a satellite's end-of-file auto-advance cuts to an
         # already-loaded clip instead of cold-opening it on screen.  Only
-        # satellites pass this; Nau plays one file at a time (loop_file=inf,
+        # satellites pass this; the main player plays one file at a time (loop_file=inf,
         # explicit [ ] nav) and has no next entry to prefetch.
         options["prefetch_playlist"] = "yes"
     return options
@@ -122,7 +122,7 @@ class _MpvControl:
     """The control surface shared by the windowed and offscreen players.
 
     Subclasses construct ``self._mpv`` and must call ``super().__init__()``;
-    every method here only drives it, so the session classes (Nau's, a
+    every method here only drives it, so the session classes (the main player's, a
     satellite's, fun_time_vr's roles) can hold either player without knowing
     which rendering path is backing it.
 
@@ -142,7 +142,7 @@ class _MpvControl:
         self._mpv.play(str(path))
         # Reset to just this file: drop any entry the previous clip had staged as
         # its prefetched next, so the caller stages a fresh one from a clean base.
-        # A no-op for Nau (single-file playlist); the reset is what a satellite's
+        # A no-op for the main player (single-file playlist); the reset is what a satellite's
         # jump/discard/filter navigation needs.
         self._mpv.playlist_clear()
 
@@ -217,7 +217,7 @@ class _MpvControl:
         This is what a lock is on every player here: unlocked plays through and
         lets end-of-file walk the playlist (``no``); locked, the file repeats
         seamlessly in place (``inf``).  Which end each opens on differs — a
-        satellite starts unlocked, Nau starts locked — but the switch is the same
+        satellite starts unlocked, the main player starts locked — but the switch is the same
         one, so "locked" means the same thing wherever it is said.
         """
         self._mpv.loop_file = "inf" if loop else "no"

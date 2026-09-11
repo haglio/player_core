@@ -4,7 +4,7 @@ Fun Time owns video discovery and F-mode filtering; it writes this file and
 tells the player to RELOAD_PLAYLIST. Blank lines and #-comments are ignored.
 
 The format lives here rather than with either player because Fun Time writes one
-shape of file for both: Nau reads the funscript column to drive the OSR2, and a
+shape of file for both: the main player reads the funscript column to drive the OSR2, and a
 satellite (silent and unscripted) drops it.
 """
 from __future__ import annotations

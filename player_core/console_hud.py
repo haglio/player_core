@@ -1,14 +1,14 @@
 """The main console — the HUD the player on the main slot draws.
 
-The same console is drawn whichever player holds the slot: Nau over its video in
+The same console is drawn whichever player holds the slot: the main player over its video in
 video mode, Genau into its own window in genau mode.  So the mode switch and the
 drive controls keep their places as you flip between modes — only the transport
-changes, because it steps Nau's video in one and Genau's clips in the other.
+changes, because it steps the main player's video in one and Genau's clips in the other.
 
-Its top block is Nau's own answer to "what am I playing?" — the status line (the
+Its top block is the main player's own answer to "what am I playing?" — the status line (the
 length mode, or the compilation and your place in it) beside the active-player
 dot, with the file on screen as a muted line under it, the same shape each
-satellite's HUD leads with.  Both are empty in genau mode, where there is no Nau
+satellite's HUD leads with.  Both are empty in genau mode, where there is no main player
 playlist backing the screen.  Everything else is the console the orchestrator
 publishes (:mod:`player_core.console`) plus the Robot Hand's drive readout
 (:mod:`player_core.drive_readout`) with its own controls.
@@ -55,7 +55,7 @@ from .console import (
     _row_width,
     console_rows,
     hit_test,
-    nau_displays,
+    main_player_displays,
     osr2_row,
     place_rows,
     rows_height,
@@ -274,9 +274,9 @@ class ConsoleHud:
         # The pace an unheld Genau clip moves on at, after the order rather than in
         # place of it: the order says which clip is next, the pace says when.  Only
         # while Genau is the one showing — video mode draws the drive readout too, but
-        # an unlocked Nau there plays through a playlist rather than on a timer —
+        # an unlocked main player there plays through a playlist rather than on a timer —
         # and only unheld, since nothing is going to move a held clip.
-        if not nau_displays(self.console.mode) and not self.console.locked and self.advance_interval:
+        if not main_player_displays(self.console.mode) and not self.console.locked and self.advance_interval:
             pace = f"{self.advance_interval}s"
             order = f"{order}{SEPARATOR}{pace}" if order else pace
         return status_line(
@@ -291,9 +291,9 @@ class ConsoleHud:
     def _filter_label(self) -> str:
         """What has been cut out of what is playing, in the one slot for it.
 
-        Two players fill it and neither can fill it at once: Nau narrows a
+        Two players fill it and neither can fill it at once: the main player narrows a
         library by length, and Origenerator keeps only the pictures it has
-        enhanced — a genau-mode console with no Nau playlist backing it, so the
+        enhanced — a genau-mode console with no main player playlist backing it, so the
         length mode is empty there by construction.  One slot rather than two
         because a reader glancing between screens is reading one sentence, and
         the answer to "what is left" is one phrase wherever it is asked.
@@ -344,7 +344,7 @@ class ConsolePainter:
         self._still: tuple[tuple[float, ...], int, float, float | None] | None = None
 
     def bgra(self, hud: ConsoleHud, *, hover: tuple[int, int] | None = None) -> np.ndarray:
-        """*hud* as an mpv overlay bitmap — what Nau composites into its video."""
+        """*hud* as an mpv overlay bitmap — what the main player composites into its video."""
         if self._ensure(self._resolve(hud), hover) or self._bgra is None:
             self._bgra = to_bgra(self._image)
         return self._bgra
@@ -379,7 +379,7 @@ class ConsolePainter:
         # playhead — set by the same function that drew the line under the dot —
         # since the round trip lags the arbiter, and the arbiter itself decides
         # seconds before the device is done riding the blue.
-        if not (nau_displays(hud.console.mode) and drive.segments):
+        if not (main_player_displays(hud.console.mode) and drive.segments):
             drive = replace(drive, driven=_driven_by(hud.console.osr2))
         # In video mode the readout is not a picture of the Robot Hand's motion: it is the
         # picture of the handoff, and the device changes hands inside it.  The
@@ -393,7 +393,7 @@ class ConsolePainter:
         # every handoff whatever the OSR2 state says, because the rests ARE
         # part of what it draws — freezing it on the round-tripped "idle"/"off"
         # was the picture that stopped scrolling for the length of each gap.
-        if not drive.live and not nau_displays(hud.console.mode):
+        if not drive.live and not main_player_displays(hud.console.mode):
             # Genau goes on driving regardless — it cannot see that the OSR2 is
             # off — so both the trace and the position it publishes keep moving,
             # and either one left running is a dead readout still claiming to be
@@ -520,10 +520,10 @@ class ConsolePainter:
         # and the width helpers need it before the pill is drawn.
         self._composed_drive = (
             drive if (drive is not None and drive.segments
-                      and nau_displays(console.mode)) else None)
+                      and main_player_displays(console.mode)) else None)
         rows = console_rows(console, modes=hud.modes_row,
                             label_width=self._row_label_width(),
-                            nau=hud.modes)
+                            main_player=hud.modes)
         status = hud.status_line
         filename = hud.modes.video
         drive_w, drive_h = section_size() if drive is not None else (0, 0)
@@ -780,6 +780,6 @@ class ConsolePainter:
 
 
 def with_playback_speed(console: ConsoleModel, speed: float) -> ConsoleModel:
-    """*console* with the drawing player's own video rate folded in — Nau knows
+    """*console* with the drawing player's own video rate folded in — the main player knows
     its rate, Fun Time does not publish it, so it is added at draw time."""
     return replace(console, playback_speed=speed)
