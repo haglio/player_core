@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from itertools import pairwise
 
-from shared_ui.spacing import BUTTON_GAP, BUTTON_GROUP_GAP
+from shared_ui.spacing import BUTTON_GAP, BUTTON_GROUP_GAP, BUTTON_PAD_H_TIGHT
 
 from player_core.satellite_hud import (
     CTRL_BTN,
@@ -15,7 +15,6 @@ from player_core.satellite_hud import (
     MAP_CELLS,
     MAP_GAP,
     MIN_GUTTER,
-    MODE_LABEL_PAD,
     PAD,
     ROW_GAP,
     STATUS_TEXT_X,
@@ -41,6 +40,7 @@ from player_core.satellite_hud import (
     map_row_width,
     map_window,
     mode_button_rects,
+    mode_row_rects,
     panel_width,
     parse_hud,
     speed_row_rects,
@@ -697,8 +697,15 @@ class TestModePair:
         assert [command for _rect, command in rects] == [
             "satellites_video_activate", "origenerator_activate"]
         (first, _), (second, _) = rects
-        assert first == (100, 50, 40 + 2 * MODE_LABEL_PAD, CTRL_BTN)
-        assert second[0] == first[0] + first[2] + MAP_GAP
+        assert first == (100, 50, 40 + 2 * BUTTON_PAD_H_TIGHT, CTRL_BTN)
+        assert second[0] == first[0] + first[2] + BUTTON_GAP
+
+    def test_minimize_rides_the_pair_a_group_apart(self):
+        modes, minimize = mode_row_rects(100, 50, [40, 80])
+
+        assert modes == mode_button_rects(100, 50, [40, 80])
+        last_x, _y, last_w, _h = modes[-1][0]
+        assert minimize == (last_x + last_w + BUTTON_GROUP_GAP, 50, CTRL_BTN, CTRL_BTN)
 
     def test_a_mode_press_posts_the_command_verbatim(self):
         # Side-less on purpose: the mode belongs to the whole satellite side.
