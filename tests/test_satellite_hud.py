@@ -4,9 +4,10 @@ from __future__ import annotations
 import json
 from itertools import pairwise
 
+from shared_ui.spacing import BUTTON_GAP, BUTTON_GROUP_GAP
+
 from player_core.satellite_hud import (
     CTRL_BTN,
-    CTRL_GROUP_GAP,
     DOUBLE_CLICK_S,
     ELLIPSIS,
     FILTER_BTN,
@@ -497,14 +498,14 @@ def test_the_control_band_breaks_into_the_groups_the_console_breaks_into():
         for (previous, _p), (rect, name) in pairwise(rects)
     }
 
-    assert gap_before["next"] == MAP_GAP          # stepping
-    assert gap_before["lock"] == CTRL_GROUP_GAP   # …then the clip on screen
-    assert gap_before["trash"] == MAP_GAP
-    assert gap_before["fmode"] == MAP_GAP
-    assert gap_before["reset"] == CTRL_GROUP_GAP  # …then the browse pool
-    assert gap_before["shuffle"] == CTRL_GROUP_GAP  # …then the order it comes in
-    assert gap_before["latest"] == MAP_GAP
-    assert gap_before["minimize"] == CTRL_GROUP_GAP  # …then the window
+    assert gap_before["next"] == BUTTON_GAP          # stepping
+    assert gap_before["lock"] == BUTTON_GROUP_GAP   # …then the clip on screen
+    assert gap_before["trash"] == BUTTON_GAP
+    assert gap_before["fmode"] == BUTTON_GAP
+    assert gap_before["reset"] == BUTTON_GROUP_GAP  # …then the browse pool
+    assert gap_before["shuffle"] == BUTTON_GROUP_GAP  # …then the order it comes in
+    assert gap_before["latest"] == BUTTON_GAP
+    assert gap_before["minimize"] == BUTTON_GROUP_GAP  # …then the window
 
 
 def test_the_enhanced_switch_joins_the_browse_group_rather_than_the_switches():
@@ -519,9 +520,9 @@ def test_the_enhanced_switch_joins_the_browse_group_rather_than_the_switches():
         for (previous, _p), (rect, name) in pairwise(rects)
     }
 
-    assert gap_before["enhanced"] == CTRL_GROUP_GAP
-    assert gap_before["reset"] == MAP_GAP
-    assert gap_before["shuffle"] == CTRL_GROUP_GAP
+    assert gap_before["enhanced"] == BUTTON_GROUP_GAP
+    assert gap_before["reset"] == BUTTON_GAP
+    assert gap_before["shuffle"] == BUTTON_GROUP_GAP
 
 
 def test_the_speed_row_puts_slower_the_rate_and_faster_after_its_name():
