@@ -378,6 +378,24 @@ def test_the_state_controls_and_favorite_mark_light_up_when_they_apply():
     assert _lit_ink(on.targets.favorite, on) > _lit_ink(off.targets.favorite, off)
 
 
+def test_the_star_is_centered_under_the_dot():
+    rendered = HudRenderer("landscape").render(
+        HudModel(side="landscape", lock_label="Unlocked", active=True, is_favorite=True),
+        video="example - scene one")
+    rgb = _rgb(rendered.bgra).astype(int)
+    _x, star_top, _w, star_h = rendered.targets.favorite
+    left_column = slice(0, STATUS_TEXT_X - 2)
+    dot = (rgb[PAD:PAD + 14, left_column] > 200).all(axis=2)
+    star_band = rgb[star_top:star_top + star_h, left_column]
+    star = star_band[:, :, 1] - np.maximum(star_band[:, :, 0], star_band[:, :, 2]) > 40
+
+    def middle(ink) -> float:
+        columns = np.nonzero(ink.any(axis=0))[0]
+        return (columns.min() + columns.max()) / 2
+
+    assert abs(middle(dot) - middle(star)) <= 0.5
+
+
 def test_the_bin_draws_red_because_it_takes_something_away():
     """Origenerator's Delete is red and the act reads the same wherever it
     appears, so the drawn button is what has to be red — a table saying which
