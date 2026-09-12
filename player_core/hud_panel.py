@@ -27,6 +27,7 @@ from shared_ui.palette import (
     WHITE,
     hovered,
 )
+from shared_ui.spacing import BUTTON_MARK_INSET_HUD
 
 __all__: list[str] = []  # package-internal: no sibling reaches anything here
 
@@ -136,9 +137,7 @@ def draw_glyph(draw: ImageDraw.ImageDraw, cx: float, cy: float, glyph: str,
     draw.text((cx - offset[0], cy - offset[1]), glyph, font=font, fill=fill)
 
 
-# How much room a mark leaves inside its button, so it does not run into the
-# rounded border the button draws around it.
-MARK_INSET = 2
+MARK_INSET = BUTTON_MARK_INSET_HUD
 
 
 def draw_mark(image: Image.Image, name: str, rect: tuple[int, int, int, int],

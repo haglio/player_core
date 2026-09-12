@@ -28,6 +28,7 @@ from shared_ui.palette import (
     TEXT_PRIMARY,
     WHITE,
 )
+from shared_ui.spacing import BUTTON_RADIUS_HUD
 
 from player_core.hud_marks import SHARED_MARK, shared_mark, shared_mark_name
 from player_core.hud_panel import (
@@ -746,7 +747,7 @@ class HudRenderer:
         if self._pointer_is_on(rect):
             fill = hovered_fill(fill)
         draw.rounded_rectangle(
-            [bx, by, bx + bw - 1, by + bh - 1], radius=3,
+            [bx, by, bx + bw - 1, by + bh - 1], radius=BUTTON_RADIUS_HUD,
             fill=(*fill, 255), outline=(*edge, 255), width=1,
         )
         # A mark reverses only out of a LIGHT fill.  Over either gray ground it
