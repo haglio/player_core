@@ -575,7 +575,7 @@ def favorite_mark_rect(y: int, line_h: int) -> Rect:
     tall as that line: a mark beside words wants to be the size of the words,
     and anything smaller reads as a speck rather than as a state.
     """
-    return (PAD, y, line_h, line_h)
+    return (PAD + (STATUS_DOT + 1 - line_h) // 2, y, line_h, line_h)
 
 
 # The strike under the current clip's act: this act is wrong, ask about it again.
