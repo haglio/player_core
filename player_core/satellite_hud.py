@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 
-from shared_ui.spacing import BUTTON_SIZE_HUD
+from shared_ui.spacing import BUTTON_GAP, BUTTON_GROUP_GAP, BUTTON_SIZE_HUD
 
 from .console import VALUE_W
 from .geometry import Rect, contains
@@ -496,7 +496,6 @@ CONTROLS = tuple(name for group in CONTROL_GROUPS for name in group
 # as separate without a rule drawn between them — the way the console's rows
 # already break (``console.GROUP_GAP``).
 _GROUP_OF = {name: index for index, group in enumerate(CONTROL_GROUPS) for name in group}
-CTRL_GROUP_GAP = 12
 
 
 def control_button_rects(x: int, y: int,
@@ -506,16 +505,16 @@ def control_button_rects(x: int, y: int,
     *names* is which controls the row carries: all of them by default, but with
     a hosted Origenerator the mode row above takes minimize with it (see
     :data:`MODE_BUTTONS`), and this row lays out the rest.  Whatever the row
-    holds, a :data:`CTRL_GROUP_GAP` opens wherever it crosses from one of
+    holds, the family's group gap opens wherever it crosses from one of
     :data:`CONTROL_GROUPS` to the next.
     """
     rects: list[tuple[Rect, str]] = []
     previous = ""
     for name in names:
         if rects:
-            x += CTRL_BTN + (CTRL_GROUP_GAP
+            x += CTRL_BTN + (BUTTON_GROUP_GAP
                              if _GROUP_OF.get(name) != _GROUP_OF.get(previous)
-                             else MAP_GAP)
+                             else BUTTON_GAP)
         rects.append(((x, y, CTRL_BTN, CTRL_BTN), name))
         previous = name
     return rects
