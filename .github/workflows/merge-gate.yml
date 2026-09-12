@@ -20,7 +20,6 @@ jobs:
       siblings: "app_support shared_ui"
       python-version: "3.12"
       timeout-minutes: 6
-      reverse: false
       # tests/test_consumer_imports.py is this repo's dead-code gate, and it
       # asks the consumers: every caller of this package lives in another repo,
       # so it holds what each module declares against what genau, fun_time and
@@ -47,7 +46,6 @@ jobs:
       python-version: "3.12"
       timeout-minutes: 15
       sdl-video: dummy
-      reverse: false
 
   # What the machine this is developed on would say. It runs 3.14 and the gate
   # runs 3.12, and the two evaluate annotations differently (PEP 649), so a
@@ -61,7 +59,6 @@ jobs:
       siblings: "app_support shared_ui"
       python-version: "3.14"
       timeout-minutes: 6
-      reverse: false
       # The same three checkouts the full suite gets, so the two legs collect the
       # same tests and the reading is about the version and nothing else.
       prepare: |
