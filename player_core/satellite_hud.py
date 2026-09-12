@@ -21,7 +21,12 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 
-from shared_ui.spacing import BUTTON_GAP, BUTTON_GROUP_GAP, BUTTON_SIZE_HUD
+from shared_ui.spacing import (
+    BUTTON_GAP,
+    BUTTON_GROUP_GAP,
+    BUTTON_PAD_H_TIGHT,
+    BUTTON_SIZE_HUD,
+)
 
 from .console import VALUE_W
 from .geometry import Rect, contains
@@ -534,10 +539,6 @@ MODE_BUTTONS = (
     ("origenerator_activate", "Origenerator", "origenerator"),
 )
 
-# Inside a mode button, the room either side of its label.
-MODE_LABEL_PAD = 6
-
-
 def mode_button_rects(x: int, y: int, label_widths: list[int]) -> list[tuple[Rect, str]]:
     """Each mode button's ``(rect, command)``, running right from ``(x, y)``.
 
@@ -546,10 +547,17 @@ def mode_button_rects(x: int, y: int, label_widths: list[int]) -> list[tuple[Rec
     """
     rects: list[tuple[Rect, str]] = []
     for (action, _label, _mode), label_width in zip(MODE_BUTTONS, label_widths):
-        width = label_width + 2 * MODE_LABEL_PAD
+        width = label_width + 2 * BUTTON_PAD_H_TIGHT
         rects.append(((x, y, width, CTRL_BTN), action))
-        x += width + MAP_GAP
+        x += width + BUTTON_GAP
     return rects
+
+
+def mode_row_rects(x: int, y: int,
+                   label_widths: list[int]) -> tuple[list[tuple[Rect, str]], Rect]:
+    modes = mode_button_rects(x, y, label_widths)
+    last_x, _y, last_w, _h = modes[-1][0]
+    return modes, (last_x + last_w + BUTTON_GROUP_GAP, y, CTRL_BTN, CTRL_BTN)
 
 
 def speed_row_rects(x: int, y: int, *, label_width: int) -> tuple[list[tuple[Rect, str]], Rect]:

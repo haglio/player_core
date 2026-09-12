@@ -28,7 +28,6 @@ from shared_ui.palette import (
     TEXT_PRIMARY,
     WHITE,
 )
-from shared_ui.spacing import BUTTON_GROUP_GAP
 
 from player_core.hud_marks import SHARED_MARK, shared_mark, shared_mark_name
 from player_core.hud_panel import (
@@ -65,7 +64,6 @@ from .satellite_hud import (
     MAX_GUTTER,
     MIN_GUTTER,
     MODE_BUTTONS,
-    MODE_LABEL_PAD,
     PAD,
     STATUS_BAND_H,
     STATUS_BASELINE,
@@ -95,7 +93,7 @@ from .satellite_hud import (
     map_column_height,
     map_reach,
     map_window,
-    mode_button_rects,
+    mode_row_rects,
     panel_height,
     panel_width,
     playing_rect,
@@ -369,11 +367,8 @@ class HudRenderer:
         controls_end = control_button_rects(PAD, 0, row_names)[-1][0][0] + CTRL_BTN
         band_width = controls_end + PAD
         if mode_widths:
-            pair = sum(w + 2 * MODE_LABEL_PAD for w in mode_widths) + MAP_GAP
-            band_width = max(
-                band_width,
-                PAD + pair + MAP_GAP + CTRL_BTN + PAD,  # the mode row, minimize riding it
-            )
+            _modes, (minimize_x, _y, _w, _h) = mode_row_rects(PAD, 0, mode_widths)
+            band_width = max(band_width, minimize_x + CTRL_BTN + PAD)
         width = panel_width(gutter_w, reach, text_width(self._body, model.lock_label),
                             text_width(self._tiny, video), band_width=band_width)
         height = panel_height(
@@ -520,13 +515,8 @@ class HudRenderer:
         minimize riding it — a button about the side's window rather than about the
         clip, so it belongs up here with the other whole-side ones.
         """
-        modes = mode_button_rects(PAD, y, mode_widths)
+        modes, minimize_rect = mode_row_rects(PAD, y, mode_widths)
         self._draw_modes(draw, modes, model)
-        last_x, _my, last_w, _mh = modes[-1][0]
-        # A GROUP apart from the pair, not the ordinary gap: minimize is about
-        # the window this panel is drawn in rather than about which mode the
-        # side is in, and the console spaces its own the same way.
-        minimize_rect = (last_x + last_w + BUTTON_GROUP_GAP, y, CTRL_BTN, CTRL_BTN)
         self._minimize_button(draw, minimize_rect)
         return modes, minimize_rect
 
