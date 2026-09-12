@@ -20,6 +20,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 from shared_ui.palette import BLUE, GREEN, TEXT_MUTED, TEXT_PRIMARY, WHITE
+from shared_ui.spacing import BUTTON_RADIUS_HUD
 
 from . import drive_layout
 from .drive_layout import (
@@ -278,7 +279,7 @@ class DriveSection:
         """One integrated mark: an outline square with its glyph, dimmed at a limit."""
         x, y, w, h = control.rect
         ink = _DISABLED if control.dim else (*TEXT_PRIMARY, 255)
-        draw.rounded_rectangle([x, y, x + w - 1, y + h - 1], radius=3,
+        draw.rounded_rectangle([x, y, x + w - 1, y + h - 1], radius=BUTTON_RADIUS_HUD,
                                outline=ink, width=1)
         draw_glyph(draw, x + w / 2, y + h / 2, control.glyph, self._glyph, ink)
 

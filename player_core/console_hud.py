@@ -37,7 +37,7 @@ from shared_ui.palette import (
     TEXT_PRIMARY,
     WHITE,
 )
-from shared_ui.spacing import BUTTON_GAP
+from shared_ui.spacing import BUTTON_GAP, BUTTON_RADIUS_HUD
 
 from .console import (
     _ROW_LABELS,
@@ -730,7 +730,7 @@ class ConsolePainter:
         # them.
         edge = TEXT_MUTED if (button.dim or fill in (BG_BUTTON, BG_BUTTON_ACTIVE)) else (
             fill or TEXT_MUTED)
-        draw.rounded_rectangle([x, y, x + w - 1, y + h - 1], radius=3,
+        draw.rounded_rectangle([x, y, x + w - 1, y + h - 1], radius=BUTTON_RADIUS_HUD,
                                fill=(*fill, 255) if fill else None,
                                outline=(*edge, 255), width=1)
         # The mark stays white over a colored fill and reverses out of a white
