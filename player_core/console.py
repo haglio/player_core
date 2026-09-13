@@ -25,6 +25,7 @@ from shared_ui.spacing import BUTTON_SIZE_HUD
 from .geometry import Rect, contains
 from .hud_marks import shared_mark
 from .hud_status import LATEST_LABEL, SHUFFLE_LABEL
+from .playback_rate import format_rate
 
 __all__ = [
     "CONSOLE_VERBS",
@@ -453,11 +454,6 @@ def main_player_displays(mode: str) -> bool:
     return mode == "video"
 
 
-def _format_rate(rate: float) -> str:
-    """A playback rate as a compact label: 1.0 -> '1×', 1.5 -> '1.5×'."""
-    return f"{rate:g}×"
-
-
 def console_rows(model: ConsoleModel, *, modes: bool = True,
                  label_width: int = PLAYBACK_LABEL_W,
                  main_player: ModeHud | None = None) -> list[list[Button]]:
@@ -801,7 +797,7 @@ def _playback_speed_row(model: ConsoleModel, label_width: int = PLAYBACK_LABEL_W
     return [
         Button("", "Playback speed", "", width=label_width),
         Button("main_player_speed_down", _GLYPHS["minus"], "Play the video slower"),
-        Button("", _format_rate(model.playback_speed), "", width=VALUE_W),
+        Button("", format_rate(model.playback_speed), "", width=VALUE_W),
         Button("main_player_speed_up", _GLYPHS["plus"], "Play the video faster"),
     ]
 
