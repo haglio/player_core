@@ -38,6 +38,17 @@ from .cruise_control import (
     toggle_cruise_control,
 )
 from .flag import Flag
+from .player_verbs import (
+    LOCK_OFF,
+    LOCK_ON,
+    NEXT,
+    PREV,
+    QUIT,
+    SET_VOLUME,
+    SPEED_DOWN,
+    SPEED_UP,
+    TOGGLE_LOCK,
+)
 from .robot_hand import (
     RobotHandState,
     adjust_amplitude,
@@ -269,8 +280,8 @@ CONTROLS: tuple[Control, ...] = (
         name="speed",
         needs=("robot_hand",),
         verbs=(
-            Verb("SPEED_DOWN", _stepper(-5), key="K_j"),
-            Verb("SPEED_UP", _stepper(5), key="K_l"),
+            Verb(SPEED_DOWN, _stepper(-5), key="K_j"),
+            Verb(SPEED_UP, _stepper(5), key="K_l"),
             Verb("SPEED", _number_setter(set_speed), takes_a_value=True),
         ),
     ),
@@ -317,9 +328,9 @@ CONTROLS: tuple[Control, ...] = (
         name="lock",
         needs=("clip_advance_state",),
         verbs=(
-            Verb("TOGGLE_LOCK", _lock_toggled, key="K_COMMA"),
-            Verb("LOCK_ON", _lock_set(True)),
-            Verb("LOCK_OFF", _lock_set(False)),
+            Verb(TOGGLE_LOCK, _lock_toggled, key="K_COMMA"),
+            Verb(LOCK_ON, _lock_set(True)),
+            Verb(LOCK_OFF, _lock_set(False)),
         ),
     ),
     # How long a clip holds the screen, a second at a time.  Named for the number
@@ -337,12 +348,12 @@ CONTROLS: tuple[Control, ...] = (
     Control(
         name="quit",
         needs=("stop_event",),
-        verbs=(Verb("QUIT", _quit),),
+        verbs=(Verb(QUIT, _quit),),
     ),
     Control(
         name="clip",
-        verbs=(Verb("PREV", _step_clip(-1), key="K_m"),
-            Verb("NEXT", _step_clip(1), key="K_PERIOD"),),
+        verbs=(Verb(PREV, _step_clip(-1), key="K_m"),
+            Verb(NEXT, _step_clip(1), key="K_PERIOD"),),
     ),
     Control(
         name="condemn",
@@ -378,7 +389,7 @@ CONTROLS: tuple[Control, ...] = (
     Control(
         name="volume",
         needs=("set_volume",),
-        verbs=(Verb("SET_VOLUME", _volume_shown, takes_a_value=True),),
+        verbs=(Verb(SET_VOLUME, _volume_shown, takes_a_value=True),),
     ),
 )
 

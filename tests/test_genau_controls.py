@@ -121,6 +121,14 @@ class TestTheVocabularyIsWrittenDown:
         assert {name: verb.spelling for name, (_control, verb) in KEYS.items()} == WRITTEN_DOWN_KEYS
 
 
+# The verbs Genau answers that every player answers -- the family's, spelled in
+# player_verbs and imported from there.  The rest are Genau's own.
+FAMILY_VERBS = frozenset({
+    "NEXT", "PREV", "TOGGLE_LOCK", "LOCK_ON", "LOCK_OFF", "QUIT", "SET_VOLUME",
+    "SPEED_DOWN", "SPEED_UP",
+})
+
+
 class TestAVerbIsSpelledInOneFile:
     """A control used to be hand-plumbed through four to six files -- a branch in
     the dispatcher, a parameter and an attribute and a hand-off line on the
@@ -128,7 +136,7 @@ class TestAVerbIsSpelledInOneFile:
     repo changed together in half its commits because of it.  Held as a ceiling
     that fails rather than as a note, and measured the way a reader would: which
     modules in this package spell the verb at all.  One is allowed: the
-    registry that declares it.
+    registry that declares it, or player_verbs for a verb every player answers.
     """
 
     @staticmethod
@@ -144,6 +152,10 @@ class TestAVerbIsSpelledInOneFile:
                 naming.add(path.name)
         return naming
 
-    @pytest.mark.parametrize("verb", sorted(WRITTEN_DOWN_VERBS))
-    def test_the_registry_is_the_one_module_that_spells_it(self, verb):
+    @pytest.mark.parametrize("verb", sorted(WRITTEN_DOWN_VERBS - FAMILY_VERBS))
+    def test_the_registry_is_the_one_module_that_spells_genaus_own(self, verb):
         assert self._files_naming(verb) == {"genau_controls.py"}
+
+    @pytest.mark.parametrize("verb", sorted(FAMILY_VERBS))
+    def test_player_verbs_is_the_one_module_that_spells_the_familys(self, verb):
+        assert self._files_naming(verb) == {"player_verbs.py"}
