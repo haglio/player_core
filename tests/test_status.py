@@ -151,25 +151,27 @@ class TestStatusWriter:
 
 
 class TestWhatEveryPlayerPublishes:
-    """The five lines every player's status leads with, written and read here so
+    """The six lines every player's status leads with, written and read here so
     a player and the source polling it cannot disagree about a key."""
 
     def test_the_lines_in_the_order_they_are_written(self):
         fields = status_fields(PlayerStatus(
-            video="C:/vids/a.mp4", position_ms=1500, duration_ms=5000, paused=False, locked=True))
+            video="C:/vids/a.mp4", position_ms=1500, duration_ms=5000, paused=False, locked=True,
+            speed=1.5))
 
         assert fields == {
             "video": "C:/vids/a.mp4", "position_ms": "1500", "duration_ms": "5000",
-            "paused": "0", "locked": "1",
+            "paused": "0", "locked": "1", "speed": "1.5",
         }
-        assert list(fields) == ["video", "position_ms", "duration_ms", "paused", "locked"]
+        assert list(fields) == ["video", "position_ms", "duration_ms", "paused", "locked", "speed"]
 
     def test_a_playhead_is_published_as_whole_milliseconds(self):
         assert status_fields(PlayerStatus(position_ms=12345.9))["position_ms"] == "12345"
 
     def test_what_is_published_is_what_is_read_back(self):
         status = PlayerStatus(
-            video="C:/vids/b.mp4", position_ms=250, duration_ms=9000, paused=True, locked=False)
+            video="C:/vids/b.mp4", position_ms=250, duration_ms=9000, paused=True, locked=False,
+            speed=0.75)
 
         assert parse_status(status_fields(status)) == status
 
@@ -188,6 +190,7 @@ class TestWhatEveryPlayerPublishes:
     def test_a_number_that_cannot_be_read_keeps_the_default_too(self):
         assert parse_status({"position_ms": "soon", "duration_ms": " 40 "}).position_ms == 0
         assert parse_status({"position_ms": "soon", "duration_ms": " 40 "}).duration_ms == 40
+        assert parse_status({"speed": "fast"}, default=PlayerStatus(speed=0.5)).speed == 0.5
 
     def test_the_lines_a_player_adds_of_its_own_ride_past_the_reader(self):
         status = parse_status({"video": " C:/vids/c.mp4 ", "playlist_length": "3", "state": "looping"})

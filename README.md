@@ -68,7 +68,7 @@ reader in one module — so the two sides cannot spell a thing differently:
 | verbs on its command file, spelled in `player_verbs` | `file_channel` (`append_command` / `consume_command_file`); the player answers the ones it declares in a `control_registry` | |
 | the paused flag | `app_support.file_channel.write_flag` / `file_channel.read_paused_state` | |
 | its HUD: a `HudModel` for a satellite, a `ConsoleModel` for the main slot | `satellite_hud` (`hud_text` / `parse_hud`), `console` (`console_text` / `parse_console`) | |
-| | `status` (`status_fields` / `parse_status`, published by `StatusWriter`) | a `PlayerStatus`: the item on screen, the playhead, paused, locked — and after those five lines, whatever that player adds of its own |
+| | `status` (`status_fields` / `parse_status`, published by `StatusWriter`) | a `PlayerStatus`: the item on screen, the playhead, paused, locked, the rate it plays at — and after those six lines, whatever that player adds of its own |
 
 A player answers the verbs it can (`TRASH` is a satellite's, `TOGGLE_LOCK` the
 main slot's) and refuses the rest on its log. What is not in the contract yet is
