@@ -5,6 +5,7 @@ from player_core.playhead import PlayheadHudPainter, video_playhead
 from player_core.timeline import (
     BAR_INSET_Y,
     bar_track_x,
+    on_track,
     progress_bar_bgra,
 )
 from player_core.volume import MARGIN, SLOT_W
@@ -26,6 +27,14 @@ class TestBarTrackX:
         readout = PlayheadHudPainter().bgra(video_playhead(0.0, 3 * 3_600_000.0, 60.0))
 
         assert bar_track_x(1920)[0] >= MARGIN + readout.shape[1] + MARGIN
+
+    def test_a_press_on_the_readout_is_not_a_press_on_the_track(self):
+        """A press there would saturate to the first frame, and the readout is
+        far too wide to be a margin nobody hits."""
+        x0, x1 = bar_track_x(1000)
+
+        assert not on_track(x0 - 1, 1000)
+        assert on_track(x0, 1000) and on_track(x1 + 2, 1000)
 
     def test_clamps_so_the_track_never_inverts_on_a_narrow_window(self):
         x0, x1 = bar_track_x(50)

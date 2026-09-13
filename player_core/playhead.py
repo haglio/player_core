@@ -8,7 +8,8 @@ from shared_ui.palette import TEXT_PRIMARY
 
 from .hud_panel import KeptBitmap, ink_center_offset, load_font, pill, text_width
 from .hud_status import SEPARATOR
-from .volume import CHIP_H, PAD
+from .timeline import bar_track_x
+from .volume import CHIP_H, MARGIN, PAD, chip_xy
 
 __all__: list[str] = []
 
@@ -49,6 +50,11 @@ def clip_playhead(frame: int, frame_count: int) -> PlayheadHud | None:
         return None
     return PlayheadHud(text=f"frame {frame} / {frame_count}",
                        widest=f"frame {frame_count} / {frame_count}")
+
+
+def readout_xy(readout_w: int, *, win_w: int, win_h: int, timeline_h: int) -> tuple[int, int]:
+    x = bar_track_x(win_w)[0] - MARGIN - readout_w
+    return max(0, x), chip_xy(win_w=win_w, win_h=win_h, timeline_h=timeline_h)[1]
 
 
 class PlayheadHudPainter(KeptBitmap):
