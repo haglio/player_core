@@ -25,29 +25,19 @@ from dataclasses import dataclass, field, replace
 import numpy as np
 from PIL import Image
 from shared_ui.palette import (
-    AMBER,
-    BG_BUTTON,
-    BG_BUTTON_ACTIVE,
     BG_PRIMARY,
     BLUE,
     GREEN,
     MAGENTA,
-    RED,
     TEXT_MUTED,
     TEXT_PRIMARY,
-    WHITE,
 )
 from shared_ui.spacing import BUTTON_GAP
 
 from .console import (
-    _ROW_LABELS,
-    BROKER_ICON,
     BUTTON,
-    FMODE_ICON,
     FULL,
     GAP,
-    MINIMIZE_ICON,
-    PLAYBACK_LABEL_W,
     SHORTS,
     Button,
     ConsoleModel,
@@ -75,18 +65,14 @@ from .drive_readout import (
 from .drive_readout import controls as drive_controls
 from .drive_readout import tracks as drive_tracks
 from .geometry import Rect, contains
-from .hud_marks import SHARED_MARK, shared_mark_name
 from .hud_panel import (
     ACTIVE_DOT,
     SYMBOL_FONT,
     HudPanel,
     draw_active_dot,
-    draw_glyph,
-    draw_icon,
-    draw_mark,
+    draw_button,
     draw_tooltip,
     fit_text,
-    hovered_fill,
     load_font,
     text_width,
     to_bgra,
@@ -116,12 +102,6 @@ __all__ = [
 # keeps where its act filter would go when it has none, and the same silence the
 # two buttons keep by both sitting dark.
 _LENGTH_LABELS = {FULL: "Full length", SHORTS: "Shorts"}
-
-# The two controls that wear an app mark rather than a glyph, and which mark:
-# the broker's "B" and F-mode's "F", each the magenta five-by-five letter its .ico
-# carries (:data:`player_core.hud_panel.ICON_GRIDS`).  Keyed by the marker the
-# console puts on the button, the way the waveform's is.
-_APP_MARKS = {BROKER_ICON: "B", FMODE_ICON: "F"}
 
 # A compilation is titled for a shelf: "various - Ultimate Example Studio Alpha
 # Collection - Volume 6 (v1)".  Everything up to the last dash is the series and
@@ -166,6 +146,11 @@ _DRIVE_TIPS = {
 }
 
 
+def _format_rate(rate: float) -> str:
+    """A playback rate as a compact label: 1.0 -> '1×', 1.5 -> '1.5×'."""
+    return f"{rate:g}×"
+
+
 def compilation_label(title: str) -> str:
     """*title* cut down to what tells one compilation from another."""
     volume = title.rsplit(" - ", 1)[-1]
@@ -177,14 +162,6 @@ def compilation_label(title: str) -> str:
 _SIZE_BODY = 11
 _SIZE_TINY = 8
 _PAD = 10
-# How far in a word NAMING its row starts: not at all.  Its cell begins on the
-# same left edge as every button in the rows above and below it, so the word lines
-# up with that column -- which is what "the margin everything else has" means
-# here, the panel's own _PAD.  Anything added on top of that reads as an indent.
-# (What made the label look unindented in the first place was its cell being too
-# narrow for it: centered, an 80px word in a 66px cell started 7px LEFT of the
-# column.  _row_label_width fixes that at the source.)
-_ROW_LABEL_INSET = 0
 DOT_GAP = 8  # the room between the active-player dot and the words beside it
 _MARGIN = 8    # inset from the window's top-left corner
 _ROW_GAP = 4   # between the top block, the buttons, the OSR2 row, the readout
@@ -521,9 +498,7 @@ class ConsolePainter:
         self._composed_drive = (
             drive if (drive is not None and drive.segments
                       and main_player_displays(console.mode)) else None)
-        rows = console_rows(console, modes=hud.modes_row,
-                            label_width=self._row_label_width(),
-                            main_player=hud.modes)
+        rows = [[self._filled(button, hud) for button in row] for row in self._rows(hud)]
         status = hud.status_line
         filename = hud.modes.video
         drive_w, drive_h = section_size() if drive is not None else (0, 0)
@@ -618,7 +593,7 @@ class ConsolePainter:
         return text_width(self._tiny, _OSR2_LABELS.get(osr2, osr2)) + 10
 
     def _osr2_width(self, model: ConsoleModel) -> int:
-        return (self._osr2_controls_width(osr2_row(model)) + _OSR2_GROUP_GAP
+        return (self._osr2_controls_width(self._osr2_controls(model)) + _OSR2_GROUP_GAP
                 + text_width(self._tiny, "OSR2") + _OSR2_LABEL_GAP
                 + self._osr2_pill_width(model))
 
@@ -633,7 +608,7 @@ class ConsolePainter:
         its pill, well clear of the controls, so "OSR2 Robot Hand" reads as one
         read-out instead of as a third button.
         """
-        controls = osr2_row(model)
+        controls = self._osr2_controls(model)
         run_x = x
         for button in controls:
             rect = (run_x, y, button.width, _OSR2_H)
@@ -655,17 +630,41 @@ class ConsolePainter:
         draw.text((pill_x + pill_w / 2, y + _OSR2_H / 2), state, font=self._tiny,
                   anchor="mm", fill=(*color, 255))
 
-    def _row_label_width(self) -> int:
-        """How wide a cell holding a row's NAME has to be.
+    @staticmethod
+    def _rows(hud: ConsoleHud) -> list:
+        """The buttons to draw: the rows the source declared, or -- from one
+        that declared none -- the rows :mod:`player_core.console` still builds
+        from the panel's switches."""
+        if hud.console.rows:
+            return [list(row) for row in hud.console.rows]
+        return console_rows(hud.console, modes=hud.modes_row, main_player=hud.modes)
 
-        Measured, because the words do not fit the fixed 66px the layout used:
-        "Playback speed" is 80 at this font, so it ran out of its cell and its
-        last letter sat under the button beside it.  Both named rows take one
-        width so their controls line up under each other, and the family's own
-        floor keeps a short label from pulling the pair in tight.
+    @staticmethod
+    def _osr2_controls(model: ConsoleModel) -> list[Button]:
+        return list(model.osr2_controls) or osr2_row(model)
+
+    def _filled(self, button: Button, hud: ConsoleHud) -> Button:
+        """A read-out as it is drawn: the host's own number written in where the
+        source named one, and a word's cell widened to hold it.  A button comes
+        back as it was.
+
+        The two numbers are the drawing host's -- the video's rate, the seconds
+        an unheld clip stays up -- which no source can know, so the source
+        names them and whoever draws fills them in.  A name that outgrows the
+        cell the source gave it widens the cell: "Playback speed" ran under the
+        button beside it once, its last letter under the minus.
         """
-        widest = max(text_width(self._tiny, label) for label in _ROW_LABELS)
-        return max(PLAYBACK_LABEL_W, widest + _ROW_LABEL_INSET + BUTTON_GAP)
+        if button.action:
+            return button
+        glyph = button.glyph
+        if button.host_value == "playback_speed":
+            glyph = _format_rate(hud.console.playback_speed)
+        elif button.host_value == "advance_interval":
+            glyph = f"{hud.advance_interval}s"
+        width = button.width
+        if glyph.replace(" ", "").isalpha():
+            width = max(width, text_width(self._tiny, glyph) + BUTTON_GAP)
+        return replace(button, glyph=glyph, width=width)
 
     def _button(self, image, draw, rect: Rect, button: Button, *,
                 hovered: bool = False) -> None:
@@ -695,88 +694,14 @@ class ConsolePainter:
                 # that leads with a word read as unindented beside them.  Left
                 # aligned on the family's tight button pad, it lines up with
                 # them instead.
-                draw.text((x + _ROW_LABEL_INSET, y + h / 2), button.glyph,
+                draw.text((x, y + h / 2), button.glyph,
                           font=self._tiny, anchor="lm", fill=(*ink, 255))
                 return
             draw.text((x + w / 2, y + h / 2), button.glyph, font=self._tiny, anchor="mm",
                       fill=(*ink, 255))
             return
-        broker = button.glyph == BROKER_ICON
-        # A plain toggle lights the family's ACTIVE ground -- a step up from the
-        # resting one, the same step Origenerator's checked buttons take.  It
-        # used to fill white, which is the loudest thing on the panel for a
-        # control whose whole news is "this is on", and it left the console
-        # reading as a different app from the windows beside it.  Where a color
-        # already MEANS something it still wins: green is the favorites and the
-        # funscripts, amber is an enhanced picture, and those say more than
-        # "engaged".
-        lit = (GREEN if button.favorite else AMBER if button.enhanced else BLUE)
-        # A control at rest sits on the family's button ground rather than on
-        # nothing: an outline over the slab read as a gap in it, and made these
-        # look like a different kind of control from the ones in the windows.
-        fill = (lit if button.lit else RED if button.warn else BLUE if button.hold
-                else BG_BUTTON_ACTIVE if button.remembered else BG_BUTTON)
-        if broker:
-            fill = BLUE if button.lit else RED
-        # One step lighter under the pointer, so a press lands where you meant.
-        # Not on a dimmed control: it cannot be pressed, and lighting it would
-        # promise otherwise.
-        if hovered and not button.dim:
-            fill = hovered_fill(fill)
-        # And it carries the family's thin edge whatever it is doing.  The edge
-        # used to be the fill's own color at rest, which is no edge at all --
-        # the satellite HUDs beside this one draw theirs in the muted gray the
-        # rest of the chrome uses, and these read as borderless slabs next to
-        # them.
-        edge = TEXT_MUTED if (button.dim or fill in (BG_BUTTON, BG_BUTTON_ACTIVE)) else (
-            fill or TEXT_MUTED)
-        draw.rounded_rectangle([x, y, x + w - 1, y + h - 1], radius=3,
-                               fill=(*fill, 255) if fill else None,
-                               outline=(*edge, 255), width=1)
-        # The mark stays white over a colored fill and reverses out of a white
-        # one, so a control that changes state changes only what is beneath its
-        # mark — the way the Dash's mic keeps its white glyph while the panel
-        # under it goes blue.  The gray grounds are both dark, so a mark on
-        # either keeps its own ink rather than reversing -- only a light fill
-        # (white, amber) reverses.
-        resting = fill in (BG_BUTTON, BG_BUTTON_ACTIVE)
-        # A dim control fades its mark only while it is sitting at rest.  Over a
-        # colored ground the fade is what made a lit-but-unpressable button —
-        # the length filter with nothing left to drop — read as a blue square
-        # with an illegible smudge on it, which says neither "on" nor "why not".
-        ink = (BG_PRIMARY if fill in (WHITE, AMBER)
-               else TEXT_MUTED if button.dim and resting
-               else RED if button.danger
-               else AMBER if button.enhanced
-               else TEXT_PRIMARY if resting else WHITE)
-        if button.glyph in _APP_MARKS:
-            draw_icon(draw, rect, _APP_MARKS[button.glyph])
-        elif button.glyph.startswith(SHARED_MARK):
-            draw_mark(image, shared_mark_name(button.glyph), rect, (*ink, 255))
-        elif button.glyph == MINIMIZE_ICON:
-            self._minimize_icon(draw, rect, ink)
-        elif len(button.glyph) == 1 and not button.glyph.isalnum():
-            # A symbol needs the face that actually has it, and centring on its
-            # own ink — the font's bounds would drop it toward the button's floor.
-            draw_glyph(draw, x + w / 2, y + h / 2, button.glyph, self._glyph, (*ink, 255))
-        else:
-            draw.text((x + w / 2, y + h / 2), button.glyph, font=self._tiny,
-                      anchor="mm", fill=(*ink, 255))
-
-    @staticmethod
-    def _minimize_icon(draw, rect: Rect, ink) -> None:
-        """The minimize control's face: the bar a Windows title bar puts there.
-
-        Drawn rather than typed for the reason the curve above is — the mark
-        Windows uses is U+E921 of Segoe MDL2 Assets, a face this HUD does not
-        load, and Pillow draws tofu for a codepoint a face lacks.  Two pixels
-        deep across the middle of the button: the same proportion the title bar
-        has, so it reads as that gesture and not as an underscore or a dash.
-        """
-        x, y, w, h = rect
-        pad = 5
-        cy = y + h / 2
-        draw.rectangle([x + pad, cy - 1, x + w - pad - 1, cy], fill=(*ink, 255))
+        draw_button(image, draw, rect, button, hovered=hovered,
+                    glyph_font=self._glyph, word_font=self._tiny)
 
 
 def with_playback_speed(console: ConsoleModel, speed: float) -> ConsoleModel:

@@ -6,12 +6,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 from PIL import Image
+from satellite_rows import short_name
 from shared_ui.palette import TEXT_MUTED, WHITE
 
 from player_core.hud_panel import ICON_GRIDS
 from player_core.satellite_hud import (
     COL_LABEL_H,
-    CONTROL_TOOLTIPS,
     CTRL_BAND_H,
     ELLIPSIS_ROOM,
     FILTER_ROOM,
@@ -28,6 +28,16 @@ from player_core.satellite_hud import (
     looped_group_rect,
 )
 from player_core.satellite_hud_paint import HudRenderer, gutter_width_for
+
+
+def _names(rendered) -> list[str]:
+    """What each drawn button is for, in the order they were laid out."""
+    return [short_name(button) for _rect, button in rendered.targets.buttons]
+
+
+def _rects(rendered) -> dict:
+    """Each drawn button's rect, by what it is for."""
+    return {short_name(button): rect for rect, button in rendered.targets.buttons}
 
 
 @pytest.fixture
@@ -253,7 +263,7 @@ def test_a_status_too_wide_for_the_map_widens_the_panel_rather_than_wrapping(thu
 def _control_band_top(rendered) -> int:
     """Where the side's own control buttons start — the row under the status block,
     and so how deep that block ended up."""
-    return min(y for (_x, y, _w, _h), _name in rendered.targets.control)
+    return min(y for (_x, y, _w, _h), _button in rendered.targets.buttons)
 
 
 def test_the_file_on_screen_is_named_under_the_status_line(thumb):
@@ -329,7 +339,7 @@ def test_render_draws_the_sides_own_controls_even_with_no_clip():
     rendered = HudRenderer("landscape").render(
         HudModel(side="landscape", locked=False, lock_label="Unlocked"))
 
-    assert [name for _rect, name in rendered.targets.control] == [
+    assert _names(rendered) == [
         "prev", "next", "lock", "trash", "fmode", "reset", "minimize",
     ]
 
@@ -341,7 +351,7 @@ def test_the_minimize_button_wears_a_bar_rather_than_a_font_glyph():
     is tall, which is what a title bar's minimize looks like everywhere."""
     rendered = HudRenderer("landscape").render(
         HudModel(side="landscape", lock_label="Unlocked"))
-    x, y, w, h = {name: rect for rect, name in rendered.targets.control}["minimize"]
+    x, y, w, h = _rects(rendered)["minimize"]
     # The button's own outline is its border, so only the interior is the mark --
     # and the interior is the button's ground now, itself gray, so the mark is
     # what is BRIGHTER than that ground.
@@ -371,7 +381,7 @@ def test_the_state_controls_and_favorite_mark_light_up_when_they_apply():
 
     off = rendered_with()
     on = rendered_with(locked=True, is_favorite=True, f_mode=True)
-    rects = {name: rect for rect, name in on.targets.control}
+    rects = _rects(on)
 
     assert _lit_ink(rects["lock"], on) > _lit_ink(rects["lock"], off)
     assert _lit_ink(rects["fmode"], on) > _lit_ink(rects["fmode"], off)
@@ -384,7 +394,7 @@ def test_the_bin_draws_red_because_it_takes_something_away():
     control is destructive says nothing about what came out on the panel."""
     rendered = HudRenderer("landscape").render(
         HudModel(side="landscape", lock_label="Unlocked"))
-    rects = {name: rect for rect, name in rendered.targets.control}
+    rects = _rects(rendered)
 
     def red_ink(name: str) -> int:
         """How far the reddest pixel of *name*'s button leads its own green."""
@@ -404,7 +414,7 @@ def test_f_mode_wears_its_own_badge_rather_than_a_typed_letter():
     for f_mode in (False, True):
         rendered = HudRenderer("landscape").render(
             HudModel(side="landscape", lock_label="Unlocked", f_mode=f_mode))
-        x, y, w, h = {name: rect for rect, name in rendered.targets.control}["fmode"]
+        x, y, w, h = _rects(rendered)["fmode"]
         pixels = _rgb(rendered.bgra)[y:y + h, x:x + w]
         magenta = (pixels == np.array((200, 80, 160), dtype=pixels.dtype)).all(axis=2)
         ys, xs = np.nonzero(magenta)
@@ -883,7 +893,8 @@ def test_a_tooltip_longer_than_the_panel_is_wide_stays_on_the_panel(thumb):
         assert len(rows), f"hovering with {text!r} drew nothing"
         return rows.min(), rows.max(), cols.max()
 
-    upper, lower, right = tooltip_bounds(CONTROL_TOOLTIPS["trash"])
+    upper, lower, right = tooltip_bounds(
+        "Unfavorite it — or mark weird when it is not a favorite")
     short_upper, short_lower, _ = tooltip_bounds("Bin")
 
     assert right < plain.shape[1] - 1  # it stopped short of the far edge
@@ -896,18 +907,15 @@ def test_the_button_glyphs_are_not_tofu():
     the glyph font must cover every button icon itself — the map's two and each of
     the side's own controls, reset's backwards loop included."""
     from player_core.hud_panel import SYMBOL_FONT, load_font
-    from player_core.satellite_hud_paint import (
-        _CONTROL_GLYPHS,
-        _EXPAND_GLYPH,
-        _LOOP_GLYPH,
-    )
+    from player_core.satellite_hud import _CONTROL_FACES
+    from player_core.satellite_hud_paint import _EXPAND_GLYPH, _LOOP_GLYPH
 
     glyph_font = load_font(11, SYMBOL_FONT)
     notdef = glyph_font.getmask("").getbbox()
 
     assert glyph_font.getmask(_LOOP_GLYPH).getbbox() != notdef
     assert glyph_font.getmask(_EXPAND_GLYPH).getbbox() != notdef
-    for name, glyph in _CONTROL_GLYPHS.items():
+    for name, glyph in _CONTROL_FACES.items():
         assert glyph_font.getmask(glyph).getbbox() != notdef, name
 
 
@@ -921,7 +929,7 @@ def test_the_reset_button_is_never_lit():
 
     resting = rendered_with()
     lit = rendered_with(locked=True, f_mode=True)
-    rects = {name: rect for rect, name in lit.targets.control}
+    rects = _rects(lit)
 
     assert _lit_ink(rects["lock"], lit)  # the states that do light are alight
     assert _lit_ink(rects["reset"], lit) == 0
@@ -956,18 +964,18 @@ def test_the_mode_pair_renders_and_is_pressable(thumb):
                satellites_mode="video")
     )
 
-    commands = [command for _rect, command in rendered.targets.modes]
-    assert commands == ["satellites_video_activate", "origenerator_activate"]
+    assert _names(rendered)[:2] == ["satellites_video_activate", "origenerator_activate"]
     clicks = HudClicks("portrait")
-    rect, command = rendered.targets.modes[1]
-    assert clicks.press(rendered.targets, rect[0] + 2, rect[1] + 2, now=0.0) == command
+    rect = _rects(rendered)["origenerator_activate"]
+    assert clicks.press(rendered.targets, rect[0] + 2, rect[1] + 2,
+                        now=0.0) == "origenerator_activate"
 
 
 def test_no_hosted_origenerator_means_no_mode_pair(thumb):
     rendered = HudRenderer("portrait").render(
         _model(corner=HudCell(path="c.mp4", thumb=thumb))
     )
-    assert rendered.targets.modes == []
+    assert not any(name.endswith("_activate") for name in _names(rendered))
 
 
 def test_the_mode_row_leads_and_minimize_rides_it(thumb):
@@ -979,11 +987,11 @@ def test_the_mode_row_leads_and_minimize_rides_it(thumb):
                satellites_mode="video")
     )
 
-    mode_y = rendered.targets.modes[0][0][1]
-    by_name = {name: rect for rect, name in rendered.targets.control}
+    by_name = _rects(rendered)
+    mode_y = by_name["satellites_video_activate"][1]
     # Minimize shares the mode row, to the right of the pair.
     assert by_name["minimize"][1] == mode_y
-    assert by_name["minimize"][0] > rendered.targets.modes[-1][0][0]
+    assert by_name["minimize"][0] > by_name["origenerator_activate"][0]
     # The rest of the controls sit on their own band, one below.
     for name in ("prev", "next", "lock", "trash", "fmode"):
         assert by_name[name][1] == mode_y + CTRL_BAND_H
@@ -998,7 +1006,7 @@ def test_without_a_mode_row_minimize_keeps_the_control_band(thumb):
     rendered = HudRenderer("portrait").render(
         _model(corner=HudCell(path="c.mp4", thumb=thumb))
     )
-    by_name = {name: rect for rect, name in rendered.targets.control}
+    by_name = _rects(rendered)
     assert by_name["minimize"][1] == by_name["prev"][1]  # one band, as ever
 
 
@@ -1013,7 +1021,7 @@ def test_a_mode_label_stays_white_on_its_blue(thumb):
     rendered = renderer.render(_model(
         corner=HudCell(path="c.mp4", thumb=thumb), satellites_mode="origenerator",
     ))
-    rect = dict((name, r) for r, name in rendered.targets.modes)["origenerator_activate"]
+    rect = _rects(rendered)["origenerator_activate"]
     x, y, w, h = rect
     rgb = _rgb(rendered.bgra)[y:y + h, x:x + w].astype(int)
 
@@ -1028,7 +1036,7 @@ def test_the_unlit_mode_keeps_its_ordinary_ink(thumb):
     rendered = renderer.render(_model(
         corner=HudCell(path="c.mp4", thumb=thumb), satellites_mode="origenerator",
     ))
-    rect = dict((name, r) for r, name in rendered.targets.modes)["satellites_video_activate"]
+    rect = _rects(rendered)["satellites_video_activate"]
     x, y, w, h = rect
     rgb = _rgb(rendered.bgra)[y:y + h, x:x + w].astype(int)
 
@@ -1043,7 +1051,7 @@ def test_the_enhanced_switch_is_drawn_only_for_a_side_that_has_the_filter():
     def names(**overrides):
         rendered = HudRenderer("landscape").render(
             HudModel(side="landscape", lock_label="Unlocked", **overrides))
-        return [name for _rect, name in rendered.targets.control]
+        return _names(rendered)
 
     assert names() == ["prev", "next", "lock", "trash", "fmode", "reset", "minimize"]
     assert names(enhanced_filter=False) == names(enhanced_filter=True) == [
@@ -1070,7 +1078,7 @@ def test_the_browse_order_pair_is_drawn_only_where_the_order_can_be_switched():
     here, and two buttons nothing answers are two dead buttons.  fun_time
     publishes the flag on every panel, so its own players always carry them."""
     def names(**overrides):
-        return [name for _rect, name in _order_band(**overrides).targets.control]
+        return _names(_order_band(**overrides))
 
     assert "shuffle" not in names() and "latest" not in names()
     assert names(latest=False) == names(latest=True) == [
@@ -1084,7 +1092,7 @@ def test_exactly_one_of_the_browse_order_pair_is_lit_and_it_lights_blue():
     light says which of the two you are in, and it says it in the family's mode
     blue rather than in the active gray a plain toggle takes."""
     shuffled, newest = _order_band(latest=False), _order_band(latest=True)
-    rects = {name: rect for rect, name in newest.targets.control}
+    rects = _rects(newest)
 
     assert _blue_ink(rects["shuffle"], shuffled) > _blue_ink(rects["shuffle"], newest)
     assert _blue_ink(rects["latest"], newest) > _blue_ink(rects["latest"], shuffled)
@@ -1099,7 +1107,7 @@ def test_the_panel_is_wide_enough_for_the_band_it_grew():
     are simply not drawn — so the panel is measured around the band."""
     rendered = _order_band(latest=False)
     width = rendered.bgra.shape[1]
-    last = max(x + w for (x, _y, w, _h), _name in rendered.targets.control)
+    last = max(x + w for (x, _y, w, _h), _button in rendered.targets.buttons)
 
     assert last + PAD <= width
 
@@ -1122,7 +1130,7 @@ def test_the_enhanced_switch_wears_amber_and_fills_with_it_when_on():
             HudModel(side="landscape", lock_label="Unlocked", enhanced_filter=on))
 
     off, on = rendered_with(False), rendered_with(True)
-    rect = {name: rect for rect, name in on.targets.control}["enhanced"]
+    rect = _rects(on)["enhanced"]
 
     assert _amber_ink(rect, off) > 0                      # the mark itself, at rest
     assert _amber_ink(rect, on) > _amber_ink(rect, off)   # the ground, when on
@@ -1136,7 +1144,7 @@ def test_the_enhanced_switch_keeps_its_place_under_a_mode_row(thumb):
     rendered = HudRenderer("portrait").render(
         _model(corner=HudCell(path="c.mp4", thumb=thumb),
                satellites_mode="origenerator", enhanced_filter=False))
-    by_name = {name: rect for rect, name in rendered.targets.control}
+    by_name = _rects(rendered)
     width = rendered.bgra.shape[1]
 
     assert by_name["enhanced"][1] == by_name["fmode"][1] == by_name["reset"][1]

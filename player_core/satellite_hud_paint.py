@@ -17,10 +17,7 @@ from dataclasses import dataclass, replace
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from shared_ui.palette import (
-    AMBER,
     BG_BUTTON,
-    BG_BUTTON_ACTIVE,
-    BG_PRIMARY,
     BLUE,
     GREEN,
     RED,
@@ -28,18 +25,18 @@ from shared_ui.palette import (
     TEXT_PRIMARY,
     WHITE,
 )
-from shared_ui.spacing import BUTTON_GROUP_GAP
 
+from player_core.hud_button import Button
 from player_core.hud_marks import SHARED_MARK, shared_mark, shared_mark_name
 from player_core.hud_panel import (
     SYMBOL_FONT,
     HudPanel,
+    button_ground,
     draw_active_dot,
+    draw_button,
     draw_glyph,
-    draw_icon,
     draw_mark,
     draw_tooltip,
-    hovered_fill,
     load_font,
     text_width,
 )
@@ -49,9 +46,7 @@ from .satellite_hud import (
     ACT_GAP,
     COL_LABEL_GAP,
     COL_LABEL_H,
-    CONTROLS,
     CTRL_BAND_H,
-    CTRL_BTN,
     ELLIPSIS_ROOM,
     FILTER_ROOM,
     MAP_CELLS,
@@ -61,7 +56,6 @@ from .satellite_hud import (
     MAP_THUMB_H,
     MAX_GUTTER,
     MIN_GUTTER,
-    MODE_BUTTONS,
     MODE_LABEL_PAD,
     PAD,
     STATUS_BAND_H,
@@ -77,9 +71,9 @@ from .satellite_hud import (
     act_is_filtered,
     action_label_blocks,
     build_click_targets,
+    button_row_rects,
     cell_width,
     column_anchor_rect,
-    control_button_rects,
     ellipsis_rects,
     expand_button_rect,
     favorite_mark_rect,
@@ -92,11 +86,11 @@ from .satellite_hud import (
     map_column_height,
     map_reach,
     map_window,
-    mode_button_rects,
     panel_height,
     panel_width,
     playing_rect,
     seed_column_label,
+    standard_rows,
     thumbnail_rects,
     wrong_action_rect,
 )
@@ -124,45 +118,7 @@ _LOOP_GLYPH = shared_mark("loop")
 # the transport buttons it shares a panel with, which made one control look like
 # a different class of thing from its neighbors.
 _EXPAND_GLYPH = shared_mark("expand_horizontal")
-# The side's own controls.  Skip-track for the browse pair rather than bare
-# arrows, so they cannot be read as "step along the map"; a padlock and a bin for
-# the two that act on the clip on screen.  The bin and the reset are the family's
-# own drawings -- the bin is the very bin Origenerator's toolbar wears, and reset
-# is a gear with a circular arrow at its corner.  Skip-track and the padlock stay
-# typed: the family has no drawing of either.
-_CONTROL_GLYPHS = {
-    "prev": "⏮", "next": "⏭", "lock": "🔒",
-    "trash": shared_mark("trash"), "reset": shared_mark("reset"),
-    # The browse-order pair, drawn by the family: two arrows running left to
-    # right, crossed for shuffle and uncrossed for latest.  One mark each rather
-    # than one button that cycles, because which of the two you are in is what
-    # the panel has to say at a glance, and a cycling button says only "press me".
-    "shuffle": shared_mark("shuffle"), "latest": shared_mark("latest"),
-}
-# The browse-order pair: a side that cannot switch its order carries neither,
-# so they come off the row together (see :func:`_row_names`).  Exactly one of
-# them is always lit, which is what the family's blue says — the news is not
-# "this is engaged" but "this is the one of the two you are in".
-_ORDER_CONTROLS = ("shuffle", "latest")
-# F-mode wears its own mark rather than a glyph: no symbol says "favorites
-# only", and the mode already has a face — the magenta "F" of ``fmode_icon.ico``,
-# the five-by-five letter every app in this family is marked with.  A letter set
-# in the body face is a thin thing beside it, reading as a caption rather than a
-# badge (:func:`player_core.hud_panel.draw_icon`).
-_ICON_CONTROLS = {"fmode": "F"}
-# The controls that take something away.  Their mark is red -- the color
-# Origenerator's Delete wears -- so the one button on the band worth stopping at
-# before pressing says so before its tooltip does.
-_DESTRUCTIVE = {"trash"}
 _FAVORITE_GLYPH = shared_mark("star")
-# The enhanced-only switch wears the family's own mark for exactly that â€” the
-# plus an enhanced picture carries in its corner, with a funnel hanging off it —
-# the same mark the main console's copy of the switch wears, so the two are one
-# control in two places.  Its color is the family's enhanced amber, at rest and
-# lit alike, the way F-mode keeps its favorites green: the color says what the
-# switch is about before the tooltip does.
-_ENHANCED_GLYPH = shared_mark("enhance_filter")
-
 # The filter mark, drawn rather than typed: Segoe UI Symbol — the face the other
 # buttons take their icons from — carries no funnel at any codepoint, and this is
 # the one button whose shape *is* its meaning, so a ".notdef" tofu would say
@@ -171,44 +127,6 @@ _ENHANCED_GLYPH = shared_mark("enhance_filter")
 _FUNNEL_W = 9
 _FUNNEL_H = 9
 _FUNNEL_NECK = 3  # width of the stem the mouth narrows to
-
-# The minimize mark, drawn for the same reason: the bar Windows puts on a title
-# bar is U+E921 of Segoe MDL2 Assets, which is not the face the buttons here take
-# their glyphs from, and Pillow draws a ".notdef" tofu for a codepoint a face does
-# not carry.  Drawing it costs one rectangle and needs no font at all — and the
-# bar is the one mark on this panel nobody has to be taught, since it is exactly
-# what every title bar in Windows uses for the same gesture.  As wide as the
-# funnel's mouth, so the two drawn marks are built to one size.
-_MINIMIZE_W = 9
-_MINIMIZE_H = 2
-
-
-def _row_names(model: HudModel, *, mode_row: bool) -> tuple[str, ...]:
-    """Which controls the band carries for *model*, in order.
-
-    :data:`CONTROLS`, adjusted three ways and each time by what the model says it
-    has rather than by who is drawing it:
-
-    * the enhanced-only switch is slotted into the browse group, ahead of reset,
-      for a side that has one (``enhanced_filter`` not None â€” a hosted
-      Origenerator's show; fun_time's own players have no enhanced pictures to
-      keep, so their bands are as they were);
-    * the shuffle/latest pair comes off for a side whose browse order cannot be
-      switched (``latest`` None), so a HUD nothing would answer does not grow two
-      dead buttons;
-    * minimize comes off where the mode row above carries it (:data:`MODE_BUTTONS`).
-
-    One answer for both the row's measurement and its drawing, so a widened band
-    cannot be measured short.
-    """
-    names = list(CONTROLS)
-    if model.enhanced_filter is not None:
-        names.insert(names.index("reset"), "enhanced")
-    if model.latest is None:
-        names = [name for name in names if name not in _ORDER_CONTROLS]
-    if mode_row:
-        names.remove("minimize")
-    return tuple(names)
 
 
 def gutter_width_for(font: ImageFont.FreeTypeFont, current_action: str,
@@ -354,26 +272,20 @@ class HudRenderer:
         # The row's reach covers the action column too: it hangs under the cell
         # ``playing`` lights, which can be partway along the row.
         reach = map_reach(row, [thumb.width for thumb in action_thumbs], model.playing)
-        # The bands' own demand.  The control row is measured every time now: at
-        # five groups it outruns a portrait map on its own, and a row the panel
-        # cannot hold clips away in silence — the buttons past the edge are simply
-        # not there, with nothing raised.  With a hosted Origenerator the mode row
-        # (the labeled pair plus the minimize that rides it) can ask for more still.
-        mode_widths = self._mode_label_widths(model)
-        row_names = _row_names(model, mode_row=bool(mode_widths))
-        controls_end = control_button_rects(PAD, 0, row_names)[-1][0][0] + CTRL_BTN
-        band_width = controls_end + PAD
-        if mode_widths:
-            pair = sum(w + 2 * MODE_LABEL_PAD for w in mode_widths) + MAP_GAP
-            band_width = max(
-                band_width,
-                PAD + pair + MAP_GAP + CTRL_BTN + PAD,  # the mode row, minimize riding it
-            )
+        # The bands' own demand: a row the panel cannot hold clips away in
+        # silence — the buttons past the edge are simply not there, with nothing
+        # raised — so the panel is measured around the widest row.
+        rows = [list(row) for row in (model.rows or standard_rows(model))]
+        widths = [[self._button_width(button) for button in row] for row in rows]
+        band_width = max((
+            button_row_rects(PAD, 0, row, row_widths)[-1][0][0] + row_widths[-1] + PAD
+            for row, row_widths in zip(rows, widths) if row
+        ), default=0)
         width = panel_width(gutter_w, reach, text_width(self._body, model.lock_label),
                             text_width(self._tiny, video), band_width=band_width)
         height = panel_height(
             map_column_height(1 + len(action_thumbs)) if corner_thumb is not None else 0,
-            subtitle_h, mode_band_h=CTRL_BAND_H if mode_widths else 0)
+            subtitle_h, bands_h=CTRL_BAND_H * len(rows))
         panel = HudPanel(width, height)
         image, draw = panel.image, panel.draw
 
@@ -381,25 +293,21 @@ class HudRenderer:
         favorite = self._draw_status_band(image, draw, y, model, video)
         y += STATUS_BAND_H + subtitle_h
 
-        modes: list[tuple[Rect, str]] = []
-        if mode_widths:
-            modes, minimize_rect = self._draw_mode_row(draw, y, model, mode_widths)
-            y += CTRL_BAND_H
         # Laid out against the panel rather than against the map: they act on the
         # side and the clip on screen, and are there whether or not there is a map.
-        controls = control_button_rects(x, y, row_names)
-        self._draw_controls(image, draw, controls, model)
-        if mode_widths:
-            # HudClicks prefixes the side, so minimize posts the same verb from
-            # whichever row it is riding.
-            controls = controls + [(minimize_rect, "minimize")]
-        y += CTRL_BAND_H
+        buttons: list[tuple[Rect, Button]] = []
+        for row, row_widths in zip(rows, widths):
+            placed = button_row_rects(x, y, row, row_widths)
+            for rect, button in placed:
+                draw_button(image, draw, rect, button, hovered=self._pointer_is_on(rect),
+                            glyph_font=self._glyph, word_font=self._tiny)
+            buttons.extend(placed)
+            y += CTRL_BAND_H
 
         if model.corner is None:
             return RenderedHud(panel.to_bgra(),
                                HudTargets(click=[], loop=[], filter=[], expand=None,
-                                          control=controls, favorite=favorite,
-                                          modes=modes))
+                                          buttons=buttons, favorite=favorite))
 
         self._draw_counts(draw, x, y, counts)
         right, lower = width - PAD, height - PAD
@@ -461,12 +369,16 @@ class HudRenderer:
                   if button is not None],
             filter=filter_rects,
             expand=expand_rect,
-            control=controls,
+            buttons=buttons,
             favorite=favorite,
-            modes=modes,
             wrong_action=wrong_rect,
         )
         return RenderedHud(panel.to_bgra(), targets)
+
+    def _button_width(self, button: Button) -> int:
+        """A declared button's width: its own, or -- asking to fit its word --
+        the word as this face draws it, padded either side."""
+        return button.width or text_width(self._tiny, button.glyph) + 2 * MODE_LABEL_PAD
 
     def _draw_status_band(self, image, draw, y: int, model: HudModel,
                           video: str) -> Rect | None:
@@ -501,22 +413,6 @@ class HudRenderer:
         draw_mark(image, shared_mark_name(_FAVORITE_GLYPH), favorite,
                   (*(GREEN if model.is_favorite else TEXT_MUTED), 255))
         return favorite
-
-    def _draw_mode_row(self, draw, y: int, model: HudModel,
-                       mode_widths: list[int]) -> tuple[list[tuple[Rect, str]], Rect]:
-        """The row switching this side to the Origenerator hosted beside it, with
-        minimize riding it — a button about the side's window rather than about the
-        clip, so it belongs up here with the other whole-side ones.
-        """
-        modes = mode_button_rects(PAD, y, mode_widths)
-        self._draw_modes(draw, modes, model)
-        last_x, _my, last_w, _mh = modes[-1][0]
-        # A GROUP apart from the pair, not the ordinary gap: minimize is about
-        # the window this panel is drawn in rather than about which mode the
-        # side is in, and the console spaces its own the same way.
-        minimize_rect = (last_x + last_w + BUTTON_GROUP_GAP, y, CTRL_BTN, CTRL_BTN)
-        self._minimize_button(draw, minimize_rect)
-        return modes, minimize_rect
 
     def _window(
         self, model: HudModel
@@ -723,32 +619,8 @@ class HudRenderer:
         Origenerator's Delete wears, since it is the one control here that takes
         something away.
         """
-        bx, by, bw, bh = rect
-        fill = on_color if on else BG_BUTTON
-        # The edge is the family's muted gray over either gray ground, and the
-        # fill's own color only where that fill carries a meaning (the lock's
-        # green).  A gray-on-gray edge would be no edge at all.
-        edge = TEXT_MUTED if fill in (BG_BUTTON, BG_BUTTON_ACTIVE) else fill
-        # One step lighter under the pointer, so a press lands where you meant.
-        # Taken after the edge is chosen, so hovering does not also change which
-        # color the outline is drawn in.
-        if self._pointer_is_on(rect):
-            fill = hovered_fill(fill)
-        draw.rounded_rectangle(
-            [bx, by, bx + bw - 1, by + bh - 1], radius=3,
-            fill=(*fill, 255), outline=(*edge, 255), width=1,
-        )
-        # A mark reverses only out of a LIGHT fill.  Over either gray ground it
-        # keeps its own ink -- what makes an on/off pair read as one button
-        # changing ground rather than as two different controls -- and over a
-        # colored one it stays white, exactly as the main console's does: dark
-        # ink on the mode pair's blue turned those labels black while the
-        # console's stayed white for the same state.
-        if fill in (WHITE, AMBER):
-            return (*BG_PRIMARY, 255)
-        if fill in (BG_BUTTON, BG_BUTTON_ACTIVE):
-            return (*(ink or TEXT_PRIMARY), 255)
-        return (*WHITE, 255)
+        return button_ground(draw, rect, on_color if on else BG_BUTTON,
+                             hovered=self._pointer_is_on(rect), rest_ink=ink)
 
     def _glyph_button(self, image, draw, rect: Rect, glyph: str, *, on: bool = False,
                       on_color=WHITE, ink=None) -> None:
@@ -790,89 +662,6 @@ class HudRenderer:
         """
         self._button_square(draw, rect, on=False, ink=RED)
         draw_mark(image, "cross", rect, (*RED, 255))
-
-    def _minimize_button(self, draw, rect: Rect) -> None:
-        """The same square button with a minimize bar drawn on it.
-
-        Never lit: minimizing is a thing done rather than a state held — and the
-        panel is gone the moment it takes effect, so there would be nobody left to
-        read a lit button anyway.
-        """
-        ink = self._button_square(draw, rect, on=False)
-        bx, by, bw, bh = rect
-        cx, cy = bx + bw / 2, by + bh / 2
-        top = cy - _MINIMIZE_H / 2
-        draw.rectangle([cx - _MINIMIZE_W / 2, top, cx + _MINIMIZE_W / 2, top + _MINIMIZE_H - 1],
-                       fill=ink)
-
-    def _mode_label_widths(self, model: HudModel) -> list[int]:
-        """Each mode label's measured width, or [] when the session has no
-        hosted Origenerator and the pair is not drawn at all."""
-        if not model.satellites_mode:
-            return []
-        return [text_width(self._tiny, label) for _action, label, _mode in MODE_BUTTONS]
-
-    def _draw_modes(self, draw, modes: list[tuple[Rect, str]], model: HudModel) -> None:
-        """The satellite side's mode pair — labeled buttons, the session's
-        current mode lit, exactly the shape the main console draws its
-        Video/Genau row in: press the other one to switch."""
-        lit_action = {mode: action for action, _label, mode in MODE_BUTTONS}.get(
-            model.satellites_mode, "")
-        labels = {action: label for action, label, _mode in MODE_BUTTONS}
-        for rect, action in modes:
-            # Blue, not the active gray every other toggle takes: with every
-            # button carrying a lit ground now, one shade lighter was too small
-            # a difference to find the mode you are in at a glance.  The same
-            # blue the console's Video/Genau row lights, because it is the
-            # same question asked about the other half of the room.
-            ink = self._button_square(draw, rect, on=action == lit_action,
-                                      on_color=BLUE)
-            bx, by, bw, bh = rect
-            draw.text((bx + bw / 2, by + bh / 2), labels[action],
-                      font=self._tiny, anchor="mm", fill=ink)
-
-    def _draw_controls(self, image, draw, controls: list[tuple[Rect, str]],
-                       model: HudModel) -> None:
-        """The side's own buttons.
-
-        The lock, F-mode and the enhanced-only switch are states, so they light
-        while they are on; the others do a thing rather than be in one.  The
-        browse-order pair is a third kind: neither of them is ever off, so
-        exactly one of the two is always lit.
-
-        Both lit states are green rather than white, and so is the favorite star
-        up on the file-name line: locking a clip puts it in the favorites and
-        F-mode is the filter over them, so all three are the same fact and read
-        as one color.  F-mode's button carries
-        its own magenta mark on top of that green, the same badge it wears on the
-        main console and on the taskbar.  The enhanced switch is the one control
-        here in another color: amber is what an enhanced picture is marked with
-        across this family, so its mark is amber at rest and its ground amber
-        while it is on â€” a lit one reading as "the enhanced ones", not as "the
-        favorites".
-        """
-        lit = {"lock": model.locked, "fmode": model.f_mode,
-               "enhanced": bool(model.enhanced_filter),
-               "latest": bool(model.latest), "shuffle": not model.latest}
-        for rect, name in controls:
-            if name == "enhanced":
-                self._glyph_button(image, draw, rect, _ENHANCED_GLYPH,
-                                   on=lit[name], on_color=AMBER, ink=AMBER)
-                continue
-            if name in _ICON_CONTROLS:
-                self._button_square(draw, rect, on=lit.get(name, False), on_color=GREEN)
-                draw_icon(draw, rect, _ICON_CONTROLS[name])
-                continue
-            if name == "minimize":
-                self._minimize_button(draw, rect)
-                continue
-            self._glyph_button(image, draw, rect, _CONTROL_GLYPHS[name],
-                               on=lit.get(name, False),
-                               # The lock is the one control here that earns a
-                               # color: locking a clip favorites it.  Everything
-                               # else lit takes the family's blue.
-                               on_color=GREEN if name == "lock" else BLUE,
-                               ink=RED if name in _DESTRUCTIVE else None)
 
     def _draw_filter_buttons(self, draw, rects: list[tuple[Rect, str]],
                              filter_query: str) -> None:
