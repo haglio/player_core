@@ -132,17 +132,18 @@ def look_up(
 ) -> bool:
     """Look one line up in *verbs* and run what it names.
 
-    Case and surrounding space do not matter: the file channel carries what a
-    voice listener heard and what a dashboard button posted, and neither is
-    typed carefully.  Whatever follows the verb is its value, unread by a verb
-    that takes none.
+    The keyword's case and the surrounding space do not matter: the file
+    channel carries what a voice listener heard and what a dashboard button
+    posted, and neither is typed carefully.  Whatever follows the verb is its
+    value, handed over exactly as it came -- a path is the one value in this
+    family whose case is load-bearing -- and unread by a verb that takes none.
     """
     if not command:
         return False
-    said = command.strip().upper().split(None, 1)
+    said = command.strip().split(None, 1)
     if not said:
         return False
-    declared = verbs.get(said[0])
+    declared = verbs.get(said[0].upper())
     if declared is None:
         return False
-    return act(*declared, controls, said[1] if len(said) > 1 else "")
+    return act(*declared, controls, said[1].strip() if len(said) > 1 else "")
