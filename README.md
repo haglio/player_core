@@ -21,10 +21,10 @@ another application's internals to get it. By what it is:
 - **the engine** — `mpv_player`, its offscreen twin `render_player`, and the
   `libmpv_loader` that puts the vendored DLL on `%PATH%` first, which is the
   only way python-mpv finds it on Windows.
-- **the files an orchestrator steers through** — `playlist`, `file_channel`
-  (the command queue and the paused flag, re-exported from `app_support`,
-  which the broker steers by too), `status` (what a player publishes back),
-  `session_quit` (a close on one window of a session asks the session).
+- **the player contract** — what a content source hands a player and what
+  it gets back, each format written and read in one module; see below.
+  `session_quit` is beside them (a close on one window of a session asks the
+  session).
 - **the device** — `tcode` and `tcode_driver` for the wire, `funscript` for a
   script and the questions asked of one, and for a motion of this family's own:
   `robot_hand` (the waveform), `robot_hand_beat` (the phase it runs at),
@@ -53,6 +53,28 @@ Nothing app-specific belongs here. A module earns a place only once a second
 repo needs it; until then it stays with the app that owns it. Genau's engine is
 here because two shells run it: Genau's own window, and Fun Time's VR player,
 whose genau mode runs the same tick against a headset texture.
+
+## The player contract
+
+A player shows what a content source hands it and tells the source what it is
+showing. Today the source is Fun Time and the players are its main player, its
+two satellites and their headset twins; the contract is what lets a second
+source drive the same players. Every part of it is a pair — a writer and a
+reader in one module — so the two sides cannot spell a thing differently:
+
+| The source hands the player… | …through | …and reads back |
+| --- | --- | --- |
+| a playlist: one `PlaylistItem` per line, a video and its funscript | `playlist` (`write_playlist` / `read_playlist`; `item_line` / `item_from_line` is the line, and `PLAY_FILE`'s value) | |
+| verbs on its command file, spelled in `player_verbs` | `file_channel` (`append_command` / `consume_command_file`); the player answers the ones it declares in a `control_registry` | |
+| the paused flag | `app_support.file_channel.write_flag` / `file_channel.read_paused_state` | |
+| its HUD: a `HudModel` for a satellite, a `ConsoleModel` for the main slot | `satellite_hud` (`hud_text` / `parse_hud`), `console` (`console_text` / `parse_console`) | |
+| | `status` (`status_fields` / `parse_status`, published by `StatusWriter`) | a `PlayerStatus`: the item on screen, the playhead, paused, locked — and after those five lines, whatever that player adds of its own |
+
+A player answers the verbs it can (`TRASH` is a satellite's, `TOGGLE_LOCK` the
+main slot's) and refuses the rest on its log. What is not in the contract yet is
+what no player does yet: a picture item on the playlist, and a HUD whose
+buttons the source declares rather than the fixed rows `satellite_hud` and
+`console` draw.
 
 `clip_decode` reaches `app_support.subprocess_utils` for the one Windows fact
 about launching ffmpeg (no console window), so `../app_support` has to be
