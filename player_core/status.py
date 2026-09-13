@@ -5,7 +5,7 @@ go in, this comes back out.  Fun Time polls it to know what each player is
 showing — the item on screen, the playhead, whether the player is paused or
 holding — and whatever else that player's features need.
 
-Every player leads with the same six lines, :class:`PlayerStatus`, written by
+Every player leads with the same seven lines, :class:`PlayerStatus`, written by
 :func:`status_fields` and read back by :func:`parse_status`; a player adds its
 own lines after them (the main player's loop and funscript, a satellite's
 playlist length), and its reader takes those off the same file.
@@ -35,8 +35,8 @@ __all__ = [
 @dataclass(frozen=True)
 class PlayerStatus:
     """What every player says about itself: the item on screen, where the
-    playhead is in it, whether the player is paused or holding it, and the rate
-    it plays at."""
+    playhead is in it, whether the player is paused or holding it, the rate
+    it plays at, and whether what is on screen is a still picture."""
 
     video: str = ""
     position_ms: int = 0
@@ -44,6 +44,7 @@ class PlayerStatus:
     paused: bool = False
     locked: bool = False
     speed: float = 1.0
+    picture: bool = False
 
 
 def _flag(on: bool) -> str:
@@ -59,6 +60,7 @@ def status_fields(status: PlayerStatus) -> dict[str, str]:
         "paused": _flag(status.paused),
         "locked": _flag(status.locked),
         "speed": f"{status.speed:g}",
+        "picture": _flag(status.picture),
     }
 
 
@@ -101,6 +103,7 @@ def parse_status(fields: Mapping[str, str], *, default: PlayerStatus | None = No
         paused=_bool(fields.get("paused"), default.paused),
         locked=_bool(fields.get("locked"), default.locked),
         speed=_rate(fields.get("speed"), default.speed),
+        picture=_bool(fields.get("picture"), default.picture),
     )
 
 class StatusWriter:

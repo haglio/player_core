@@ -161,9 +161,10 @@ class TestWhatEveryPlayerPublishes:
 
         assert fields == {
             "video": "C:/vids/a.mp4", "position_ms": "1500", "duration_ms": "5000",
-            "paused": "0", "locked": "1", "speed": "1.5",
+            "paused": "0", "locked": "1", "speed": "1.5", "picture": "0",
         }
-        assert list(fields) == ["video", "position_ms", "duration_ms", "paused", "locked", "speed"]
+        assert list(fields) == ["video", "position_ms", "duration_ms", "paused", "locked",
+                                "speed", "picture"]
 
     def test_a_playhead_is_published_as_whole_milliseconds(self):
         assert status_fields(PlayerStatus(position_ms=12345.9))["position_ms"] == "12345"
@@ -172,6 +173,11 @@ class TestWhatEveryPlayerPublishes:
         status = PlayerStatus(
             video="C:/vids/b.mp4", position_ms=250, duration_ms=9000, paused=True, locked=False,
             speed=0.75)
+
+        assert parse_status(status_fields(status)) == status
+
+    def test_a_status_that_says_a_picture_is_on_screen_reads_back_saying_so(self):
+        status = PlayerStatus(video="C:/pictures/one.png", locked=True, picture=True)
 
         assert parse_status(status_fields(status)) == status
 
