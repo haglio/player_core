@@ -21,11 +21,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import numpy as np
 from PIL import Image, ImageDraw
-from shared_ui.palette import BG_PRIMARY, BORDER_PANEL, TEXT_MUTED, TEXT_PRIMARY
+from shared_ui.palette import TEXT_MUTED, TEXT_PRIMARY
 
-from player_core.hud_panel import to_bgra
+from player_core.hud_panel import KeptBitmap, pill
 
 __all__ = [
     "CHIP_H",
@@ -159,44 +158,9 @@ def _draw_speaker(draw: ImageDraw.ImageDraw, muted: bool) -> None:
         draw.line([(x, mid + 7), (x + 13, mid - 7)], fill=(*_MUTED_BAR, 255), width=2)
 
 
-class VolumeHudPainter:
-    """Paints a :class:`VolumeHud`, and only when what it shows changes.
-
-    A player redraws its overlays every frame at 60fps; the level moves a few
-    times a session, so the bitmap is kept until it does.
-    """
-
-    def __init__(self) -> None:
-        self._painted: VolumeHud | None = None
-        self._image: Image.Image | None = None
-        self._bgra: np.ndarray | None = None
-
-    def bgra(self, hud: VolumeHud) -> np.ndarray:
-        """*hud* as an mpv overlay bitmap — what the main player composites into its video."""
-        if self._ensure(hud) or self._bgra is None:
-            self._bgra = to_bgra(self._image)
-        return self._bgra
-
-    def rgba(self, hud: VolumeHud) -> tuple[bytes, tuple[int, int]]:
-        """*hud* as ``(rgba_bytes, size)`` — what pygame takes, for Genau to blit
-        into its own window.  The chip is a fixed size, but the pair comes back
-        together anyway so a caller sizes its blit from what it was handed rather
-        than from constants it read separately."""
-        self._ensure(hud)
-        return self._image.tobytes(), self._image.size
-
-    def _ensure(self, hud: VolumeHud) -> bool:
-        """Repaint if what the chip shows has changed; True when it did."""
-        if hud == self._painted and self._image is not None:
-            return False
-        self._painted, self._image = hud, self._paint(hud)
-        return True
-
+class VolumeHudPainter(KeptBitmap):
     def _paint(self, hud: VolumeHud) -> Image.Image:
-        image = Image.new("RGBA", (CHIP_W, CHIP_H), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(image)
-        draw.rounded_rectangle([0, 0, CHIP_W - 1, CHIP_H - 1], radius=CHIP_H // 2,
-                               fill=(*BG_PRIMARY, 200), outline=(*BORDER_PANEL, 255), width=1)
+        image, draw = pill(CHIP_W, CHIP_H)
         _draw_speaker(draw, hud.muted)
         mid = CHIP_H // 2
         draw.rounded_rectangle(
