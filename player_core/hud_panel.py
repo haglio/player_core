@@ -99,7 +99,7 @@ def fit_text(font: ImageFont.FreeTypeFont, text: str, max_width: int) -> str:
 _INK_OFFSETS: dict[tuple[str, int, str], tuple[float, float] | None] = {}
 
 
-def _ink_center_offset(font: ImageFont.FreeTypeFont, glyph: str) -> tuple[float, float] | None:
+def ink_center_offset(font: ImageFont.FreeTypeFont, glyph: str) -> tuple[float, float] | None:
     """The centre of *glyph*'s ink, offset from where ``draw.text`` starts it.
 
     Measured by drawing it, because nothing reported is the ink bounds:
@@ -130,7 +130,7 @@ def draw_glyph(draw: ImageDraw.ImageDraw, cx: float, cy: float, glyph: str,
     its glyph two to six pixels low.  Centering the ink puts it where the eye
     expects it, whatever the glyph.
     """
-    offset = _ink_center_offset(font, glyph)
+    offset = ink_center_offset(font, glyph)
     if offset is None:
         return
     draw.text((cx - offset[0], cy - offset[1]), glyph, font=font, fill=fill)
@@ -296,3 +296,42 @@ class HudPanel:
 
     def to_bgra(self) -> np.ndarray:
         return to_bgra(self.image)
+
+
+PILL_ALPHA = 200
+
+
+def pill(width: int, height: int) -> tuple[Image.Image, ImageDraw.ImageDraw]:
+    image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle([0, 0, width - 1, height - 1], radius=height // 2,
+                           fill=(*BG_PRIMARY, PILL_ALPHA), outline=(*BORDER_PANEL, 255), width=1)
+    return image, draw
+
+
+class KeptBitmap:
+    """A painting kept until what it shows changes, handed out in both shapes the
+    players take: a BGRA array for mpv's overlays, RGBA bytes for a pygame blit."""
+
+    def __init__(self) -> None:
+        self._painted = None
+        self._image: Image.Image | None = None
+        self._bgra: np.ndarray | None = None
+
+    def bgra(self, hud) -> np.ndarray:
+        if self._ensure(hud) or self._bgra is None:
+            self._bgra = to_bgra(self._image)
+        return self._bgra
+
+    def rgba(self, hud) -> tuple[bytes, tuple[int, int]]:
+        self._ensure(hud)
+        return self._image.tobytes(), self._image.size
+
+    def _ensure(self, hud) -> bool:
+        if hud == self._painted and self._image is not None:
+            return False
+        self._painted, self._image = hud, self._paint(hud)
+        return True
+
+    def _paint(self, hud) -> Image.Image:
+        raise NotImplementedError
