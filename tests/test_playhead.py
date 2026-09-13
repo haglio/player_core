@@ -6,6 +6,8 @@ import numpy as np
 from player_core.playhead import (
     PlayheadHudPainter,
     clip_playhead,
+    lower_edge_height,
+    on_readout,
     readout_xy,
     video_playhead,
 )
@@ -104,3 +106,47 @@ class TestWhereThePillGoes:
 
         assert x + 131 + MARGIN == bar_track_x(1000)[0]
         assert y == chip_xy(win_w=1000, win_h=600, timeline_h=TIMELINE_HEIGHT)[1]
+
+    def test_on_a_row_too_narrow_to_share_it_sits_just_above_the_start_of_the_track(self):
+        x, y = readout_xy(131, win_w=326, win_h=600, timeline_h=TIMELINE_HEIGHT)
+
+        assert x == bar_track_x(326)[0]
+        assert 600 - TIMELINE_HEIGHT - 4 <= y + CHIP_H <= 600 - TIMELINE_HEIGHT
+
+    def test_a_strip_painted_for_a_narrow_row_is_tall_enough_to_carry_it(self):
+        """The headset's console paints its own row for a video that wraps the
+        viewer, 380 pixels across: the readout's line has to be part of it."""
+        _x, top = readout_xy(131, win_w=326, win_h=600, timeline_h=TIMELINE_HEIGHT)
+
+        assert lower_edge_height(326, timeline_h=TIMELINE_HEIGHT) == 600 - top
+
+    def test_sharing_the_row_it_takes_no_more_of_the_lower_edge_than_the_row(self):
+        assert lower_edge_height(1000, timeline_h=TIMELINE_HEIGHT) == TIMELINE_HEIGHT
+
+
+class TestWhatAPressOnItIs:
+    """A press on the readout neither seeks nor reaches the picture under it: in
+    the row it would saturate to the first frame, and over the picture it would
+    pause the room from a label."""
+
+    def test_sharing_the_row_it_is_everything_left_of_the_track(self):
+        x0 = bar_track_x(1000)[0]
+        in_the_row = 600 - TIMELINE_HEIGHT // 2
+
+        assert on_readout(x0 - 1, in_the_row, win_w=1000, win_h=600, timeline_h=TIMELINE_HEIGHT)
+        assert not on_readout(x0, in_the_row, win_w=1000, win_h=600, timeline_h=TIMELINE_HEIGHT)
+        assert not on_readout(x0 - 1, 600 - TIMELINE_HEIGHT - 1,
+                              win_w=1000, win_h=600, timeline_h=TIMELINE_HEIGHT)
+
+    def test_above_a_row_too_narrow_to_share_it_is_the_line_it_sits_on(self):
+        """Measured against the widest readout rather than this one, so the
+        pointers need no font to ask."""
+        x0 = bar_track_x(326)[0]
+        _x, top = readout_xy(131, win_w=326, win_h=600, timeline_h=TIMELINE_HEIGHT)
+        where = dict(win_w=326, win_h=600, timeline_h=TIMELINE_HEIGHT)
+
+        assert on_readout(x0, top + CHIP_H // 2, **where)
+        assert on_readout(x0 + 172, top, **where)
+        assert not on_readout(x0 - 1, top + CHIP_H // 2, **where)
+        assert not on_readout(x0, top - 1, **where)
+        assert not on_readout(x0 // 2, 600 - TIMELINE_HEIGHT // 2, **where)

@@ -36,6 +36,7 @@ AMBER = (235, 180, 60, 245)
 
 # The timeline — heatmap strip or plain bar — is drawn as one shared frame: an
 # inset, floated, bordered track with full-height marks.
+BAR_INSET_X = 40     # side margin so the timeline's start clears the left edge
 # A margin, the readout of a three-hour video at 60 frames a second, and a margin
 # back to the track.
 READOUT_SLOT_W = 193
@@ -54,19 +55,20 @@ TIMELINE_HEIGHT = 24  # lower strip height when not recording
 def bar_track_x(width: int) -> tuple[int, int]:
     """Left/right pixel bounds of the inset timeline track.
 
-    The start clears the playhead readout at the row's left end; the end stops
-    short of the volume control that shares the row, the way VLC's seek bar stopped
-    clear of its slider — :data:`player_core.volume.SLOT_W` is the room it leaves.
+    The start clears the playhead readout when the readout shares the row; the end
+    stops short of the volume control that shares the row, the way VLC's seek bar
+    stopped clear of its slider — :data:`player_core.volume.SLOT_W` is the room it leaves.
     Clamped so the track never inverts on a very narrow window.  The heatmap strip,
     the plain bar and click-to-seek all use this, so they agree on where the track
     ends.
     """
-    inset = min(READOUT_SLOT_W, max(0, width // 2 - 1))
+    inset = READOUT_SLOT_W if readout_shares_the_row(width) else BAR_INSET_X
+    inset = min(inset, max(0, width // 2 - 1))
     return inset, max(inset + 1, width - _VOLUME_SLOT_W)
 
 
-def on_track(x: int, width: int) -> bool:
-    return x >= bar_track_x(width)[0]
+def readout_shares_the_row(width: int) -> bool:
+    return width - _VOLUME_SLOT_W - READOUT_SLOT_W >= READOUT_SLOT_W
 
 
 def paint_rect(bgra, x0, x1, y0, y1, color):

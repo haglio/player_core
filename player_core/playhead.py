@@ -8,12 +8,15 @@ from shared_ui.palette import TEXT_PRIMARY
 
 from .hud_panel import KeptBitmap, ink_center_offset, load_font, pill, text_width
 from .hud_status import SEPARATOR
-from .timeline import bar_track_x
+from .timeline import READOUT_SLOT_W, bar_track_x, readout_shares_the_row
 from .volume import CHIP_H, MARGIN, PAD, chip_xy
 
 __all__: list[str] = []
 
 _TEXT_PT = 8
+# The same gap Nau's loop frames keep above the row they label.
+_ABOVE_THE_ROW_GAP = 2
+_WIDEST_READOUT_W = READOUT_SLOT_W - 2 * MARGIN
 
 
 @dataclass(frozen=True)
@@ -52,9 +55,26 @@ def clip_playhead(frame: int, frame_count: int) -> PlayheadHud | None:
                        widest=f"frame {frame_count} / {frame_count}")
 
 
+def lower_edge_height(win_w: int, *, timeline_h: int) -> int:
+    if readout_shares_the_row(win_w):
+        return timeline_h
+    return timeline_h + _ABOVE_THE_ROW_GAP + CHIP_H
+
+
 def readout_xy(readout_w: int, *, win_w: int, win_h: int, timeline_h: int) -> tuple[int, int]:
-    x = bar_track_x(win_w)[0] - MARGIN - readout_w
+    track_x0 = bar_track_x(win_w)[0]
+    if not readout_shares_the_row(win_w):
+        return track_x0, win_h - lower_edge_height(win_w, timeline_h=timeline_h)
+    x = track_x0 - MARGIN - readout_w
     return max(0, x), chip_xy(win_w=win_w, win_h=win_h, timeline_h=timeline_h)[1]
+
+
+def on_readout(x: int, y: int, *, win_w: int, win_h: int, timeline_h: int) -> bool:
+    track_x0 = bar_track_x(win_w)[0]
+    if readout_shares_the_row(win_w):
+        return y >= win_h - timeline_h and x < track_x0
+    top = win_h - lower_edge_height(win_w, timeline_h=timeline_h)
+    return top <= y < top + CHIP_H and track_x0 <= x < track_x0 + _WIDEST_READOUT_W
 
 
 class PlayheadHudPainter(KeptBitmap):
