@@ -75,16 +75,22 @@ def button_from_raw(raw: object) -> Button | None:
     return Button(**words, width=int(raw.get("width", BUTTON) or 0), **flags)
 
 
+def buttons_raw(buttons: tuple[Button, ...]) -> list[dict]:
+    return [button_raw(button) for button in buttons]
+
+
+def buttons_from_raw(raw: object) -> tuple[Button, ...]:
+    if not isinstance(raw, list):
+        return ()
+    buttons = [button_from_raw(item) for item in raw]
+    return tuple(button for button in buttons if button is not None)
+
+
 def rows_raw(rows: tuple[tuple[Button, ...], ...]) -> list[list[dict]]:
-    return [[button_raw(button) for button in row] for row in rows]
+    return [buttons_raw(row) for row in rows]
 
 
 def rows_from_raw(raw: object) -> tuple[tuple[Button, ...], ...]:
     if not isinstance(raw, list):
         return ()
-    rows = []
-    for row in raw:
-        if isinstance(row, list):
-            buttons = [button_from_raw(item) for item in row]
-            rows.append(tuple(button for button in buttons if button is not None))
-    return tuple(rows)
+    return tuple(buttons_from_raw(row) for row in raw if isinstance(row, list))

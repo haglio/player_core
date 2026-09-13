@@ -35,11 +35,9 @@ from shared_ui.palette import (
 from shared_ui.spacing import BUTTON_GAP
 
 from .console import (
-    _ROW_LABELS,
     BUTTON,
     FULL,
     GAP,
-    PLAYBACK_LABEL_W,
     SHORTS,
     Button,
     ConsoleModel,
@@ -148,6 +146,11 @@ _DRIVE_TIPS = {
 }
 
 
+def _format_rate(rate: float) -> str:
+    """A playback rate as a compact label: 1.0 -> '1×', 1.5 -> '1.5×'."""
+    return f"{rate:g}×"
+
+
 def compilation_label(title: str) -> str:
     """*title* cut down to what tells one compilation from another."""
     volume = title.rsplit(" - ", 1)[-1]
@@ -159,14 +162,6 @@ def compilation_label(title: str) -> str:
 _SIZE_BODY = 11
 _SIZE_TINY = 8
 _PAD = 10
-# How far in a word NAMING its row starts: not at all.  Its cell begins on the
-# same left edge as every button in the rows above and below it, so the word lines
-# up with that column -- which is what "the margin everything else has" means
-# here, the panel's own _PAD.  Anything added on top of that reads as an indent.
-# (What made the label look unindented in the first place was its cell being too
-# narrow for it: centered, an 80px word in a 66px cell started 7px LEFT of the
-# column.  _row_label_width fixes that at the source.)
-_ROW_LABEL_INSET = 0
 DOT_GAP = 8  # the room between the active-player dot and the words beside it
 _MARGIN = 8    # inset from the window's top-left corner
 _ROW_GAP = 4   # between the top block, the buttons, the OSR2 row, the readout
@@ -503,9 +498,7 @@ class ConsolePainter:
         self._composed_drive = (
             drive if (drive is not None and drive.segments
                       and main_player_displays(console.mode)) else None)
-        rows = console_rows(console, modes=hud.modes_row,
-                            label_width=self._row_label_width(),
-                            main_player=hud.modes)
+        rows = [[self._filled(button, hud) for button in row] for row in self._rows(hud)]
         status = hud.status_line
         filename = hud.modes.video
         drive_w, drive_h = section_size() if drive is not None else (0, 0)
@@ -600,7 +593,7 @@ class ConsolePainter:
         return text_width(self._tiny, _OSR2_LABELS.get(osr2, osr2)) + 10
 
     def _osr2_width(self, model: ConsoleModel) -> int:
-        return (self._osr2_controls_width(osr2_row(model)) + _OSR2_GROUP_GAP
+        return (self._osr2_controls_width(self._osr2_controls(model)) + _OSR2_GROUP_GAP
                 + text_width(self._tiny, "OSR2") + _OSR2_LABEL_GAP
                 + self._osr2_pill_width(model))
 
@@ -615,7 +608,7 @@ class ConsolePainter:
         its pill, well clear of the controls, so "OSR2 Robot Hand" reads as one
         read-out instead of as a third button.
         """
-        controls = osr2_row(model)
+        controls = self._osr2_controls(model)
         run_x = x
         for button in controls:
             rect = (run_x, y, button.width, _OSR2_H)
@@ -637,17 +630,41 @@ class ConsolePainter:
         draw.text((pill_x + pill_w / 2, y + _OSR2_H / 2), state, font=self._tiny,
                   anchor="mm", fill=(*color, 255))
 
-    def _row_label_width(self) -> int:
-        """How wide a cell holding a row's NAME has to be.
+    @staticmethod
+    def _rows(hud: ConsoleHud) -> list:
+        """The buttons to draw: the rows the source declared, or -- from one
+        that declared none -- the rows :mod:`player_core.console` still builds
+        from the panel's switches."""
+        if hud.console.rows:
+            return [list(row) for row in hud.console.rows]
+        return console_rows(hud.console, modes=hud.modes_row, main_player=hud.modes)
 
-        Measured, because the words do not fit the fixed 66px the layout used:
-        "Playback speed" is 80 at this font, so it ran out of its cell and its
-        last letter sat under the button beside it.  Both named rows take one
-        width so their controls line up under each other, and the family's own
-        floor keeps a short label from pulling the pair in tight.
+    @staticmethod
+    def _osr2_controls(model: ConsoleModel) -> list[Button]:
+        return list(model.osr2_controls) or osr2_row(model)
+
+    def _filled(self, button: Button, hud: ConsoleHud) -> Button:
+        """A read-out as it is drawn: the host's own number written in where the
+        source named one, and a word's cell widened to hold it.  A button comes
+        back as it was.
+
+        The two numbers are the drawing host's -- the video's rate, the seconds
+        an unheld clip stays up -- which no source can know, so the source
+        names them and whoever draws fills them in.  A name that outgrows the
+        cell the source gave it widens the cell: "Playback speed" ran under the
+        button beside it once, its last letter under the minus.
         """
-        widest = max(text_width(self._tiny, label) for label in _ROW_LABELS)
-        return max(PLAYBACK_LABEL_W, widest + _ROW_LABEL_INSET + BUTTON_GAP)
+        if button.action:
+            return button
+        glyph = button.glyph
+        if button.host_value == "playback_speed":
+            glyph = _format_rate(hud.console.playback_speed)
+        elif button.host_value == "advance_interval":
+            glyph = f"{hud.advance_interval}s"
+        width = button.width
+        if glyph.replace(" ", "").isalpha():
+            width = max(width, text_width(self._tiny, glyph) + BUTTON_GAP)
+        return replace(button, glyph=glyph, width=width)
 
     def _button(self, image, draw, rect: Rect, button: Button, *,
                 hovered: bool = False) -> None:
@@ -677,7 +694,7 @@ class ConsolePainter:
                 # that leads with a word read as unindented beside them.  Left
                 # aligned on the family's tight button pad, it lines up with
                 # them instead.
-                draw.text((x + _ROW_LABEL_INSET, y + h / 2), button.glyph,
+                draw.text((x, y + h / 2), button.glyph,
                           font=self._tiny, anchor="lm", fill=(*ink, 255))
                 return
             draw.text((x + w / 2, y + h / 2), button.glyph, font=self._tiny, anchor="mm",

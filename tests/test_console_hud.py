@@ -6,7 +6,7 @@ from dataclasses import replace
 import numpy as np
 from shared_ui.palette import TEXT_MUTED, WHITE
 
-from player_core.console import _ROW_LABELS, ConsoleModel
+from player_core.console import ConsoleModel
 from player_core.console_hud import _PAD as PAD
 from player_core.console_hud import (
     FULL,
@@ -21,6 +21,8 @@ from player_core.console_hud import (
 from player_core.drive_layout import AMPLITUDE, CENTER, SPEED
 from player_core.drive_readout import DriveHud
 from player_core.geometry import Rect
+from player_core.hud_button import Button
+from player_core.hud_marks import BROKER_ICON, shared_mark
 from player_core.hud_panel import (
     ICON_GRIDS,
     TOOLTIP_PAD,
@@ -758,6 +760,23 @@ class TestDrags:
             assert painter.hover_at(left + x + w // 2, top + y + h // 2) is not None
 
 
+class TestDeclaredRows:
+    def test_the_rows_a_source_declares_are_what_is_drawn(self):
+        """A panel carrying its own buttons is drawn from them and nothing else:
+        the rows in their order, then the OSR2 line's controls, each a hit
+        target posting what the source said."""
+        painter = ConsolePainter()
+        painter.bgra(ConsoleHud(console=ConsoleModel(
+            rows=((Button("go_on", "⏭", "On to the next"),),
+                  (Button("", "Pace", "", width=40),
+                   Button("slower", shared_mark("minus"), "Slower", group_break=True))),
+            osr2_controls=(Button("wake_broker", BROKER_ICON, "Wake it", warn=True),),
+        )))
+
+        assert [button.action for _rect, button in painter.buttons] == [
+            "go_on", "", "slower", "wake_broker"]
+
+
 class TestPlaybackSpeed:
     def test_the_drawing_player_folds_in_its_own_rate(self):
         """Fun Time does not publish the main player's video rate — the main player knows it and adds it
@@ -765,6 +784,20 @@ class TestPlaybackSpeed:
         console = with_playback_speed(ConsoleModel(mode="video"), 1.75)
 
         assert console.playback_speed == 1.75
+
+    def test_the_painter_writes_the_hosts_numbers_into_the_read_outs_that_name_them(self):
+        """The row names the number ("playback_speed", "advance_interval") and
+        the painter fills it from whoever is drawing: the main player's rate
+        under a video, Genau's pace off its readout in genau mode."""
+        def readouts(hud: ConsoleHud) -> list[str]:
+            painter = ConsolePainter()
+            painter.bgra(hud)
+            return [button.glyph for _rect, button in painter.buttons if button.host_value]
+
+        assert readouts(ConsoleHud(console=with_playback_speed(
+            ConsoleModel(mode="video"), 1.75))) == ["1.75×"]
+        assert readouts(ConsoleHud(console=ConsoleModel(mode="genau"),
+                                   drive=_drive(advance_interval=7))) == ["7s"]
 
 
 class TestPlacement:
@@ -964,14 +997,13 @@ class TestARowsNameLinesUpWithItsControls:
         return painter, {y: sorted(items) for y, items in rows.items()}
 
     def test_the_name_starts_where_the_controls_start(self):
-        from player_core.console_hud import _PAD, _ROW_LABEL_INSET
+        from player_core.console_hud import _PAD
 
         for mode in ("video", "genau"):
             _painter, rows = self._rows(mode)
             for items in rows.values():
                 x, _w, button = items[0]
                 assert x == _PAD          # every row opens on the one column
-            assert _ROW_LABEL_INSET == 0  # and the word is not indented off it
 
     def test_the_name_does_not_run_under_the_button_beside_it(self):
         from player_core.hud_panel import text_width
@@ -986,6 +1018,10 @@ class TestARowsNameLinesUpWithItsControls:
                 assert x + width <= items[1][0]
 
     def test_both_named_rows_take_the_same_cell_so_they_line_up(self):
-        painter = ConsolePainter()
-        assert painter._row_label_width() >= max(
-            text_width(painter._tiny, label) for label in _ROW_LABELS)
+        """The pair beside the name sits in the same place whichever row is up,
+        so a flip between the modes moves nothing under the pointer."""
+        video, _rows = self._rows("video")
+        genau, _rows = self._rows("genau")
+
+        assert _rect_of(video, "main_player_speed_down")[0] == _rect_of(
+            genau, "genau_clip_seconds_down")[0]

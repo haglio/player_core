@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from player_core.console import (
+    _GLYPHS,
     BUTTON,
     GAP,
     GROUP_GAP,
@@ -21,6 +22,7 @@ from player_core.console import (
     shape_label,
     tooltip_at,
 )
+from player_core.hud_button import Button
 from player_core.hud_marks import BROKER_ICON, MINIMIZE_ICON
 
 
@@ -524,11 +526,14 @@ class TestPlaybackSpeed:
 
         assert "main_player_speed_down" not in actions
 
-    def test_the_rate_is_shown_as_a_read_out_between_the_arrows(self):
-        rows = console_rows(with_speed(ConsoleModel(mode="video"), 1.5))
-        readouts = [b.glyph for row in rows for b in row if not b.action]
+    def test_the_rate_is_a_read_out_between_the_arrows_that_the_player_fills(self):
+        """The rate is the drawing player's own, so the row names the number
+        for the painter rather than carrying one Fun Time does not know."""
+        row = next(row for row in console_rows(ConsoleModel(mode="video"))
+                   if any(b.action == "main_player_speed_down" for b in row))
 
-        assert "1.5×" in readouts
+        assert [b.action or b.host_value for b in row][1:] == [
+            "main_player_speed_down", "playback_speed", "main_player_speed_up"]
 
 
 class TestClipSeconds:
@@ -546,12 +551,12 @@ class TestClipSeconds:
         assert "genau_clip_seconds_down" not in actions
         assert "main_player_speed_down" in actions
 
-    def test_the_seconds_are_shown_as_a_read_out_between_the_arrows(self):
-        rows = console_rows(ConsoleModel(mode="genau", advance_interval=7))
-        readouts = [b.glyph for row in rows for b in row if not b.action]
+    def test_the_seconds_are_a_read_out_between_the_arrows_that_genau_fills(self):
+        row = next(row for row in console_rows(ConsoleModel(mode="genau"))
+                   if any(b.action == "genau_clip_seconds_down" for b in row))
 
-        assert "7s" in readouts
-        assert "Clip seconds" in readouts
+        assert [b.glyph or b.host_value for b in row] == [
+            "Clip seconds", _GLYPHS["minus"], "advance_interval", _GLYPHS["plus"]]
 
 
 class TestDriveControls:
@@ -771,8 +776,8 @@ class TestLayout:
         assert hit_test(placed, 5000, 5000) == ""
 
     def test_a_read_out_is_not_a_hit_target(self):
-        placed = place_rows(console_rows(with_speed(ConsoleModel(mode="video"), 1.0)), x=0, y=0)
-        rect = next(r for r, b in placed if not b.action and b.glyph.endswith("×"))
+        placed = place_rows(console_rows(ConsoleModel(mode="video")), x=0, y=0)
+        rect = next(r for r, b in placed if b.host_value == "playback_speed")
 
         assert hit_test(placed, rect[0] + 1, rect[1] + 1) == ""
 
@@ -780,11 +785,6 @@ class TestLayout:
         placed = place_rows(console_rows(ConsoleModel(mode="video")), x=0, y=0)
 
         assert all(rect[3] == BUTTON for rect, _b in placed)
-
-
-def with_speed(model: ConsoleModel, speed: float) -> ConsoleModel:
-    from dataclasses import replace
-    return replace(model, playback_speed=speed)
 
 
 def test_the_mode_row_can_be_left_off_and_takes_minimize_with_it():
@@ -849,6 +849,22 @@ class TestThePublishedConsoleIsWrittenWhereItIsRead:
             mode="genau", active=True, osr2="auto", broker=True, record="looping",
             locked=False, f_mode=True, latest=True, cruise=True, shape="triangle",
             plays_vr=True, plays_flat=False,
+        )
+
+        assert parse_console(console_text(model)) == model
+
+    def test_the_rows_a_source_declares_survive_it_too(self):
+        """The buttons themselves ride the panel now: what each posts, its face,
+        its tooltip and its state, row by row, and the controls on the OSR2
+        line beside them."""
+        model = ConsoleModel(
+            rows=(
+                (Button("main_video_activate", "Video", "Video mode", width=40, lit=True),
+                 Button("main_minimize", MINIMIZE_ICON, "Minimize", group_break=True)),
+                (Button("", "Playback speed", "", width=84),
+                 Button("", "", "", width=22, host_value="playback_speed")),
+            ),
+            osr2_controls=(Button("broker_panel", BROKER_ICON, "Broker", warn=True),),
         )
 
         assert parse_console(console_text(model)) == model

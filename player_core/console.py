@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .geometry import Rect, contains
-from .hud_button import BUTTON, Button
+from .hud_button import BUTTON, Button, buttons_from_raw, buttons_raw, rows_from_raw, rows_raw
 from .hud_marks import BROKER_ICON, FMODE_ICON, MINIMIZE_ICON, shared_mark
 from .hud_status import LATEST_LABEL, SHUFFLE_LABEL
 
@@ -35,15 +35,12 @@ __all__ = [
 ]
 
 VALUE_W = 22  # a value read-out between a pair of buttons (the playback rate)
-# The words naming that pair.  A FLOOR, not the width: the cell is widened to
-# whatever the row's own label measures (console_rows takes the measurement,
-# since this module is font-free by design -- see mode_button_rects for the
-# same split).  Fixed at 66 it was narrower than "Playback speed" is at 80, so
-# the words ran out of their cell and the "d" sat under the - button beside it.
-PLAYBACK_LABEL_W = 66
-# The words those cells carry, named here so whoever CAN measure text sizes the
-# cell to them rather than to a number that drifts from the font.
-_ROW_LABELS = ("Playback speed", "Clip seconds")
+# The cell a word naming its row takes: "Playback speed", the longer of the
+# two names the family's consoles carry, measures 80 at the tiny face, plus the
+# family's gap.  One width for every named row, so the pair beside the name
+# sits in the same place whichever row is up; the painter widens a name that
+# outgrows it rather than letting it run under the button beside it.
+ROW_LABEL_W = 84
 GAP = 4       # between buttons along a row
 ROW_GAP = 5   # between rows
 GROUP_GAP = 12  # between groups of buttons that mean different things
@@ -182,6 +179,13 @@ class ConsoleModel:
     # the headset: no pair of buttons, exactly as ``latest`` None draws none.
     plays_vr: bool | None = None
     plays_flat: bool | None = None
+    # The buttons the source declares, row by row, and the controls it puts on
+    # the OSR2 line: what each posts, its face, its tooltip and its state.  A
+    # host that draws from these draws nothing it was not handed.  Empty from a
+    # source that has not declared any, which the painter fills from the rows
+    # this module still builds.
+    rows: tuple[tuple[Button, ...], ...] = ()
+    osr2_controls: tuple[Button, ...] = ()
 
 
 def read_console(path: Path) -> ConsoleModel | None:
@@ -217,6 +221,8 @@ def console_text(model: ConsoleModel) -> str:
         "shape": model.shape,
         "plays_vr": model.plays_vr,
         "plays_flat": model.plays_flat,
+        "rows": rows_raw(model.rows),
+        "osr2_controls": buttons_raw(model.osr2_controls),
     })
 
 
@@ -244,6 +250,8 @@ def parse_console(text: str) -> ConsoleModel | None:
         shape=str(raw.get("shape", "sine") or "sine"),
         plays_vr=(None if raw.get("plays_vr") is None else bool(raw.get("plays_vr"))),
         plays_flat=(None if raw.get("plays_flat") is None else bool(raw.get("plays_flat"))),
+        rows=rows_from_raw(raw.get("rows")),
+        osr2_controls=buttons_from_raw(raw.get("osr2_controls")),
     )
 
 
@@ -392,13 +400,7 @@ def main_player_displays(mode: str) -> bool:
     return mode == "video"
 
 
-def _format_rate(rate: float) -> str:
-    """A playback rate as a compact label: 1.0 -> '1×', 1.5 -> '1.5×'."""
-    return f"{rate:g}×"
-
-
 def console_rows(model: ConsoleModel, *, modes: bool = True,
-                 label_width: int = PLAYBACK_LABEL_W,
                  main_player: ModeHud | None = None) -> list[list[Button]]:
     """The console's buttons, row by row, for the mode Fun Time says it is in.
 
@@ -452,9 +454,9 @@ def console_rows(model: ConsoleModel, *, modes: bool = True,
     ]
     rows.append(_transport_row(model, main_player))
     if main_player_displays(model.mode):
-        rows.append(_playback_speed_row(model, label_width))
+        rows.append(_playback_speed_row())
     else:
-        rows.append(_clip_seconds_row(model, label_width))
+        rows.append(_clip_seconds_row())
     rows.append(_control_row(model))
     return rows
 
@@ -732,22 +734,24 @@ def _transport_row(model: ConsoleModel, main_player: ModeHud) -> list[Button]:
     ]
 
 
-def _playback_speed_row(model: ConsoleModel, label_width: int = PLAYBACK_LABEL_W) -> list[Button]:
+def _playback_speed_row() -> list[Button]:
     """The main player's video playback rate: slower, the rate itself, faster.
 
     Named, because "Speed" already means the *motion* rate down on the drive
-    readout and an unlabelled −/+ pair beside a number said neither.
+    readout and an unlabelled −/+ pair beside a number said neither.  The rate
+    is the drawing player's own, so the read-out names it for the painter to
+    fill rather than carrying a number nobody here knows.
     """
     return [
-        Button("", "Playback speed", "", width=label_width),
+        Button("", "Playback speed", "", width=ROW_LABEL_W),
         Button("main_player_speed_down", _GLYPHS["minus"], "Play the video slower",
                group_break=True),
-        Button("", _format_rate(model.playback_speed), "", width=VALUE_W),
+        Button("", "", "", width=VALUE_W, host_value="playback_speed"),
         Button("main_player_speed_up", _GLYPHS["plus"], "Play the video faster"),
     ]
 
 
-def _clip_seconds_row(model: ConsoleModel, label_width: int = PLAYBACK_LABEL_W) -> list[Button]:
+def _clip_seconds_row() -> list[Button]:
     """How long an unlocked Genau leaves each clip on screen: fewer, the number
     itself, more.
 
@@ -760,9 +764,9 @@ def _clip_seconds_row(model: ConsoleModel, label_width: int = PLAYBACK_LABEL_W) 
     pace.
     """
     return [
-        Button("", "Clip seconds", "", width=label_width),
+        Button("", "Clip seconds", "", width=ROW_LABEL_W),
         Button("genau_clip_seconds_down", _GLYPHS["minus"], "Move on sooner", group_break=True),
-        Button("", f"{model.advance_interval}s", "", width=VALUE_W),
+        Button("", "", "", width=VALUE_W, host_value="advance_interval"),
         Button("genau_clip_seconds_up", _GLYPHS["plus"], "Leave each clip longer"),
     ]
 
