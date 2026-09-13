@@ -36,7 +36,9 @@ AMBER = (235, 180, 60, 245)
 
 # The timeline — heatmap strip or plain bar — is drawn as one shared frame: an
 # inset, floated, bordered track with full-height marks.
-BAR_INSET_X = 40     # side margin so the timeline's start clears the left edge
+# A margin, the readout of a three-hour video at 60 frames a second, and a margin
+# back to the track.
+READOUT_SLOT_W = 193
 BAR_INSET_Y = 3      # upper/lower margin so the timeline floats off the edge
 BAR_FILL = (34, 34, 38, 165)       # dark translucent fill (plain bar only)
 BAR_BORDER = (215, 215, 220, 235)  # light inner border (reads on the dark fill)
@@ -52,14 +54,14 @@ TIMELINE_HEIGHT = 24  # lower strip height when not recording
 def bar_track_x(width: int) -> tuple[int, int]:
     """Left/right pixel bounds of the inset timeline track.
 
-    The start sits a fixed margin in from the left edge; the end stops short of
-    the volume control that shares the row, the way VLC's seek bar stopped clear
-    of its slider — :data:`player_core.volume.SLOT_W` is the room it leaves.
+    The start clears the playhead readout at the row's left end; the end stops
+    short of the volume control that shares the row, the way VLC's seek bar stopped
+    clear of its slider — :data:`player_core.volume.SLOT_W` is the room it leaves.
     Clamped so the track never inverts on a very narrow window.  The heatmap strip,
     the plain bar and click-to-seek all use this, so they agree on where the track
     ends.
     """
-    inset = min(BAR_INSET_X, max(0, width // 2 - 1))
+    inset = min(READOUT_SLOT_W, max(0, width // 2 - 1))
     return inset, max(inset + 1, width - _VOLUME_SLOT_W)
 
 

@@ -1,12 +1,13 @@
 """The shared scrubber: inset track geometry and the plain progress bar."""
 from __future__ import annotations
 
+from player_core.playhead import PlayheadHudPainter, video_playhead
 from player_core.timeline import (
     BAR_INSET_Y,
     bar_track_x,
     progress_bar_bgra,
 )
-from player_core.volume import SLOT_W
+from player_core.volume import MARGIN, SLOT_W
 
 
 def _rgba(bar, y, x):
@@ -15,10 +16,16 @@ def _rgba(bar, y, x):
 
 
 class TestBarTrackX:
-    def test_insets_from_the_left_and_leaves_the_volume_slot_at_the_right(self):
-        # The start sits a fixed margin in from the left; the end stops clear of
-        # the volume control the way VLC's seek bar stopped short of its slider.
-        assert bar_track_x(1000) == (40, 1000 - SLOT_W)
+    def test_the_track_stops_clear_of_the_volume_slot_at_the_right(self):
+        # The way VLC's seek bar stopped short of its slider.
+        assert bar_track_x(1000)[1] == 1000 - SLOT_W
+
+    def test_the_track_starts_clear_of_the_readout_of_a_video_that_runs_for_hours(self):
+        """Three hours at 60 frames a second, which is six digits of frames: the
+        widest readout anything in the library is likely to need."""
+        readout = PlayheadHudPainter().bgra(video_playhead(0.0, 3 * 3_600_000.0, 60.0))
+
+        assert bar_track_x(1920)[0] >= MARGIN + readout.shape[1] + MARGIN
 
     def test_clamps_so_the_track_never_inverts_on_a_narrow_window(self):
         x0, x1 = bar_track_x(50)
