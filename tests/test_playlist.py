@@ -1,6 +1,15 @@
+"""The playlist file: one item per line, written and read back through one module."""
 from __future__ import annotations
 
-from player_core.playlist import read_playlist
+from pathlib import Path
+
+from player_core.playlist import (
+    PlaylistItem,
+    item_from_line,
+    item_line,
+    read_playlist,
+    write_playlist,
+)
 
 
 class TestReadPlaylist:
@@ -15,12 +24,12 @@ class TestReadPlaylist:
 
         result = read_playlist(playlist)
 
-        assert [str(v) for v, _ in result] == [
-            "C:\\vids\\a.mp4", "C:\\vids\\b.mp4", "C:\\vids\\c.mp4",
+        assert [item.path for item in result] == [
+            Path("C:/vids/a.mp4"), Path("C:/vids/b.mp4"), Path("C:/vids/c.mp4"),
         ]
-        assert str(result[0][1]) == "C:\\scripts\\a.funscript"
-        assert result[1][1] is None
-        assert result[2][1] is None
+        assert result[0].funscript == Path("C:/scripts/a.funscript")
+        assert result[1].funscript is None
+        assert result[2].funscript is None
 
     def test_skips_blank_and_comment_lines(self, tmp_path):
         playlist = tmp_path / "main_player_playlist.tsv"
@@ -37,3 +46,75 @@ class TestReadPlaylist:
 
     def test_missing_file_returns_empty(self, tmp_path):
         assert read_playlist(tmp_path / "nope.tsv") == []
+
+
+class TestAnItemIsAlsoThePairItWas:
+    """Every reader in the family unpacked ``(video, funscript)`` before the item
+    had a name, and a reader on a checkout that has not moved yet still does."""
+
+    def test_unpacks_and_indexes_as_the_pair(self):
+        item = PlaylistItem(Path("C:/vids/a.mp4"), Path("C:/scripts/a.funscript"))
+
+        video, funscript = item
+
+        assert (video, funscript) == (item.path, item.funscript)
+        assert item[0] == item.path
+        assert item == (Path("C:/vids/a.mp4"), Path("C:/scripts/a.funscript"))
+
+    def test_the_funscript_is_optional(self):
+        assert PlaylistItem(Path("C:/vids/a.mp4")).funscript is None
+
+
+class TestOneLineOneItem:
+    """The line grammar is the file's and PLAY_FILE's alike, so both are read
+    and written here and cannot say the same item two ways."""
+
+    def test_a_scripted_item_carries_its_script_after_a_tab(self):
+        item = PlaylistItem(Path("C:/vids/a.mp4"), Path("C:/scripts/a.funscript"))
+
+        assert item_line(item) == f"{Path('C:/vids/a.mp4')}\t{Path('C:/scripts/a.funscript')}"
+        assert item_from_line(item_line(item)) == item
+
+    def test_an_unscripted_item_is_the_path_alone(self):
+        item = PlaylistItem(Path("C:/vids/My Clip.mp4"))
+
+        assert item_line(item) == str(Path("C:/vids/My Clip.mp4"))
+        assert item_from_line(item_line(item)) == item
+
+    def test_a_trailing_tab_is_no_script(self):
+        assert item_from_line("C:/vids/a.mp4\t  ") == PlaylistItem(Path("C:/vids/a.mp4"))
+
+    def test_a_line_naming_nothing_is_no_item(self):
+        assert item_from_line("") is None
+        assert item_from_line("\tC:/scripts/a.funscript") is None
+
+
+class TestWritePlaylist:
+    def test_what_is_written_is_what_is_read_back(self, tmp_path):
+        items = [
+            PlaylistItem(tmp_path / "a.mp4", tmp_path / "a.funscript"),
+            PlaylistItem(tmp_path / "b.mp4"),
+        ]
+        playlist = tmp_path / "state" / "portrait_playlist.tsv"
+
+        write_playlist(playlist, items)
+
+        assert read_playlist(playlist) == items
+
+    def test_the_file_is_one_item_per_line_with_no_column_for_a_missing_script(self, tmp_path):
+        playlist = tmp_path / "playlist.tsv"
+
+        write_playlist(playlist, [PlaylistItem(Path("C:/vids/a.mp4")),
+                                  PlaylistItem(Path("C:/vids/b.mp4"), Path("C:/s/b.funscript"))])
+
+        assert playlist.read_text(encoding="utf-8") == (
+            f"{Path('C:/vids/a.mp4')}\n{Path('C:/vids/b.mp4')}\t{Path('C:/s/b.funscript')}\n")
+
+    def test_rewriting_replaces_the_whole_list(self, tmp_path):
+        playlist = tmp_path / "playlist.tsv"
+        write_playlist(playlist, [PlaylistItem(Path("C:/vids/a.mp4")), PlaylistItem(Path("C:/vids/b.mp4"))])
+
+        write_playlist(playlist, [PlaylistItem(Path("C:/vids/c.mp4"))])
+
+        assert [item.path for item in read_playlist(playlist)] == [Path("C:/vids/c.mp4")]
+        assert not (tmp_path / "playlist.tmp").exists()
