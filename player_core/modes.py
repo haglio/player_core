@@ -1,0 +1,71 @@
+"""The closed sets a player and Fun Time agree on, each as the words on the wire.
+
+Each of these travels between two processes as a bare word in a published file
+-- the main console's JSON, the shared state INI, a status file -- and was
+compared by literal at every site that read it.  Each entry's value IS that
+word: a writer hands the entry to ``json.dumps`` and the word comes out, and
+:func:`read_mode` turns the word back into the entry on the way in.
+
+A word a reader does not know is the default, never an error.  The two sides of
+every one of these files are separate processes that are not always the same
+age, and a player that refused a mode it had not heard of would stop drawing
+over a difference of vocabulary.
+"""
+from __future__ import annotations
+
+from enum import Enum, StrEnum
+
+__all__: list[str] = []
+
+
+class MainMode(StrEnum):
+    """What holds the main slot: the main player's video, or Genau's clips."""
+
+    VIDEO = "video"
+    GENAU = "genau"
+
+
+class SatellitesMode(StrEnum):
+    """What the satellite side shows: the two players, or a hosted Origenerator's
+    shows over them."""
+
+    VIDEO = "video"
+    ORIGENERATOR = "origenerator"
+
+
+class LoopState(StrEnum):
+    """Where the main player's loop machine is: idle, marking a loop's out point
+    with the record key down, or repeating the loop it marked."""
+
+    NORMAL = "normal"
+    RECORDING = "recording"
+    LOOPING = "looping"
+
+
+class Osr2State(StrEnum):
+    """What has the OSR2, as the console badges it: nothing, the broker's auto
+    mode, the video's funscript, or the Robot Hand filling in."""
+
+    OFF = "off"
+    AUTO = "auto"
+    FUNSCRIPT = "funscript"
+    ROBOT_HAND = "robot_hand"
+
+
+class LengthMode(StrEnum):
+    """How long a video has to be to be in the main player's browse."""
+
+    MIXED = "mixed"
+    SHORTS = "shorts"
+    FULL = "full"
+    NONE = "none"
+
+
+def read_mode[M: Enum](enum: type[M], raw: object, default: M) -> M:
+    """The entry of *enum* whose wire word is *raw*, or *default* for anything else."""
+    if isinstance(raw, enum):
+        return raw
+    try:
+        return enum(raw)
+    except ValueError:
+        return default
