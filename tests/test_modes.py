@@ -9,6 +9,7 @@ from player_core.modes import (
     LengthMode,
     LoopState,
     MainMode,
+    NoticeLevel,
     Osr2State,
     SatellitesMode,
     read_mode,
@@ -23,6 +24,7 @@ _WIRE_WORDS = {
     LoopState: {"normal", "recording", "looping"},
     Osr2State: {"off", "auto", "funscript", "robot_hand"},
     LengthMode: {"mixed", "shorts", "full", "none"},
+    NoticeLevel: {"warning", "notice", "favorite"},
 }
 
 

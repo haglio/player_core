@@ -61,6 +61,18 @@ class LengthMode(StrEnum):
     NONE = "none"
 
 
+class NoticeLevel(StrEnum):
+    """What kind of thing a one-shot notice from the main player is, for Fun
+    Time to pick the color: a request with nowhere to go, an ordinary word, or
+    one about a funscript -- which wears the green this family keeps for the
+    favorites and the funscripts, and travels under that word.
+    """
+
+    WARNING = "warning"
+    NOTICE = "notice"
+    HIGHLIGHT = "favorite"
+
+
 def read_mode[M: Enum](enum: type[M], raw: object, default: M) -> M:
     """The entry of *enum* whose wire word is *raw*, or *default* for anything else."""
     if isinstance(raw, enum):
