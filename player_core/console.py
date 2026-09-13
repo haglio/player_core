@@ -469,7 +469,7 @@ def _file_controls(model: ConsoleModel) -> list[Button]:
     if not main_player_displays(model.mode):
         return []
     return [
-        Button("browse_library", _GLYPHS["open"], "Browse the library"),
+        Button("browse_library", _GLYPHS["open"], "Browse the library", group_break=True),
         # Recording a loop and saving what it caught are one job in two presses,
         # so they sit together and apart from the browser.  The record button
         # carries the loop machine: red while the out point is still being
@@ -482,7 +482,7 @@ def _file_controls(model: ConsoleModel) -> list[Button]:
                "Looping — press to drop the loop" if model.record == "looping"
                else "Record loop",
                warn=model.record == "recording",
-               hold=model.record == "looping"),
+               hold=model.record == "looping", group_break=True),
         Button("clipper_save", _GLYPHS["save"], "Save clip"),
     ]
 
@@ -504,7 +504,8 @@ def _browse_order_buttons(model: ConsoleModel, *,
     on = (not model.latest, bool(model.latest))
     return [
         Button("main_shuffle", SHUFFLE_ICON, f"{SHUFFLE_LABEL} — reshuffle what plays",
-               lit=on[0] and not remembered, remembered=on[0] and remembered),
+               lit=on[0] and not remembered, remembered=on[0] and remembered,
+               group_break=True),
         Button("main_latest", LATEST_ICON, f"{LATEST_LABEL} — reload it newest-first",
                lit=on[1] and not remembered, remembered=on[1] and remembered),
     ]
@@ -535,7 +536,7 @@ def _projection_buttons(model: ConsoleModel, *, remembered: bool) -> list[Button
             VR_ICON,
             "Only the VR videos are playing" if vr and not flat
             else "Drop the VR videos" if vr
-            else "Put the VR videos back", **state(vr)),
+            else "Put the VR videos back", group_break=True, **state(vr)),
         Button(
             ("main_projection_vr" if vr else "main_projection_none") if flat
             else ("main_projection_both" if vr else "main_projection_flat"),
@@ -575,7 +576,7 @@ def _length_buttons(main_player: ModeHud, *, remembered: bool) -> list[Button]:
             FULL_LENGTH_ICON,
             "Only the full-length scenes are playing" if full and not shorts
             else "Drop the full-length scenes" if full
-            else "Put the full-length scenes back", **state(full)),
+            else "Put the full-length scenes back", group_break=True, **state(full)),
         Button(
             ("main_player_length_full" if full else "main_player_length_none") if shorts
             else ("main_player_length_mixed" if full else "main_player_length_shorts"),
@@ -600,7 +601,7 @@ def _compilation_button(main_player: ModeHud) -> Button:
         "Playing this compilation in order — press to leave it" if inside
         else "Play this video's compilation, in order"
         + ("" if main_player.has_compilation else " (this one belongs to none)"),
-        lit=inside, dim=not (inside or main_player.has_compilation),
+        lit=inside, dim=not (inside or main_player.has_compilation), group_break=True,
     )
 
 
@@ -621,7 +622,7 @@ def _clip_scene_button(main_player: ModeHud) -> Button:
         else "Back to the clip taken from this scene" if main_player.jump_to == "clip"
         else "Play the full scene this clip came from"
              " (no full scene in the library for this one)",
-        dim=not main_player.jump_to,
+        dim=not main_player.jump_to, group_break=True,
     )
 
 
@@ -659,7 +660,7 @@ def _transport_row(model: ConsoleModel, main_player: ModeHud) -> list[Button]:
                    # in the favorites, and green is what this family spends on
                    # the favorites and the funscripts.  On the ordinary active
                    # gray it was indistinguishable from every other toggle.
-                   lit=model.locked, favorite=True),
+                   lit=model.locked, favorite=True, group_break=True),
             # F-mode is per player now — Fun Time's dashboard used to carry one
             # switch for the room and every player carries its own instead.  Here
             # it narrows the playlist to the videos that have a funscript, so it
@@ -676,7 +677,7 @@ def _transport_row(model: ConsoleModel, main_player: ModeHud) -> list[Button]:
             # branch, like F-mode above — in genau mode there is no main player playlist
             # for either of them to be narrowing.
             Button("main_reset", _GLYPHS["reset"],
-                   "Reset — the whole library back, with F-Mode off"),
+                   "Reset — the whole library back, with F-Mode off", group_break=True),
             # Then the browse itself, group by group: which way round it runs,
             # which shape of video is in it, how long a thing has to be to be in
             # it, the set the video belongs to, the scene it came from, and
@@ -692,7 +693,7 @@ def _transport_row(model: ConsoleModel, main_player: ModeHud) -> list[Button]:
             Button("main_player_cycle_version", VERSIONS_ICON,
                    "Another version of this video"
                    + ("" if main_player.has_other_versions else " (none for this one)"),
-                   dim=not main_player.has_other_versions),
+                   dim=not main_player.has_other_versions, group_break=True),
         ]
     return [
         Button("genau_prev_clip", _GLYPHS["prev"], "Previous clip"),
@@ -702,7 +703,7 @@ def _transport_row(model: ConsoleModel, main_player: ModeHud) -> list[Button]:
                f"{model.advance_interval}s" if model.locked
                else "Unlocked — moving on every "
                     f"{model.advance_interval}s; press to hold this clip",
-               lit=model.locked, favorite=True),
+               lit=model.locked, favorite=True, group_break=True),
         # The narrowing switches sit straight after the lock, in the order the
         # other branch puts them in: both say what there is to step through
         # rather than acting on what is on screen or on where it ends.  F leads,
@@ -721,10 +722,10 @@ def _transport_row(model: ConsoleModel, main_player: ModeHud) -> list[Button]:
                    "Showing the enhanced pictures only — press for all of them"
                    if model.enhanced_filter
                    else "Show only the pictures that have been enhanced",
-                   lit=model.enhanced_filter, enhanced=True),
+                   lit=model.enhanced_filter, enhanced=True, group_break=True),
         ]),
         Button("genau_weird_clip", _GLYPHS["trash"], "Mark weird — move it out",
-               danger=True),
+               danger=True, group_break=model.enhanced_filter is None),
         # And which way round Genau walks its clips — the same pair the video
         # branch ends on, because the question is the same one.
         *_browse_order_buttons(model),
@@ -739,7 +740,8 @@ def _playback_speed_row(model: ConsoleModel, label_width: int = PLAYBACK_LABEL_W
     """
     return [
         Button("", "Playback speed", "", width=label_width),
-        Button("main_player_speed_down", _GLYPHS["minus"], "Play the video slower"),
+        Button("main_player_speed_down", _GLYPHS["minus"], "Play the video slower",
+               group_break=True),
         Button("", _format_rate(model.playback_speed), "", width=VALUE_W),
         Button("main_player_speed_up", _GLYPHS["plus"], "Play the video faster"),
     ]
@@ -759,7 +761,7 @@ def _clip_seconds_row(model: ConsoleModel, label_width: int = PLAYBACK_LABEL_W) 
     """
     return [
         Button("", "Clip seconds", "", width=label_width),
-        Button("genau_clip_seconds_down", _GLYPHS["minus"], "Move on sooner"),
+        Button("genau_clip_seconds_down", _GLYPHS["minus"], "Move on sooner", group_break=True),
         Button("", f"{model.advance_interval}s", "", width=VALUE_W),
         Button("genau_clip_seconds_up", _GLYPHS["plus"], "Leave each clip longer"),
     ]
@@ -786,14 +788,15 @@ def _control_row(model: ConsoleModel) -> list[Button]:
         Button("robot_hand_cycle_shape", WAVE_ICON, f"Waveform: {shape_label(model.shape)}"),
         Button("quarter_button", QUARTER_ICON, "Offset the motion a ¼ cycle"),
         Button("robot_hand_park", PARK_ICON,
-               "Park — hold the motion still, settled home"),
+               "Park — hold the motion still, settled home", group_break=True),
         Button("robot_hand_retract", RETRACT_ICON,
                "Retract — hold it still at the far end, away from you"),
         Button("robot_hand_release", RELEASE_ICON,
                "Release — back to whatever the motion was doing, cruise included"),
         *([
             Button("main_player_funscript_jump", FUNSCRIPT_JUMP_ICON,
-                   "Skip ahead to where this video's scripting starts up again"),
+                   "Skip ahead to where this video's scripting starts up again",
+                   group_break=True),
         ] if main_player_displays(model.mode) else []),
     ]
 
@@ -823,111 +826,12 @@ def place_rows(rows: list[list[Button]], *, x: int, y: int) -> list[tuple[Rect, 
     for row in rows:
         run_x = x
         for index, button in enumerate(row):
-            if index and _group_break(row, index):
+            if index and button.group_break:
                 run_x += GROUP_GAP - GAP
             placed.append(((run_x, row_y, button.width, BUTTON), button))
             run_x += button.width + GAP
         row_y += BUTTON + ROW_GAP
     return placed
-
-
-def _group_break(row: list[Button], index: int) -> bool:
-    """Whether a wider gap belongs before ``row[index]``.
-
-    The controls fall into groups that mean different things — stepping the video,
-    nudging inside it, the file actions — and a run of evenly spaced squares reads
-    as one long undifferentiated strip.
-    """
-    previous, current = row[index - 1], row[index]
-    if current.group_break:
-        return True  # the button says so itself (the mode row's minimize)
-    if not current.action or not previous.action:
-        # A word naming the row stands apart from the controls; a value sitting
-        # between a pair of them belongs with them, and pushing the − and + that
-        # far apart made the pair read as two unrelated buttons.
-        readout = current if not current.action else previous
-        return readout.glyph.replace(" ", "").isalpha()
-    return _family(previous.action) != _family(current.action)
-
-
-# Robot Hand controls whose command name does not begin with robot_hand_.
-_ROBOT_HAND_CONTROLS = frozenset({"quarter_button"})
-# Recording a loop and saving what it caught: one job, two presses.
-_CAPTURE_CONTROLS = frozenset({"main_player_record_tap", "clipper_save"})
-# The two switches: the lock holds what is on screen against moving on, F-mode
-# narrows what there is to play at all.  Both are states the player sits *in*,
-# where everything around them does its thing once and is over.  The lock also
-# shares the transport's command prefix, so it has to be named here to leave
-# that run.
-_SWITCH_CONTROLS = frozenset({"main_lock", "main_fmode"})
-# The tail of the transport row, in four groups.  Reset stands alone between the
-# switches and the rest: it is what turns all of them back off, so it must read
-# as neither a third switch nor one of the three things it undoes.  Then which
-# way round the browse runs, then how long a thing has to be to be in it, then
-# stepping to another cut of the one on screen.  Named here because most of them
-# share a command prefix with a run they are not part of.
-_RESET_CONTROLS = frozenset({"main_reset"})
-_ORDER_CONTROLS = frozenset({"main_shuffle", "main_latest"})
-_PROJECTION_CONTROLS = frozenset({
-    "main_projection_both", "main_projection_vr",
-    "main_projection_flat", "main_projection_none",
-})
-_LENGTH_CONTROLS = frozenset({
-    "main_player_length_full", "main_player_length_shorts", "main_player_length_mixed", "main_player_length_none",
-})
-_COMPILATION_CONTROLS = frozenset({"main_player_compilation", "main_player_end_compilation"})
-_CLIP_JUMP_CONTROLS = frozenset({"main_player_full_vid", "main_player_clip_jump"})
-_VERSION_CONTROLS = frozenset({"main_player_cycle_version"})
-# The three ways to stop the motion and start it again, on the control row.  A
-# different kind of thing from the shape controls before them — those say what
-# the motion IS, these say whether there is one — and they share the Robot Hand's
-# prefix, so they have to be named to leave that run.  The funscript jump is not
-# the Robot Hand's at all, and closes that row on its own.
-_HOLD_CONTROLS = frozenset({"robot_hand_park", "robot_hand_retract", "robot_hand_release"})
-_JUMP_CONTROLS = frozenset({"main_player_funscript_jump"})
-# The controls that act on the window rather than on anything inside it, so they
-# stand apart from whatever they share a row with.  Named rather than left to the
-# main_ prefix below: minimize sits beside the mode buttons and would otherwise
-# read as a fourth mode.
-_WINDOW_CONTROLS = frozenset({"main_minimize"})
-
-# Every group named by a set rather than by a command prefix, in the order the
-# question is asked.  A dict rather than a run of ifs: each new group was one
-# more branch in a function whose whole body was branches.
-_NAMED_GROUPS: dict[str, frozenset[str]] = {
-    "window": _WINDOW_CONTROLS,
-    "robot_hand_": _ROBOT_HAND_CONTROLS,
-    "hold": _HOLD_CONTROLS,
-    "jump": _JUMP_CONTROLS,
-    "capture": _CAPTURE_CONTROLS,
-    "switch": _SWITCH_CONTROLS,
-    "reset": _RESET_CONTROLS,
-    "order": _ORDER_CONTROLS,
-    "projection": _PROJECTION_CONTROLS,
-    "length": _LENGTH_CONTROLS,
-    "compilation": _COMPILATION_CONTROLS,
-    "clip_jump": _CLIP_JUMP_CONTROLS,
-    "version": _VERSION_CONTROLS,
-}
-
-
-def _family(action: str) -> str:
-    """Which group of controls *action* belongs to."""
-    # The two mode buttons are one group; genau_activate would otherwise fall
-    # to the Genau controls' prefix below.
-    if action.endswith("_activate"):
-        return "mode"
-    for group, verbs in _NAMED_GROUPS.items():
-        if action in verbs:
-            return group
-    # Stepping the video and nudging inside it are one run of four marks, so they
-    # are one family: prev, back ten, forward ten, next, evenly spaced.
-    # The video rate's own pair is checked before the transport prefix it shares
-    # a spelling with.
-    for prefix in ("main_player_speed", "main_", "robot_hand_", "genau_"):
-        if action.startswith(prefix):
-            return prefix
-    return "file"
 
 
 def _row_width(rows: list[list[Button]]) -> int:
