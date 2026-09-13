@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from player_core.playback_rate import MAX_RATE, MIN_RATE, clamp_rate, parse_rate
+from player_core.playback_rate import MAX_RATE, MIN_RATE, RATE_STEP, clamp_rate, parse_rate
 
 
-def test_a_rate_is_held_between_quarter_speed_and_double_speed():
-    assert (MIN_RATE, MAX_RATE) == (0.25, 2.0)
+def test_a_rate_moves_in_quarters_between_quarter_speed_and_double_speed():
+    assert (MIN_RATE, MAX_RATE, RATE_STEP) == (0.25, 2.0, 0.25)
     assert clamp_rate(99.0) == MAX_RATE
     assert clamp_rate(0.001) == MIN_RATE
     assert clamp_rate(1.5) == 1.5

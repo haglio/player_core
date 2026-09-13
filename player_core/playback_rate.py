@@ -3,12 +3,14 @@ from __future__ import annotations
 __all__ = [
     "MAX_RATE",
     "MIN_RATE",
+    "RATE_STEP",
     "clamp_rate",
     "parse_rate",
 ]
 
 MIN_RATE = 0.25
 MAX_RATE = 2.0
+RATE_STEP = 0.25
 
 _NAMED_RATES = {"min": MIN_RATE, "max": MAX_RATE}
 
