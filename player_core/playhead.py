@@ -11,10 +11,18 @@ from .hud_status import SEPARATOR
 from .timeline import READOUT_SLOT_W, bar_track_x, readout_shares_the_row
 from .volume import CHIP_H, MARGIN, PAD, chip_xy
 
-__all__: list[str] = []
+__all__ = [
+    "PlayheadHud",
+    "PlayheadHudPainter",
+    "clip_playhead",
+    "lower_edge_height",
+    "on_readout",
+    "readout_xy",
+    "video_playhead",
+]
 
 _TEXT_PT = 8
-# The same gap Nau's loop frames keep above the row they label.
+# The same gap the main player's loop frames keep above the row they label.
 _ABOVE_THE_ROW_GAP = 2
 _WIDEST_READOUT_W = READOUT_SLOT_W - 2 * MARGIN
 
