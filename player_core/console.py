@@ -239,8 +239,40 @@ def read_console(path: Path) -> ConsoleModel | None:
     player polls it, so a lost race must not empty the panel for a frame.
     """
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    return parse_console(text)
+
+
+def console_text(model: ConsoleModel) -> str:
+    """*model* as the text Fun Time publishes, and :func:`parse_console` reads back.
+
+    Only what the room knows and the player cannot see goes out; the fields the
+    drawing host folds in for itself (the rate, the pace, its own filters) are
+    not the panel's to carry, and come back at rest.
+    """
+    return json.dumps({
+        "mode": model.mode,
+        "active": model.active,
+        "f_mode": model.f_mode,
+        "latest": model.latest,
+        "osr2": model.osr2,
+        "broker": model.broker,
+        "record": model.record,
+        "locked": model.locked,
+        "cruise": model.cruise,
+        "shape": model.shape,
+        "plays_vr": model.plays_vr,
+        "plays_flat": model.plays_flat,
+    })
+
+
+def parse_console(text: str) -> ConsoleModel | None:
+    """The panel *text* carries, or None when it is not a whole one."""
+    try:
+        raw = json.loads(text)
+    except (ValueError, TypeError):
         return None
     if not isinstance(raw, dict) or "mode" not in raw:
         return None
