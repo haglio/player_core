@@ -5,11 +5,9 @@ import json
 from pathlib import Path
 
 from player_core.console import (
-    BROKER_ICON,
     BUTTON,
     GAP,
     GROUP_GAP,
-    MINIMIZE_ICON,
     ConsoleModel,
     ModeHud,
     console_rows,
@@ -23,6 +21,7 @@ from player_core.console import (
     shape_label,
     tooltip_at,
 )
+from player_core.hud_marks import BROKER_ICON, MINIMIZE_ICON
 
 
 def _actions(model: ConsoleModel) -> list[str]:

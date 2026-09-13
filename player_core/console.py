@@ -22,7 +22,7 @@ from pathlib import Path
 
 from .geometry import Rect, contains
 from .hud_button import BUTTON, Button
-from .hud_marks import shared_mark
+from .hud_marks import BROKER_ICON, FMODE_ICON, MINIMIZE_ICON, shared_mark
 from .hud_status import LATEST_LABEL, SHUFFLE_LABEL
 
 __all__ = [
@@ -322,18 +322,6 @@ QUARTER_ICON = shared_mark("quarter_offset")
 # one Origenerator's OSR2 switch wears — because from the outside the two are
 # the same thing: motion the app is sending the device.
 WAVE_ICON = shared_mark("wave")
-
-# The two controls that stand for an app rather than for an action, and so wear
-# that app's mark: the magenta five-by-five letter its .ico carries.  The broker's
-# "B" sits on blue while the service is up and red while it is down; F-mode's "F"
-# on the green the funscripts own.  These are app marks rather than family ones,
-# so they keep their own markers rather than naming a shared glyph.
-BROKER_ICON = "\x00broker"
-FMODE_ICON = "\x00fmode"
-
-# A marker rather than a glyph, because the minimize bar is drawn: the painters
-# say why, each beside the rectangle it draws.
-MINIMIZE_ICON = "\x00minimize"
 
 # Every dispatch verb a console button can post, as data: the verbs are the
 # dashboard's vocabulary, spelled here because the console's buttons post them,

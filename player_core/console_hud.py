@@ -41,12 +41,9 @@ from shared_ui.spacing import BUTTON_GAP
 
 from .console import (
     _ROW_LABELS,
-    BROKER_ICON,
     BUTTON,
-    FMODE_ICON,
     FULL,
     GAP,
-    MINIMIZE_ICON,
     PLAYBACK_LABEL_W,
     SHORTS,
     Button,
@@ -75,7 +72,14 @@ from .drive_readout import (
 from .drive_readout import controls as drive_controls
 from .drive_readout import tracks as drive_tracks
 from .geometry import Rect, contains
-from .hud_marks import SHARED_MARK, shared_mark_name
+from .hud_marks import (
+    APP_MARK,
+    BROKER_ICON,
+    MINIMIZE_ICON,
+    SHARED_MARK,
+    app_mark_letter,
+    shared_mark_name,
+)
 from .hud_panel import (
     ACTIVE_DOT,
     SYMBOL_FONT,
@@ -116,12 +120,6 @@ __all__ = [
 # keeps where its act filter would go when it has none, and the same silence the
 # two buttons keep by both sitting dark.
 _LENGTH_LABELS = {FULL: "Full length", SHORTS: "Shorts"}
-
-# The two controls that wear an app mark rather than a glyph, and which mark:
-# the broker's "B" and F-mode's "F", each the magenta five-by-five letter its .ico
-# carries (:data:`player_core.hud_panel.ICON_GRIDS`).  Keyed by the marker the
-# console puts on the button, the way the waveform's is.
-_APP_MARKS = {BROKER_ICON: "B", FMODE_ICON: "F"}
 
 # A compilation is titled for a shelf: "various - Ultimate Example Studio Alpha
 # Collection - Volume 6 (v1)".  Everything up to the last dash is the series and
@@ -749,8 +747,8 @@ class ConsolePainter:
                else RED if button.danger
                else AMBER if button.enhanced
                else TEXT_PRIMARY if resting else WHITE)
-        if button.glyph in _APP_MARKS:
-            draw_icon(draw, rect, _APP_MARKS[button.glyph])
+        if button.glyph.startswith(APP_MARK):
+            draw_icon(draw, rect, app_mark_letter(button.glyph))
         elif button.glyph.startswith(SHARED_MARK):
             draw_mark(image, shared_mark_name(button.glyph), rect, (*ink, 255))
         elif button.glyph == MINIMIZE_ICON:
