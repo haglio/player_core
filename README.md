@@ -64,17 +64,24 @@ reader in one module — so the two sides cannot spell a thing differently:
 
 | The source hands the player… | …through | …and reads back |
 | --- | --- | --- |
-| a playlist: one `PlaylistItem` per line, a video and its funscript | `playlist` (`write_playlist` / `read_playlist`; `item_line` / `item_from_line` is the line, and `PLAY_FILE`'s value) | |
+| a playlist: one `PlaylistItem` per line, a video and its funscript, or a picture | `playlist` (`write_playlist` / `read_playlist`; `item_line` / `item_from_line` is the line, and `PLAY_FILE`'s value) | |
 | verbs on its command file, spelled in `player_verbs` | `file_channel` (`append_command` / `consume_command_file`); the player answers the ones it declares in a `control_registry` | |
+| the pace a picture holds the screen for: `SET_PACE <seconds>`, 0 holding it | `player_verbs.pace_seconds` reads the value, `set_pace` hands it to mpv | |
 | the paused flag | `app_support.file_channel.write_flag` / `file_channel.read_paused_state` | |
 | its HUD: a `HudModel` for a satellite, a `ConsoleModel` for the main slot | `satellite_hud` (`hud_text` / `parse_hud`), `console` (`console_text` / `parse_console`) | |
-| | `status` (`status_fields` / `parse_status`, published by `StatusWriter`) | a `PlayerStatus`: the item on screen, the playhead, paused, locked, the rate it plays at — and after those six lines, whatever that player adds of its own |
+| | `status` (`status_fields` / `parse_status`, published by `StatusWriter`) | a `PlayerStatus`: the item on screen, the playhead, paused, locked, the rate it plays at, whether the item is a picture — and after those seven lines, whatever that player adds of its own |
 
 A player answers the verbs it can (`TRASH` is a satellite's, `TOGGLE_LOCK` the
 main slot's) and refuses the rest on its log. What is not in the contract yet is
-what no player does yet: a picture item on the playlist, and a HUD whose
-buttons the source declares rather than the fixed rows `satellite_hud` and
-`console` draw.
+what no player does yet: a HUD whose buttons the source declares rather than
+the fixed rows `satellite_hud` and `console` draw.
+
+A picture is shown by libmpv itself: it holds the frame for the pace and then
+ends the file the way a finished video ends, so a picture moves on, holds under
+a lock and waits out a pause exactly as a video does, and a player opens at 4
+seconds until a source sets a pace. Whether an item is a picture is mpv's to
+say once the file is open (`showing_picture`), so a playlist line carries no
+kind; the still a HUD map draws for one is its cell's `thumb`, as for a video.
 
 `clip_decode` reaches `app_support.subprocess_utils` for the one Windows fact
 about launching ffmpeg (no console window), so `../app_support` has to be
