@@ -17,6 +17,7 @@ from .console import ConsoleModel, read_console
 from .console_hud import ConsoleHud, ModeHud
 from .drive_readout import TRACE_SAMPLES, DriveHud, publish_drive
 from .genau_controls import GenauControls
+from .modes import MainMode
 from .robot_hand import MIN_BPM, POSITION_MAX, control_limits, sample_waveform
 
 __all__: list[str] = []  # package-internal: no sibling reaches anything here
@@ -57,7 +58,7 @@ class GenauReadout:
         self._last_drive_publish = 0.0
         # The console around the readout -- mode, OSR2, broker -- as the
         # orchestrator published it; its own mode until the first publish lands.
-        self._console_model = ConsoleModel(mode="genau")
+        self._console_model = ConsoleModel(main_mode=MainMode.GENAU)
         self._last_console_read = 0.0
 
     def blank(self) -> None:

@@ -7,7 +7,7 @@ the two surfaces cannot drift apart.
 
 fun_time owns each player's *model* — which clips sit on the map, whether the
 satellite is locked, which axis is looping — because only fun_time has the
-library metadata.  It serialises that to a small JSON file per side; this module
+library metadata.  It serialises that to a small JSON file per player; this module
 parses it and lays it out.  (A hosted Origenerator builds its shows' models
 directly — the same dataclass, no file in between.)  :mod:`player_core.satellite_hud_paint` turns the layout into a bitmap mpv
 composites into the video, so the HUD has no window and therefore no z-order at
@@ -25,6 +25,7 @@ from shared_ui.spacing import BUTTON_SIZE_HUD
 
 from .geometry import Rect, contains
 from .hud_status import LATEST_LABEL, SHUFFLE_LABEL
+from .modes import SatellitesMode, read_mode
 
 __all__ = [
     "MARGIN",
@@ -73,7 +74,7 @@ MAP_LOWER_RESERVE = LOOP_BTN + MAP_GAP
 # fit — is what made the portrait map two cells wide: its clips are not all 9:16,
 # and a row of the wider ones ran out of panel after the second one.
 MAP_CELLS = 3
-# The nominal width of one of a side's cells: a clip of that side's usual shape
+# The nominal width of one of a player's cells: a clip of that player's usual shape
 # scaled to MAP_THUMB_H (fun_time caches thumbnails at a 160px longest edge, so a
 # 9:16 lands on 30 and a 16:9 on 96).  Only for the two cases with no thumbnail to
 # measure — the placeholder drawn while fun_time is still producing a frame, and
@@ -81,7 +82,7 @@ MAP_CELLS = 3
 CELL_W = {"portrait": 30, "landscape": 96}
 
 STATUS_BAND_H = 24        # the band the line sits in — one line deep, always
-STATUS_DOT = 10           # the active-side dot at the head of the band
+STATUS_DOT = 10           # the active-player dot at the head of the band
 STATUS_TEXT_X = PAD + STATUS_DOT + 8  # where the status text starts, clear of it
 STATUS_BASELINE = 11      # the status line's baseline, down from the band's top
 # The file on screen, muted under the status line — the same second line the main
@@ -110,10 +111,11 @@ class HudCell:
 class HudModel:
     """One satellite's HUD contents, exactly as fun_time published them."""
 
-    side: str
+    # Which player this is: "portrait" or "landscape".
+    player: str
     locked: bool = False
     lock_label: str = ""
-    # Whether a bare, side-less command lands here — the player addressed most
+    # Whether a bare, player-less command lands here — the player addressed most
     # recently.  Drawn as the dot beside the status line, and the only thing on
     # any HUD that says where those words are going.
     active: bool = False
@@ -121,18 +123,19 @@ class HudModel:
     # Whether the clip on screen is one of the favorites — marked in the control
     # band, beside the buttons that act on that clip.
     is_favorite: bool = False
-    # Whether THIS side is in F-mode — its browse narrowed to the favorites.  Each
-    # player has its own, so it lights this side's own button in the control band.
-    f_mode: bool = False
-    # Whether this side is narrowed to the pictures it has enhanced — or None for
-    # a side with no such filter, which is every one of fun_time's own players:
+    # Whether THIS player is in F-mode — its browse narrowed to the favorites.  Each
+    # player has its own, so it lights this player's own button in the control band.
+    # Named for what it keeps: the main player's F-mode keeps the scripted videos.
+    favorites_filter: bool = False
+    # Whether this player is narrowed to the pictures it has enhanced — or None for
+    # a player with no such filter, which is every one of fun_time's own players:
     # only a hosted Origenerator's shows have enhanced pictures to keep, so only
     # their HUDs grow the button (see :func:`satellite_hud_paint._row_names`).
     # The same shape the main console's ``enhanced_filter`` takes, for the same
     # reason: None is "has no such switch", not "switched off".
     enhanced_filter: bool | None = None
-    # Which browse order this side is in — True for newest-first, False for
-    # shuffled — or None for a side that cannot be switched between them.  The
+    # Which browse order this player is in — True for newest-first, False for
+    # shuffled — or None for a player that cannot be switched between them.  The
     # same three-state shape ``enhanced_filter`` above takes, for the same
     # reason: the pair of buttons is drawn only for a HUD whose owner can
     # actually change the order, so a surface that merely HAS an order (a hosted
@@ -142,7 +145,7 @@ class HudModel:
     seeds: tuple[HudCell, ...] = ()
     actions: tuple[HudCell, ...] = ()
     current_action: str = ""
-    # The act(s) this side is filtered to, if any: the map lights every row the
+    # The act(s) this player is filtered to, if any: the map lights every row the
     # filter keeps and, within a row, the acts the filter actually names.  Pressing
     # a row's button moves the filter onto that row, or lifts it when the filter is
     # already exactly that row.
@@ -157,10 +160,10 @@ class HudModel:
     # while a loop plays a non-anchor clip of the group.  Drawn bright; the
     # rest dim.
     playing: Cell = ("corner", 0)
-    # The satellite side's own mode axis ("video" / "origenerator"), or "" for
-    # a session with no hosted Origenerator — the mode pair is drawn only when
-    # this names a mode, the way the main console's Video/Genau row does.
-    satellites_mode: str = ""
+    # The satellite side's own mode axis, or None for a session with no hosted
+    # Origenerator — the mode pair is drawn only when this names a mode, the way
+    # the main console's Video/Genau row does.
+    satellites_mode: SatellitesMode | None = None
 
 
 # --- map geometry ------------------------------------------------------------
@@ -174,10 +177,10 @@ ELLIPSIS = 12
 ELLIPSIS_ROOM = ELLIPSIS + 2 * MAP_GAP
 
 
-def cell_width(side: str) -> int:
-    """The nominal width of one of *side*'s cells — see :data:`CELL_W`.  Used only
+def cell_width(player: str) -> int:
+    """The nominal width of one of *player*'s cells — see :data:`CELL_W`.  Used only
     where there is no thumbnail to measure."""
-    return CELL_W.get(side, CELL_W["portrait"])
+    return CELL_W.get(player, CELL_W["portrait"])
 
 
 def map_row_width(widths: list[int]) -> int:
@@ -215,7 +218,7 @@ def panel_width(gutter: int, row_width: int, status_width: int,
     *status_width* across beside its dot, whichever asks for more.
 
     The map's demand is a floor, not the answer.  The line carries everything one
-    side is doing at once, and three of those parts already outrun a row of portrait
+    player is doing at once, and three of those parts already outrun a row of portrait
     clips; the panel gives rather than the line, because a status broken over two
     lines reads as two states instead of one.
 
@@ -445,7 +448,7 @@ def ellipsis_rects(
             (col_x, _col_lower(corner_rect, action_rects) + MAP_GAP, col_w, ELLIPSIS))
 
 
-# --- the side's own controls -------------------------------------------------
+# --- the player's own controls -----------------------------------------------
 # The buttons this satellite carries for itself, grouped by what each group is
 # about — the same four groups, in the same order, the main console's own rows
 # are cut into, because a reader glancing between the two screens is reading one
@@ -454,11 +457,11 @@ def ellipsis_rects(
 #   * stepping — the browse pair, reached for most, so it leads.
 #   * the clip on screen — hold it, throw it out — and F-mode, the filter over
 #     the library it was browsed from.  Set apart from the stepping because a
-#     switch is a state the side sits IN, where a step is over as soon as it is
+#     switch is a state the player sits IN, where a step is over as soon as it is
 #     taken.
 #   * the browse pool — the enhanced-only switch that narrows it (a hosted
 #     Origenerator's shows only — see :func:`satellite_hud_paint._row_names`) and
-#     the reset that puts the whole side back to its defaults.  Reset stands past
+#     the reset that puts the whole player back to its defaults.  Reset stands past
 #     the filter because it is the wider gesture: the switch turns one thing on
 #     or off, this puts the lot back.
 #   * the order that pool comes in — shuffled, or newest first.  Apart from reset
@@ -498,7 +501,7 @@ CTRL_GROUP_GAP = 12
 
 def control_button_rects(x: int, y: int,
                          names: tuple[str, ...] = CONTROLS) -> list[tuple[Rect, str]]:
-    """Each side-control's ``(rect, name)``, in a row running right from ``(x, y)``.
+    """Each player-control's ``(rect, name)``, in a row running right from ``(x, y)``.
 
     *names* is which controls the row carries: all of them by default, but with
     a hosted Origenerator the mode row above takes minimize with it (see
@@ -520,16 +523,16 @@ def control_button_rects(x: int, y: int,
 
 # The satellite side's mode pair, drawn like the main console's Video/Genau
 # row: a labeled button per mode, the session's current one lit, a press
-# on the other switching to it.  Each action is the dispatch command verbatim —
-# side-less, because the mode belongs to the whole satellite side.  Like the
+# on the other switching to it.  Each command is the dispatch command verbatim —
+# player-less, because the mode belongs to the whole satellite side.  Like the
 # console's, the mode row is a row of its own, leading the bands, and minimize
 # rides it: it is about the side as a whole rather than the clip on screen, so it
 # sits with the mode pair rather than among the transport.  (Without a hosted
 # Origenerator there is no mode row, and minimize stays at the end of the control
 # band.)
 MODE_BUTTONS = (
-    ("satellites_video_activate", "Video", "video"),
-    ("origenerator_activate", "Origenerator", "origenerator"),
+    ("satellites_video_activate", "Video", SatellitesMode.VIDEO),
+    ("origenerator_activate", "Origenerator", SatellitesMode.ORIGENERATOR),
 )
 
 # Inside a mode button, the room either side of its label.
@@ -543,9 +546,9 @@ def mode_button_rects(x: int, y: int, label_widths: list[int]) -> list[tuple[Rec
     is font-free — in :data:`MODE_BUTTONS` order.
     """
     rects: list[tuple[Rect, str]] = []
-    for (action, _label, _mode), label_width in zip(MODE_BUTTONS, label_widths):
+    for (command, _label, _mode), label_width in zip(MODE_BUTTONS, label_widths):
         width = label_width + 2 * MODE_LABEL_PAD
-        rects.append(((x, y, width, CTRL_BTN), action))
+        rects.append(((x, y, width, CTRL_BTN), command))
         x += width + MAP_GAP
     return rects
 
@@ -556,7 +559,7 @@ def favorite_mark_rect(y: int, line_h: int) -> Rect:
     A readout, not a button.  It used to keep the far end of the control band,
     where it was a small green star adrift in a row of squares and easy to miss
     entirely.  Here it is in the one column this panel already uses for "what is
-    true of this side" — the active dot is directly above it — and immediately
+    true of this player" — the active dot is directly above it — and immediately
     left of the name of the very clip it is answering about.
 
     *y* is the file-name line's top and *line_h* its height, and the mark is as
@@ -568,7 +571,7 @@ def favorite_mark_rect(y: int, line_h: int) -> Rect:
 
 # The strike under the current clip's act: this act is wrong, ask about it again.
 # Smaller than a control button and in the gutter rather than on the band,
-# because it is about the words above it rather than about the side — the one
+# because it is about the words above it rather than about the player — the one
 # place on the panel where that act is named is the only place the strike can
 # say which act it means.
 WRONG_BTN = 14
@@ -629,7 +632,7 @@ class HudTargets:
     favorite: Rect | None = None
     # The strike under the current clip's act, or None where no act is named.
     wrong_action: Rect | None = None
-    # The mode pair, each carrying its dispatch command verbatim (side-less).
+    # The mode pair, each carrying its dispatch command verbatim (player-less).
     modes: list[tuple[Rect, str]] = field(default_factory=list)
 
 
@@ -805,12 +808,12 @@ class HudClicks:
     (loop buttons, expand, filter buttons) is unambiguous and posts immediately.
     """
 
-    def __init__(self, side: str, *, double_click_s: float = DOUBLE_CLICK_S) -> None:
-        self._side = side
+    def __init__(self, player: str, *, double_click_s: float = DOUBLE_CLICK_S) -> None:
+        self._player = player
         self._double_click_s = double_click_s
         self._pending_path = ""
         self._pending_at = 0.0
-        # Which axis is looping, and which act the side is filtered to.  Both are
+        # Which axis is looping, and which act the player is filtered to.  Both are
         # mirrored from the published panel on every refresh, and set optimistically
         # on a click so the control lights up before fun_time's answer comes back.
         self.active_loop = ""
@@ -822,20 +825,20 @@ class HudClicks:
         mode = hit_test_targets(targets.modes, px, py)
         if mode:
             # Verbatim: the mode belongs to the whole satellite side, so its
-            # commands are side-less — pressing the lit one is idempotent.
+            # commands are player-less — pressing the lit one is idempotent.
             return mode
         control = hit_test_targets(targets.control, px, py)
         if control:
-            return f"{self._side}_{control}"
+            return f"{self._player}_{control}"
         loop = hit_test_targets(targets.loop, px, py)
         if loop:
             return self._toggle_loop(loop)
         if _in(targets.expand, px, py):
-            return f"{self._side}_more_seeds"
+            return f"{self._player}_more_seeds"
         # Tested before the row's filter button: the strike sits inside the
         # corner row's own band, and the filter button spans that whole band.
         if _in(targets.wrong_action, px, py):
-            return f"{self._side}_wrong_action"
+            return f"{self._player}_wrong_action"
         action = hit_test_targets(targets.filter, px, py)
         if action:
             # Narrow before you lift: a press on a row the filter only partly keeps
@@ -845,15 +848,15 @@ class HudClicks:
             query = _norm_act(action)
             if query == _norm_act(self.active_filter):
                 self.active_filter = ""
-                return f"{self._side}_no_filter"
+                return f"{self._player}_no_filter"
             self.active_filter = query
-            return f"filter_{self._side}_{query.replace(' ', '_')}"
+            return f"filter_{self._player}_{query.replace(' ', '_')}"
         path = hit_test_targets(targets.click, px, py)
         if not path:
             return ""
         if path == self._pending_path and now - self._pending_at <= self._double_click_s:
             self._pending_path = ""
-            return f"{self._side}_lock_video|{path}"
+            return f"{self._player}_lock_video|{path}"
         self._pending_path = path
         self._pending_at = now
         return ""
@@ -863,7 +866,7 @@ class HudClicks:
         if not self._pending_path or now - self._pending_at <= self._double_click_s:
             return ""
         path, self._pending_path = self._pending_path, ""
-        return f"{self._side}_play_video|{path}"
+        return f"{self._player}_play_video|{path}"
 
     def _toggle_loop(self, kind: str) -> str:
         """Turn *kind*'s loop on, or — if it is already on — off.  Turning one on
@@ -871,9 +874,9 @@ class HudClicks:
         the dispatch loop runs."""
         if self.active_loop == kind:
             self.active_loop = ""
-            return f"{self._side}_no_loop"
+            return f"{self._player}_no_loop"
         self.active_loop = kind
-        return f"{self._side}_{kind}_loop"
+        return f"{self._player}_{kind}_loop"
 
 
 # --- action labels -----------------------------------------------------------
@@ -955,18 +958,18 @@ def hud_text(model: HudModel) -> str:
     """*model* as the text a source publishes, and :func:`parse_hud` reads back.
 
     The two are one module so the keys are spelled once: a source in another
-    process (Fun Time, for its satellites) writes this into the side's HUD
+    process (Fun Time, for its satellites) writes this into the player's HUD
     file, and a source in the player's own (a hosted Origenerator) hands the
     model over without it.
     """
     return json.dumps({
-        "side": model.side,
+        "player": model.player,
         "locked": model.locked,
         "lock_label": model.lock_label,
         "active": model.active,
         "satellites_mode": model.satellites_mode,
         "is_favorite": model.is_favorite,
-        "f_mode": model.f_mode,
+        "favorites_filter": model.favorites_filter,
         "enhanced_filter": model.enhanced_filter,
         "latest": model.latest,
         "filter_query": model.filter_query,
@@ -991,21 +994,21 @@ def parse_hud(text: str) -> HudModel | None:
         raw = json.loads(text)
     except (ValueError, TypeError):
         return None
-    if not isinstance(raw, dict) or "side" not in raw:
+    if not isinstance(raw, dict) or "player" not in raw:
         return None
     playing = raw.get("playing") or ["corner", 0]
     seeds = [_cell(item) for item in raw.get("seeds", []) or []]
     actions = [_cell(item) for item in raw.get("actions", []) or []]
     return HudModel(
-        side=str(raw.get("side", "")),
+        player=str(raw.get("player", "")),
         locked=bool(raw.get("locked", False)),
         lock_label=str(raw.get("lock_label", "") or ""),
         active=bool(raw.get("active", False)),
 
         is_favorite=bool(raw.get("is_favorite", False)),
-        f_mode=bool(raw.get("f_mode", False)),
+        favorites_filter=bool(raw.get("favorites_filter", False)),
         # Absent is None — no such switch — rather than off: the button is drawn
-        # only for a side that says it has the filter at all.
+        # only for a player that says it has the filter at all.
         enhanced_filter=(None if raw.get("enhanced_filter") is None
                          else bool(raw.get("enhanced_filter"))),
         # Absent is None the same way, and for the same reason: a publisher that
@@ -1021,5 +1024,8 @@ def parse_hud(text: str) -> HudModel | None:
         seed_count=int(raw.get("seed_count", 0) or 0),
         action_count=int(raw.get("action_count", 0) or 0),
         playing=(str(playing[0]), int(playing[1])),
-        satellites_mode=str(raw.get("satellites_mode", "") or ""),
+        # Absent or blank is None — no hosted Origenerator, so no mode pair —
+        # and any other word a session of another age wrote reads as video.
+        satellites_mode=(None if not raw.get("satellites_mode") else read_mode(
+            SatellitesMode, raw.get("satellites_mode"), SatellitesMode.VIDEO)),
     )

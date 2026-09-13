@@ -44,11 +44,9 @@ from .console import (
     BROKER_ICON,
     BUTTON,
     FMODE_ICON,
-    FULL,
     GAP,
     MINIMIZE_ICON,
     PLAYBACK_LABEL_W,
-    SHORTS,
     Button,
     ConsoleModel,
     ModeHud,
@@ -98,6 +96,7 @@ from .hud_status import (
     SHUFFLE_LABEL,
     status_line,
 )
+from .modes import LengthMode, Osr2State
 
 __all__ = [
     "OSR2_ROBOT_HAND",
@@ -115,7 +114,7 @@ __all__ = [
 # all, so it narrows nothing and prints nothing — the same silence a satellite
 # keeps where its act filter would go when it has none, and the same silence the
 # two buttons keep by both sitting dark.
-_LENGTH_LABELS = {FULL: "Full length", SHORTS: "Shorts"}
+_LENGTH_LABELS = {LengthMode.FULL: "Full length", LengthMode.SHORTS: "Shorts"}
 
 # The two controls that wear an app mark rather than a glyph, and which mark:
 # the broker's "B" and F-mode's "F", each the magenta five-by-five letter its .ico
@@ -132,28 +131,30 @@ _REVISION = re.compile(r"\s*\(v\d+\)$")
 # What the OSR2 line says by what is driving the device, and the color it says
 # it in — green when a funscript is driving, blue when the Robot Hand is, muted
 # when nothing is, and the device's own magenta when it is running itself in auto.
-OSR2_ROBOT_HAND = "robot_hand"  # the one state in which the drive readout can be pressed
-OSR2_FUNSCRIPT = "funscript"
+OSR2_ROBOT_HAND = Osr2State.ROBOT_HAND  # the one state in which the drive readout can be pressed
+OSR2_FUNSCRIPT = Osr2State.FUNSCRIPT
+# The pill's own word for a device that belongs to neither driver at the
+# playhead -- drawn, never published, so it is not one of the wire's states.
 OSR2_BUFFER = "buffer"
 # The buffer pill wears the trace's own neutral grey, so the word and the line
 # under the dot are visibly the same state.
 _NEUTRAL_PILL = (168, 168, 174)
 _OSR2_LABELS = {
-    "off": "Off", "auto": "Auto", OSR2_FUNSCRIPT: "FunScript",
-    OSR2_ROBOT_HAND: "Robot Hand", "idle": "Idle", OSR2_BUFFER: "Buffer",
+    Osr2State.OFF: "Off", Osr2State.AUTO: "Auto", OSR2_FUNSCRIPT: "FunScript",
+    OSR2_ROBOT_HAND: "Robot Hand", OSR2_BUFFER: "Buffer",
 }
 _OSR2_COLORS = {
-    "funscript": GREEN, OSR2_ROBOT_HAND: BLUE, "auto": MAGENTA,
-    "off": TEXT_MUTED, "idle": TEXT_MUTED, OSR2_BUFFER: _NEUTRAL_PILL,
+    OSR2_FUNSCRIPT: GREEN, OSR2_ROBOT_HAND: BLUE, Osr2State.AUTO: MAGENTA,
+    Osr2State.OFF: TEXT_MUTED, OSR2_BUFFER: _NEUTRAL_PILL,
 }
 
 # What the OSR2 state means for the trace.  Auto is the device running itself and
-# idle is nothing running at all; either way nothing here is being sent, so there
+# off is nothing running at all; either way nothing here is being sent, so there
 # is no motion of ours to draw.
 _DRIVEN_BY_OSR2 = {OSR2_ROBOT_HAND: DRIVEN_BY_ROBOT_HAND, OSR2_FUNSCRIPT: DRIVEN_BY_FUNSCRIPT}
 
 
-def _driven_by(osr2: str) -> str:
+def _driven_by(osr2: Osr2State) -> str:
     return _DRIVEN_BY_OSR2.get(osr2, DRIVEN_BY_NOTHING)
 
 
@@ -276,14 +277,14 @@ class ConsoleHud:
         # while Genau is the one showing — video mode draws the drive readout too, but
         # an unlocked main player there plays through a playlist rather than on a timer —
         # and only unheld, since nothing is going to move a held clip.
-        if not main_player_displays(self.console.mode) and not self.console.locked and self.advance_interval:
+        if not main_player_displays(self.console.main_mode) and not self.console.locked and self.advance_interval:
             pace = f"{self.advance_interval}s"
             order = f"{order}{SEPARATOR}{pace}" if order else pace
         return status_line(
             playing_set=compilation,
             locked=self.console.locked,
             order=order,
-            f_mode=self.modes.f_mode or bool(self.console.favorites_filter),
+            f_mode=self.modes.scripted_filter or bool(self.console.favorites_filter),
             filter_label=self._filter_label,
         )
 
@@ -379,7 +380,7 @@ class ConsolePainter:
         # playhead — set by the same function that drew the line under the dot —
         # since the round trip lags the arbiter, and the arbiter itself decides
         # seconds before the device is done riding the blue.
-        if not (main_player_displays(hud.console.mode) and drive.segments):
+        if not (main_player_displays(hud.console.main_mode) and drive.segments):
             drive = replace(drive, driven=_driven_by(hud.console.osr2))
         # In video mode the readout is not a picture of the Robot Hand's motion: it is the
         # picture of the handoff, and the device changes hands inside it.  The
@@ -391,9 +392,9 @@ class ConsolePainter:
         # trace (video mode) is the script's plan, computed fresh per
         # frame from the playhead: it keeps sliding through every rest and
         # every handoff whatever the OSR2 state says, because the rests ARE
-        # part of what it draws — freezing it on the round-tripped "idle"/"off"
+        # part of what it draws — freezing it on the round-tripped "off"
         # was the picture that stopped scrolling for the length of each gap.
-        if not drive.live and not main_player_displays(hud.console.mode):
+        if not drive.live and not main_player_displays(hud.console.main_mode):
             # Genau goes on driving regardless — it cannot see that the OSR2 is
             # off — so both the trace and the position it publishes keep moving,
             # and either one left running is a dead readout still claiming to be
@@ -520,7 +521,7 @@ class ConsolePainter:
         # and the width helpers need it before the pill is drawn.
         self._composed_drive = (
             drive if (drive is not None and drive.segments
-                      and main_player_displays(console.mode)) else None)
+                      and main_player_displays(console.main_mode)) else None)
         rows = console_rows(console, modes=hud.modes_row,
                             label_width=self._row_label_width(),
                             main_player=hud.modes)
@@ -577,7 +578,7 @@ class ConsolePainter:
             for control in drive_controls(_PAD, y, drive):
                 self.buttons.append((
                     control.rect,
-                    Button(control.action, "", _DRIVE_TIPS.get(control.action, ""),
+                    Button(control.command, "", _DRIVE_TIPS.get(control.command, ""),
                            dim=control.dim),
                 ))
             # A band takes its value from where you press in it, so it is its own
@@ -686,7 +687,7 @@ class ConsolePainter:
         the readout's own key/value colors: a muted word names the value beside
         it, which is bright."""
         x, y, w, h = rect
-        if not button.action:
+        if not button.command:
             ink = TEXT_MUTED if button.glyph.replace(" ", "").isalpha() else TEXT_PRIMARY
             if x == _PAD:
                 # A word NAMING its row, at the panel's left edge.  Centered in
