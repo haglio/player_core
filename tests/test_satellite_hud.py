@@ -20,6 +20,7 @@ from player_core.satellite_hud import (
     STATUS_TEXT_X,
     HudCell,
     HudClicks,
+    HudModel,
     HudTargets,
     act_is_filtered,
     action_label_blocks,
@@ -31,6 +32,7 @@ from player_core.satellite_hud import (
     filter_button_rects,
     friendly_action_label,
     hit_test_targets,
+    hud_text,
     label_is_filtered,
     loop_button_rects,
     looped_group_rect,
@@ -717,3 +719,54 @@ def test_parse_hud_reads_the_browse_order_only_where_the_side_names_one():
     assert parse_hud(json.dumps({"side": "portrait"})).latest is None
     assert parse_hud(json.dumps({"side": "portrait", "latest": False})).latest is False
     assert parse_hud(json.dumps({"side": "portrait", "latest": True})).latest is True
+
+
+class TestThePublishedPanelIsWrittenWhereItIsRead:
+    """A source publishes a HudModel as text and the player parses it back; the
+    keys are spelled once, here, rather than by the writer in one repo and the
+    reader in another."""
+
+    def test_every_field_survives_the_round_trip(self):
+        model = HudModel(
+            side="landscape", locked=True, lock_label="Looping seeds · Locked · Latest",
+            active=True, is_favorite=True, f_mode=True, enhanced_filter=True, latest=False,
+            corner=HudCell(path="C:/v/cur.mp4", thumb="C:/t/cur.jpg"),
+            seeds=(HudCell(path="C:/v/s1.mp4", thumb="C:/t/s1.jpg"),
+                   HudCell(path="C:/v/s2.mp4")),
+            actions=(HudCell(path="C:/v/a1.mp4", thumb="C:/t/a1.jpg", label="gamma"),),
+            current_action="alpha", filter_query="alpha", active_loop="seed",
+            seed_count=7, action_count=3, playing=("seed", 1),
+            satellites_mode="video",
+        )
+
+        assert parse_hud(hud_text(model)) == model
+
+    def test_a_switch_a_side_does_not_have_stays_absent(self):
+        """None is "no such switch", not "off": the player draws the button only
+        for a side that says it has the switch, so None has to come back None."""
+        model = HudModel(side="portrait", enhanced_filter=None, latest=None)
+
+        parsed = parse_hud(hud_text(model))
+
+        assert parsed.enhanced_filter is None
+        assert parsed.latest is None
+        assert parse_hud(hud_text(HudModel(side="portrait", latest=False))).latest is False
+
+    def test_a_panel_with_no_clip_yet_round_trips_empty(self):
+        parsed = parse_hud(hud_text(HudModel(side="portrait")))
+
+        assert parsed.corner is None
+        assert parsed.seeds == () and parsed.actions == ()
+        assert parsed.playing == ("corner", 0)
+
+    def test_the_text_is_the_json_a_player_already_reads(self):
+        """A cell with nothing in its label carries no label key, and the playing
+        cell is a two-element list, exactly as the panel was published before the
+        writer moved here -- a player on either side of the move reads it."""
+        raw = json.loads(hud_text(HudModel(
+            side="portrait", corner=HudCell(path="C:/v/cur.mp4"),
+            actions=(HudCell(path="C:/v/a1.mp4", label="gamma"),), playing=("action", 0))))
+
+        assert raw["corner"] == {"path": "C:/v/cur.mp4", "thumb": ""}
+        assert raw["actions"] == [{"path": "C:/v/a1.mp4", "thumb": "", "label": "gamma"}]
+        assert raw["playing"] == ["action", 0]

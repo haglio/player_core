@@ -943,6 +943,43 @@ def _cell(raw: object) -> HudCell | None:
     )
 
 
+def _cell_raw(cell: HudCell) -> dict[str, str]:
+    raw = {"path": cell.path, "thumb": cell.thumb}
+    if cell.label:
+        raw["label"] = cell.label
+    return raw
+
+
+def hud_text(model: HudModel) -> str:
+    """*model* as the text a source publishes, and :func:`parse_hud` reads back.
+
+    The two are one module so the keys are spelled once: a source in another
+    process (Fun Time, for its satellites) writes this into the side's HUD
+    file, and a source in the player's own (a hosted Origenerator) hands the
+    model over without it.
+    """
+    return json.dumps({
+        "side": model.side,
+        "locked": model.locked,
+        "lock_label": model.lock_label,
+        "active": model.active,
+        "satellites_mode": model.satellites_mode,
+        "is_favorite": model.is_favorite,
+        "f_mode": model.f_mode,
+        "enhanced_filter": model.enhanced_filter,
+        "latest": model.latest,
+        "filter_query": model.filter_query,
+        "seed_count": model.seed_count,
+        "action_count": model.action_count,
+        "active_loop": model.active_loop,
+        "current_action": model.current_action,
+        "playing": list(model.playing),
+        "corner": None if model.corner is None else _cell_raw(model.corner),
+        "seeds": [_cell_raw(cell) for cell in model.seeds],
+        "actions": [_cell_raw(cell) for cell in model.actions],
+    })
+
+
 def parse_hud(text: str) -> HudModel | None:
     """The published panel, or None when *text* is not a complete panel.
 
