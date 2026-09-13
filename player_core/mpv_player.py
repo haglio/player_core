@@ -38,6 +38,9 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
+# Origenerator's slideshow opens at this pace (slideshow.DEFAULT_IMAGE_DWELL_MS).
+_DEFAULT_PACE_S = 4.0
+
 # mpv's severities onto Python's.  Only warnings and worse are asked for below,
 # so anything that arrives belongs in the host's log at face value.
 _MPV_LEVELS = {"fatal": logging.CRITICAL, "error": logging.ERROR, "warn": logging.WARNING}
@@ -97,6 +100,7 @@ def _shared_options(*, muted: bool, loop_file: bool, prefetch: bool) -> dict:
         audio_fallback_to_null="yes",
         osc=False,
         input_default_bindings=False,
+        image_display_duration=_DEFAULT_PACE_S,
     )
     if prefetch:
         # Open and demux the *next* playlist entry during the tail of the
@@ -123,9 +127,8 @@ class _MpvControl:
 
     Subclasses call ``super().__init__()`` and hand the handle they construct to
     ``_adopt``; every method here only drives it, so the session classes (the main
-    player's, a
-    satellite's, fun_time_vr's roles) can hold either player without knowing
-    which rendering path is backing it.
+    player's, a satellite's, fun_time_vr's roles) can hold either player without
+    knowing which rendering path is backing it.
 
     Each of those methods runs under :class:`player_core.mpv_gate.CallGate`,
     which is what makes a player safe to close from a thread other than the one
@@ -138,17 +141,27 @@ class _MpvControl:
     def __init__(self) -> None:
         self._gate = CallGate()
         self._frame_rate = 0.0
+        self._showing_picture = False
+        self._overlays: dict[int, np.ndarray] = {}
 
     def _adopt(self, handle) -> None:
         self._mpv = handle
         handle.observe_property("container-fps", self._note_frame_rate)
+        handle.observe_property("current-tracks/video/image", self._note_picture)
 
     def _note_frame_rate(self, _name: str, value) -> None:
         self._frame_rate = value or 0.0
 
+    def _note_picture(self, _name: str, value) -> None:
+        self._showing_picture = bool(value)
+
     @property
     def frame_rate(self) -> float:
         return self._frame_rate
+
+    @property
+    def showing_picture(self) -> bool:
+        return self._showing_picture
 
     @mpv_call()
     def load(self, path: Path) -> None:
@@ -218,10 +231,13 @@ class _MpvControl:
     def duration_ms(self) -> float:
         return (self._mpv.duration or 0.0) * 1000.0
 
-
     @mpv_call()
     def set_paused(self, paused: bool) -> None:
         self._mpv.pause = paused
+
+    @mpv_call()
+    def set_pace(self, seconds: float) -> None:
+        self._mpv.image_display_duration = seconds or "inf"
 
     @mpv_call()
     def set_loop_file(self, loop: bool) -> None:
@@ -295,7 +311,6 @@ class _MpvControl:
     def eof(self) -> bool:
         return bool(self._mpv.eof_reached)
 
-
     @mpv_call()
     def screenshot_bgra(self, height: int = 64):
         """Current displayed frame, resized to *height*, as a BGRA array.
@@ -320,13 +335,12 @@ class _MpvControl:
             ident, x, y, "&" + str(arr.ctypes.data), 0, "bgra", w, h, w * 4,
         )
         # hold a reference so the buffer isn't freed while mpv reads it
-        self._overlays = getattr(self, "_overlays", {})
         self._overlays[ident] = arr
 
     @mpv_call()
     def remove_overlay(self, ident: int) -> None:
         self._mpv.overlay_remove(ident)
-        getattr(self, "_overlays", {}).pop(ident, None)
+        self._overlays.pop(ident, None)
 
     def close(self) -> None:
         """Free this player's mpv, once no thread is inside a call on it.
