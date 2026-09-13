@@ -15,6 +15,7 @@ from shared_ui.icon_geometry import glyph_names
 from player_core.console import _GLYPHS, WAVE_ICON, console_rows
 from player_core.hud_marks import SHARED_MARK, shared_mark, shared_mark_name
 from player_core.hud_panel import MARK_INSET, draw_mark
+from player_core.modes import MainMode
 
 
 def _named_marks() -> dict[str, str]:
@@ -98,7 +99,7 @@ class TestDangerIsRed:
 
         bin_button = next(
             button
-            for row in console_rows(ConsoleModel(mode="genau"))
+            for row in console_rows(ConsoleModel(main_mode=MainMode.GENAU))
             for button in row
             if button.action == "genau_weird_clip"
         )

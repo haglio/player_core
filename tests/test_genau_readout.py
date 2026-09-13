@@ -18,6 +18,7 @@ from player_core.cruise_control import CruiseControlState
 from player_core.flag import Flag
 from player_core.genau_controls import GenauControls
 from player_core.genau_readout import GenauReadout
+from player_core.modes import MainMode
 from player_core.robot_hand import RobotHandState
 from player_core.robot_hand_beat import BeatEngine
 
@@ -43,7 +44,7 @@ def _controls(**over) -> GenauControls:
 
 def _publish(path: Path, mode: str) -> None:
     """Write the console file the way Fun Time writes it."""
-    path.write_text(json.dumps({"mode": mode}), encoding="utf-8")
+    path.write_text(json.dumps({"main_mode": mode}), encoding="utf-8")
 
 
 def _readout(**over) -> GenauReadout:
@@ -108,7 +109,7 @@ class TestHowOftenTheConsoleIsReRead:
 
         readout.update(1.0)
 
-        assert shown[-1].console.mode == "video"
+        assert shown[-1].console.main_mode is MainMode.VIDEO
 
     def test_a_tick_too_soon_after_it_keeps_the_model_it_had(self, tmp_path):
         console = tmp_path / "console.txt"
@@ -120,7 +121,7 @@ class TestHowOftenTheConsoleIsReRead:
         _publish(console, "video")
         readout.update(1.0 + JUST_UNDER_CONSOLE)
 
-        assert shown[-1].console.mode == "video"
+        assert shown[-1].console.main_mode is MainMode.VIDEO
 
     def test_a_tick_far_enough_after_it_takes_the_new_one(self, tmp_path):
         console = tmp_path / "console.txt"
@@ -132,7 +133,7 @@ class TestHowOftenTheConsoleIsReRead:
         _publish(console, "video")
         readout.update(1.0 + JUST_OVER_CONSOLE)
 
-        assert shown[-1].console.mode == "video"
+        assert shown[-1].console.main_mode is MainMode.VIDEO
 
     def test_a_standalone_genau_names_itself(self, tmp_path):
         """No file backing it, and the panel still draws sensibly."""
@@ -140,7 +141,7 @@ class TestHowOftenTheConsoleIsReRead:
 
         _readout(set_console=shown.append).update(1.0)
 
-        assert shown[-1].console.mode == "genau"
+        assert shown[-1].console.main_mode is MainMode.GENAU
 
     def test_a_half_written_file_keeps_the_last_one_rather_than_blanking(self, tmp_path):
         """Fun Time replaces this file while Genau polls it, so a lost race must
@@ -154,7 +155,7 @@ class TestHowOftenTheConsoleIsReRead:
         console.write_text("{\"mo", encoding="utf-8")   # caught mid-replace
         readout.update(1.0 + JUST_OVER_CONSOLE)
 
-        assert shown[-1].console.mode == "video"
+        assert shown[-1].console.main_mode is MainMode.VIDEO
 
 
 class TestWhatThePanelIsToldEachTime:

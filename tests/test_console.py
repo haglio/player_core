@@ -23,6 +23,7 @@ from player_core.console import (
     shape_label,
     tooltip_at,
 )
+from player_core.modes import LengthMode, LoopState, MainMode, Osr2State
 
 
 def _actions(model: ConsoleModel) -> list[str]:
@@ -80,7 +81,7 @@ class TestTransport:
     is — with the actions that only make sense for each."""
 
     def test_video_mode_steps_the_video_and_acts_on_it(self):
-        actions = _actions(ConsoleModel(mode="video"))
+        actions = _actions(ConsoleModel(main_mode=MainMode.VIDEO))
         for action in ("main_prev", "main_next", "main_nudge_prev",
                        "main_nudge_next", "main_fmode", "browse_library",
                        "clipper_save", "main_player_record_tap"):
@@ -90,8 +91,8 @@ class TestTransport:
         """Fun Time's dashboard carried one F-mode switch for the room; every
         player carries its own now, and this is the main player's — its playlist
         narrowed to the videos that have a funscript."""
-        off = _button(ConsoleModel(mode="video"), "main_fmode")
-        on = _button(ConsoleModel(mode="video", f_mode=True), "main_fmode")
+        off = _button(ConsoleModel(main_mode=MainMode.VIDEO), "main_fmode")
+        on = _button(ConsoleModel(main_mode=MainMode.VIDEO, scripted_filter=True), "main_fmode")
 
         assert off.lit is False
         assert on.lit is True
@@ -99,10 +100,10 @@ class TestTransport:
     def test_f_mode_is_not_offered_where_there_is_no_main_player_playlist(self):
         """In genau mode the main slot is Genau's, and the playlist F-mode
         narrows is not what is playing — the same reason nudge and record go."""
-        assert "main_fmode" not in _actions(ConsoleModel(mode="genau"))
+        assert "main_fmode" not in _actions(ConsoleModel(main_mode=MainMode.GENAU))
 
     def test_genau_steps_its_own_clips_and_can_mark_one_weird(self):
-        actions = _actions(ConsoleModel(mode="genau"))
+        actions = _actions(ConsoleModel(main_mode=MainMode.GENAU))
 
         assert "genau_prev_clip" in actions
         assert "genau_next_clip" in actions
@@ -110,7 +111,7 @@ class TestTransport:
 
     def test_genau_offers_no_video_only_actions(self):
         """Nudge, open, clip and record act on a video; Genau's clips are not one."""
-        actions = _actions(ConsoleModel(mode="genau"))
+        actions = _actions(ConsoleModel(main_mode=MainMode.GENAU))
 
         for action in ("main_nudge_prev", "browse_library", "clipper_save",
                        "main_player_record_tap", "main_fmode"):
@@ -124,15 +125,15 @@ class TestFavoritesFilter:
         """Genau's own clips are not a set anybody has bookmarked, and F-mode in
         the main player branch is Fun Time's own — this is the genau branch's, and it
         appears only where a host folded one in."""
-        assert "main_fmode" not in _actions(ConsoleModel(mode="genau"))
+        assert "main_fmode" not in _actions(ConsoleModel(main_mode=MainMode.GENAU))
 
     def test_the_button_appears_once_a_host_says_it_has_one(self):
         assert "main_fmode" in _actions(
-            ConsoleModel(mode="genau", favorites_filter=False))
+            ConsoleModel(main_mode=MainMode.GENAU, favorites_filter=False))
 
     def test_it_lights_while_the_filter_is_on(self):
-        off = _button(ConsoleModel(mode="genau", favorites_filter=False), "main_fmode")
-        on = _button(ConsoleModel(mode="genau", favorites_filter=True), "main_fmode")
+        off = _button(ConsoleModel(main_mode=MainMode.GENAU, favorites_filter=False), "main_fmode")
+        on = _button(ConsoleModel(main_mode=MainMode.GENAU, favorites_filter=True), "main_fmode")
 
         assert (off.lit, on.lit) == (False, True)
         assert on.favorite is True   # green: the favorites own it across the family
@@ -141,7 +142,7 @@ class TestFavoritesFilter:
         """F holds one place on this console whichever branch drew it, and the
         rest of the narrowing switches group after it."""
         row = next(row for row in console_rows(
-            ConsoleModel(mode="genau", favorites_filter=False, enhanced_filter=False))
+            ConsoleModel(main_mode=MainMode.GENAU, favorites_filter=False, enhanced_filter=False))
             if any(b.action == "main_fmode" for b in row))
         actions = [b.action for b in row if b.action]
 
@@ -151,8 +152,8 @@ class TestFavoritesFilter:
     def test_the_main_player_branchs_f_mode_is_untouched_by_it(self):
         """Fun Time publishes that one for a playlist it owns; this field is the
         genau branch's and must not reach across."""
-        assert "main_fmode" in _actions(ConsoleModel(mode="video"))
-        assert _button(ConsoleModel(mode="video", f_mode=True), "main_fmode").lit is True
+        assert "main_fmode" in _actions(ConsoleModel(main_mode=MainMode.VIDEO))
+        assert _button(ConsoleModel(main_mode=MainMode.VIDEO, scripted_filter=True), "main_fmode").lit is True
 
 
 class TestEnhancedFilter:
@@ -162,17 +163,17 @@ class TestEnhancedFilter:
         """An enhancement is a thing Origenerator makes, so no other player here
         has a set to narrow — and a dead button nobody can explain is worse than
         no button.  Genau's own console is the one this would otherwise grow."""
-        assert "genau_filter_enhanced" not in _actions(ConsoleModel(mode="genau"))
-        assert "genau_filter_enhanced" not in _actions(ConsoleModel(mode="video"))
+        assert "genau_filter_enhanced" not in _actions(ConsoleModel(main_mode=MainMode.GENAU))
+        assert "genau_filter_enhanced" not in _actions(ConsoleModel(main_mode=MainMode.VIDEO))
 
     def test_the_button_appears_once_a_host_says_it_has_one(self):
         assert "genau_filter_enhanced" in _actions(
-            ConsoleModel(mode="genau", enhanced_filter=False))
+            ConsoleModel(main_mode=MainMode.GENAU, enhanced_filter=False))
 
     def test_it_lights_while_the_filter_is_on(self):
-        off = _button(ConsoleModel(mode="genau", enhanced_filter=False),
+        off = _button(ConsoleModel(main_mode=MainMode.GENAU, enhanced_filter=False),
                       "genau_filter_enhanced")
-        on = _button(ConsoleModel(mode="genau", enhanced_filter=True),
+        on = _button(ConsoleModel(main_mode=MainMode.GENAU, enhanced_filter=True),
                      "genau_filter_enhanced")
 
         assert (off.lit, on.lit) == (False, True)
@@ -180,9 +181,9 @@ class TestEnhancedFilter:
     def test_it_says_which_way_the_press_goes(self):
         """A toggle whose tooltip reads the same either way makes you press it to
         find out what it was — which is the one thing a filter must not do."""
-        off = _button(ConsoleModel(mode="genau", enhanced_filter=False),
+        off = _button(ConsoleModel(main_mode=MainMode.GENAU, enhanced_filter=False),
                       "genau_filter_enhanced")
-        on = _button(ConsoleModel(mode="genau", enhanced_filter=True),
+        on = _button(ConsoleModel(main_mode=MainMode.GENAU, enhanced_filter=True),
                      "genau_filter_enhanced")
 
         assert "Show only" in off.tooltip
@@ -191,7 +192,7 @@ class TestEnhancedFilter:
     def test_it_keeps_the_yellow_an_enhancement_is_marked_with(self):
         """Green is spoken for by the funscripts and the favorites; an enhanced
         picture wears yellow, so the switch that keeps only those does too."""
-        button = _button(ConsoleModel(mode="genau", enhanced_filter=True),
+        button = _button(ConsoleModel(main_mode=MainMode.GENAU, enhanced_filter=True),
                          "genau_filter_enhanced")
 
         assert button.enhanced is True
@@ -203,7 +204,7 @@ class TestEnhancedFilter:
         than acting on what is on screen. Alone, with no favorites filter
         beside it, it takes that first place itself."""
         row = next(row for row in console_rows(
-            ConsoleModel(mode="genau", enhanced_filter=False))
+            ConsoleModel(main_mode=MainMode.GENAU, enhanced_filter=False))
             if any(b.action == "genau_filter_enhanced" for b in row))
         actions = [b.action for b in row if b.action]
 
@@ -215,7 +216,7 @@ class TestEnhancedFilter:
         which would draw the button, unlit, on every player in the room."""
         import json
         path = tmp_path / "main_player_console.json"
-        path.write_text(json.dumps({"mode": "genau"}), encoding="utf-8")
+        path.write_text(json.dumps({"main_mode": "genau"}), encoding="utf-8")
 
         assert read_console(path).enhanced_filter is None
         assert read_console(path).favorites_filter is None
@@ -230,18 +231,18 @@ class TestReset:
         """Each satellite's HUD carries this button; the main player's console had
         no way to say "put it back" at all, so the length mode and F-mode could
         only be lifted one at a time and only by name."""
-        assert "main_reset" in _actions(ConsoleModel(mode="video"))
+        assert "main_reset" in _actions(ConsoleModel(main_mode=MainMode.VIDEO))
 
     def test_it_is_not_offered_where_there_is_no_main_player_playlist(self):
         """In genau mode neither of the things it drops is narrowing what is on
         screen — the same reason F-mode itself is not offered there."""
-        assert "main_reset" not in _actions(ConsoleModel(mode="genau"))
+        assert "main_reset" not in _actions(ConsoleModel(main_mode=MainMode.GENAU))
 
     def test_it_is_a_thing_done_rather_than_a_state_held(self):
         """Nothing lights it: the lock and F-mode are conditions the player sits
         in, and a reset is over the moment it lands."""
-        for f_mode in (False, True):
-            button = _button(ConsoleModel(mode="video", f_mode=f_mode), "main_reset")
+        for scripted_filter in (False, True):
+            button = _button(ConsoleModel(main_mode=MainMode.VIDEO, scripted_filter=scripted_filter), "main_reset")
             assert button.lit is False
             assert button.favorite is False
 
@@ -249,7 +250,7 @@ class TestReset:
         """It shares the transport's command prefix and would otherwise rejoin
         that run and read as another step through the video — and it must not read
         as a third switch either, since it is what takes the other two back off."""
-        placed = place_rows(console_rows(ConsoleModel(mode="video")), x=0, y=0)
+        placed = place_rows(console_rows(ConsoleModel(main_mode=MainMode.VIDEO)), x=0, y=0)
         by_action = {b.action: rect for rect, b in placed}
         fmode, reset = by_action["main_fmode"], by_action["main_reset"]
 
@@ -263,15 +264,15 @@ class TestBrowseOrder:
         """The order was a spoken command and a status word with no control at
         all.  It is one question in both modes — video reorders the playlist Fun
         Time built for the main player, genau tells Genau to rescan the other way round."""
-        for mode in ("video", "genau"):
-            actions = _actions(ConsoleModel(mode=mode, latest=False))
+        for mode in MainMode:
+            actions = _actions(ConsoleModel(main_mode=mode, latest=False))
             assert "main_shuffle" in actions and "main_latest" in actions
 
     def test_exactly_one_of_the_pair_is_lit(self):
         """Neither is ever off — the player is in one order or the other — so the
         light says which one you are in rather than "this is engaged"."""
-        shuffled = ConsoleModel(mode="video", latest=False)
-        newest = ConsoleModel(mode="video", latest=True)
+        shuffled = ConsoleModel(main_mode=MainMode.VIDEO, latest=False)
+        newest = ConsoleModel(main_mode=MainMode.VIDEO, latest=True)
 
         assert _button(shuffled, "main_shuffle").lit is True
         assert _button(shuffled, "main_latest").lit is False
@@ -282,14 +283,14 @@ class TestBrowseOrder:
         """A lit control fills the family's blue, and these are lit controls —
         neither of them is the favorites' green or an enhanced picture's amber."""
         for action in ("main_shuffle", "main_latest"):
-            button = _button(ConsoleModel(mode="video", latest=False), action)
+            button = _button(ConsoleModel(main_mode=MainMode.VIDEO, latest=False), action)
             assert button.favorite is False and button.enhanced is False
 
     def test_the_pair_is_its_own_group_after_the_reset(self):
         """The two are one control asked twice, so they sit together — and apart
         from reset, which is what puts the order back rather than a third way of
         setting it."""
-        placed = place_rows(console_rows(ConsoleModel(mode="video", latest=False)),
+        placed = place_rows(console_rows(ConsoleModel(main_mode=MainMode.VIDEO, latest=False)),
                             x=0, y=0)
         by_action = {b.action: rect for rect, b in placed}
         reset = by_action["main_reset"]
@@ -302,7 +303,7 @@ class TestBrowseOrder:
         """Origenerator's motion panel draws this console over a show's own set,
         which is not a browse at all — two buttons nothing there answers would be
         two dead buttons."""
-        actions = _actions(ConsoleModel(mode="genau"))
+        actions = _actions(ConsoleModel(main_mode=MainMode.GENAU))
 
         assert "main_shuffle" not in actions and "main_latest" not in actions
         assert ConsoleModel().latest is None
@@ -312,10 +313,10 @@ class TestBrowseOrder:
         the pair; a file that says nothing about it is not one of them."""
         import json
         path = tmp_path / "main_player_console.json"
-        path.write_text(json.dumps({"mode": "video", "latest": True}), encoding="utf-8")
+        path.write_text(json.dumps({"main_mode": "video", "latest": True}), encoding="utf-8")
         assert read_console(path).latest is True
 
-        path.write_text(json.dumps({"mode": "video"}), encoding="utf-8")
+        path.write_text(json.dumps({"main_mode": "video"}), encoding="utf-8")
         assert read_console(path).latest is None
 
 
@@ -324,9 +325,9 @@ class TestProjectionPair:
 
     def _pair(self, plays_vr, plays_flat, **over):
         rows = console_rows(
-            ConsoleModel(mode="video", latest=False,
+            ConsoleModel(main_mode=MainMode.VIDEO, latest=False,
                          plays_vr=plays_vr, plays_flat=plays_flat),
-            main_player=ModeHud(length_mode="mixed", **over))
+            main_player=ModeHud(length_mode=LengthMode.MIXED, **over))
         return [b for row in rows for b in row
                 if b.action.startswith("main_projection")]
 
@@ -369,20 +370,20 @@ class TestProjectionPair:
     def test_a_published_panel_says_which_shapes_it_is_playing(self, tmp_path: Path):
         import json
         path = tmp_path / "main_player_console.json"
-        path.write_text(json.dumps({"mode": "video", "plays_vr": True,
+        path.write_text(json.dumps({"main_mode": "video", "plays_vr": True,
                                     "plays_flat": False}), encoding="utf-8")
         panel = read_console(path)
         assert (panel.plays_vr, panel.plays_flat) == (True, False)
 
-        path.write_text(json.dumps({"mode": "video"}), encoding="utf-8")
+        path.write_text(json.dumps({"main_mode": "video"}), encoding="utf-8")
         assert read_console(path).plays_vr is None
 
 
 class TestLengthPair:
     """Full length and shorts, as the two lengths each button includes."""
 
-    def _pair(self, length_mode: str, **over):
-        rows = console_rows(ConsoleModel(mode="video", latest=False),
+    def _pair(self, length_mode: LengthMode | None, **over):
+        rows = console_rows(ConsoleModel(main_mode=MainMode.VIDEO, latest=False),
                             main_player=ModeHud(length_mode=length_mode, **over))
         buttons = {b.action: b for row in rows for b in row if b.action}
         by_icon = [b for row in rows for b in row
@@ -392,24 +393,24 @@ class TestLengthPair:
     def test_mixed_is_both_of_them_lit(self):
         """Every length there is, which is what Mixed means — and why it needs no
         button of its own."""
-        pair, _ = self._pair("mixed")
+        pair, _ = self._pair(LengthMode.MIXED)
 
         assert [b.lit for b in pair] == [True, True]
 
     def test_one_length_is_that_one_lit_and_the_other_dark(self):
-        full, _ = self._pair("full")
-        shorts, _ = self._pair("shorts")
+        full, _ = self._pair(LengthMode.FULL)
+        shorts, _ = self._pair(LengthMode.SHORTS)
 
         assert [b.lit for b in full] == [True, False]
         assert [b.lit for b in shorts] == [False, True]
 
     def test_dropping_one_from_mixed_asks_for_the_other_alone(self):
-        pair, _ = self._pair("mixed")
+        pair, _ = self._pair(LengthMode.MIXED)
 
         assert [b.action for b in pair] == ["main_player_length_shorts", "main_player_length_full"]
 
     def test_putting_the_dark_one_back_asks_for_mixed(self):
-        pair, _ = self._pair("full")
+        pair, _ = self._pair(LengthMode.FULL)
 
         assert pair[1].action == "main_player_length_mixed"
 
@@ -417,19 +418,19 @@ class TestLengthPair:
         """Neither length is a browse with nothing in it -- degenerate, but a
         real answer, and the same one the shapes pair beside it allows.  Refusing
         it is what left a lit button wearing a gray mark for an unsayable reason."""
-        pair, _ = self._pair("full")
+        pair, _ = self._pair(LengthMode.FULL)
 
         assert [b.dim for b in pair] == [False, False]
         assert pair[0].action == "main_player_length_none"
 
     def test_neither_lit_offers_each_length_back(self):
-        pair, _ = self._pair("none")
+        pair, _ = self._pair(LengthMode.NONE)
 
         assert [b.lit for b in pair] == [False, False]
         assert [b.action for b in pair] == ["main_player_length_full", "main_player_length_shorts"]
 
     def test_no_pair_at_all_without_a_library_to_filter(self):
-        _pair, buttons = self._pair("")
+        _pair, buttons = self._pair(None)
 
         assert not [a for a in buttons if a.startswith("main_player_length")]
 
@@ -438,8 +439,8 @@ class TestCompilationAndJumps:
     """The set a video belongs to, the scene it came from, and its other cuts."""
 
     def _button_for(self, action: str, **over):
-        rows = console_rows(ConsoleModel(mode="video", latest=False),
-                            main_player=ModeHud(length_mode="mixed", **over))
+        rows = console_rows(ConsoleModel(main_mode=MainMode.VIDEO, latest=False),
+                            main_player=ModeHud(length_mode=LengthMode.MIXED, **over))
         return next(b for row in rows for b in row if b.action == action)
 
     def test_the_compilation_button_enters_and_the_lit_one_leaves(self):
@@ -457,8 +458,8 @@ class TestCompilationAndJumps:
     def test_inside_a_compilation_the_order_and_length_read_as_held(self):
         """A compilation replaces both while it plays and gives them back on the
         way out, so they are set-but-not-in-force rather than off."""
-        rows = console_rows(ConsoleModel(mode="video", latest=False),
-                            main_player=ModeHud(length_mode="mixed", compilation="Volume 6"))
+        rows = console_rows(ConsoleModel(main_mode=MainMode.VIDEO, latest=False),
+                            main_player=ModeHud(length_mode=LengthMode.MIXED, compilation="Volume 6"))
         held = {b.action: b for row in rows for b in row
                 if b.action in ("main_shuffle", "main_player_length_shorts")}
 
@@ -484,15 +485,15 @@ class TestLock:
     """The padlock: whether the video repeats or plays on into the playlist."""
 
     def test_the_video_can_be_held_wherever_main_player_is_on_screen(self):
-        assert "main_lock" in _actions(ConsoleModel(mode="video"))
+        assert "main_lock" in _actions(ConsoleModel(main_mode=MainMode.VIDEO))
 
     def test_it_is_lit_while_the_video_is_held(self):
-        assert _button(ConsoleModel(mode="video", locked=True), "main_lock").lit is True
-        assert _button(ConsoleModel(mode="video", locked=False), "main_lock").lit is False
+        assert _button(ConsoleModel(main_mode=MainMode.VIDEO, locked=True), "main_lock").lit is True
+        assert _button(ConsoleModel(main_mode=MainMode.VIDEO, locked=False), "main_lock").lit is False
 
     def test_it_says_which_way_a_press_goes(self):
-        held = _button(ConsoleModel(mode="video", locked=True), "main_lock")
-        loose = _button(ConsoleModel(mode="video", locked=False), "main_lock")
+        held = _button(ConsoleModel(main_mode=MainMode.VIDEO, locked=True), "main_lock")
+        loose = _button(ConsoleModel(main_mode=MainMode.VIDEO, locked=False), "main_lock")
 
         assert held.tooltip.startswith("Locked") and "play on" in held.tooltip
         assert loose.tooltip.startswith("Unlocked") and "hold this video" in loose.tooltip
@@ -503,7 +504,7 @@ class TestLock:
         the browser opens a file.  So they sit together, and clear of both.  The
         lock also shares the transport's command prefix, which would otherwise
         have made it read as a fifth step."""
-        placed = place_rows(console_rows(ConsoleModel(mode="video")), x=0, y=0)
+        placed = place_rows(console_rows(ConsoleModel(main_mode=MainMode.VIDEO)), x=0, y=0)
         by_action = {b.action: rect for rect, b in placed}
         step, lock = by_action["main_next"], by_action["main_lock"]
         fmode, reset = by_action["main_fmode"], by_action["main_reset"]
@@ -515,18 +516,18 @@ class TestLock:
 
 class TestPlaybackSpeed:
     def test_the_video_rate_has_controls_where_main_player_is_on_screen(self):
-        actions = _actions(ConsoleModel(mode="video"))
+        actions = _actions(ConsoleModel(main_mode=MainMode.VIDEO))
         assert "main_player_speed_down" in actions and "main_player_speed_up" in actions
 
     def test_genau_has_no_video_rate(self):
         """Genau's clips play at the motion's rate, so there is no video rate to
         set — that Speed is the motion's, on the readout."""
-        actions = _actions(ConsoleModel(mode="genau"))
+        actions = _actions(ConsoleModel(main_mode=MainMode.GENAU))
 
         assert "main_player_speed_down" not in actions
 
     def test_the_rate_is_shown_as_a_read_out_between_the_arrows(self):
-        rows = console_rows(with_speed(ConsoleModel(mode="video"), 1.5))
+        rows = console_rows(with_speed(ConsoleModel(main_mode=MainMode.VIDEO), 1.5))
         readouts = [b.glyph for row in rows for b in row if not b.action]
 
         assert "1.5×" in readouts
@@ -537,18 +538,18 @@ class TestClipSeconds:
     what used to be the auto-advance switch."""
 
     def test_the_pace_has_arrows_where_genau_is_on_screen(self):
-        actions = _actions(ConsoleModel(mode="genau"))
+        actions = _actions(ConsoleModel(main_mode=MainMode.GENAU))
         assert "genau_clip_seconds_down" in actions and "genau_clip_seconds_up" in actions
 
     def test_video_mode_shows_the_video_rate_instead(self):
         """The row is about what the transport is stepping, and in video mode
         that is the main player's video, which has a playback rate rather than a pace."""
-        actions = _actions(ConsoleModel(mode="video"))
+        actions = _actions(ConsoleModel(main_mode=MainMode.VIDEO))
         assert "genau_clip_seconds_down" not in actions
         assert "main_player_speed_down" in actions
 
     def test_the_seconds_are_shown_as_a_read_out_between_the_arrows(self):
-        rows = console_rows(ConsoleModel(mode="genau", advance_interval=7))
+        rows = console_rows(ConsoleModel(main_mode=MainMode.GENAU, advance_interval=7))
         readouts = [b.glyph for row in rows for b in row if not b.action]
 
         assert "7s" in readouts
@@ -562,8 +563,8 @@ class TestDriveControls:
     def test_the_switch_row_is_there_in_both_modes(self):
         """The Robot Hand is backing the screen in both: driving outright in
         genau mode, taking the funscript's gaps in video mode."""
-        for mode in ("video", "genau"):
-            actions = _actions(ConsoleModel(mode=mode))
+        for mode in MainMode:
+            actions = _actions(ConsoleModel(main_mode=mode))
             for action in ("robot_hand_toggle_cruise", "robot_hand_cycle_shape",
                            "quarter_button"):
                 assert action in actions, (mode, action)
@@ -572,14 +573,14 @@ class TestDriveControls:
         """Arming it and holding a clip against it were two controls that could
         disagree, and the padlock beside them was a second lock on a console that
         already had the main player's.  What is left is the pace, on its own row."""
-        actions = _actions(ConsoleModel(mode="genau"))
+        actions = _actions(ConsoleModel(main_mode=MainMode.GENAU))
 
         assert "genau_toggle_auto_advance" not in actions
         assert "genau_toggle_clip_lock" not in actions
 
     def test_the_axis_arrows_are_not_console_buttons(self):
         """They belong to the readout now, drawn on the bars themselves."""
-        actions = _actions(ConsoleModel(mode="video"))
+        actions = _actions(ConsoleModel(main_mode=MainMode.VIDEO))
 
         for action in ("robot_hand_amplitude_up", "robot_hand_center_down",
                        "robot_hand_speed_up"):
@@ -591,19 +592,19 @@ class TestLockAcrossModes:
     video in video mode, and Genau's clip in genau."""
 
     def test_every_mode_offers_exactly_one_padlock(self):
-        for mode in ("video", "genau"):
-            actions = _actions(ConsoleModel(mode=mode))
+        for mode in MainMode:
+            actions = _actions(ConsoleModel(main_mode=mode))
             assert actions.count("main_lock") == 1, mode
 
     def test_it_is_lit_while_whatever_is_showing_is_held(self):
-        for mode in ("video", "genau"):
-            assert _button(ConsoleModel(mode=mode, locked=True), "main_lock").lit is True
-            assert _button(ConsoleModel(mode=mode, locked=False), "main_lock").lit is False
+        for mode in MainMode:
+            assert _button(ConsoleModel(main_mode=mode, locked=True), "main_lock").lit is True
+            assert _button(ConsoleModel(main_mode=mode, locked=False), "main_lock").lit is False
 
     def test_in_genau_it_says_what_the_clip_does_and_how_fast(self):
-        held = _button(ConsoleModel(mode="genau", locked=True, advance_interval=7),
+        held = _button(ConsoleModel(main_mode=MainMode.GENAU, locked=True, advance_interval=7),
                        "main_lock")
-        loose = _button(ConsoleModel(mode="genau", locked=False, advance_interval=7),
+        loose = _button(ConsoleModel(main_mode=MainMode.GENAU, locked=False, advance_interval=7),
                         "main_lock")
 
         assert held.tooltip.startswith("Locked") and "every 7s" in held.tooltip
@@ -612,7 +613,7 @@ class TestLockAcrossModes:
 
 class TestState:
     def test_the_mode_you_are_in_is_lit_and_the_others_are_not(self):
-        model = ConsoleModel(mode="video")
+        model = ConsoleModel(main_mode=MainMode.VIDEO)
 
         assert _button(model, "main_video_activate").lit is True
         assert _button(model, "genau_activate").lit is False
@@ -621,7 +622,7 @@ class TestState:
         """Every switch here lights in the same white; red and blue are left to the
         two halves of a recording, which is the one control that has to say which
         of two things it is doing."""
-        model = ConsoleModel(mode="genau", cruise=True, locked=True)
+        model = ConsoleModel(main_mode=MainMode.GENAU, cruise=True, locked=True)
         colored = [b.action for row in console_rows(model) for b in row
                    if b.warn or b.hold]
 
@@ -631,32 +632,32 @@ class TestState:
         """It narrows the playlist to what has a funscript, and green means the
         favorites and the funscripts — so it is the one lit control here that is
         not white."""
-        assert _button(ConsoleModel(mode="video", f_mode=True), "main_fmode").favorite is True
-        assert _button(ConsoleModel(mode="genau"), "robot_hand_toggle_cruise").favorite is False
+        assert _button(ConsoleModel(main_mode=MainMode.VIDEO, scripted_filter=True), "main_fmode").favorite is True
+        assert _button(ConsoleModel(main_mode=MainMode.GENAU), "robot_hand_toggle_cruise").favorite is False
 
     def test_the_record_button_tells_marking_from_looping(self):
         """One key does both halves, and they look identical otherwise: the mark
         is still open in one and the loop is running in the other.  Red while it
         is being recorded, blue once it repeats."""
-        idle = _button(ConsoleModel(mode="video"), "main_player_record_tap")
-        marking = _button(ConsoleModel(mode="video", record="recording"), "main_player_record_tap")
-        looping = _button(ConsoleModel(mode="video", record="looping"), "main_player_record_tap")
+        idle = _button(ConsoleModel(main_mode=MainMode.VIDEO), "main_player_record_tap")
+        marking = _button(ConsoleModel(main_mode=MainMode.VIDEO, loop_state=LoopState.RECORDING), "main_player_record_tap")
+        looping = _button(ConsoleModel(main_mode=MainMode.VIDEO, loop_state=LoopState.LOOPING), "main_player_record_tap")
 
         assert (idle.warn, idle.hold) == (False, False)
         assert (marking.warn, marking.hold) == (True, False)
         assert (looping.warn, looping.hold) == (False, True)
 
     def test_the_record_button_says_which_press_comes_next(self):
-        for record, wanted in (("normal", "Record"), ("recording", "out point"),
-                               ("looping", "drop the loop")):
-            button = _button(ConsoleModel(mode="video", record=record), "main_player_record_tap")
+        for loop_state, wanted in ((LoopState.NORMAL, "Record"), (LoopState.RECORDING, "out point"),
+                               (LoopState.LOOPING, "drop the loop")):
+            button = _button(ConsoleModel(main_mode=MainMode.VIDEO, loop_state=loop_state), "main_player_record_tap")
             assert wanted in button.tooltip
 
 
 class TestModePredicates:
     def test_main_player_displays_covers_video_mode_alone(self):
-        assert main_player_displays("video")
-        assert not main_player_displays("genau")
+        assert main_player_displays(MainMode.VIDEO)
+        assert not main_player_displays(MainMode.GENAU)
 
 
 class TestReadConsole:
@@ -664,19 +665,19 @@ class TestReadConsole:
         import json
         path = tmp_path / "main_player_console.json"
         path.write_text(json.dumps({
-            "mode": "video", "active": True, "f_mode": True, "osr2": "robot_hand",
-            "broker": True, "record": "looping", "locked": False, "cruise": True,
+            "main_mode": "video", "active": True, "scripted_filter": True, "osr2": "robot_hand",
+            "broker": True, "loop_state": "looping", "locked": False, "cruise": True,
             "shape": "sawtooth",
         }), encoding="utf-8")
 
         model = read_console(path)
 
-        assert model.mode == "video"
+        assert model.main_mode is MainMode.VIDEO
         assert model.active is True
-        assert model.f_mode is True
-        assert model.osr2 == "robot_hand"
+        assert model.scripted_filter is True
+        assert model.osr2 is Osr2State.ROBOT_HAND
         assert model.broker is True
-        assert model.record == "looping"
+        assert model.loop_state is LoopState.LOOPING
         assert model.locked is False
         assert model.cruise is True
         assert model.shape == "sawtooth"
@@ -686,7 +687,7 @@ class TestReadConsole:
         publish the flag is still describing."""
         import json
         path = tmp_path / "main_player_console.json"
-        path.write_text(json.dumps({"mode": "video"}), encoding="utf-8")
+        path.write_text(json.dumps({"main_mode": "video"}), encoding="utf-8")
 
         assert read_console(path).locked is True
         assert ConsoleModel().locked is True
@@ -695,14 +696,14 @@ class TestReadConsole:
         path = tmp_path / "main_player_console.json"
         assert read_console(path) is None
 
-        path.write_text('{"mode": "video"', encoding="utf-8")
+        path.write_text('{"main_mode": "video"', encoding="utf-8")
         assert read_console(path) is None
 
 
 class TestLayout:
     def test_the_mode_row_leads_so_it_holds_its_place_across_modes(self):
-        for mode in ("video", "genau"):
-            first = console_rows(ConsoleModel(mode=mode))[0]
+        for mode in MainMode:
+            first = console_rows(ConsoleModel(main_mode=mode))[0]
             assert [b.action for b in first][:3] == [
                 "main_video_activate", "genau_activate", "main_minimize"]
 
@@ -710,8 +711,8 @@ class TestLayout:
         """Browsing for another video, recording a loop and saving what it caught
         are about files rather than about the video on screen — and the transport
         row had grown long enough that its own groups stopped reading as groups."""
-        video = [b.action for b in console_rows(ConsoleModel(mode="video"))[0]]
-        genau = [b.action for b in console_rows(ConsoleModel(mode="genau"))[0]]
+        video = [b.action for b in console_rows(ConsoleModel(main_mode=MainMode.VIDEO))[0]]
+        genau = [b.action for b in console_rows(ConsoleModel(main_mode=MainMode.GENAU))[0]]
 
         assert video[3:] == ["browse_library", "main_player_record_tap", "clipper_save"]
         # Nothing for them to act on in genau mode, so the row stops at minimize —
@@ -721,7 +722,7 @@ class TestLayout:
     def test_the_file_actions_stand_apart_from_minimize_and_from_each_other(self):
         """Three different things sharing one row: the window, the browser, and
         the two presses that make a clip."""
-        placed = place_rows(console_rows(ConsoleModel(mode="video")), x=0, y=0)
+        placed = place_rows(console_rows(ConsoleModel(main_mode=MainMode.VIDEO)), x=0, y=0)
         by_action = {b.action: rect for rect, b in placed}
         minimize, browse = by_action["main_minimize"], by_action["browse_library"]
         record, save = by_action["main_player_record_tap"], by_action["clipper_save"]
@@ -734,17 +735,17 @@ class TestLayout:
         """It parks the slot's window whatever is on it, so it must be in the row
         that is the same in every mode — the transport moves and resizes as the
         mode flips, which would put this button somewhere else each time."""
-        for mode in ("video", "genau"):
-            placed = place_rows(console_rows(ConsoleModel(mode=mode)), x=0, y=0)
+        for mode in MainMode:
+            placed = place_rows(console_rows(ConsoleModel(main_mode=mode)), x=0, y=0)
             rect = next(r for r, b in placed if b.action == "main_minimize")
             assert rect == next(r for r, b in place_rows(
-                console_rows(ConsoleModel(mode="video")), x=0, y=0)
+                console_rows(ConsoleModel(main_mode=MainMode.VIDEO)), x=0, y=0)
                 if b.action == "main_minimize"), mode
 
     def test_minimize_stands_apart_from_the_modes_it_sits_beside(self):
         """It is about the window, not about which app owns the slot, so it must
         not read as a fourth mode: the wider group gap separates it."""
-        placed = place_rows(console_rows(ConsoleModel(mode="video")), x=0, y=0)
+        placed = place_rows(console_rows(ConsoleModel(main_mode=MainMode.VIDEO)), x=0, y=0)
         by_action = {b.action: r for r, b in placed}
         genau, minimize = by_action["genau_activate"], by_action["main_minimize"]
 
@@ -754,31 +755,31 @@ class TestLayout:
         """Windows' own minimize mark is in a face this HUD does not load, and
         Pillow draws tofu for what a face lacks — so the console names a marker and
         the painter draws it, the way the waveform does."""
-        button = _button(ConsoleModel(mode="genau"), "main_minimize")
+        button = _button(ConsoleModel(main_mode=MainMode.GENAU), "main_minimize")
 
         assert button.glyph == MINIMIZE_ICON
         assert "taskbar" in button.tooltip
 
     def test_a_press_finds_the_button_under_it(self):
-        placed = place_rows(console_rows(ConsoleModel(mode="video")), x=0, y=0)
+        placed = place_rows(console_rows(ConsoleModel(main_mode=MainMode.VIDEO)), x=0, y=0)
         rect, _b = next((r, b) for r, b in placed if b.action == "main_next")
 
         assert hit_test(placed, rect[0] + 1, rect[1] + 1) == "main_next"
         assert tooltip_at(placed, rect[0] + 1, rect[1] + 1) == "Next video"
 
     def test_a_press_off_every_button_posts_nothing(self):
-        placed = place_rows(console_rows(ConsoleModel(mode="video")), x=0, y=0)
+        placed = place_rows(console_rows(ConsoleModel(main_mode=MainMode.VIDEO)), x=0, y=0)
 
         assert hit_test(placed, 5000, 5000) == ""
 
     def test_a_read_out_is_not_a_hit_target(self):
-        placed = place_rows(console_rows(with_speed(ConsoleModel(mode="video"), 1.0)), x=0, y=0)
+        placed = place_rows(console_rows(with_speed(ConsoleModel(main_mode=MainMode.VIDEO), 1.0)), x=0, y=0)
         rect = next(r for r, b in placed if not b.action and b.glyph.endswith("×"))
 
         assert hit_test(placed, rect[0] + 1, rect[1] + 1) == ""
 
     def test_the_buttons_are_the_declared_size(self):
-        placed = place_rows(console_rows(ConsoleModel(mode="video")), x=0, y=0)
+        placed = place_rows(console_rows(ConsoleModel(main_mode=MainMode.VIDEO)), x=0, y=0)
 
         assert all(rect[3] == BUTTON for rect, _b in placed)
 
@@ -795,7 +796,7 @@ def test_the_mode_row_can_be_left_off_and_takes_minimize_with_it():
     # point of asking for this console rather than building a second one.
     from player_core.console import ConsoleModel, console_rows
 
-    model = ConsoleModel(mode="genau")
+    model = ConsoleModel(main_mode=MainMode.GENAU)
     full = console_rows(model)
     trimmed = console_rows(model, modes=False)
     assert len(trimmed) == len(full) - 1
@@ -847,8 +848,9 @@ class TestThePublishedConsoleIsWrittenWhereItIsRead:
 
     def test_every_published_field_survives_the_round_trip(self):
         model = ConsoleModel(
-            mode="genau", active=True, osr2="auto", broker=True, record="looping",
-            locked=False, f_mode=True, latest=True, cruise=True, shape="triangle",
+            main_mode=MainMode.GENAU, active=True, osr2=Osr2State.AUTO, broker=True,
+            loop_state=LoopState.LOOPING, locked=False, scripted_filter=True, latest=True,
+            cruise=True, shape="triangle",
             plays_vr=True, plays_flat=False,
         )
 
@@ -872,5 +874,5 @@ class TestThePublishedConsoleIsWrittenWhereItIsRead:
         assert (parsed.latest, parsed.plays_vr, parsed.plays_flat) == (None, None, None)
 
     def test_a_torn_read_is_no_panel(self):
-        assert parse_console('{"mode": "video"') is None
+        assert parse_console('{"main_mode": "video"') is None
         assert parse_console("") is None
