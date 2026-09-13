@@ -10,7 +10,7 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
-from player_core.status import StatusWriter
+from player_core.status import PlayerStatus, StatusWriter, parse_status, status_fields
 
 
 class StubSession:
@@ -148,3 +148,48 @@ class TestStatusWriter:
         status_path.rmdir()
 
         assert writer.write(StubSession()) is True
+
+
+class TestWhatEveryPlayerPublishes:
+    """The five lines every player's status leads with, written and read here so
+    a player and the source polling it cannot disagree about a key."""
+
+    def test_the_lines_in_the_order_they_are_written(self):
+        fields = status_fields(PlayerStatus(
+            video="C:/vids/a.mp4", position_ms=1500, duration_ms=5000, paused=False, locked=True))
+
+        assert fields == {
+            "video": "C:/vids/a.mp4", "position_ms": "1500", "duration_ms": "5000",
+            "paused": "0", "locked": "1",
+        }
+        assert list(fields) == ["video", "position_ms", "duration_ms", "paused", "locked"]
+
+    def test_a_playhead_is_published_as_whole_milliseconds(self):
+        assert status_fields(PlayerStatus(position_ms=12345.9))["position_ms"] == "12345"
+
+    def test_what_is_published_is_what_is_read_back(self):
+        status = PlayerStatus(
+            video="C:/vids/b.mp4", position_ms=250, duration_ms=9000, paused=True, locked=False)
+
+        assert parse_status(status_fields(status)) == status
+
+    def test_a_key_the_file_does_not_carry_keeps_the_readers_default(self):
+        """A status from before a key existed, or a file read before the player's
+        first write, says what that player is doing at rest -- and what that is
+        differs: a satellite opens unlocked, the main player locked."""
+        assert parse_status({}) == PlayerStatus()
+        assert parse_status({}, default=PlayerStatus(locked=True)).locked is True
+        assert parse_status({"locked": "0"}, default=PlayerStatus(locked=True)).locked is False
+
+    def test_a_flag_is_on_only_when_the_file_says_1(self):
+        assert parse_status({"paused": "1"}).paused is True
+        assert parse_status({"paused": ""}, default=PlayerStatus(paused=True)).paused is False
+
+    def test_a_number_that_cannot_be_read_keeps_the_default_too(self):
+        assert parse_status({"position_ms": "soon", "duration_ms": " 40 "}).position_ms == 0
+        assert parse_status({"position_ms": "soon", "duration_ms": " 40 "}).duration_ms == 40
+
+    def test_the_lines_a_player_adds_of_its_own_ride_past_the_reader(self):
+        status = parse_status({"video": " C:/vids/c.mp4 ", "playlist_length": "3", "state": "looping"})
+
+        assert status == PlayerStatus(video="C:/vids/c.mp4")
