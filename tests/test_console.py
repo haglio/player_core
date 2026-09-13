@@ -1,6 +1,7 @@
 """The main console: the controls whichever player holds the slot draws."""
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from player_core.console import (
@@ -12,9 +13,11 @@ from player_core.console import (
     ConsoleModel,
     ModeHud,
     console_rows,
+    console_text,
     hit_test,
     main_player_displays,
     osr2_row,
+    parse_console,
     place_rows,
     read_console,
     shape_label,
@@ -836,3 +839,38 @@ def test_the_published_verbs_are_exactly_what_the_buttons_post():
         if isinstance(node, ast.Assign) and any(getattr(t, "id", "") == "_MODE_BUTTONS" for t in node.targets):
             posted.update(entry.elts[0].value for entry in node.value.elts)
     assert posted == CONSOLE_VERBS
+
+
+class TestThePublishedConsoleIsWrittenWhereItIsRead:
+    """Fun Time publishes a ConsoleModel as text and the main player parses it
+    back; the keys are spelled once, here."""
+
+    def test_every_published_field_survives_the_round_trip(self):
+        model = ConsoleModel(
+            mode="genau", active=True, osr2="auto", broker=True, record="looping",
+            locked=False, f_mode=True, latest=True, cruise=True, shape="triangle",
+            plays_vr=True, plays_flat=False,
+        )
+
+        assert parse_console(console_text(model)) == model
+
+    def test_what_the_drawing_player_folds_in_is_not_published(self):
+        """The playback rate, the clip pace and the two filters are the drawing
+        host's own -- Fun Time neither sets them nor hears about them -- so the
+        text does not carry them and they come back at rest."""
+        model = ConsoleModel(playback_speed=1.5, advance_interval=12,
+                             enhanced_filter=True, favorites_filter=False)
+
+        parsed = parse_console(console_text(model))
+
+        assert parsed == ConsoleModel()
+        assert "playback_speed" not in json.loads(console_text(model))
+
+    def test_a_pair_the_session_does_not_offer_stays_absent(self):
+        parsed = parse_console(console_text(ConsoleModel(latest=None, plays_vr=None, plays_flat=None)))
+
+        assert (parsed.latest, parsed.plays_vr, parsed.plays_flat) == (None, None, None)
+
+    def test_a_torn_read_is_no_panel(self):
+        assert parse_console('{"mode": "video"') is None
+        assert parse_console("") is None
