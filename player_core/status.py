@@ -5,7 +5,7 @@ go in, this comes back out.  Fun Time polls it to know what each player is
 showing — the item on screen, the playhead, whether the player is paused or
 holding — and whatever else that player's features need.
 
-Every player leads with the same five lines, :class:`PlayerStatus`, written by
+Every player leads with the same six lines, :class:`PlayerStatus`, written by
 :func:`status_fields` and read back by :func:`parse_status`; a player adds its
 own lines after them (the main player's loop and funscript, a satellite's
 playlist length), and its reader takes those off the same file.
@@ -42,6 +42,7 @@ class PlayerStatus:
     duration_ms: int = 0
     paused: bool = False
     locked: bool = False
+    picture: bool = False
 
 
 def _flag(on: bool) -> str:
@@ -56,6 +57,7 @@ def status_fields(status: PlayerStatus) -> dict[str, str]:
         "duration_ms": str(int(status.duration_ms)),
         "paused": _flag(status.paused),
         "locked": _flag(status.locked),
+        "picture": _flag(status.picture),
     }
 
 
@@ -88,6 +90,7 @@ def parse_status(fields: Mapping[str, str], *, default: PlayerStatus | None = No
         duration_ms=_int(fields.get("duration_ms"), default.duration_ms),
         paused=_bool(fields.get("paused"), default.paused),
         locked=_bool(fields.get("locked"), default.locked),
+        picture=_bool(fields.get("picture"), default.picture),
     )
 
 class StatusWriter:
