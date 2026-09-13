@@ -9,6 +9,20 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-09-13 — a picture is an item a player shows
+
+A playlist item can be a still picture, and every player shows one with what
+libmpv already does for an image: `image-display-duration` holds the frame, and
+then the file ends as a finished video ends, so no player's advance, lock or
+pause had to learn anything. `mpv_player` gained `set_pace` (0 holds; a player
+opens at 4 seconds) and `showing_picture`, observed off
+`current-tracks/video/image`; `player_verbs` gained `SET_PACE` and
+`pace_seconds`, the one reader of its value; `PlayerStatus` leads with a sixth
+line, `picture`. `PlaylistItem` gained no column: mpv says whether an item is a
+picture once it opens the file, the still a HUD map draws is the cell's
+`thumb`, and an id is nothing a player needs until a source answers presses
+about one.
+
 ## 2026-09-13 — the player contract, written where it is read
 
 What a content source hands a player and what it gets back was spread across
