@@ -572,7 +572,7 @@ def test_the_speed_buttons_name_themselves_in_the_consoles_words():
     from player_core.console import ConsoleModel, console_rows
     from player_core.modes import MainMode
 
-    console = {button.action: button.tooltip
+    console = {button.command: button.tooltip
                for row in console_rows(ConsoleModel(main_mode=MainMode.VIDEO)) for button in row}
     rects, _rate = speed_row_rects(0, 0, label_width=70)
     targets = _targets(buttons=[
@@ -657,8 +657,8 @@ def test_clicking_a_declared_button_posts_what_it_declares():
 
         for rect, button in targets.buttons:
             assert HudClicks(side).press(
-                targets, rect[0] + 5, rect[1] + 5, now=0.0) == button.action
-            assert button.action.startswith(f"{side}_")
+                targets, rect[0] + 5, rect[1] + 5, now=0.0) == button.command
+            assert button.command.startswith(f"{side}_")
 
 
 def test_a_dimmed_button_posts_nothing_but_the_press_stays_on_the_panel():
@@ -740,7 +740,7 @@ class TestModePair:
         pair, minimize = side_rows(satellites_mode="video")[0][:2], side_rows(satellites_mode="video")[0][2]
         rects = button_row_rects(100, 50, (*pair, minimize),
                                  [40 + 2 * MODE_LABEL_PAD, 80 + 2 * MODE_LABEL_PAD, CTRL_BTN])
-        assert [button.action for _rect, button in rects] == [
+        assert [button.command for _rect, button in rects] == [
             "satellites_video_activate", "origenerator_activate", "portrait_minimize"]
         (first, _), (second, _), (third, _) = rects
         assert first == (100, 50, 40 + 2 * MODE_LABEL_PAD, CTRL_BTN)

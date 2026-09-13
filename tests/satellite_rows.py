@@ -19,6 +19,6 @@ def short_name(button: Button) -> str:
     """What a standard button is for, the side prefix dropped: "lock", "fmode";
     a mode button keeps its whole verb, having no side."""
     for side in ("portrait_", "landscape_"):
-        if button.action.startswith(side):
-            return button.action[len(side):]
-    return button.action
+        if button.command.startswith(side):
+            return button.command[len(side):]
+    return button.command

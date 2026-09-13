@@ -101,7 +101,7 @@ class TestDangerIsRed:
             button
             for row in console_rows(ConsoleModel(main_mode=MainMode.GENAU))
             for button in row
-            if button.action == "genau_weird_clip"
+            if button.command == "genau_weird_clip"
         )
         assert bin_button.danger
 

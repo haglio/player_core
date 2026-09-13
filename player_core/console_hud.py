@@ -603,11 +603,11 @@ class ConsolePainter:
             for control in drive_controls(_PAD, y, drive):
                 self.buttons.append((
                     control.rect,
-                    Button(control.action, "", _DRIVE_TIPS.get(control.action, ""),
+                    Button(control.command, "", _DRIVE_TIPS.get(control.command, ""),
                            dim=control.dim),
                 ))
             # A band takes its value from where you press in it, so it is its own
-            # target (:meth:`_grab`) — and joins the buttons with no action to
+            # target (:meth:`_grab`) — and joins the buttons with no command to
             # post, purely so it names what it sets on hover.  Nothing else on a
             # HUD in a video says a bar can be dragged.
             self.tracks = drive_tracks(_PAD, y, drive)
@@ -714,7 +714,7 @@ class ConsolePainter:
         cell the source gave it widens the cell: "Playback speed" ran under the
         button beside it once, its last letter under the minus.
         """
-        if button.action:
+        if button.command:
             return button
         glyph = button.glyph
         if button.host_value == "playback_speed":
@@ -745,7 +745,7 @@ class ConsolePainter:
         the readout's own key/value colors: a muted word names the value beside
         it, which is bright."""
         x, y, w, h = rect
-        if not button.action:
+        if not button.command:
             ink = TEXT_MUTED if button.glyph.replace(" ", "").isalpha() else TEXT_PRIMARY
             if x == _PAD:
                 # A word NAMING its row, at the panel's left edge.  Centered in

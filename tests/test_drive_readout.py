@@ -56,7 +56,7 @@ class TestControls:
     """Each axis is one object: its controls, its bar and its number together."""
 
     def test_it_offers_every_axis_a_way_up_and_down(self):
-        actions = {control.action for control in controls(0, 0, _hud())}
+        actions = {control.command for control in controls(0, 0, _hud())}
 
         assert actions == {
             "robot_hand_speed_down", "robot_hand_speed_up",
@@ -67,38 +67,38 @@ class TestControls:
     def test_every_axis_is_moved_by_the_same_pair_of_marks(self):
         """Triangles on two axes and −/+ on the third read as two kinds of
         control for three things that are the same kind."""
-        by_action = {c.action: c.glyph for c in controls(0, 0, _hud())}
+        by_command = {c.command: c.glyph for c in controls(0, 0, _hud())}
 
-        assert {by_action[a] for a in
+        assert {by_command[a] for a in
                 ("robot_hand_speed_up", "robot_hand_amplitude_up", "robot_hand_center_up")} == {"+"}
-        assert {by_action[a] for a in
+        assert {by_command[a] for a in
                 ("robot_hand_speed_down", "robot_hand_amplitude_down", "robot_hand_center_down")} == {"−"}
 
     def test_the_speed_controls_sit_below_the_trace(self):
         """Speed is out from between centre and amplitude, under the trace, so the
         three axes do not crowd one band."""
-        by_action = {c.action: c.rect for c in controls(0, 0, _hud())}
-        wave_lower = max(by_action["robot_hand_amplitude_down"][1] + by_action["robot_hand_amplitude_down"][3],
-                         by_action["robot_hand_center_down"][1])
+        by_command = {c.command: c.rect for c in controls(0, 0, _hud())}
+        wave_lower = max(by_command["robot_hand_amplitude_down"][1] + by_command["robot_hand_amplitude_down"][3],
+                         by_command["robot_hand_center_down"][1])
 
-        assert by_action["robot_hand_speed_down"][1] >= wave_lower
-        assert by_action["robot_hand_speed_up"][1] >= wave_lower
+        assert by_command["robot_hand_speed_down"][1] >= wave_lower
+        assert by_command["robot_hand_speed_up"][1] >= wave_lower
 
     def test_a_mark_at_its_limit_is_dimmed(self):
         """The flag on the readout says the axis has run out of range, so the mark
         that would do nothing is greyed — the console then drops it from the hit
         targets, the same as any dimmed control."""
-        by_action = {c.action: c for c in controls(0, 0, _hud(spd_at_max=True, amp_at_min=True))}
+        by_command = {c.command: c for c in controls(0, 0, _hud(spd_at_max=True, amp_at_min=True))}
 
-        assert by_action["robot_hand_speed_up"].dim is True
-        assert by_action["robot_hand_speed_down"].dim is False
-        assert by_action["robot_hand_amplitude_down"].dim is True
+        assert by_command["robot_hand_speed_up"].dim is True
+        assert by_command["robot_hand_speed_down"].dim is False
+        assert by_command["robot_hand_amplitude_down"].dim is True
 
     def test_the_centre_marks_follow_the_line(self):
         """They sit beside the centre's dotted line, so they move up the panel as
         the centre rises."""
-        low = {c.action: c.rect for c in controls(0, 0, _hud(center=20))}
-        high = {c.action: c.rect for c in controls(0, 0, _hud(center=80))}
+        low = {c.command: c.rect for c in controls(0, 0, _hud(center=20))}
+        high = {c.command: c.rect for c in controls(0, 0, _hud(center=80))}
 
         assert high["robot_hand_center_up"][1] < low["robot_hand_center_up"][1]
 
@@ -126,7 +126,7 @@ class TestTracks:
         """The trace's band is the trace; the speed band sits between its two
         marks, and the amplitude band between its own."""
         hud = _hud()
-        marks = {c.action: c.rect for c in controls(PAD, PAD, hud)}
+        marks = {c.command: c.rect for c in controls(PAD, PAD, hud)}
         speed = self._band(hud, SPEED).rect
         amp = self._band(hud, AMPLITUDE).rect
         down_x, down_y, down_w, _h = marks["robot_hand_speed_down"]
@@ -229,7 +229,7 @@ class TestReadout:
         these HUDs means the favorites and the funscripts."""
         hud = _hud(speed=100, waveform=())
         rgb = _rendered(hud).astype(int)[:, :, :3]
-        rects = {c.action: c.rect for c in controls(PAD, PAD, hud)}
+        rects = {c.command: c.rect for c in controls(PAD, PAD, hud)}
         down_x, down_y, down_w, down_h = rects["robot_hand_speed_down"]
         up_x = rects["robot_hand_speed_up"][0]
         bar = rgb[down_y + down_h // 2, down_x + down_w + 4:up_x - 4]
@@ -368,7 +368,7 @@ class TestSwitchedOff:
         """A live blue level beside a dead control says the level is doing
         something."""
         off = _rendered(_hud(driven=DRIVEN_BY_NOTHING, waveform=()))
-        bar = {c.action: c.rect for c in controls(PAD, PAD, _hud())}["robot_hand_speed_up"]
+        bar = {c.command: c.rect for c in controls(PAD, PAD, _hud())}["robot_hand_speed_up"]
         row = off.astype(int)[bar[1] + bar[3] // 2, PAD:PAD + SECTION_W, :3]
 
         assert not ((row[:, 2] > 150) & (row[:, 0] < 120)).any()

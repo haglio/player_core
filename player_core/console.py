@@ -9,7 +9,7 @@ Kept free of Pillow, as :mod:`player_core.satellite_hud` is, so the rows, the
 geometry and the hit-testing are testable without a font.  :mod:`player_core.console_hud` paints them; the
 drive readout's own arrows come from :mod:`player_core.drive_readout`.
 
-The action on each button is a Fun Time dashboard command verbatim, because that
+What each button posts is a Fun Time dashboard command verbatim, because that
 is where a press goes: appended to the same command file the dashboard wrote, so
 nothing new has to learn what these buttons mean, and Fun Time routes each to the
 player the mode says owns it.
@@ -509,9 +509,9 @@ def console_rows(model: ConsoleModel, *, modes: bool = True,
     rows: list[list[Button]] = [] if not modes else [
         [
             *(
-                Button(action, label, f"{label} mode", width=BUTTON * 2 + GAP,
+                Button(command, label, f"{label} mode", width=BUTTON * 2 + GAP,
                        lit=model.main_mode == mode)
-                for action, label, mode in _MODE_BUTTONS
+                for command, label, mode in _MODE_BUTTONS
             ),
             # Minimize rides the mode row because it is about the main *slot*
             # rather than about what is playing on it — and because this row is
@@ -956,10 +956,10 @@ def hit_test(placed: list[tuple[Rect, Button]], px: int, py: int) -> str:
     the press it would post is one Fun Time would ignore.
     """
     for rect, button in placed:
-        if button.dim or not button.action:
+        if button.dim or not button.command:
             continue
         if contains(rect, px, py):
-            return button.action
+            return button.command
     return ""
 
 

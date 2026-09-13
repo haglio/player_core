@@ -11,7 +11,7 @@ from player_core.geometry import contains
 
 
 def _by_action(controls):
-    return {c.action: c for c in controls}
+    return {c.command: c for c in controls}
 
 
 def test_the_block_is_as_big_as_the_parts_it_places():
@@ -71,8 +71,8 @@ def test_every_mark_is_hit_by_a_press_in_its_own_middle_and_by_no_other():
     for mark in marks:
         x, y, w, h = mark.rect
         px, py = x + w // 2, y + h // 2
-        assert [m.action for m in marks
-                if contains(m.rect, px, py)] == [mark.action]
+        assert [m.command for m in marks
+                if contains(m.rect, px, py)] == [mark.command]
 
 
 def test_a_mark_at_the_end_of_its_range_is_dimmed_and_only_that_one():
