@@ -26,6 +26,7 @@ compare against and skips.
 from __future__ import annotations
 
 import ast
+import os
 import subprocess
 from pathlib import Path
 
@@ -55,11 +56,10 @@ def _primary_checkout(repo: Path) -> Path:
 
 
 def _source_files(checkout: Path):
-    for path in checkout.rglob("*.py"):
-        if _NOT_SOURCE.isdisjoint(path.parts) and not any(
-            part.endswith(".egg-info") for part in path.parts
-        ):
-            yield path
+    for directory, subdirectories, files in os.walk(checkout):
+        subdirectories[:] = [name for name in subdirectories
+                             if name not in _NOT_SOURCE and not name.endswith(".egg-info")]
+        yield from (Path(directory) / name for name in files if name.endswith(".py"))
 
 
 def _modules():
@@ -181,6 +181,31 @@ def test_a_declaration_names_only_what_the_module_defines():
         defined = _public_definitions(module)
         wrong.extend(f"{module.name}: {name}" for name in (_declared(module) or ()) if name not in defined)
     assert not wrong, "__all__ names a module does not define:\n" + "\n".join(f"  {w}" for w in wrong)
+
+
+def test_the_walk_never_enters_a_tree_it_would_throw_away(tmp_path, monkeypatch):
+    kept = tmp_path / "pkg" / "kept.py"
+    kept.parent.mkdir()
+    kept.write_text("", encoding="utf-8")
+    for skipped in (".claude", ".venv", "pkg.egg-info"):
+        nested = tmp_path / skipped / "deep"
+        nested.mkdir(parents=True)
+        (nested / "thrown_away.py").write_text("", encoding="utf-8")
+    scanned: list[Path] = []
+    real_scandir = os.scandir
+
+    def spy(path="."):
+        scanned.append(Path(path))
+        return real_scandir(path)
+
+    monkeypatch.setattr(os, "scandir", spy)
+
+    assert list(_source_files(tmp_path)) == [kept]
+    entered = [path.relative_to(tmp_path).parts for path in scanned
+               if path.is_relative_to(tmp_path)]
+    assert [parts for parts in entered
+            if not _NOT_SOURCE.isdisjoint(parts)
+            or any(part.endswith(".egg-info") for part in parts)] == []
 
 
 @pytest.fixture(scope="module")
