@@ -5,7 +5,7 @@ go in, this comes back out.  Fun Time polls it to know what each player is
 showing — the item on screen, the playhead, whether the player is paused or
 holding — and whatever else that player's features need.
 
-Every player leads with the same five lines, :class:`PlayerStatus`, written by
+Every player leads with the same six lines, :class:`PlayerStatus`, written by
 :func:`status_fields` and read back by :func:`parse_status`; a player adds its
 own lines after them (the main player's loop and funscript, a satellite's
 playlist length), and its reader takes those off the same file.
@@ -35,13 +35,15 @@ __all__ = [
 @dataclass(frozen=True)
 class PlayerStatus:
     """What every player says about itself: the item on screen, where the
-    playhead is in it, and whether the player is paused or holding it."""
+    playhead is in it, whether the player is paused or holding it, and the rate
+    it plays at."""
 
     video: str = ""
     position_ms: int = 0
     duration_ms: int = 0
     paused: bool = False
     locked: bool = False
+    speed: float = 1.0
 
 
 def _flag(on: bool) -> str:
@@ -56,6 +58,7 @@ def status_fields(status: PlayerStatus) -> dict[str, str]:
         "duration_ms": str(int(status.duration_ms)),
         "paused": _flag(status.paused),
         "locked": _flag(status.locked),
+        "speed": f"{status.speed:g}",
     }
 
 
@@ -64,6 +67,15 @@ def _int(text: str | None, default: int) -> int:
         return default
     try:
         return int(text.strip())
+    except ValueError:
+        return default
+
+
+def _rate(text: str | None, default: float) -> float:
+    if text is None:
+        return default
+    try:
+        return float(text.strip())
     except ValueError:
         return default
 
@@ -88,6 +100,7 @@ def parse_status(fields: Mapping[str, str], *, default: PlayerStatus | None = No
         duration_ms=_int(fields.get("duration_ms"), default.duration_ms),
         paused=_bool(fields.get("paused"), default.paused),
         locked=_bool(fields.get("locked"), default.locked),
+        speed=_rate(fields.get("speed"), default.speed),
     )
 
 class StatusWriter:
