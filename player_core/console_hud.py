@@ -37,13 +37,11 @@ from shared_ui.spacing import BUTTON_GAP
 
 from .console import (
     BUTTON,
-    FULL,
     GAP,
     OSR2_AUTO,
     OSR2_CONTROL_OFF,
     OSR2_PARKED,
     OSR2_RETRACTED,
-    SHORTS,
     Button,
     ConsoleModel,
     ModeHud,
@@ -91,6 +89,7 @@ from .hud_status import (
     SHUFFLE_LABEL,
     status_line,
 )
+from .modes import LengthMode, Osr2State
 
 __all__ = [
     "OSR2_ROBOT_HAND",
@@ -108,7 +107,7 @@ __all__ = [
 # all, so it narrows nothing and prints nothing — the same silence a satellite
 # keeps where its act filter would go when it has none, and the same silence the
 # two buttons keep by both sitting dark.
-_LENGTH_LABELS = {FULL: "Full length", SHORTS: "Shorts"}
+_LENGTH_LABELS = {LengthMode.FULL: "Full length", LengthMode.SHORTS: "Shorts"}
 
 # A compilation is titled for a shelf: "various - Ultimate Example Studio Alpha
 # Collection - Volume 6 (v1)".  Everything up to the last dash is the series and
@@ -119,15 +118,17 @@ _REVISION = re.compile(r"\s*\(v\d+\)$")
 # What the OSR2 line says by what is driving the device, and the color it says
 # it in — green when a funscript is driving, blue when the Robot Hand is, muted
 # when nothing is, and the device's own magenta when it is running itself in auto.
-OSR2_ROBOT_HAND = "robot_hand"  # the one state in which the drive readout can be pressed
-OSR2_FUNSCRIPT = "funscript"
+OSR2_ROBOT_HAND = Osr2State.ROBOT_HAND  # the one state in which the drive readout can be pressed
+OSR2_FUNSCRIPT = Osr2State.FUNSCRIPT
+# The pill's own word for a device that belongs to neither driver at the
+# playhead -- drawn, never published, so it is not one of the wire's states.
 OSR2_BUFFER = "buffer"
 # The buffer pill wears the trace's own neutral gray, so the word and the line
 # under the dot are visibly the same state.
 _NEUTRAL_PILL = (168, 168, 174)
 _OSR2_LABELS = {
-    "off": "Off", "auto": "Auto", OSR2_FUNSCRIPT: "FunScript",
-    OSR2_ROBOT_HAND: "Robot Hand", "idle": "Idle", OSR2_BUFFER: "Buffer",
+    Osr2State.OFF: "Off", Osr2State.AUTO: "Auto", OSR2_FUNSCRIPT: "FunScript",
+    OSR2_ROBOT_HAND: "Robot Hand", OSR2_BUFFER: "Buffer",
     # Said in three words because two of them would be read as the device: the
     # OSR2 is on and well, this app has simply stopped sending it anything.  In
     # the red its own button wears, so the lit control and the pill saying what
@@ -136,8 +137,8 @@ _OSR2_LABELS = {
     OSR2_PARKED: "Parked", OSR2_RETRACTED: "Retracted",
 }
 _OSR2_COLORS = {
-    "funscript": GREEN, OSR2_ROBOT_HAND: BLUE, "auto": MAGENTA,
-    "off": TEXT_MUTED, "idle": TEXT_MUTED, OSR2_BUFFER: _NEUTRAL_PILL,
+    OSR2_FUNSCRIPT: GREEN, OSR2_ROBOT_HAND: BLUE, Osr2State.AUTO: MAGENTA,
+    Osr2State.OFF: TEXT_MUTED, OSR2_BUFFER: _NEUTRAL_PILL,
     OSR2_CONTROL_OFF: RED,
     # The held device's line is the handoff's gray -- nobody is moving it -- and
     # the word beside it says so in the same ink.
@@ -148,7 +149,7 @@ _OSR2_COLORS = {
 _HELD_HEIGHT = {OSR2_PARKED: 0.0, OSR2_RETRACTED: 1.0}
 
 # What the OSR2 state means for the trace.  Auto is the device running itself,
-# which is a motion of its own to draw in a color of its own.  Idle is nothing
+# which is a motion of its own to draw in a color of its own.  Off is nothing
 # running at all and control off is this app having let go; in neither is
 # anything here being sent, so there is no motion of ours to draw and the
 # readout goes gray.
@@ -159,7 +160,7 @@ _DRIVEN_BY_OSR2 = {
 }
 
 
-def _driven_by(osr2: str) -> str:
+def _driven_by(osr2: Osr2State) -> str:
     return _DRIVEN_BY_OSR2.get(osr2, DRIVEN_BY_NOTHING)
 
 
@@ -279,14 +280,14 @@ class ConsoleHud:
         # while Genau is the one showing — video mode draws the drive readout too, but
         # an unlocked main player there plays through a playlist rather than on a timer —
         # and only unheld, since nothing is going to move a held clip.
-        if not main_player_displays(self.console.mode) and not self.console.locked and self.advance_interval:
+        if not main_player_displays(self.console.main_mode) and not self.console.locked and self.advance_interval:
             pace = f"{self.advance_interval}s"
             order = f"{order}{SEPARATOR}{pace}" if order else pace
         return status_line(
             playing_set=compilation,
             locked=self.console.locked,
             order=order,
-            f_mode=self.modes.f_mode or bool(self.console.favorites_filter),
+            f_mode=self.modes.scripted_filter or bool(self.console.favorites_filter),
             filter_label=self._filter_label,
         )
 
@@ -405,7 +406,7 @@ class ConsolePainter:
             # knot, and kept, they drew the line in the script's green under a
             # word that read "control off".
             drive = replace(drive, driven=DRIVEN_BY_NOTHING, segments=())
-        elif not (main_player_displays(hud.console.mode) and drive.segments):
+        elif not (main_player_displays(hud.console.main_mode) and drive.segments):
             drive = replace(drive, driven=_driven_by(hud.console.osr2))
         # In video mode the readout is not a picture of the Robot Hand's motion: it is the
         # picture of the handoff, and the device changes hands inside it.  The
@@ -417,10 +418,10 @@ class ConsolePainter:
         # trace (video mode) is the script's plan, computed fresh per
         # frame from the playhead: it keeps sliding through every rest and
         # every handoff whatever the OSR2 state says, because the rests ARE
-        # part of what it draws — freezing it on the round-tripped "idle"/"off"
+        # part of what it draws — freezing it on the round-tripped "off"
         # was the picture that stopped scrolling for the length of each gap.
         if not drive.live and (hud.console.osr2_control == OSR2_CONTROL_OFF
-                               or not main_player_displays(hud.console.mode)):
+                               or not main_player_displays(hud.console.main_mode)):
             # Genau goes on driving regardless — it cannot see that the OSR2 is
             # off — so both the trace and the position it publishes keep moving,
             # and either one left running is a dead readout still claiming to be
@@ -547,7 +548,7 @@ class ConsolePainter:
         # and the width helpers need it before the pill is drawn.
         self._composed_drive = (
             drive if (drive is not None and drive.segments
-                      and main_player_displays(console.mode)) else None)
+                      and main_player_displays(console.main_mode)) else None)
         rows = [[self._filled(button, hud) for button in row] for row in self._rows(hud)]
         status = hud.status_line
         filename = hud.modes.video

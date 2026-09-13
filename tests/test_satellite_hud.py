@@ -570,9 +570,10 @@ def test_the_speed_row_puts_slower_the_rate_and_faster_after_its_name():
 
 def test_the_speed_buttons_name_themselves_in_the_consoles_words():
     from player_core.console import ConsoleModel, console_rows
+    from player_core.modes import MainMode
 
     console = {button.action: button.tooltip
-               for row in console_rows(ConsoleModel(mode="video")) for button in row}
+               for row in console_rows(ConsoleModel(main_mode=MainMode.VIDEO)) for button in row}
     rects, _rate = speed_row_rects(0, 0, label_width=70)
     targets = _targets(buttons=[
         (rect, Button(f"portrait_{name}", "", CONTROL_TOOLTIPS[name]))
