@@ -65,7 +65,7 @@ def section_size() -> tuple[int, int]:
 @dataclass(frozen=True)
 class DriveControl:
     rect: Rect
-    action: str
+    command: str
     glyph: str
     dim: bool
 

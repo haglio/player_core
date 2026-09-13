@@ -512,9 +512,9 @@ def mode_button_rects(x: int, y: int, label_widths: list[int]) -> list[tuple[Rec
     is font-free — in :data:`MODE_BUTTONS` order.
     """
     rects: list[tuple[Rect, str]] = []
-    for (action, _label, _mode), label_width in zip(MODE_BUTTONS, label_widths):
+    for (command, _label, _mode), label_width in zip(MODE_BUTTONS, label_widths):
         width = label_width + 2 * BUTTON_PAD_H_TIGHT
-        rects.append(((x, y, width, CTRL_BTN), action))
+        rects.append(((x, y, width, CTRL_BTN), command))
         x += width + BUTTON_GAP
     return rects
 
@@ -559,9 +559,9 @@ def standard_rows(model: HudModel) -> tuple[tuple[Button, ...], ...]:
     if model.satellites_mode:
         names.remove("minimize")
         pair = tuple(
-            Button(action, label, MODE_TOOLTIPS[action], width=FIT_THE_WORD,
+            Button(command, label, MODE_TOOLTIPS[command], width=FIT_THE_WORD,
                    lit=model.satellites_mode == mode)
-            for action, label, mode in MODE_BUTTONS
+            for command, label, mode in MODE_BUTTONS
         )
         rows.append(pair + (_standard_control(model, "minimize", group_break=True),))
     band = [
@@ -862,7 +862,7 @@ class HudClicks:
         if button is not None:
             # Verbatim: the source said what a press posts.  A dimmed one is at
             # the end of its range or has nothing to act on, and posts nothing.
-            return "" if button.dim else button.action
+            return "" if button.dim else button.command
         loop = hit_test_targets(targets.loop, px, py)
         if loop:
             return self._toggle_loop(loop)

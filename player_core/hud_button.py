@@ -38,13 +38,13 @@ class Button:
     away.  ``remembered`` is a choice held but not applied, on the active gray.
     ``group_break`` opens the wider gap before this button.
 
-    An empty ``action`` makes it a read-out: laid out in the row like anything
+    An empty ``command`` makes it a read-out: laid out in the row like anything
     else, drawn as bare text with no button, and never a hit target.  A read-out
     whose number only the drawing host knows names it in ``host_value``
     ("playback_speed", "advance_interval") and the painter fills it in.
     """
 
-    action: str
+    command: str
     glyph: str
     tooltip: str
     width: int = BUTTON
@@ -61,7 +61,7 @@ class Button:
 
 
 _FLAGS = tuple(f.name for f in fields(Button) if f.type == "bool")
-_WORDS = ("action", "glyph", "tooltip", "host_value")
+_WORDS = ("command", "glyph", "tooltip", "host_value")
 
 
 def button_raw(button: Button) -> dict:
