@@ -22,11 +22,13 @@ folds the keyword alone, so every player can dispatch through it. README's
 "The player contract" says what each carries and what is left for the steps
 that first draw a picture or a source-declared button.
 
-**Nothing new is declared yet.** The consumer gate calls a name published for
-nobody until a sibling imports it; Fun Time's move onto these names lands
-after this does, and the names go into `__all__` then. Until it lands the
-players in Fun Time still unpack the playlist item as the `(video, funscript)`
-pair it was — it is a `NamedTuple` for exactly that.
+The names went into `__all__` once Fun Time's move onto them landed, the same
+day: the consumer gate calls a name published for nobody until a sibling
+imports it. The playlist item is a `NamedTuple` so that a checkout between the
+two landings still unpacked it as the `(video, funscript)` pair it was.
+`control_registry.act` left `__all__` with the main player's private lookup,
+its one consumer; `playlist.item_line` is reached only through `write_playlist`
+and `player_verbs.play_file`, so it is package-internal.
 
 ## 2026-09-04 — Genau's engine moves in, for the headset
 
