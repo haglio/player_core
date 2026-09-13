@@ -151,7 +151,7 @@ class TestStatusWriter:
 
 
 class TestWhatEveryPlayerPublishes:
-    """The five lines every player's status leads with, written and read here so
+    """The six lines every player's status leads with, written and read here so
     a player and the source polling it cannot disagree about a key."""
 
     def test_the_lines_in_the_order_they_are_written(self):
@@ -160,9 +160,9 @@ class TestWhatEveryPlayerPublishes:
 
         assert fields == {
             "video": "C:/vids/a.mp4", "position_ms": "1500", "duration_ms": "5000",
-            "paused": "0", "locked": "1",
+            "paused": "0", "locked": "1", "picture": "0",
         }
-        assert list(fields) == ["video", "position_ms", "duration_ms", "paused", "locked"]
+        assert list(fields) == ["video", "position_ms", "duration_ms", "paused", "locked", "picture"]
 
     def test_a_playhead_is_published_as_whole_milliseconds(self):
         assert status_fields(PlayerStatus(position_ms=12345.9))["position_ms"] == "12345"
@@ -170,6 +170,11 @@ class TestWhatEveryPlayerPublishes:
     def test_what_is_published_is_what_is_read_back(self):
         status = PlayerStatus(
             video="C:/vids/b.mp4", position_ms=250, duration_ms=9000, paused=True, locked=False)
+
+        assert parse_status(status_fields(status)) == status
+
+    def test_a_status_that_says_a_picture_is_on_screen_reads_back_saying_so(self):
+        status = PlayerStatus(video="C:/pictures/one.png", locked=True, picture=True)
 
         assert parse_status(status_fields(status)) == status
 
