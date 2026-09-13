@@ -24,6 +24,7 @@ from .geometry import Rect, contains
 from .hud_button import BUTTON, Button, buttons_from_raw, buttons_raw, rows_from_raw, rows_raw
 from .hud_marks import BROKER_ICON, FMODE_ICON, MINIMIZE_ICON, shared_mark
 from .hud_status import LATEST_LABEL, SHUFFLE_LABEL
+from .modes import LengthMode, LoopState, MainMode, Osr2State, read_mode
 
 __all__ = [
     "GAP",
@@ -57,16 +58,10 @@ GAP = 4       # between buttons along a row
 ROW_GAP = 5   # between rows
 GROUP_GAP = 12  # between groups of buttons that mean different things
 
-# The main player's length modes, named here because the buttons for them are built here and
-# nothing else in this package cares what they are.  MIXED and NONE are the two
-# with no button of their own: mixed is every length there is, which the console
-# says by lighting both, and none is neither, which it says by lighting neither.
-FULL, SHORTS, MIXED, NONE = "full", "shorts", "mixed", "none"
-
 # What ConsoleModel.osr2 says when the device is running its own firmware --
 # named here, beside the field, because the answer changes what two apps
 # outside this package draw (see ConsoleModel.device_drives_itself).
-OSR2_AUTO = "auto"
+OSR2_AUTO = Osr2State.AUTO
 
 _SHAPE_LABELS = {"rounded_square": "Square"}
 
@@ -89,9 +84,10 @@ class ModeHud:
     *video* is the name of the clip on screen, drawn as the muted line beneath
     the status.  *length_mode* is the library's filter, empty when there is no
     library backing the playlist; *compilation* is the volume holding the
-    playlist, with *position*/*total* placing the current video in it; *f_mode*
-    is Fun Time's filter over whichever of those runs.  All empty in genau mode,
-    where there is no main player playlist to describe.
+    playlist, with *position*/*total* placing the current video in it;
+    *scripted_filter* is Fun Time's F-mode over whichever of those runs, keeping
+    the videos that have a funscript.  All empty in genau mode, where there is
+    no main player playlist to describe.
 
     The last three are what a control can and cannot do to the video on screen,
     and each defaults to "cannot": a main player too old to publish them leaves its
@@ -99,11 +95,13 @@ class ModeHud:
     """
 
     video: str = ""
-    length_mode: str = ""
+    # None where there is no library backing the playlist, so no length is
+    # being asked for at all -- as against NONE, which asks for neither length.
+    length_mode: LengthMode | None = None
     compilation: str = ""
     position: int = 0
     total: int = 0
-    f_mode: bool = False
+    scripted_filter: bool = False
     # Whether the video on screen belongs to a compilation at all — what says
     # the button can be pressed, where ``compilation`` says you are inside one.
     has_compilation: bool = False
@@ -155,12 +153,12 @@ class ConsoleModel:
     ``playback_speed``, which is the main player's own and folded in by whoever is drawing.
     """
 
-    mode: str = "video"
+    main_mode: MainMode = MainMode.VIDEO
     # The dot: whether a bare, player-less command ("next", "lock") lands on the
     # main player rather than on a satellite.
     active: bool = False
-    # What is driving the OSR2 right now: off / auto / funscript / robot_hand / idle.
-    osr2: str = "off"
+    # What is driving the OSR2 right now.
+    osr2: Osr2State = Osr2State.OFF
     # And what this app is doing to it, which is a different question: one of
     # OSR2_CONTROL_BUTTONS' four states, or OSR2_CONTROL_UNANSWERED from a host
     # that has no such switch.  Published like the rest of this, because the
@@ -169,17 +167,16 @@ class ConsoleModel:
     osr2_control: str = OSR2_CONTROL_UNANSWERED
     # Whether the OSR2 broker service is up — its own concern, only the main player's.
     broker: bool = False
-    # Where the main player's loop machine is: normal / recording (the record key is down and
-    # the out point has not landed yet) / looping.  The main player publishes it in its status
+    # Where the main player's loop machine is.  The main player publishes it in its status
     # file and Fun Time forwards it, because the console is drawn in genau mode too
     # — by a player that has no loop machine of its own to ask.
-    record: str = "normal"
+    loop_state: LoopState = LoopState.NORMAL
     # Whether the player on the main slot is holding what is on screen rather
     # than letting it move on — the main player's video in video mode, Genau's clip in
     # genau.  One flag for one padlock, because whichever player is showing is the
     # one the lock holds.  On is where both players open, so it is the default
     # here too: a console drawn before the first panel arrives must not show the
-    # lock off when it is not.  Published the same way ``record`` is, and for the
+    # lock off when it is not.  Published the same way ``loop_state`` is, and for the
     # same reason — the player drawing this console is not always the one it is
     # describing.
     locked: bool = True
@@ -188,7 +185,7 @@ class ConsoleModel:
     # says so), but the button lights off what Fun Time publishes, because the
     # flag is set from three places — this button, the F key, and a spoken phrase —
     # and only one of them is the player.
-    f_mode: bool = False
+    scripted_filter: bool = False
     # Which browse order the main player is in: newest-first ("Latest") when set,
     # shuffled when clear.  Published for the same reason F-mode is — the order is
     # Fun Time's to set, and the playlist the main player is handed looks the same either way
@@ -221,8 +218,8 @@ class ConsoleModel:
     enhanced_filter: bool | None = None
     # And whether it is showing only its favorites — the same shape, and the
     # same reason: a genau-mode host with a set of its own to narrow has these
-    # switches, and one with no set has neither.  ``f_mode`` above is the video
-    # branch's flag, published by Fun Time for a playlist IT owns; this one is
+    # switches, and one with no set has neither.  ``scripted_filter`` above is the
+    # video branch's flag, published by Fun Time for a playlist IT owns; this one is
     # the genau branch's, folded in by the host that owns the set.  Both light
     # the same F, because a reader glancing between two screens is looking at
     # one switch: play the favorites only.
@@ -277,14 +274,14 @@ def console_text(model: ConsoleModel) -> str:
     not the panel's to carry, and come back at rest.
     """
     return json.dumps({
-        "mode": model.mode,
+        "main_mode": model.main_mode,
         "active": model.active,
-        "f_mode": model.f_mode,
+        "scripted_filter": model.scripted_filter,
         "latest": model.latest,
         "osr2": model.osr2,
         "osr2_control": model.osr2_control,
         "broker": model.broker,
-        "record": model.record,
+        "loop_state": model.loop_state,
         "locked": model.locked,
         "cruise": model.cruise,
         "learned": model.learned,
@@ -302,20 +299,20 @@ def parse_console(text: str) -> ConsoleModel | None:
         raw = json.loads(text)
     except (ValueError, TypeError):
         return None
-    if not isinstance(raw, dict) or "mode" not in raw:
+    if not isinstance(raw, dict) or "main_mode" not in raw:
         return None
     return ConsoleModel(
-        mode=str(raw.get("mode", "video")),
+        main_mode=read_mode(MainMode, raw.get("main_mode"), MainMode.VIDEO),
         active=bool(raw.get("active", False)),
-        f_mode=bool(raw.get("f_mode", False)),
+        scripted_filter=bool(raw.get("scripted_filter", False)),
         # Absent is None — no browse order to switch — rather than "shuffled":
         # the pair of buttons is drawn only for a publisher that says which order
         # it is in, so a panel nothing would answer does not grow two dead ones.
         latest=(None if raw.get("latest") is None else bool(raw.get("latest"))),
-        osr2=str(raw.get("osr2", "off") or "off"),
+        osr2=read_mode(Osr2State, raw.get("osr2"), Osr2State.OFF),
         osr2_control=str(raw.get("osr2_control", "") or OSR2_CONTROL_UNANSWERED),
         broker=bool(raw.get("broker", False)),
-        record=str(raw.get("record", "normal") or "normal"),
+        loop_state=read_mode(LoopState, raw.get("loop_state"), LoopState.NORMAL),
         locked=bool(raw.get("locked", True)),
         cruise=bool(raw.get("cruise", False)),
         learned=bool(raw.get("learned", False)),
@@ -462,19 +459,19 @@ CONSOLE_VERBS = frozenset({
 })
 
 _MODE_BUTTONS = (
-    ("main_video_activate", "Video", "video"),
-    ("genau_activate", "Genau", "genau"),
+    ("main_video_activate", "Video", MainMode.VIDEO),
+    ("genau_activate", "Genau", MainMode.GENAU),
 )
 
 
-def main_player_displays(mode: str) -> bool:
+def main_player_displays(main_mode: MainMode) -> bool:
     """Whether the main player's video is on the main slot — video mode.
 
     The transport steps the main player's video then, and the nudge / open / clip / record
     that act on a video make sense; in genau mode the transport steps Genau's own
     clips instead and those video actions have nothing to act on.
     """
-    return mode == "video"
+    return main_mode == MainMode.VIDEO
 
 
 def console_rows(model: ConsoleModel, *, modes: bool = True,
@@ -513,7 +510,7 @@ def console_rows(model: ConsoleModel, *, modes: bool = True,
         [
             *(
                 Button(action, label, f"{label} mode", width=BUTTON * 2 + GAP,
-                       lit=model.mode == mode)
+                       lit=model.main_mode == mode)
                 for action, label, mode in _MODE_BUTTONS
             ),
             # Minimize rides the mode row because it is about the main *slot*
@@ -530,7 +527,7 @@ def console_rows(model: ConsoleModel, *, modes: bool = True,
         ],
     ]
     rows.append(_transport_row(model, main_player))
-    if main_player_displays(model.mode):
+    if main_player_displays(model.main_mode):
         rows.append(_playback_speed_row())
     else:
         rows.append(_clip_seconds_row())
@@ -545,7 +542,7 @@ def _file_controls(model: ConsoleModel) -> list[Button]:
     The main player's own, so nothing in genau mode, where there is no video for any of them
     to act on — the same branch the transport row takes, one row up.
     """
-    if not main_player_displays(model.mode):
+    if not main_player_displays(model.main_mode):
         return []
     return [
         Button("browse_library", _GLYPHS["open"], "Browse the library", group_break=True),
@@ -557,11 +554,11 @@ def _file_controls(model: ConsoleModel) -> list[Button]:
         # one that landed.
         Button("main_player_record_tap", _GLYPHS["record"],
                "Stop recording — mark the loop's out point"
-               if model.record == "recording" else
-               "Looping — press to drop the loop" if model.record == "looping"
+               if model.loop_state is LoopState.RECORDING else
+               "Looping — press to drop the loop" if model.loop_state is LoopState.LOOPING
                else "Record loop",
-               warn=model.record == "recording",
-               hold=model.record == "looping", group_break=True),
+               warn=model.loop_state is LoopState.RECORDING,
+               hold=model.loop_state is LoopState.LOOPING, group_break=True),
         Button("clipper_save", _GLYPHS["save"], "Save clip"),
     ]
 
@@ -639,11 +636,11 @@ def _length_buttons(main_player: ModeHud, *, remembered: bool) -> list[Button]:
     handed over with no library under it has no length filter running, exactly
     as the status line's own slot is empty there.
     """
-    if not main_player.length_mode:
+    if main_player.length_mode is None:
         return []
-    mixed = main_player.length_mode == MIXED
-    full = mixed or main_player.length_mode == FULL
-    shorts = mixed or main_player.length_mode == SHORTS
+    mixed = main_player.length_mode is LengthMode.MIXED
+    full = mixed or main_player.length_mode is LengthMode.FULL
+    shorts = mixed or main_player.length_mode is LengthMode.SHORTS
 
     def state(on: bool) -> dict:
         return {"lit": on and not remembered, "remembered": on and remembered}
@@ -717,7 +714,7 @@ def _transport_row(model: ConsoleModel, main_player: ModeHud) -> list[Button]:
     thing on each: hold what is on screen.  Which player it reaches is the mode's
     business, not this row's — the same rule prev/next already follow.
     """
-    if main_player_displays(model.mode):
+    if main_player_displays(model.main_mode):
         return [
             # Ordered as the video runs: back to the last one, back ten, forward
             # ten, on to the next.
@@ -747,7 +744,7 @@ def _transport_row(model: ConsoleModel, main_player: ModeHud) -> list[Button]:
             # rather than acting on the video on screen or on where it ends.
             Button("main_fmode", FMODE_ICON,
                    "F-Mode — play only the videos that have a funscript",
-                   lit=model.f_mode, favorite=True),
+                   lit=model.scripted_filter, favorite=True),
             # And the way back out of all of it, the same button each satellite's
             # HUD carries: drop everything narrowing what plays — the length mode
             # (with any compilation it was feeding) and F-mode together.  It sits
@@ -904,7 +901,7 @@ def _control_row(model: ConsoleModel) -> list[Button]:
             Button("main_player_funscript_jump", FUNSCRIPT_JUMP_ICON,
                    "Skip ahead to where this video's scripting starts up again",
                    group_break=True),
-        ] if main_player_displays(model.mode) else []),
+        ] if main_player_displays(model.main_mode) else []),
     ]
 
 
