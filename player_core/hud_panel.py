@@ -19,9 +19,15 @@ from shared_ui.icons_pil import paste_glyph
 # nothing, and these HUDs are Pillow.  Every HUD painter reads it there too,
 # so a player reaching for its own blue has the family's to reach for.
 from shared_ui.palette import (
+    AMBER,
+    BG_BUTTON,
+    BG_BUTTON_ACTIVE,
     BG_PRIMARY,
+    BLUE,
     BORDER_PANEL,
+    GREEN,
     MAGENTA,
+    RED,
     TEXT_MUTED,
     TEXT_PRIMARY,
     WHITE,
@@ -335,3 +341,78 @@ class KeptBitmap:
 
     def _paint(self, hud) -> Image.Image:
         raise NotImplementedError
+
+
+# The family's button: its ground, and its face drawn on it.
+BUTTON_RADIUS = 3
+_MINIMIZE_PAD = 5
+
+
+def button_ground(draw: ImageDraw.ImageDraw, rect: tuple[int, int, int, int], fill,
+                  *, hovered: bool = False, dim: bool = False,
+                  rest_ink=None) -> tuple[int, int, int, int]:
+    """The square a HUD control sits on, filled *fill*, and the ink for its mark.
+
+    The edge is the chrome's muted gray over either gray ground and the fill's
+    own color over a colored one, chosen before the hover step lightens the
+    fill so hovering never changes the outline.  A dim control is never
+    lightened: it cannot be pressed, and lighting it would promise otherwise.
+
+    A mark reverses out of a light fill only (white, amber); over either gray
+    ground it keeps *rest_ink* or the chrome's own, muted while dim; over a
+    colored ground it is white.
+    """
+    x, y, w, h = rect
+    edge = TEXT_MUTED if (dim or fill in (BG_BUTTON, BG_BUTTON_ACTIVE)) else fill
+    if hovered and not dim:
+        fill = hovered_fill(fill)
+    draw.rounded_rectangle([x, y, x + w - 1, y + h - 1], radius=BUTTON_RADIUS,
+                           fill=(*fill, 255), outline=(*edge, 255), width=1)
+    if fill in (WHITE, AMBER):
+        return (*BG_PRIMARY, 255)
+    if fill in (BG_BUTTON, BG_BUTTON_ACTIVE):
+        return (*(TEXT_MUTED if dim else rest_ink or TEXT_PRIMARY), 255)
+    return (*WHITE, 255)
+
+
+def draw_minimize_bar(draw: ImageDraw.ImageDraw, rect: tuple[int, int, int, int],
+                      ink) -> None:
+    """The bar a Windows title bar puts on its minimize button, two pixels deep
+    across the middle: drawn, because the mark Windows uses is in a face these
+    HUDs do not load and Pillow draws tofu for a codepoint a face lacks."""
+    x, y, w, h = rect
+    cy = y + h / 2
+    draw.rectangle([x + _MINIMIZE_PAD, cy - 1, x + w - _MINIMIZE_PAD - 1, cy], fill=ink)
+
+
+def draw_button(image: Image.Image, draw: ImageDraw.ImageDraw,
+                rect: tuple[int, int, int, int], button, *, hovered: bool,
+                glyph_font: ImageFont.FreeTypeFont,
+                word_font: ImageFont.FreeTypeFont) -> None:
+    """One declared control (:class:`player_core.hud_button.Button`), in the
+    one shape every HUD here draws: on the family's button ground at rest,
+    filled while lit -- green for a favorites control, amber for an enhanced
+    one, the family's blue for the rest; red for a live recording, blue for the
+    loop it leaves running, the active gray for a choice held but not applied
+    -- with its face drawn on top: an app mark, one of the family's marks, the
+    minimize bar, a typed glyph out of *glyph_font*, or a word in *word_font*.
+    """
+    from .hud_marks import APP_MARK, MINIMIZE_ICON, SHARED_MARK, app_mark_letter, shared_mark_name
+
+    lit = GREEN if button.favorite else AMBER if button.enhanced else BLUE
+    fill = (lit if button.lit else RED if button.warn else BLUE if button.hold
+            else BG_BUTTON_ACTIVE if button.remembered else BG_BUTTON)
+    ink = button_ground(draw, rect, fill, hovered=hovered, dim=button.dim,
+                        rest_ink=RED if button.danger else AMBER if button.enhanced else None)
+    x, y, w, h = rect
+    glyph = button.glyph
+    if glyph.startswith(APP_MARK):
+        draw_icon(draw, rect, app_mark_letter(glyph))
+    elif glyph.startswith(SHARED_MARK):
+        draw_mark(image, shared_mark_name(glyph), rect, ink)
+    elif glyph == MINIMIZE_ICON:
+        draw_minimize_bar(draw, rect, ink)
+    elif len(glyph) == 1 and not glyph.isalnum():
+        draw_glyph(draw, x + w / 2, y + h / 2, glyph, glyph_font, ink)
+    else:
+        draw.text((x + w / 2, y + h / 2), glyph, font=word_font, anchor="mm", fill=ink)

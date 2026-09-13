@@ -25,17 +25,12 @@ from dataclasses import dataclass, field, replace
 import numpy as np
 from PIL import Image
 from shared_ui.palette import (
-    AMBER,
-    BG_BUTTON,
-    BG_BUTTON_ACTIVE,
     BG_PRIMARY,
     BLUE,
     GREEN,
     MAGENTA,
-    RED,
     TEXT_MUTED,
     TEXT_PRIMARY,
-    WHITE,
 )
 from shared_ui.spacing import BUTTON_GAP
 
@@ -72,25 +67,14 @@ from .drive_readout import (
 from .drive_readout import controls as drive_controls
 from .drive_readout import tracks as drive_tracks
 from .geometry import Rect, contains
-from .hud_marks import (
-    APP_MARK,
-    BROKER_ICON,
-    MINIMIZE_ICON,
-    SHARED_MARK,
-    app_mark_letter,
-    shared_mark_name,
-)
 from .hud_panel import (
     ACTIVE_DOT,
     SYMBOL_FONT,
     HudPanel,
     draw_active_dot,
-    draw_glyph,
-    draw_icon,
-    draw_mark,
+    draw_button,
     draw_tooltip,
     fit_text,
-    hovered_fill,
     load_font,
     text_width,
     to_bgra,
@@ -699,82 +683,8 @@ class ConsolePainter:
             draw.text((x + w / 2, y + h / 2), button.glyph, font=self._tiny, anchor="mm",
                       fill=(*ink, 255))
             return
-        broker = button.glyph == BROKER_ICON
-        # A plain toggle lights the family's ACTIVE ground -- a step up from the
-        # resting one, the same step Origenerator's checked buttons take.  It
-        # used to fill white, which is the loudest thing on the panel for a
-        # control whose whole news is "this is on", and it left the console
-        # reading as a different app from the windows beside it.  Where a color
-        # already MEANS something it still wins: green is the favorites and the
-        # funscripts, amber is an enhanced picture, and those say more than
-        # "engaged".
-        lit = (GREEN if button.favorite else AMBER if button.enhanced else BLUE)
-        # A control at rest sits on the family's button ground rather than on
-        # nothing: an outline over the slab read as a gap in it, and made these
-        # look like a different kind of control from the ones in the windows.
-        fill = (lit if button.lit else RED if button.warn else BLUE if button.hold
-                else BG_BUTTON_ACTIVE if button.remembered else BG_BUTTON)
-        if broker:
-            fill = BLUE if button.lit else RED
-        # One step lighter under the pointer, so a press lands where you meant.
-        # Not on a dimmed control: it cannot be pressed, and lighting it would
-        # promise otherwise.
-        if hovered and not button.dim:
-            fill = hovered_fill(fill)
-        # And it carries the family's thin edge whatever it is doing.  The edge
-        # used to be the fill's own color at rest, which is no edge at all --
-        # the satellite HUDs beside this one draw theirs in the muted gray the
-        # rest of the chrome uses, and these read as borderless slabs next to
-        # them.
-        edge = TEXT_MUTED if (button.dim or fill in (BG_BUTTON, BG_BUTTON_ACTIVE)) else (
-            fill or TEXT_MUTED)
-        draw.rounded_rectangle([x, y, x + w - 1, y + h - 1], radius=3,
-                               fill=(*fill, 255) if fill else None,
-                               outline=(*edge, 255), width=1)
-        # The mark stays white over a colored fill and reverses out of a white
-        # one, so a control that changes state changes only what is beneath its
-        # mark — the way the Dash's mic keeps its white glyph while the panel
-        # under it goes blue.  The gray grounds are both dark, so a mark on
-        # either keeps its own ink rather than reversing -- only a light fill
-        # (white, amber) reverses.
-        resting = fill in (BG_BUTTON, BG_BUTTON_ACTIVE)
-        # A dim control fades its mark only while it is sitting at rest.  Over a
-        # colored ground the fade is what made a lit-but-unpressable button —
-        # the length filter with nothing left to drop — read as a blue square
-        # with an illegible smudge on it, which says neither "on" nor "why not".
-        ink = (BG_PRIMARY if fill in (WHITE, AMBER)
-               else TEXT_MUTED if button.dim and resting
-               else RED if button.danger
-               else AMBER if button.enhanced
-               else TEXT_PRIMARY if resting else WHITE)
-        if button.glyph.startswith(APP_MARK):
-            draw_icon(draw, rect, app_mark_letter(button.glyph))
-        elif button.glyph.startswith(SHARED_MARK):
-            draw_mark(image, shared_mark_name(button.glyph), rect, (*ink, 255))
-        elif button.glyph == MINIMIZE_ICON:
-            self._minimize_icon(draw, rect, ink)
-        elif len(button.glyph) == 1 and not button.glyph.isalnum():
-            # A symbol needs the face that actually has it, and centring on its
-            # own ink — the font's bounds would drop it toward the button's floor.
-            draw_glyph(draw, x + w / 2, y + h / 2, button.glyph, self._glyph, (*ink, 255))
-        else:
-            draw.text((x + w / 2, y + h / 2), button.glyph, font=self._tiny,
-                      anchor="mm", fill=(*ink, 255))
-
-    @staticmethod
-    def _minimize_icon(draw, rect: Rect, ink) -> None:
-        """The minimize control's face: the bar a Windows title bar puts there.
-
-        Drawn rather than typed for the reason the curve above is — the mark
-        Windows uses is U+E921 of Segoe MDL2 Assets, a face this HUD does not
-        load, and Pillow draws tofu for a codepoint a face lacks.  Two pixels
-        deep across the middle of the button: the same proportion the title bar
-        has, so it reads as that gesture and not as an underscore or a dash.
-        """
-        x, y, w, h = rect
-        pad = 5
-        cy = y + h / 2
-        draw.rectangle([x + pad, cy - 1, x + w - pad - 1, cy], fill=(*ink, 255))
+        draw_button(image, draw, rect, button, hovered=hovered,
+                    glyph_font=self._glyph, word_font=self._tiny)
 
 
 def with_playback_speed(console: ConsoleModel, speed: float) -> ConsoleModel:

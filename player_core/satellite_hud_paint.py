@@ -19,8 +19,6 @@ from PIL import Image, ImageDraw, ImageFont
 from shared_ui.palette import (
     AMBER,
     BG_BUTTON,
-    BG_BUTTON_ACTIVE,
-    BG_PRIMARY,
     BLUE,
     GREEN,
     RED,
@@ -34,12 +32,13 @@ from player_core.hud_marks import SHARED_MARK, shared_mark, shared_mark_name
 from player_core.hud_panel import (
     SYMBOL_FONT,
     HudPanel,
+    button_ground,
     draw_active_dot,
     draw_glyph,
     draw_icon,
     draw_mark,
+    draw_minimize_bar,
     draw_tooltip,
-    hovered_fill,
     load_font,
     text_width,
 )
@@ -171,16 +170,6 @@ _ENHANCED_GLYPH = shared_mark("enhance_filter")
 _FUNNEL_W = 9
 _FUNNEL_H = 9
 _FUNNEL_NECK = 3  # width of the stem the mouth narrows to
-
-# The minimize mark, drawn for the same reason: the bar Windows puts on a title
-# bar is U+E921 of Segoe MDL2 Assets, which is not the face the buttons here take
-# their glyphs from, and Pillow draws a ".notdef" tofu for a codepoint a face does
-# not carry.  Drawing it costs one rectangle and needs no font at all — and the
-# bar is the one mark on this panel nobody has to be taught, since it is exactly
-# what every title bar in Windows uses for the same gesture.  As wide as the
-# funnel's mouth, so the two drawn marks are built to one size.
-_MINIMIZE_W = 9
-_MINIMIZE_H = 2
 
 
 def _row_names(model: HudModel, *, mode_row: bool) -> tuple[str, ...]:
@@ -723,32 +712,8 @@ class HudRenderer:
         Origenerator's Delete wears, since it is the one control here that takes
         something away.
         """
-        bx, by, bw, bh = rect
-        fill = on_color if on else BG_BUTTON
-        # The edge is the family's muted gray over either gray ground, and the
-        # fill's own color only where that fill carries a meaning (the lock's
-        # green).  A gray-on-gray edge would be no edge at all.
-        edge = TEXT_MUTED if fill in (BG_BUTTON, BG_BUTTON_ACTIVE) else fill
-        # One step lighter under the pointer, so a press lands where you meant.
-        # Taken after the edge is chosen, so hovering does not also change which
-        # color the outline is drawn in.
-        if self._pointer_is_on(rect):
-            fill = hovered_fill(fill)
-        draw.rounded_rectangle(
-            [bx, by, bx + bw - 1, by + bh - 1], radius=3,
-            fill=(*fill, 255), outline=(*edge, 255), width=1,
-        )
-        # A mark reverses only out of a LIGHT fill.  Over either gray ground it
-        # keeps its own ink -- what makes an on/off pair read as one button
-        # changing ground rather than as two different controls -- and over a
-        # colored one it stays white, exactly as the main console's does: dark
-        # ink on the mode pair's blue turned those labels black while the
-        # console's stayed white for the same state.
-        if fill in (WHITE, AMBER):
-            return (*BG_PRIMARY, 255)
-        if fill in (BG_BUTTON, BG_BUTTON_ACTIVE):
-            return (*(ink or TEXT_PRIMARY), 255)
-        return (*WHITE, 255)
+        return button_ground(draw, rect, on_color if on else BG_BUTTON,
+                             hovered=self._pointer_is_on(rect), rest_ink=ink)
 
     def _glyph_button(self, image, draw, rect: Rect, glyph: str, *, on: bool = False,
                       on_color=WHITE, ink=None) -> None:
@@ -798,12 +763,7 @@ class HudRenderer:
         panel is gone the moment it takes effect, so there would be nobody left to
         read a lit button anyway.
         """
-        ink = self._button_square(draw, rect, on=False)
-        bx, by, bw, bh = rect
-        cx, cy = bx + bw / 2, by + bh / 2
-        top = cy - _MINIMIZE_H / 2
-        draw.rectangle([cx - _MINIMIZE_W / 2, top, cx + _MINIMIZE_W / 2, top + _MINIMIZE_H - 1],
-                       fill=ink)
+        draw_minimize_bar(draw, rect, self._button_square(draw, rect, on=False))
 
     def _mode_label_widths(self, model: HudModel) -> list[int]:
         """Each mode label's measured width, or [] when the session has no
