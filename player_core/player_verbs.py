@@ -14,6 +14,8 @@ spelled beside its registry.
 """
 from __future__ import annotations
 
+import math
+
 from .playlist import PlaylistItem, item_line
 
 __all__ = [
@@ -75,9 +77,21 @@ SET_F_MODE = "SET_F_MODE"
 DISPLAY_ON = "DISPLAY_ON"
 DISPLAY_OFF = "DISPLAY_OFF"
 
+# How long a picture holds the screen before the list moves on (SET_PACE
+# <seconds>, 0 holding it until something else moves it).
+SET_PACE = "SET_PACE"
+
 QUIT = "QUIT"
 
 
 def play_file(item: PlaylistItem) -> str:
     """The command that shows *item*."""
     return f"{PLAY_FILE} {item_line(item)}"
+
+
+def pace_seconds(value: str) -> float | None:
+    try:
+        seconds = float(value)
+    except ValueError:
+        return None
+    return seconds if math.isfinite(seconds) and seconds >= 0 else None
