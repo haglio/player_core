@@ -20,9 +20,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from shared_ui.spacing import BUTTON_SIZE_HUD
-
 from .geometry import Rect, contains
+from .hud_button import BUTTON, Button
 from .hud_marks import shared_mark
 from .hud_status import LATEST_LABEL, SHUFFLE_LABEL
 
@@ -35,7 +34,6 @@ __all__ = [
     "tooltip_at",
 ]
 
-BUTTON = BUTTON_SIZE_HUD  # a square control; the wider ones are multiples plus gaps
 VALUE_W = 22  # a value read-out between a pair of buttons (the playback rate)
 # The words naming that pair.  A FLOOR, not the width: the cell is widened to
 # whatever the row's own label measures (console_rows takes the measurement,
@@ -102,53 +100,6 @@ class ModeHud:
     # neither.  Most clips' source scenes are not in the library, so "" is the
     # common answer and the button is dim more often than not.
     jump_to: str = ""
-
-
-@dataclass(frozen=True)
-class Button:
-    """One item on the console: what it posts, what it looks like, how it is drawn.
-
-    ``lit``, ``warn`` and ``hold`` are the live states — white for on, red for a
-    live recording, blue for the loop that recording leaves running.  On is white
-    rather than green because across this family green means the favorites and
-    the funscripts; a mode being selected or cruise being armed is neither.
-    ``favorite`` names the controls that *are* one of those, so their on-state
-    keeps the green — F-mode is the only one so far.  ``enhanced`` is the same
-    idea in the other color this family spends on a meaning: an enhanced picture
-    wears a yellow plus in its corner in Origenerator, so the control that keeps
-    only those wears its mark in that yellow at rest and fills with it when it
-    is on.  ``dim`` is a control at the
-    end of its range or with nothing to act on: drawn faded and left out of the
-    hit targets, so a press that could do nothing is not offered.
-
-    An empty ``action`` makes it a read-out: laid out in the row like anything
-    else, drawn as a bare value with no button, and never a hit target.
-    """
-
-    action: str
-    glyph: str
-    tooltip: str
-    width: int = BUTTON
-    lit: bool = False
-    warn: bool = False
-    hold: bool = False
-    dim: bool = False
-    favorite: bool = False
-    enhanced: bool = False
-    # A control that takes something away.  Its mark is drawn red -- the color
-    # Origenerator's Delete wears -- so the one button on a panel worth stopping
-    # at before clicking says so before its tooltip does.  Red is otherwise this
-    # family's alarm, and nothing here is alarming enough to spend it on twice.
-    danger: bool = False
-    # A choice the player is holding on to but not applying — the browse order
-    # and the length filter while a compilation is playing, which replaces both
-    # and gives them back on the way out.  Drawn on the family's active gray:
-    # visibly set, visibly not the blue of something in force.
-    remembered: bool = False
-    # Start a new group here: the row opens a GROUP_GAP before this button
-    # instead of the ordinary one, so a control that is about something else
-    # than its neighbours reads as separate without a rule drawn between them.
-    group_break: bool = False
 
 
 @dataclass(frozen=True)
