@@ -12,8 +12,8 @@ from __future__ import annotations
 from shared_ui.icon_geometry import glyph_names
 
 from player_core.hud_marks import SHARED_MARK, shared_mark_name
+from player_core.satellite_hud import _CONTROL_FACES
 from player_core.satellite_hud_paint import (
-    _CONTROL_GLYPHS,
     _EXPAND_GLYPH,
     _FAVORITE_GLYPH,
     _LOOP_GLYPH,
@@ -22,7 +22,7 @@ from player_core.satellite_hud_paint import (
 
 def _named() -> dict[str, str]:
     """Every HUD face that names a shared mark, by the mark it names."""
-    faces = dict(_CONTROL_GLYPHS) | {
+    faces = dict(_CONTROL_FACES) | {
         "loop": _LOOP_GLYPH, "favorite": _FAVORITE_GLYPH, "expand": _EXPAND_GLYPH,
     }
     return {
@@ -68,7 +68,7 @@ def test_the_transport_and_the_padlock_stay_typed():
     # the symbol face carries both cleanly. A name here that shared_ui cannot
     # draw would be worse than the character it replaced.
     for control in ("prev", "next", "lock"):
-        assert not _CONTROL_GLYPHS[control].startswith(SHARED_MARK)
+        assert not _CONTROL_FACES[control].startswith(SHARED_MARK)
 
 
 def test_the_expand_arrow_is_drawn_rather_than_typed():

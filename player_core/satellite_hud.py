@@ -19,11 +19,14 @@ font: the paint module measures text and hands the width back in.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from shared_ui.spacing import BUTTON_SIZE_HUD
 
 from .geometry import Rect, contains
+from .hud_button import FIT_THE_WORD, Button, rows_from_raw, rows_raw
+from .hud_marks import FMODE_ICON, MINIMIZE_ICON, shared_mark
 from .hud_status import LATEST_LABEL, SHUFFLE_LABEL
 
 __all__ = [
@@ -55,8 +58,6 @@ MAX_GUTTER = 100    # …and never wider, so a stray long act can't eat the map
 LOOP_BTN = 18       # loop-button thickness: below the action column, right of the row
 FILTER_BTN = 18     # act-filter button: at the head of each row, in the gutter
 FILTER_ROOM = FILTER_BTN + MAP_GAP  # what it takes out of the row-label gutter
-CTRL_BTN = BUTTON_SIZE_HUD  # a side-control button — the family's HUD square
-CTRL_BAND_H = 24    # the band those controls sit in, under the status line
 
 # What the map keeps clear past the end of each axis for that axis's own buttons:
 # the seed-loop and expand buttons right of the row, the action-loop button below
@@ -158,9 +159,13 @@ class HudModel:
     # rest dim.
     playing: Cell = ("corner", 0)
     # The satellite side's own mode axis ("video" / "origenerator"), or "" for
-    # a session with no hosted Origenerator — the mode pair is drawn only when
-    # this names a mode, the way the main console's Video/Genau row does.
+    # a session with no hosted Origenerator: in origenerator mode the player
+    # blacks its video out under this panel.
     satellites_mode: str = ""
+    # The buttons the source declares for this side, in the bands the panel
+    # draws them in: what each posts, its face, its tooltip and its state.  A
+    # panel declaring none is drawn from :func:`standard_rows`.
+    rows: tuple[tuple[Button, ...], ...] = ()
 
 
 # --- map geometry ------------------------------------------------------------
@@ -231,10 +236,10 @@ def panel_width(gutter: int, row_width: int, status_width: int,
     return max(for_map, STATUS_TEXT_X + max(status_width, subtitle_width) + PAD, band_width)
 
 
-def panel_height(column_height: int, subtitle_h: int = 0, mode_band_h: int = 0) -> int:
-    """How tall the panel has to be: the status and control bands, then — around a
-    map column *column_height* deep — the "Seed N" header strip, the column's own
-    "…" slots, and the action-loop button below it.
+def panel_height(column_height: int, subtitle_h: int = 0, bands_h: int = 0) -> int:
+    """How tall the panel has to be: the status band and the button bands, then
+    — around a map column *column_height* deep — the "Seed N" header strip, the
+    column's own "…" slots, and the action-loop button below it.
 
     Nothing here depends on what the status *says*: the band is one line whatever the
     line carries, because the panel widens to hold it rather than wrapping it.  So
@@ -245,13 +250,12 @@ def panel_height(column_height: int, subtitle_h: int = 0, mode_band_h: int = 0) 
     first, so it grows the band rather than the width, and everything under it moves
     down by exactly the line it added.
 
-    *mode_band_h* is the mode row's band when the session hosts an Origenerator —
-    a row of its own above the controls, like the console's — and 0 otherwise.
+    *bands_h* is the room the declared rows of buttons take, a band each.
 
     *column_height* is 0 before the satellite's first clip, when the panel is the
-    two bands and nothing else: there is no map, so no room is kept for one.
+    bands and nothing else: there is no map, so no room is kept for one.
     """
-    foot = PAD + STATUS_BAND_H + subtitle_h + mode_band_h + CTRL_BAND_H
+    foot = PAD + STATUS_BAND_H + subtitle_h + bands_h
     if column_height:
         foot += (COL_LABEL_H + COL_LABEL_GAP + ELLIPSIS_ROOM
                  + column_height + ELLIPSIS_ROOM + MAP_LOWER_RESERVE)
@@ -445,33 +449,36 @@ def ellipsis_rects(
             (col_x, _col_lower(corner_rect, action_rects) + MAP_GAP, col_w, ELLIPSIS))
 
 
-# --- the side's own controls -------------------------------------------------
-# The buttons this satellite carries for itself, grouped by what each group is
-# about — the same four groups, in the same order, the main console's own rows
-# are cut into, because a reader glancing between the two screens is reading one
-# control panel in two places.
-#
-#   * stepping — the browse pair, reached for most, so it leads.
-#   * the clip on screen — hold it, throw it out — and F-mode, the filter over
-#     the library it was browsed from.  Set apart from the stepping because a
-#     switch is a state the side sits IN, where a step is over as soon as it is
-#     taken.
-#   * the browse pool — the enhanced-only switch that narrows it (a hosted
-#     Origenerator's shows only — see :func:`satellite_hud_paint._row_names`) and
-#     the reset that puts the whole side back to its defaults.  Reset stands past
-#     the filter because it is the wider gesture: the switch turns one thing on
-#     or off, this puts the lot back.
-#   * the order that pool comes in — shuffled, or newest first.  Apart from reset
-#     rather than with it, because reset is what puts the order back rather than
-#     one more way to set it.
-#   * the window — minimize, about none of the video at all.  That window is
-#     borderless (``satellite.app`` opens it NOFRAME so the video fills its
-#     slot), so it has no title bar to carry the gesture and the HUD is the only
-#     place it can live.
-#
-# Each name is also its command's verb, so "portrait_prev" and "landscape_trash"
-# fall out of the same tuple that draws them and the button can never post a
-# command it isn't labeled for.
+# --- the side's own buttons ----------------------------------------------------
+# What a source declares for this side, drawn in bands between the status line
+# and the map: each row of ``HudModel.rows`` is one band, a square per button, a
+# word button as wide as its word (the painter measures it), and the wider gap
+# before a button that starts a group -- the way the console's rows break.
+CTRL_BTN = BUTTON_SIZE_HUD
+CTRL_BAND_H = 24
+CTRL_GROUP_GAP = 12
+# Inside a word button, the room either side of its word.
+MODE_LABEL_PAD = 6
+
+
+def button_row_rects(x: int, y: int, buttons: Sequence[Button],
+                     widths: Sequence[int]) -> list[tuple[Rect, Button]]:
+    """Each button's ``(rect, button)`` along a row running right from ``(x, y)``,
+    *widths* being each one's width as the painter measured it -- this module
+    is font-free."""
+    rects: list[tuple[Rect, Button]] = []
+    for button, width in zip(buttons, widths):
+        if rects:
+            x += CTRL_GROUP_GAP if button.group_break else MAP_GAP
+        rects.append(((x, y, width, CTRL_BTN), button))
+        x += width
+    return rects
+
+
+# --- the family's standard band, for a panel that declares none ----------------
+# Drawn for a model with no rows, exactly as every panel was drawn before a
+# source could declare its own: Fun Time's move onto declaring these is the
+# next landing, and this goes with it.
 CONTROL_GROUPS = (
     ("prev", "next"),
     ("lock", "trash", "fmode"),
@@ -479,75 +486,75 @@ CONTROL_GROUPS = (
     ("shuffle", "latest"),
     ("minimize",),
 )
-
-# The two controls above that only some HUDs carry, so they are not in the
-# default row: the paint module puts each back in its group for a model that
-# says it has the switch.
-_OPTIONAL_CONTROLS = ("enhanced",)
-
-CONTROLS = tuple(name for group in CONTROL_GROUPS for name in group
-                 if name not in _OPTIONAL_CONTROLS)
-
-# Which group each control belongs to.  A wider gap opens where the number
-# changes, so a control that is about something else than its neighbours reads
-# as separate without a rule drawn between them — the way the console's rows
-# already break (``console.GROUP_GAP``).
 _GROUP_OF = {name: index for index, group in enumerate(CONTROL_GROUPS) for name in group}
-CTRL_GROUP_GAP = 12
+_ORDER_CONTROLS = ("shuffle", "latest")
 
-
-def control_button_rects(x: int, y: int,
-                         names: tuple[str, ...] = CONTROLS) -> list[tuple[Rect, str]]:
-    """Each side-control's ``(rect, name)``, in a row running right from ``(x, y)``.
-
-    *names* is which controls the row carries: all of them by default, but with
-    a hosted Origenerator the mode row above takes minimize with it (see
-    :data:`MODE_BUTTONS`), and this row lays out the rest.  Whatever the row
-    holds, a :data:`CTRL_GROUP_GAP` opens wherever it crosses from one of
-    :data:`CONTROL_GROUPS` to the next.
-    """
-    rects: list[tuple[Rect, str]] = []
-    previous = ""
-    for name in names:
-        if rects:
-            x += CTRL_BTN + (CTRL_GROUP_GAP
-                             if _GROUP_OF.get(name) != _GROUP_OF.get(previous)
-                             else MAP_GAP)
-        rects.append(((x, y, CTRL_BTN, CTRL_BTN), name))
-        previous = name
-    return rects
-
-
-# The satellite side's mode pair, drawn like the main console's Video/Genau
-# row: a labeled button per mode, the session's current one lit, a press
-# on the other switching to it.  Each action is the dispatch command verbatim —
-# side-less, because the mode belongs to the whole satellite side.  Like the
-# console's, the mode row is a row of its own, leading the bands, and minimize
-# rides it: it is about the side as a whole rather than the clip on screen, so it
-# sits with the mode pair rather than among the transport.  (Without a hosted
-# Origenerator there is no mode row, and minimize stays at the end of the control
-# band.)
 MODE_BUTTONS = (
     ("satellites_video_activate", "Video", "video"),
     ("origenerator_activate", "Origenerator", "origenerator"),
 )
 
-# Inside a mode button, the room either side of its label.
-MODE_LABEL_PAD = 6
+CONTROL_TOOLTIPS = {
+    "prev": "Previous clip",
+    "next": "Next clip",
+    "lock": "Lock / unlock this clip",
+    "trash": "Unfavorite it — or mark weird when it is not a favorite",
+    "fmode": "F-Mode — browse only the favorites on this player",
+    "enhanced": "Enhanced only — show just the pictures that have been enhanced",
+    "reset": "Reset — no filter, no lock, no loop, no F-Mode, shuffled from the top",
+    "shuffle": f"{SHUFFLE_LABEL} — reshuffle this player's browse",
+    "latest": f"{LATEST_LABEL} — reload this player's browse newest-first",
+    "minimize": "Minimize this player — bring it back from the taskbar",
+}
+MODE_TOOLTIPS = {
+    "satellites_video_activate": "Video mode — the satellite players and the Random Favs Browser",
+    "origenerator_activate":
+        "Origenerator mode — Origenerator over the browser, its shows over the players",
+}
+_CONTROL_FACES = {
+    "prev": "⏮", "next": "⏭", "lock": "🔒",
+    "trash": shared_mark("trash"), "reset": shared_mark("reset"),
+    "shuffle": shared_mark("shuffle"), "latest": shared_mark("latest"),
+    "fmode": FMODE_ICON, "enhanced": shared_mark("enhance_filter"),
+    "minimize": MINIMIZE_ICON,
+}
 
 
-def mode_button_rects(x: int, y: int, label_widths: list[int]) -> list[tuple[Rect, str]]:
-    """Each mode button's ``(rect, command)``, running right from ``(x, y)``.
+def standard_rows(model: HudModel) -> tuple[tuple[Button, ...], ...]:
+    """The rows a panel declaring none is drawn from: the mode pair with
+    minimize riding it where a session hosts an Origenerator, then the side's
+    own band -- the enhanced switch only where the side has one, the order pair
+    only where the order can be switched."""
+    names = [name for group in CONTROL_GROUPS for name in group
+             if name != "enhanced" or model.enhanced_filter is not None]
+    if model.latest is None:
+        names = [name for name in names if name not in _ORDER_CONTROLS]
+    rows = []
+    if model.satellites_mode:
+        names.remove("minimize")
+        pair = tuple(
+            Button(action, label, MODE_TOOLTIPS[action], width=FIT_THE_WORD,
+                   lit=model.satellites_mode == mode)
+            for action, label, mode in MODE_BUTTONS
+        )
+        rows.append(pair + (_standard_control(model, "minimize", group_break=True),))
+    band = [
+        _standard_control(model, name,
+                          group_break=index > 0 and _GROUP_OF[name] != _GROUP_OF[names[index - 1]])
+        for index, name in enumerate(names)
+    ]
+    rows.append(tuple(band))
+    return tuple(rows)
 
-    *label_widths* is each label as the paint module measured it — this module
-    is font-free — in :data:`MODE_BUTTONS` order.
-    """
-    rects: list[tuple[Rect, str]] = []
-    for (action, _label, _mode), label_width in zip(MODE_BUTTONS, label_widths):
-        width = label_width + 2 * MODE_LABEL_PAD
-        rects.append(((x, y, width, CTRL_BTN), action))
-        x += width + MAP_GAP
-    return rects
+
+def _standard_control(model: HudModel, name: str, *, group_break: bool) -> Button:
+    lit = {"lock": model.locked, "fmode": model.f_mode,
+           "enhanced": bool(model.enhanced_filter),
+           "latest": bool(model.latest), "shuffle": model.latest is False}
+    return Button(f"{model.side}_{name}", _CONTROL_FACES[name], CONTROL_TOOLTIPS[name],
+                  lit=lit.get(name, False), favorite=name in ("lock", "fmode"),
+                  enhanced=name == "enhanced", danger=name == "trash",
+                  group_break=group_break)
 
 
 def favorite_mark_rect(y: int, line_h: int) -> Rect:
@@ -624,13 +631,12 @@ class HudTargets:
     loop: list[tuple[Rect, str]]
     filter: list[tuple[Rect, str]]
     expand: Rect | None
-    control: list[tuple[Rect, str]] = field(default_factory=list)
+    # The declared buttons, each with what it posts and what it is called.
+    buttons: list[tuple[Rect, Button]] = field(default_factory=list)
     # The favorite mark is a readout, so it is here only to carry its tooltip.
     favorite: Rect | None = None
     # The strike under the current clip's act, or None where no act is named.
     wrong_action: Rect | None = None
-    # The mode pair, each carrying its dispatch command verbatim (side-less).
-    modes: list[tuple[Rect, str]] = field(default_factory=list)
 
 
 def build_click_targets(
@@ -658,6 +664,14 @@ def hit_test_targets(targets: list[tuple[Rect, str]], px: int, py: int) -> str:
         if x <= px < x + w and y <= py < y + h:
             return value
     return ""
+
+
+def button_at(buttons: list[tuple[Rect, Button]], px: int, py: int) -> Button | None:
+    """The declared button under ``(px, py)``, or None off all of them."""
+    for rect, button in buttons:
+        if contains(rect, px, py):
+            return button
+    return None
 
 
 def filter_button_rects(
@@ -736,25 +750,8 @@ def label_is_filtered(label: str, filter_query: str) -> bool:
 LOOP_TOOLTIPS = {"action": "Loop this action column", "seed": "Loop this seed row"}
 FILTER_TOOLTIP = "Filter to this action"
 EXPAND_TOOLTIP = "More seeds — widen the net"
-CONTROL_TOOLTIPS = {
-    "prev": "Previous clip",
-    "next": "Next clip",
-    "lock": "Lock / unlock this clip",
-    "trash": "Unfavorite it — or mark weird when it is not a favorite",
-    "fmode": "F-Mode — browse only the favorites on this player",
-    "enhanced": "Enhanced only — show just the pictures that have been enhanced",
-    "reset": "Reset — no filter, no lock, no loop, no F-Mode, shuffled from the top",
-    "shuffle": f"{SHUFFLE_LABEL} — reshuffle this player's browse",
-    "latest": f"{LATEST_LABEL} — reload this player's browse newest-first",
-    "minimize": "Minimize this player — bring it back from the taskbar",
-}
 FAVORITE_TOOLTIP = "In the favorites"
 WRONG_ACTION_TOOLTIP = "Wrong action — strike it, and it gets asked about again"
-MODE_TOOLTIPS = {
-    "satellites_video_activate": "Video mode — the satellite players and the Random Favs Browser",
-    "origenerator_activate":
-        "Origenerator mode — Origenerator over the browser, its shows over the players",
-}
 
 
 def _in(rect: Rect | None, px: int, py: int) -> bool:
@@ -765,15 +762,15 @@ def button_tooltip(targets: HudTargets, px: int, py: int) -> str:
     """What the HUD control under ``(px, py)`` is, or "" over none of them.
 
     Every glyph on this panel is cryptic on purpose — it is read over moving video
-    — so each one names itself on hover.  Taking the whole target bundle means a
-    new control needs a line in a dict here and nothing else.
+    — so each one names itself on hover: a declared button by the tooltip its
+    source gave it, the map's own chrome by the words here.
     """
-    for bucket, tooltips in ((targets.control, CONTROL_TOOLTIPS),
-                             (targets.loop, LOOP_TOOLTIPS),
-                             (targets.modes, MODE_TOOLTIPS)):
-        hit = hit_test_targets(bucket, px, py)
-        if hit:
-            return tooltips.get(hit, "")
+    button = button_at(targets.buttons, px, py)
+    if button is not None:
+        return button.tooltip
+    loop = hit_test_targets(targets.loop, px, py)
+    if loop:
+        return LOOP_TOOLTIPS.get(loop, "")
     # The filter buttons all say the same thing — each one names the act beside it,
     # so the tooltip only has to say what pressing it does.
     if _in(targets.wrong_action, px, py):
@@ -819,14 +816,11 @@ class HudClicks:
     def press(self, targets: HudTargets, px: int, py: int, *, now: float) -> str:
         """The command for a press at ``(px, py)``, or "" when it posts nothing
         yet (a first thumbnail click, or empty space)."""
-        mode = hit_test_targets(targets.modes, px, py)
-        if mode:
-            # Verbatim: the mode belongs to the whole satellite side, so its
-            # commands are side-less — pressing the lit one is idempotent.
-            return mode
-        control = hit_test_targets(targets.control, px, py)
-        if control:
-            return f"{self._side}_{control}"
+        button = button_at(targets.buttons, px, py)
+        if button is not None:
+            # Verbatim: the source said what a press posts.  A dimmed one is at
+            # the end of its range or has nothing to act on, and posts nothing.
+            return "" if button.dim else button.action
         loop = hit_test_targets(targets.loop, px, py)
         if loop:
             return self._toggle_loop(loop)
@@ -978,6 +972,7 @@ def hud_text(model: HudModel) -> str:
         "corner": None if model.corner is None else _cell_raw(model.corner),
         "seeds": [_cell_raw(cell) for cell in model.seeds],
         "actions": [_cell_raw(cell) for cell in model.actions],
+        "rows": rows_raw(model.rows),
     })
 
 
@@ -1022,4 +1017,5 @@ def parse_hud(text: str) -> HudModel | None:
         action_count=int(raw.get("action_count", 0) or 0),
         playing=(str(playing[0]), int(playing[1])),
         satellites_mode=str(raw.get("satellites_mode", "") or ""),
+        rows=rows_from_raw(raw.get("rows")),
     )

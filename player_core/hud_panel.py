@@ -345,7 +345,10 @@ class KeptBitmap:
 
 # The family's button: its ground, and its face drawn on it.
 BUTTON_RADIUS = 3
-_MINIMIZE_PAD = 5
+# The minimize bar: as wide as the satellite HUD's filter funnel, so the two
+# drawn marks are built to one size, and two pixels deep like a title bar's.
+_MINIMIZE_W = 9
+_MINIMIZE_H = 2
 
 
 def button_ground(draw: ImageDraw.ImageDraw, rect: tuple[int, int, int, int], fill,
@@ -381,8 +384,9 @@ def draw_minimize_bar(draw: ImageDraw.ImageDraw, rect: tuple[int, int, int, int]
     across the middle: drawn, because the mark Windows uses is in a face these
     HUDs do not load and Pillow draws tofu for a codepoint a face lacks."""
     x, y, w, h = rect
-    cy = y + h / 2
-    draw.rectangle([x + _MINIMIZE_PAD, cy - 1, x + w - _MINIMIZE_PAD - 1, cy], fill=ink)
+    cx, top = x + w / 2, y + h / 2 - _MINIMIZE_H / 2
+    draw.rectangle([cx - _MINIMIZE_W / 2, top, cx + _MINIMIZE_W / 2, top + _MINIMIZE_H - 1],
+                   fill=ink)
 
 
 def draw_button(image: Image.Image, draw: ImageDraw.ImageDraw,
