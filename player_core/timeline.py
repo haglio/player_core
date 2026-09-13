@@ -65,6 +65,10 @@ def bar_track_x(width: int) -> tuple[int, int]:
     return inset, max(inset + 1, width - _VOLUME_SLOT_W)
 
 
+def on_track(x: int, width: int) -> bool:
+    return x >= bar_track_x(width)[0]
+
+
 def paint_rect(bgra, x0, x1, y0, y1, color):
     """Fill rows [y0:y1], cols [x0:x1] with an RGBA ``color``, clamped to the
     array (stored BGRA for mpv)."""

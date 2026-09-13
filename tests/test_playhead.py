@@ -3,8 +3,14 @@ from __future__ import annotations
 
 import numpy as np
 
-from player_core.playhead import PlayheadHudPainter, clip_playhead, video_playhead
-from player_core.volume import CHIP_H, PAD
+from player_core.playhead import (
+    PlayheadHudPainter,
+    clip_playhead,
+    readout_xy,
+    video_playhead,
+)
+from player_core.timeline import TIMELINE_HEIGHT, bar_track_x
+from player_core.volume import CHIP_H, MARGIN, PAD, chip_xy
 
 
 class TestWhatAVideosReadoutSays:
@@ -90,3 +96,11 @@ class TestThePill:
         rows = np.flatnonzero(first_digit.any(axis=1))
 
         assert abs((rows[0] + rows[-1]) / 2 - (CHIP_H - 1) / 2) <= 0.5
+
+
+class TestWhereThePillGoes:
+    def test_it_sits_against_the_start_of_the_track_level_with_the_chip(self):
+        x, y = readout_xy(131, win_w=1000, win_h=600, timeline_h=TIMELINE_HEIGHT)
+
+        assert x + 131 + MARGIN == bar_track_x(1000)[0]
+        assert y == chip_xy(win_w=1000, win_h=600, timeline_h=TIMELINE_HEIGHT)[1]
