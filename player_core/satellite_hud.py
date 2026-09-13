@@ -34,6 +34,7 @@ __all__ = [
     "HudTargets",
     "button_tooltip",
     "hit_test_targets",
+    "hud_text",
     "label_is_filtered",
     "parse_hud",
 ]

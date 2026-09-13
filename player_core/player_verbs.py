@@ -16,7 +16,28 @@ from __future__ import annotations
 
 from .playlist import PlaylistItem, item_line
 
-__all__: list[str] = []
+__all__ = [
+    "DISPLAY_OFF",
+    "DISPLAY_ON",
+    "LOCK_OFF",
+    "LOCK_ON",
+    "NEXT",
+    "PLAY_FILE",
+    "PREV",
+    "QUIT",
+    "RELOAD_PLAYLIST",
+    "SEEK_BACK",
+    "SEEK_FWD",
+    "SET_F_MODE",
+    "SET_SPEED",
+    "SET_TCODE_ENABLED",
+    "SET_VOLUME",
+    "SPEED_DOWN",
+    "SPEED_UP",
+    "TOGGLE_LOCK",
+    "TRASH",
+    "play_file",
+]
 
 # The list: step along it, or read it again after the source rewrote the file
 # (keeping the item on screen where it survived).

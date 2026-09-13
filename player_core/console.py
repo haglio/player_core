@@ -30,6 +30,7 @@ __all__ = [
     "CONSOLE_VERBS",
     "ConsoleModel",
     "console_rows",
+    "console_text",
     "read_console",
     "tooltip_at",
 ]

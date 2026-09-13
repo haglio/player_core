@@ -25,7 +25,10 @@ from pathlib import Path
 from .file_channel import publish_whole
 
 __all__ = [
+    "PlayerStatus",
     "StatusWriter",
+    "parse_status",
+    "status_fields",
 ]
 
 
