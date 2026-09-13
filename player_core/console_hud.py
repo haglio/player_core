@@ -578,7 +578,7 @@ class ConsolePainter:
             for control in drive_controls(_PAD, y, drive):
                 self.buttons.append((
                     control.rect,
-                    Button(control.action, "", _DRIVE_TIPS.get(control.action, ""),
+                    Button(control.command, "", _DRIVE_TIPS.get(control.command, ""),
                            dim=control.dim),
                 ))
             # A band takes its value from where you press in it, so it is its own
@@ -687,7 +687,7 @@ class ConsolePainter:
         the readout's own key/value colors: a muted word names the value beside
         it, which is bright."""
         x, y, w, h = rect
-        if not button.action:
+        if not button.command:
             ink = TEXT_MUTED if button.glyph.replace(" ", "").isalpha() else TEXT_PRIMARY
             if x == _PAD:
                 # A word NAMING its row, at the panel's left edge.  Centered in

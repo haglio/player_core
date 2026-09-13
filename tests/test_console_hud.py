@@ -44,12 +44,12 @@ def _line(*, locked: bool = True, order_latest: bool = False, **modes) -> str:
                                            latest=order_latest)).status_line
 
 
-def _rect_of(painter: ConsolePainter, action: str) -> Rect:
-    return next(rect for rect, button in painter.buttons if button.action == action)
+def _rect_of(painter: ConsolePainter, command: str) -> Rect:
+    return next(rect for rect, button in painter.buttons if button.command == command)
 
 
-def _over(painter: ConsolePainter, action: str) -> tuple[int, int]:
-    bx, by, bw, bh = _rect_of(painter, action)
+def _over(painter: ConsolePainter, command: str) -> tuple[int, int]:
+    bx, by, bw, bh = _rect_of(painter, command)
     left, top = hud_xy()
     return left + bx + bw // 2, top + by + bh // 2
 
@@ -341,7 +341,7 @@ class TestPainter:
         painter = ConsolePainter()
         painter.bgra(ConsoleHud(console=ConsoleModel(main_mode=MainMode.VIDEO), drive=_drive()))
 
-        actions = {b.action for _rect, b in painter.buttons}
+        actions = {b.command for _rect, b in painter.buttons}
         for action in ("robot_hand_amplitude_up", "robot_hand_center_down", "robot_hand_speed_up"):
             assert action in actions
 
@@ -356,10 +356,10 @@ class TestPainter:
         green = (rgb[:, :, 1] > 130) & (rgb[:, :, 0] < 110) & (rgb[:, :, 2] < 110)
         assert green.any()
 
-    def _busiest_shade(self, action: str, model: ConsoleModel, modes=None):
+    def _busiest_shade(self, command: str, model: ConsoleModel, modes=None):
         painter = ConsolePainter()
         rgb = _rgb(painter.bgra(ConsoleHud(console=model, modes=modes or ModeHud())))
-        bx, by, bw, bh = _rect_of(painter, action)
+        bx, by, bw, bh = _rect_of(painter, command)
         pixels = rgb[by:by + bh, bx:bx + bw].astype(int)
         shades, counts = np.unique(pixels.reshape(-1, 3), axis=0, return_counts=True)
         return tuple(shades[counts.argmax()]), pixels
@@ -418,7 +418,7 @@ class TestPainter:
         rgb = _rgb(painter.bgra(ConsoleHud(console=ConsoleModel(main_mode=MainMode.VIDEO))))
         (bx, by, bw, bh), _b = next(
             (rect, b) for rect, b in painter.buttons
-            if b.action and b.action != "main_video_activate")
+            if b.command and b.command != "main_video_activate")
         pixels = rgb[by:by + bh, bx:bx + bw].astype(int)
         muted = (TEXT_MUTED.red(), TEXT_MUTED.green(), TEXT_MUTED.blue())
 
@@ -499,10 +499,10 @@ class TestPainter:
         assert xs.max() - xs.min() > ys.max() - ys.min()
 
     @staticmethod
-    def _button_pixels(action: str, model: ConsoleModel) -> np.ndarray:
+    def _button_pixels(command: str, model: ConsoleModel) -> np.ndarray:
         painter = ConsolePainter()
         rgb = _rgb(painter.bgra(ConsoleHud(console=model)))
-        bx, by, bw, bh = _rect_of(painter, action)
+        bx, by, bw, bh = _rect_of(painter, command)
         return rgb[by:by + bh, bx:bx + bw]
 
     def _broker_pixels(self, broker: bool) -> np.ndarray:
@@ -634,7 +634,7 @@ class TestPresses:
 
         over = _over(painter, "robot_hand_amplitude_up")
         assert painter.press_at(*over) == ""
-        assert all(b.dim for _rect, b in painter.buttons if b.action.startswith("genau_amplitude"))
+        assert all(b.dim for _rect, b in painter.buttons if b.command.startswith("genau_amplitude"))
 
     def test_the_cursor_over_a_button_is_reported_in_panel_coordinates(self):
         painter = self._painted()
@@ -979,7 +979,7 @@ class TestARowsNameLinesUpWithItsControls:
             painter, rows = self._rows(mode)
             for items in rows.values():
                 x, width, button = items[0]
-                if button.action or len(items) < 2:
+                if button.command or len(items) < 2:
                     continue
                 assert text_width(painter._tiny, button.glyph) <= width
                 assert x + width <= items[1][0]

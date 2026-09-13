@@ -543,9 +543,9 @@ def mode_button_rects(x: int, y: int, label_widths: list[int]) -> list[tuple[Rec
     is font-free — in :data:`MODE_BUTTONS` order.
     """
     rects: list[tuple[Rect, str]] = []
-    for (action, _label, _mode), label_width in zip(MODE_BUTTONS, label_widths):
+    for (command, _label, _mode), label_width in zip(MODE_BUTTONS, label_widths):
         width = label_width + 2 * MODE_LABEL_PAD
-        rects.append(((x, y, width, CTRL_BTN), action))
+        rects.append(((x, y, width, CTRL_BTN), command))
         x += width + MAP_GAP
     return rects
 

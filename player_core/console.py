@@ -119,11 +119,11 @@ class Button:
     end of its range or with nothing to act on: drawn faded and left out of the
     hit targets, so a press that could do nothing is not offered.
 
-    An empty ``action`` makes it a read-out: laid out in the row like anything
+    An empty ``command`` makes it a read-out: laid out in the row like anything
     else, drawn as a bare value with no button, and never a hit target.
     """
 
-    action: str
+    command: str
     glyph: str
     tooltip: str
     width: int = BUTTON
@@ -491,9 +491,9 @@ def console_rows(model: ConsoleModel, *, modes: bool = True,
     rows: list[list[Button]] = [] if not modes else [
         [
             *(
-                Button(action, label, f"{label} mode", width=BUTTON * 2 + GAP,
+                Button(command, label, f"{label} mode", width=BUTTON * 2 + GAP,
                        lit=model.main_mode == mode)
-                for action, label, mode in _MODE_BUTTONS
+                for command, label, mode in _MODE_BUTTONS
             ),
             # Minimize rides the mode row because it is about the main *slot*
             # rather than about what is playing on it — and because this row is
@@ -899,13 +899,13 @@ def _group_break(row: list[Button], index: int) -> bool:
     previous, current = row[index - 1], row[index]
     if current.group_break:
         return True  # the button says so itself (the mode row's minimize)
-    if not current.action or not previous.action:
+    if not current.command or not previous.command:
         # A word naming the row stands apart from the controls; a value sitting
         # between a pair of them belongs with them, and pushing the − and + that
         # far apart made the pair read as two unrelated buttons.
-        readout = current if not current.action else previous
+        readout = current if not current.command else previous
         return readout.glyph.replace(" ", "").isalpha()
-    return _family(previous.action) != _family(current.action)
+    return _family(previous.command) != _family(current.command)
 
 
 # Robot Hand controls whose command name does not begin with robot_hand_.
@@ -969,21 +969,21 @@ _NAMED_GROUPS: dict[str, frozenset[str]] = {
 }
 
 
-def _family(action: str) -> str:
-    """Which group of controls *action* belongs to."""
+def _family(command: str) -> str:
+    """Which group of controls *command* belongs to."""
     # The two mode buttons are one group; genau_activate would otherwise fall
     # to the Genau controls' prefix below.
-    if action.endswith("_activate"):
+    if command.endswith("_activate"):
         return "mode"
     for group, verbs in _NAMED_GROUPS.items():
-        if action in verbs:
+        if command in verbs:
             return group
     # Stepping the video and nudging inside it are one run of four marks, so they
     # are one family: prev, back ten, forward ten, next, evenly spaced.
     # The video rate's own pair is checked before the transport prefix it shares
     # a spelling with.
     for prefix in ("main_player_speed", "main_", "robot_hand_", "genau_"):
-        if action.startswith(prefix):
+        if command.startswith(prefix):
             return prefix
     return "file"
 
@@ -1006,10 +1006,10 @@ def hit_test(placed: list[tuple[Rect, Button]], px: int, py: int) -> str:
     the press it would post is one Fun Time would ignore.
     """
     for rect, button in placed:
-        if button.dim or not button.action:
+        if button.dim or not button.command:
             continue
         if contains(rect, px, py):
-            return button.action
+            return button.command
     return ""
 
 

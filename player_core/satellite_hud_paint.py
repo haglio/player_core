@@ -818,7 +818,7 @@ class HudRenderer:
         Video/Genau row in: press the other one to switch."""
         lit_action = {mode: action for action, _label, mode in MODE_BUTTONS}.get(
             model.satellites_mode, "")
-        labels = {action: label for action, label, _mode in MODE_BUTTONS}
+        labels = {command: label for command, label, _mode in MODE_BUTTONS}
         for rect, action in modes:
             # Blue, not the active gray every other toggle takes: with every
             # button carrying a lit ground now, one shade lighter was too small
