@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 
 from shared_ui.spacing import BUTTON_SIZE_HUD
 
+from .console import VALUE_W
 from .geometry import Rect, contains
 from .hud_status import LATEST_LABEL, SHUFFLE_LABEL
 
@@ -161,6 +162,7 @@ class HudModel:
     # a session with no hosted Origenerator — the mode pair is drawn only when
     # this names a mode, the way the main console's Video/Genau row does.
     satellites_mode: str = ""
+    playback_speed: float | None = None
 
 
 # --- map geometry ------------------------------------------------------------
@@ -231,7 +233,8 @@ def panel_width(gutter: int, row_width: int, status_width: int,
     return max(for_map, STATUS_TEXT_X + max(status_width, subtitle_width) + PAD, band_width)
 
 
-def panel_height(column_height: int, subtitle_h: int = 0, mode_band_h: int = 0) -> int:
+def panel_height(column_height: int, subtitle_h: int = 0, mode_band_h: int = 0,
+                 speed_band_h: int = 0) -> int:
     """How tall the panel has to be: the status and control bands, then — around a
     map column *column_height* deep — the "Seed N" header strip, the column's own
     "…" slots, and the action-loop button below it.
@@ -251,7 +254,7 @@ def panel_height(column_height: int, subtitle_h: int = 0, mode_band_h: int = 0) 
     *column_height* is 0 before the satellite's first clip, when the panel is the
     two bands and nothing else: there is no map, so no room is kept for one.
     """
-    foot = PAD + STATUS_BAND_H + subtitle_h + mode_band_h + CTRL_BAND_H
+    foot = PAD + STATUS_BAND_H + subtitle_h + mode_band_h + CTRL_BAND_H + speed_band_h
     if column_height:
         foot += (COL_LABEL_H + COL_LABEL_GAP + ELLIPSIS_ROOM
                  + column_height + ELLIPSIS_ROOM + MAP_LOWER_RESERVE)
@@ -550,6 +553,15 @@ def mode_button_rects(x: int, y: int, label_widths: list[int]) -> list[tuple[Rec
     return rects
 
 
+def speed_row_rects(x: int, y: int, *, label_width: int) -> tuple[list[tuple[Rect, str]], Rect]:
+    down_x = x + label_width
+    rate_x = down_x + CTRL_BTN + MAP_GAP
+    up_x = rate_x + VALUE_W + MAP_GAP
+    buttons = [((down_x, y, CTRL_BTN, CTRL_BTN), "speed_down"),
+               ((up_x, y, CTRL_BTN, CTRL_BTN), "speed_up")]
+    return buttons, (rate_x, y, VALUE_W, CTRL_BTN)
+
+
 def favorite_mark_rect(y: int, line_h: int) -> Rect:
     """The favorite mark: at the head of the file-name line, under the dot.
 
@@ -747,6 +759,8 @@ CONTROL_TOOLTIPS = {
     "shuffle": f"{SHUFFLE_LABEL} — reshuffle this player's browse",
     "latest": f"{LATEST_LABEL} — reload this player's browse newest-first",
     "minimize": "Minimize this player — bring it back from the taskbar",
+    "speed_down": "Play the video slower",
+    "speed_up": "Play the video faster",
 }
 FAVORITE_TOOLTIP = "In the favorites"
 WRONG_ACTION_TOOLTIP = "Wrong action — strike it, and it gets asked about again"

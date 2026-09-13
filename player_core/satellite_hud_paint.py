@@ -43,6 +43,8 @@ from player_core.hud_panel import (
     load_font,
     text_width,
 )
+from player_core.hud_status import PLAYBACK_SPEED_LABEL
+from player_core.playback_rate import format_rate
 
 from .geometry import Rect, contains
 from .satellite_hud import (
@@ -52,6 +54,7 @@ from .satellite_hud import (
     CONTROLS,
     CTRL_BAND_H,
     CTRL_BTN,
+    CTRL_GROUP_GAP,
     ELLIPSIS_ROOM,
     FILTER_ROOM,
     MAP_CELLS,
@@ -97,6 +100,7 @@ from .satellite_hud import (
     panel_width,
     playing_rect,
     seed_column_label,
+    speed_row_rects,
     thumbnail_rects,
     wrong_action_rect,
 )
@@ -138,6 +142,7 @@ _CONTROL_GLYPHS = {
     # than one button that cycles, because which of the two you are in is what
     # the panel has to say at a glance, and a cycling button says only "press me".
     "shuffle": shared_mark("shuffle"), "latest": shared_mark("latest"),
+    "speed_down": "−", "speed_up": "+",
 }
 # The browse-order pair: a side that cannot switch its order carries neither,
 # so they come off the row together (see :func:`_row_names`).  Exactly one of
@@ -373,7 +378,8 @@ class HudRenderer:
                             text_width(self._tiny, video), band_width=band_width)
         height = panel_height(
             map_column_height(1 + len(action_thumbs)) if corner_thumb is not None else 0,
-            subtitle_h, mode_band_h=CTRL_BAND_H if mode_widths else 0)
+            subtitle_h, mode_band_h=CTRL_BAND_H if mode_widths else 0,
+            speed_band_h=CTRL_BAND_H if model.playback_speed is not None else 0)
         panel = HudPanel(width, height)
         image, draw = panel.image, panel.draw
 
@@ -394,6 +400,12 @@ class HudRenderer:
             # whichever row it is riding.
             controls = controls + [(minimize_rect, "minimize")]
         y += CTRL_BAND_H
+        if model.playback_speed is not None:
+            speed_buttons, rate_rect = speed_row_rects(
+                x, y, label_width=text_width(self._tiny, PLAYBACK_SPEED_LABEL) + CTRL_GROUP_GAP)
+            self._draw_speed_row(image, draw, y, model, speed_buttons, rate_rect)
+            controls = controls + speed_buttons
+            y += CTRL_BAND_H
 
         if model.corner is None:
             return RenderedHud(panel.to_bgra(),
@@ -517,6 +529,15 @@ class HudRenderer:
         minimize_rect = (last_x + last_w + BUTTON_GROUP_GAP, y, CTRL_BTN, CTRL_BTN)
         self._minimize_button(draw, minimize_rect)
         return modes, minimize_rect
+
+    def _draw_speed_row(self, image, draw, y: int, model: HudModel,
+                        buttons: list[tuple[Rect, str]], rate_rect: Rect) -> None:
+        draw.text((PAD, y + CTRL_BTN / 2), PLAYBACK_SPEED_LABEL, font=self._tiny,
+                  anchor="lm", fill=(*TEXT_MUTED, 255))
+        self._draw_controls(image, draw, buttons, model)
+        rx, ry, rw, rh = rate_rect
+        draw.text((rx + rw / 2, ry + rh / 2), format_rate(model.playback_speed),
+                  font=self._tiny, anchor="mm", fill=(*TEXT_PRIMARY, 255))
 
     def _window(
         self, model: HudModel

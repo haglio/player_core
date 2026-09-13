@@ -42,6 +42,7 @@ from player_core.satellite_hud import (
     mode_button_rects,
     panel_width,
     parse_hud,
+    speed_row_rects,
     thumbnail_rects,
 )
 
@@ -521,6 +522,31 @@ def test_the_enhanced_switch_joins_the_browse_group_rather_than_the_switches():
     assert gap_before["enhanced"] == CTRL_GROUP_GAP
     assert gap_before["reset"] == MAP_GAP
     assert gap_before["shuffle"] == CTRL_GROUP_GAP
+
+
+def test_the_speed_row_puts_slower_the_rate_and_faster_after_its_name():
+    from player_core.console import VALUE_W
+
+    buttons, rate = speed_row_rects(10, 40, label_width=70)
+
+    assert [name for _rect, name in buttons] == ["speed_down", "speed_up"]
+    (down, _), (up, _) = buttons
+    assert down == (80, 40, CTRL_BTN, CTRL_BTN)
+    assert rate == (80 + CTRL_BTN + MAP_GAP, 40, VALUE_W, CTRL_BTN)
+    assert up == (rate[0] + VALUE_W + MAP_GAP, 40, CTRL_BTN, CTRL_BTN)
+
+
+def test_the_speed_buttons_name_themselves_in_the_consoles_words():
+    from player_core.console import ConsoleModel, console_rows
+
+    console = {button.action: button.tooltip
+               for row in console_rows(ConsoleModel(mode="video")) for button in row}
+    buttons, _rate = speed_row_rects(0, 0, label_width=70)
+    at = {name: (rect[0] + 5, rect[1] + 5) for rect, name in buttons}
+    targets = _targets(control=buttons)
+
+    assert button_tooltip(targets, *at["speed_down"]) == console["main_player_speed_down"]
+    assert button_tooltip(targets, *at["speed_up"]) == console["main_player_speed_up"]
 
 
 def test_action_label_blocks_separate_comma_joined_acts():

@@ -1104,6 +1104,36 @@ def test_the_panel_is_wide_enough_for_the_band_it_grew():
     assert last + PAD <= width
 
 
+def test_a_player_that_says_its_rate_carries_a_playback_speed_row():
+    def names(**overrides):
+        return [name for _rect, name in _order_band(**overrides).targets.control]
+
+    assert "speed_down" not in names()
+    assert names(playback_speed=1.0)[-2:] == ["speed_down", "speed_up"]
+
+
+def test_the_speed_row_is_a_band_of_its_own_between_the_controls_and_the_map(thumb):
+    corner = HudCell(path="c.mp4", thumb=thumb)
+    without = HudRenderer("portrait").render(_model(corner=corner))
+    with_row = HudRenderer("portrait").render(_model(corner=corner, playback_speed=1.0))
+    rows = {name: rect[1] for rect, name in with_row.targets.control}
+
+    assert with_row.bgra.shape[0] == without.bgra.shape[0] + CTRL_BAND_H
+    assert rows["speed_down"] == rows["prev"] + CTRL_BAND_H
+    assert with_row.targets.click[0][0][1] == without.targets.click[0][0][1] + CTRL_BAND_H
+
+
+def test_the_speed_row_draws_its_buttons_and_reads_out_the_rate():
+    normal, faster = _order_band(playback_speed=1.0), _order_band(playback_speed=1.5)
+    buttons = {name: rect for rect, name in normal.targets.control}
+    _x, row_y, _w, row_h = buttons["speed_down"]
+
+    assert not np.array_equal(normal.bgra[row_y:row_y + row_h], faster.bgra[row_y:row_y + row_h])
+    for name in ("speed_down", "speed_up"):
+        x, y, w, h = buttons[name]
+        assert (_rgb(normal.bgra)[y:y + h, x:x + w].min(axis=2) > 200).any(), name
+
+
 def _amber_ink(rect, rendered) -> int:
     """How many pixels inside *rect* are the amber an enhanced mark is drawn in."""
     x, y, w, h = rect
