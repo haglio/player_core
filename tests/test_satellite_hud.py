@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 from itertools import pairwise
 
+from player_core.modes import SatellitesMode
 from player_core.satellite_hud import (
     CTRL_BTN,
     CTRL_GROUP_GAP,
@@ -63,14 +64,14 @@ def test_the_panel_is_as_wide_as_its_map_or_its_status_whichever_asks_for_more()
 def test_parse_hud_reads_whether_this_side_has_the_floor():
     """Absent means idle: a satellite reading a panel written before the flag
     existed must not light its dot on a missing key."""
-    assert parse_hud(json.dumps({"side": "portrait", "active": True})).active is True
-    assert parse_hud(json.dumps({"side": "portrait", "active": False})).active is False
-    assert parse_hud(json.dumps({"side": "portrait"})).active is False
+    assert parse_hud(json.dumps({"player": "portrait", "active": True})).active is True
+    assert parse_hud(json.dumps({"player": "portrait", "active": False})).active is False
+    assert parse_hud(json.dumps({"player": "portrait"})).active is False
 
 
 def test_parse_hud_reads_the_panel_fun_time_published():
     text = json.dumps({
-        "side": "portrait",
+        "player": "portrait",
         "locked": True,
         "lock_label": "Locked · Shuffle · alpha",
         "active_loop": "seed",
@@ -84,7 +85,7 @@ def test_parse_hud_reads_the_panel_fun_time_published():
     model = parse_hud(text)
 
     assert model is not None
-    assert model.side == "portrait"
+    assert model.player == "portrait"
     assert model.locked is True
     assert model.lock_label == "Locked · Shuffle · alpha"
     assert model.active_loop == "seed"
@@ -98,14 +99,14 @@ def test_parse_hud_reads_the_panel_fun_time_published():
 def test_parse_hud_reads_whether_the_clip_is_a_favorite():
     """What the dashboard's panel said by turning green — now a mark on the HUD,
     so it is read off the player showing the clip rather than off a schematic."""
-    assert parse_hud(json.dumps({"side": "portrait", "is_favorite": True})).is_favorite is True
-    assert parse_hud(json.dumps({"side": "portrait"})).is_favorite is False
+    assert parse_hud(json.dumps({"player": "portrait", "is_favorite": True})).is_favorite is True
+    assert parse_hud(json.dumps({"player": "portrait"})).is_favorite is False
 
 
 def test_parse_hud_defaults_an_empty_panel():
     """A satellite with nothing to map (no clip yet) still parses — it simply has
     no corner, so nothing is drawn."""
-    model = parse_hud(json.dumps({"side": "landscape", "locked": False, "lock_label": "Unlocked"}))
+    model = parse_hud(json.dumps({"player": "landscape", "locked": False, "lock_label": "Unlocked"}))
 
     assert model is not None
     assert model.corner is None
@@ -117,7 +118,7 @@ def test_parse_hud_defaults_an_empty_panel():
 def test_parse_hud_rejects_garbage():
     """A half-written file (fun_time writes it while the player reads) must not
     crash the player — it just keeps the HUD it already had."""
-    assert parse_hud('{"side": "portrait"') is None
+    assert parse_hud('{"player": "portrait"') is None
     assert parse_hud("") is None
 
 
@@ -594,16 +595,16 @@ def test_clicking_a_side_control_posts_that_sides_command():
     targets = _targets(control=control_button_rects(0, 0))
 
     for rect, name in targets.control:
-        for side in ("portrait", "landscape"):
-            assert HudClicks(side).press(
-                targets, rect[0] + 5, rect[1] + 5, now=0.0) == f"{side}_{name}"
+        for player in ("portrait", "landscape"):
+            assert HudClicks(player).press(
+                targets, rect[0] + 5, rect[1] + 5, now=0.0) == f"{player}_{name}"
 
 
-def test_parse_hud_reads_this_sides_f_mode():
+def test_parse_hud_reads_this_players_favorites_filter():
     """Published per side, since each satellite has its own — and False when the
     key is absent, so a panel from before this existed simply reads as not in it."""
-    assert parse_hud(json.dumps({"side": "portrait", "f_mode": True})).f_mode is True
-    assert parse_hud(json.dumps({"side": "portrait"})).f_mode is False
+    assert parse_hud(json.dumps({"player": "portrait", "favorites_filter": True})).favorites_filter is True
+    assert parse_hud(json.dumps({"player": "portrait"})).favorites_filter is False
 
 
 def test_a_side_control_posts_at_once_rather_than_waiting_out_a_double_click():
@@ -661,9 +662,9 @@ def test_pressing_the_filter_button_of_a_two_word_action_slugs_it():
 
 class TestModePair:
     def test_the_published_mode_parses(self):
-        model = parse_hud(json.dumps({"side": "portrait", "satellites_mode": "origenerator"}))
-        assert model.satellites_mode == "origenerator"
-        assert parse_hud(json.dumps({"side": "portrait"})).satellites_mode == ""
+        model = parse_hud(json.dumps({"player": "portrait", "satellites_mode": "origenerator"}))
+        assert model.satellites_mode is SatellitesMode.ORIGENERATOR
+        assert parse_hud(json.dumps({"player": "portrait"})).satellites_mode is None
 
     def test_mode_buttons_run_right_with_their_commands(self):
         rects = mode_button_rects(100, 50, [40, 80])
@@ -691,9 +692,9 @@ def test_parse_hud_reads_an_enhanced_filter_only_where_the_side_names_one():
     players, which publish nothing for it — and only a hosted Origenerator's
     show says on or off.  The two must not collapse: a player HUD that read
     "absent" as "off" would grow a button for a filter it does not have."""
-    assert parse_hud(json.dumps({"side": "portrait"})).enhanced_filter is None
-    assert parse_hud(json.dumps({"side": "portrait", "enhanced_filter": False})).enhanced_filter is False
-    assert parse_hud(json.dumps({"side": "portrait", "enhanced_filter": True})).enhanced_filter is True
+    assert parse_hud(json.dumps({"player": "portrait"})).enhanced_filter is None
+    assert parse_hud(json.dumps({"player": "portrait", "enhanced_filter": False})).enhanced_filter is False
+    assert parse_hud(json.dumps({"player": "portrait", "enhanced_filter": True})).enhanced_filter is True
 
 
 def test_the_enhanced_switch_names_itself_and_posts_its_sides_command():
@@ -716,9 +717,9 @@ def test_parse_hud_reads_the_browse_order_only_where_the_side_names_one():
     Origenerator's show, whose set is not a browse — and only a publisher that
     says on or off gets the pair of buttons.  The two must not collapse: a HUD
     that read "absent" as "shuffled" would grow two buttons nothing answers."""
-    assert parse_hud(json.dumps({"side": "portrait"})).latest is None
-    assert parse_hud(json.dumps({"side": "portrait", "latest": False})).latest is False
-    assert parse_hud(json.dumps({"side": "portrait", "latest": True})).latest is True
+    assert parse_hud(json.dumps({"player": "portrait"})).latest is None
+    assert parse_hud(json.dumps({"player": "portrait", "latest": False})).latest is False
+    assert parse_hud(json.dumps({"player": "portrait", "latest": True})).latest is True
 
 
 class TestThePublishedPanelIsWrittenWhereItIsRead:
@@ -728,15 +729,15 @@ class TestThePublishedPanelIsWrittenWhereItIsRead:
 
     def test_every_field_survives_the_round_trip(self):
         model = HudModel(
-            side="landscape", locked=True, lock_label="Looping seeds · Locked · Latest",
-            active=True, is_favorite=True, f_mode=True, enhanced_filter=True, latest=False,
+            player="landscape", locked=True, lock_label="Looping seeds · Locked · Latest",
+            active=True, is_favorite=True, favorites_filter=True, enhanced_filter=True, latest=False,
             corner=HudCell(path="C:/v/cur.mp4", thumb="C:/t/cur.jpg"),
             seeds=(HudCell(path="C:/v/s1.mp4", thumb="C:/t/s1.jpg"),
                    HudCell(path="C:/v/s2.mp4")),
             actions=(HudCell(path="C:/v/a1.mp4", thumb="C:/t/a1.jpg", label="gamma"),),
             current_action="alpha", filter_query="alpha", active_loop="seed",
             seed_count=7, action_count=3, playing=("seed", 1),
-            satellites_mode="video",
+            satellites_mode=SatellitesMode.VIDEO,
         )
 
         assert parse_hud(hud_text(model)) == model
@@ -744,16 +745,16 @@ class TestThePublishedPanelIsWrittenWhereItIsRead:
     def test_a_switch_a_side_does_not_have_stays_absent(self):
         """None is "no such switch", not "off": the player draws the button only
         for a side that says it has the switch, so None has to come back None."""
-        model = HudModel(side="portrait", enhanced_filter=None, latest=None)
+        model = HudModel(player="portrait", enhanced_filter=None, latest=None)
 
         parsed = parse_hud(hud_text(model))
 
         assert parsed.enhanced_filter is None
         assert parsed.latest is None
-        assert parse_hud(hud_text(HudModel(side="portrait", latest=False))).latest is False
+        assert parse_hud(hud_text(HudModel(player="portrait", latest=False))).latest is False
 
     def test_a_panel_with_no_clip_yet_round_trips_empty(self):
-        parsed = parse_hud(hud_text(HudModel(side="portrait")))
+        parsed = parse_hud(hud_text(HudModel(player="portrait")))
 
         assert parsed.corner is None
         assert parsed.seeds == () and parsed.actions == ()
@@ -764,7 +765,7 @@ class TestThePublishedPanelIsWrittenWhereItIsRead:
         cell is a two-element list, exactly as the panel was published before the
         writer moved here -- a player on either side of the move reads it."""
         raw = json.loads(hud_text(HudModel(
-            side="portrait", corner=HudCell(path="C:/v/cur.mp4"),
+            player="portrait", corner=HudCell(path="C:/v/cur.mp4"),
             actions=(HudCell(path="C:/v/a1.mp4", label="gamma"),), playing=("action", 0))))
 
         assert raw["corner"] == {"path": "C:/v/cur.mp4", "thumb": ""}

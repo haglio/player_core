@@ -124,7 +124,7 @@ _LOOP_GLYPH = shared_mark("loop")
 # the transport buttons it shares a panel with, which made one control look like
 # a different class of thing from its neighbors.
 _EXPAND_GLYPH = shared_mark("expand_horizontal")
-# The side's own controls.  Skip-track for the browse pair rather than bare
+# The player's own controls.  Skip-track for the browse pair rather than bare
 # arrows, so they cannot be read as "step along the map"; a padlock and a bin for
 # the two that act on the clip on screen.  The bin and the reset are the family's
 # own drawings -- the bin is the very bin Origenerator's toolbar wears, and reset
@@ -139,7 +139,7 @@ _CONTROL_GLYPHS = {
     # the panel has to say at a glance, and a cycling button says only "press me".
     "shuffle": shared_mark("shuffle"), "latest": shared_mark("latest"),
 }
-# The browse-order pair: a side that cannot switch its order carries neither,
+# The browse-order pair: a player that cannot switch its order carries neither,
 # so they come off the row together (see :func:`_row_names`).  Exactly one of
 # them is always lit, which is what the family's blue says — the news is not
 # "this is engaged" but "this is the one of the two you are in".
@@ -193,7 +193,7 @@ def _row_names(model: HudModel, *, mode_row: bool) -> tuple[str, ...]:
       for a side that has one (``enhanced_filter`` not None â€” a hosted
       Origenerator's show; fun_time's own players have no enhanced pictures to
       keep, so their bands are as they were);
-    * the shuffle/latest pair comes off for a side whose browse order cannot be
+    * the shuffle/latest pair comes off for a player whose browse order cannot be
       switched (``latest`` None), so a HUD nothing would answer does not grow two
       dead buttons;
     * minimize comes off where the mode row above carries it (:data:`MODE_BUTTONS`).
@@ -262,8 +262,8 @@ class HudRenderer:
     that is still valid is still the right image.
     """
 
-    def __init__(self, side: str) -> None:
-        self._side = side
+    def __init__(self, player: str) -> None:
+        self._player = player
         self._body = load_font(_SIZE_BODY)
         self._tiny = load_font(_SIZE_TINY)
         self._row = load_font(_ROW_LABEL_PT)
@@ -273,7 +273,7 @@ class HudRenderer:
 
     def _thumbnail(self, cell: HudCell) -> Image.Image:
         """*cell*'s thumbnail scaled to the map's row height, or a neutral
-        placeholder shaped like this side's clips while it is still being made."""
+        placeholder shaped like this player's clips while it is still being made."""
         if cell.thumb:
             cached = self._thumbs.get(cell.thumb)
             if cached is None:
@@ -287,7 +287,7 @@ class HudRenderer:
                     self._thumbs[cell.thumb] = cached
             if cached is not None:
                 return cached
-        return Image.new("RGBA", (cell_width(self._side), MAP_THUMB_H),
+        return Image.new("RGBA", (cell_width(self._player), MAP_THUMB_H),
                          (*_PLACEHOLDER, 255))
 
     def _map_thumbnails(
@@ -349,7 +349,7 @@ class HudRenderer:
         corner_thumb, seed_thumbs, action_thumbs = self._map_thumbnails(model)
         row = ([corner_thumb.width] + [thumb.width for thumb in seed_thumbs]
                if corner_thumb is not None
-               else [cell_width(model.side)] * MAP_CELLS)
+               else [cell_width(model.player)] * MAP_CELLS)
         subtitle_h = (SUBTITLE_GAP + sum(self._tiny.getmetrics())) if video else 0
         # The row's reach covers the action column too: it hangs under the cell
         # ``playing`` lights, which can be partway along the row.
@@ -470,7 +470,7 @@ class HudRenderer:
 
     def _draw_status_band(self, image, draw, y: int, model: HudModel,
                           video: str) -> Rect | None:
-        """The active-side dot, the status line, the file on screen under it, and
+        """The active-player dot, the status line, the file on screen under it, and
         the favorite mark at the head of that line.  Returns the mark's rect.
 
         The status is fun_time's own sentence — lock, loop, browse order, F-mode,
@@ -808,7 +808,7 @@ class HudRenderer:
     def _mode_label_widths(self, model: HudModel) -> list[int]:
         """Each mode label's measured width, or [] when the session has no
         hosted Origenerator and the pair is not drawn at all."""
-        if not model.satellites_mode:
+        if model.satellites_mode is None:
             return []
         return [text_width(self._tiny, label) for _action, label, _mode in MODE_BUTTONS]
 
@@ -833,7 +833,7 @@ class HudRenderer:
 
     def _draw_controls(self, image, draw, controls: list[tuple[Rect, str]],
                        model: HudModel) -> None:
-        """The side's own buttons.
+        """The player's own buttons.
 
         The lock, F-mode and the enhanced-only switch are states, so they light
         while they are on; the others do a thing rather than be in one.  The
@@ -851,7 +851,7 @@ class HudRenderer:
         while it is on â€” a lit one reading as "the enhanced ones", not as "the
         favorites".
         """
-        lit = {"lock": model.locked, "fmode": model.f_mode,
+        lit = {"lock": model.locked, "fmode": model.favorites_filter,
                "enhanced": bool(model.enhanced_filter),
                "latest": bool(model.latest), "shuffle": not model.latest}
         for rect, name in controls:

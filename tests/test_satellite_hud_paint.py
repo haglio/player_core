@@ -9,6 +9,7 @@ from PIL import Image
 from shared_ui.palette import TEXT_MUTED, WHITE
 
 from player_core.hud_panel import ICON_GRIDS
+from player_core.modes import SatellitesMode
 from player_core.satellite_hud import (
     COL_LABEL_H,
     CONTROL_TOOLTIPS,
@@ -51,8 +52,8 @@ CLIP_SHAPES = {
 @pytest.fixture
 def clip_thumb(tmp_path: Path):
     """``(side, shape) -> thumbnail path`` for the shapes above."""
-    def make(side: str, shape: tuple[int, int]) -> str:
-        path = tmp_path / f"{side}-{shape[0]}x{shape[1]}.jpg"
+    def make(player: str, shape: tuple[int, int]) -> str:
+        path = tmp_path / f"{player}-{shape[0]}x{shape[1]}.jpg"
         if not path.exists():
             Image.new("RGB", shape, (30, 30, 30)).save(path)
         return str(path)
@@ -60,11 +61,11 @@ def clip_thumb(tmp_path: Path):
 
 
 def _sides_and_shapes() -> list[tuple[str, tuple[int, int]]]:
-    return [(side, shape) for side, shapes in CLIP_SHAPES.items() for shape in shapes]
+    return [(player, shape) for player, shapes in CLIP_SHAPES.items() for shape in shapes]
 
 
 def _model(**overrides) -> HudModel:
-    base = dict(side="portrait", locked=True, lock_label="Locked")
+    base = dict(player="portrait", locked=True, lock_label="Locked")
     base.update(overrides)
     return HudModel(**base)
 
@@ -84,10 +85,10 @@ def test_render_fills_the_panel_and_draws_the_map(thumb):
     assert (rendered.bgra[:, :, 3] > 0).mean() > 0.5
 
 
-def _crowded(side: str, thumb: str) -> HudModel:
+def _crowded(player: str, thumb: str) -> HudModel:
     """A side with more seeds and more acts than any map draws."""
     return HudModel(
-        side=side, lock_label="Unlocked · Shuffle", current_action="Alpha",
+        player=player, lock_label="Unlocked · Shuffle", current_action="Alpha",
         corner=HudCell(path="c.mp4", thumb=thumb),
         seeds=tuple(HudCell(path=f"s{i}.mp4", thumb=thumb) for i in range(6)),
         actions=tuple(HudCell(path=f"a{i}.mp4", thumb=thumb, label="Alpha") for i in range(4)),
@@ -95,8 +96,8 @@ def _crowded(side: str, thumb: str) -> HudModel:
     )
 
 
-@pytest.mark.parametrize("side,shape", _sides_and_shapes())
-def test_the_map_is_three_cells_a_side_whatever_shape_its_clips_are(side, shape, clip_thumb):
+@pytest.mark.parametrize("player,shape", _sides_and_shapes())
+def test_the_map_is_three_cells_a_side_whatever_shape_its_clips_are(player, shape, clip_thumb):
     """The reported bug: the portrait map drew two cells across where the landscape
     one drew three.
 
@@ -105,7 +106,7 @@ def test_the_map_is_three_cells_a_side_whatever_shape_its_clips_are(side, shape,
     that left, so a row of the wider portrait clips ran out of panel after the second
     one.  The count is fixed now and the panel gives, so every shape gets three.
     """
-    rendered = HudRenderer(side).render(_crowded(side, clip_thumb(side, shape)))
+    rendered = HudRenderer(player).render(_crowded(player, clip_thumb(player, shape)))
 
     rects = [rect for rect, _path in rendered.targets.click]
     columns = {x for x, _y, _w, _h in rects}
@@ -113,14 +114,14 @@ def test_the_map_is_three_cells_a_side_whatever_shape_its_clips_are(side, shape,
     assert (len(columns), len(rows)) == (MAP_CELLS, MAP_CELLS)
 
 
-@pytest.mark.parametrize("side,shape", _sides_and_shapes())
-def test_the_panel_stops_where_its_last_controls_do(side, shape, clip_thumb):
+@pytest.mark.parametrize("player,shape", _sides_and_shapes())
+def test_the_panel_stops_where_its_last_controls_do(player, shape, clip_thumb):
     """No slab past the map wherever the map is what set the width: the expand
     button ends one margin in from the right edge and the action-loop button one
     margin up from the lower edge, so every pixel of the panel is carrying something —
     for a wide cell as much as a narrow one.  (A status longer than the map is the
     other case, and there it is the line that reaches the far edge.)"""
-    rendered = HudRenderer(side).render(_crowded(side, clip_thumb(side, shape)))
+    rendered = HudRenderer(player).render(_crowded(player, clip_thumb(player, shape)))
     height, width = rendered.bgra.shape[:2]
 
     ex, _ey, ew, _eh = rendered.targets.expand
@@ -134,7 +135,7 @@ def test_a_satellite_with_no_clip_yet_gets_a_panel_only_as_tall_as_its_bands(thu
     """Before the first clip there is no map, so the panel is the status and control
     bands and nothing else — it grows to the map when there is one to draw."""
     renderer = HudRenderer("portrait")
-    shell = renderer.render(HudModel(side="portrait", lock_label="Unlocked"))
+    shell = renderer.render(HudModel(player="portrait", lock_label="Unlocked"))
     mapped = renderer.render(_model(corner=HudCell(path="c.mp4", thumb=thumb)))
 
     assert shell.bgra.shape[0] < mapped.bgra.shape[0]
@@ -186,7 +187,7 @@ def test_render_without_a_corner_still_draws_the_shell():
     """A satellite with no clip yet gets the lock band and nothing else — and no
     click targets, so a stray press over the empty panel posts nothing."""
     rendered = HudRenderer("landscape").render(
-        HudModel(side="landscape", locked=False, lock_label="Unlocked"))
+        HudModel(player="landscape", locked=False, lock_label="Unlocked"))
 
     assert (rendered.bgra[:, :, 3] > 0).any()
     assert rendered.targets.click == []
@@ -327,7 +328,7 @@ def test_render_draws_the_sides_own_controls_even_with_no_clip():
     they are there before the first clip arrives — a satellite that came up empty
     can still be stepped off it, and still narrowed to its favorites."""
     rendered = HudRenderer("landscape").render(
-        HudModel(side="landscape", locked=False, lock_label="Unlocked"))
+        HudModel(player="landscape", locked=False, lock_label="Unlocked"))
 
     assert [name for _rect, name in rendered.targets.control] == [
         "prev", "next", "lock", "trash", "fmode", "reset", "minimize",
@@ -340,7 +341,7 @@ def test_the_minimize_button_wears_a_bar_rather_than_a_font_glyph():
     drawn: one horizontal run of ink across the middle of the button, wider than it
     is tall, which is what a title bar's minimize looks like everywhere."""
     rendered = HudRenderer("landscape").render(
-        HudModel(side="landscape", lock_label="Unlocked"))
+        HudModel(player="landscape", lock_label="Unlocked"))
     x, y, w, h = {name: rect for rect, name in rendered.targets.control}["minimize"]
     # The button's own outline is its border, so only the interior is the mark --
     # and the interior is the button's ground now, itself gray, so the mark is
@@ -366,11 +367,11 @@ def test_the_state_controls_and_favorite_mark_light_up_when_they_apply():
     side is in F-mode, the star while the clip is a favorite."""
     def rendered_with(**overrides):
         return HudRenderer("landscape").render(
-            HudModel(side="landscape", lock_label="Unlocked", **overrides),
+            HudModel(player="landscape", lock_label="Unlocked", **overrides),
             video="example - scene one")
 
     off = rendered_with()
-    on = rendered_with(locked=True, is_favorite=True, f_mode=True)
+    on = rendered_with(locked=True, is_favorite=True, favorites_filter=True)
     rects = {name: rect for rect, name in on.targets.control}
 
     assert _lit_ink(rects["lock"], on) > _lit_ink(rects["lock"], off)
@@ -383,7 +384,7 @@ def test_the_bin_draws_red_because_it_takes_something_away():
     appears, so the drawn button is what has to be red — a table saying which
     control is destructive says nothing about what came out on the panel."""
     rendered = HudRenderer("landscape").render(
-        HudModel(side="landscape", lock_label="Unlocked"))
+        HudModel(player="landscape", lock_label="Unlocked"))
     rects = {name: rect for rect, name in rendered.targets.control}
 
     def red_ink(name: str) -> int:
@@ -401,9 +402,9 @@ def test_f_mode_wears_its_own_badge_rather_than_a_typed_letter():
     taskbar and on the main console — and a letter set in the body face is a
     thin thing beside it.  The mark holds whether or not the mode is on; only what
     is beneath it changes."""
-    for f_mode in (False, True):
+    for favorites_filter in (False, True):
         rendered = HudRenderer("landscape").render(
-            HudModel(side="landscape", lock_label="Unlocked", f_mode=f_mode))
+            HudModel(player="landscape", lock_label="Unlocked", favorites_filter=favorites_filter))
         x, y, w, h = {name: rect for rect, name in rendered.targets.control}["fmode"]
         pixels = _rgb(rendered.bgra)[y:y + h, x:x + w]
         magenta = (pixels == np.array((200, 80, 160), dtype=pixels.dtype)).all(axis=2)
@@ -416,7 +417,7 @@ def test_f_mode_wears_its_own_badge_rather_than_a_typed_letter():
             for r in range(5)
         ]
 
-        assert drawn == list(ICON_GRIDS["F"]), f_mode
+        assert drawn == list(ICON_GRIDS["F"]), favorites_filter
 
 
 def test_a_running_loops_button_fills_white_and_not_the_locks_green(thumb):
@@ -917,10 +918,10 @@ def test_the_reset_button_is_never_lit():
     would say the side was sitting in one."""
     def rendered_with(**overrides):
         return HudRenderer("landscape").render(
-            HudModel(side="landscape", lock_label="Locked", **overrides))
+            HudModel(player="landscape", lock_label="Locked", **overrides))
 
     resting = rendered_with()
-    lit = rendered_with(locked=True, f_mode=True)
+    lit = rendered_with(locked=True, favorites_filter=True)
     rects = {name: rect for rect, name in lit.targets.control}
 
     assert _lit_ink(rects["lock"], lit)  # the states that do light are alight
@@ -953,7 +954,7 @@ def test_the_mode_pair_renders_and_is_pressable(thumb):
     # targets, and a press posts the other mode's activation verbatim.
     rendered = HudRenderer("portrait").render(
         _model(corner=HudCell(path="c.mp4", thumb=thumb),
-               satellites_mode="video")
+               satellites_mode=SatellitesMode.VIDEO)
     )
 
     commands = [command for _rect, command in rendered.targets.modes]
@@ -976,7 +977,7 @@ def test_the_mode_row_leads_and_minimize_rides_it(thumb):
     rides that row rather than sitting among the transport."""
     rendered = HudRenderer("portrait").render(
         _model(corner=HudCell(path="c.mp4", thumb=thumb),
-               satellites_mode="video")
+               satellites_mode=SatellitesMode.VIDEO)
     )
 
     mode_y = rendered.targets.modes[0][0][1]
@@ -1011,7 +1012,7 @@ def test_a_mode_label_stays_white_on_its_blue(thumb):
 
     renderer = HudRenderer("portrait")
     rendered = renderer.render(_model(
-        corner=HudCell(path="c.mp4", thumb=thumb), satellites_mode="origenerator",
+        corner=HudCell(path="c.mp4", thumb=thumb), satellites_mode=SatellitesMode.ORIGENERATOR,
     ))
     rect = dict((name, r) for r, name in rendered.targets.modes)["origenerator_activate"]
     x, y, w, h = rect
@@ -1026,7 +1027,7 @@ def test_the_unlit_mode_keeps_its_ordinary_ink(thumb):
 
     renderer = HudRenderer("portrait")
     rendered = renderer.render(_model(
-        corner=HudCell(path="c.mp4", thumb=thumb), satellites_mode="origenerator",
+        corner=HudCell(path="c.mp4", thumb=thumb), satellites_mode=SatellitesMode.ORIGENERATOR,
     ))
     rect = dict((name, r) for r, name in rendered.targets.modes)["satellites_video_activate"]
     x, y, w, h = rect
@@ -1042,7 +1043,7 @@ def test_the_enhanced_switch_is_drawn_only_for_a_side_that_has_the_filter():
     a cut over the library rather than an act on the clip."""
     def names(**overrides):
         rendered = HudRenderer("landscape").render(
-            HudModel(side="landscape", lock_label="Unlocked", **overrides))
+            HudModel(player="landscape", lock_label="Unlocked", **overrides))
         return [name for _rect, name in rendered.targets.control]
 
     assert names() == ["prev", "next", "lock", "trash", "fmode", "reset", "minimize"]
@@ -1062,7 +1063,7 @@ def _blue_ink(rect, rendered) -> int:
 
 def _order_band(**overrides):
     return HudRenderer("landscape").render(
-        HudModel(side="landscape", lock_label="Unlocked", **overrides))
+        HudModel(player="landscape", lock_label="Unlocked", **overrides))
 
 
 def test_the_browse_order_pair_is_drawn_only_where_the_order_can_be_switched():
@@ -1119,7 +1120,7 @@ def test_the_enhanced_switch_wears_amber_and_fills_with_it_when_on():
     would say the wrong thing about what was kept."""
     def rendered_with(on: bool):
         return HudRenderer("landscape").render(
-            HudModel(side="landscape", lock_label="Unlocked", enhanced_filter=on))
+            HudModel(player="landscape", lock_label="Unlocked", enhanced_filter=on))
 
     off, on = rendered_with(False), rendered_with(True)
     rect = {name: rect for rect, name in on.targets.control}["enhanced"]
@@ -1135,7 +1136,7 @@ def test_the_enhanced_switch_keeps_its_place_under_a_mode_row(thumb):
     whose map is narrower than its controls, still holds the whole row."""
     rendered = HudRenderer("portrait").render(
         _model(corner=HudCell(path="c.mp4", thumb=thumb),
-               satellites_mode="origenerator", enhanced_filter=False))
+               satellites_mode=SatellitesMode.ORIGENERATOR, enhanced_filter=False))
     by_name = {name: rect for rect, name in rendered.targets.control}
     width = rendered.bgra.shape[1]
 
