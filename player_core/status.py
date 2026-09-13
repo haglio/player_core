@@ -1,23 +1,25 @@
-"""The status file a player publishes for its orchestrator to read.
+"""The status file a player publishes for its content source to read.
 
 The reverse leg of :mod:`player_core.file_channel`: commands and the paused flag
 go in, this comes back out.  Fun Time polls it to know what each player is
-showing — the current clip, the playhead, and whatever else that player's
-features need.
+showing — the item on screen, the playhead, whether the player is paused or
+holding — and whatever else that player's features need.
+
+Every player leads with the same five lines, :class:`PlayerStatus`, written by
+:func:`status_fields` and read back by :func:`parse_status`; a player adds its
+own lines after them (the main player's loop and funscript, a satellite's
+playlist length), and its reader takes those off the same file.
 
 Writes are throttled because the playhead changes every tick, while a poller
-only ever samples a few times a second.
-
-*What* to publish is the player's business and differs per player, so it arrives
-as a ``fields`` callable; *how* to publish it — the throttle, the directory, and
+only ever samples a few times a second.  *What* to publish arrives as a
+``fields`` callable; *how* to publish it — the throttle, the directory, and
 surviving a locked or vanished file — is identical everywhere and lives here.
-Each player therefore controls its own key order and format, and two players'
-status files can never drift apart in their write mechanics.
 """
 from __future__ import annotations
 
 import time
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from pathlib import Path
 
 from .file_channel import publish_whole
@@ -25,6 +27,65 @@ from .file_channel import publish_whole
 __all__ = [
     "StatusWriter",
 ]
+
+
+@dataclass(frozen=True)
+class PlayerStatus:
+    """What every player says about itself: the item on screen, where the
+    playhead is in it, and whether the player is paused or holding it."""
+
+    video: str = ""
+    position_ms: int = 0
+    duration_ms: int = 0
+    paused: bool = False
+    locked: bool = False
+
+
+def _flag(on: bool) -> str:
+    return "1" if on else "0"
+
+
+def status_fields(status: PlayerStatus) -> dict[str, str]:
+    """The lines every player publishes, in the order they are written."""
+    return {
+        "video": status.video,
+        "position_ms": str(int(status.position_ms)),
+        "duration_ms": str(int(status.duration_ms)),
+        "paused": _flag(status.paused),
+        "locked": _flag(status.locked),
+    }
+
+
+def _int(text: str | None, default: int) -> int:
+    if text is None:
+        return default
+    try:
+        return int(text.strip())
+    except ValueError:
+        return default
+
+
+def _bool(text: str | None, default: bool) -> bool:
+    return default if text is None else text.strip() == "1"
+
+
+def parse_status(fields: Mapping[str, str], *, default: PlayerStatus | None = None) -> PlayerStatus:
+    """The record a read status file's ``key=value`` pairs carry.
+
+    A key the file does not carry keeps *default*'s answer — a status from before
+    the key existed, or one read before the player's first write, says what that
+    player is doing at rest, which differs: a satellite opens unlocked, the main
+    player locked.  A number that cannot be read keeps it too.
+    """
+    if default is None:
+        default = PlayerStatus()
+    return PlayerStatus(
+        video=fields.get("video", default.video).strip(),
+        position_ms=_int(fields.get("position_ms"), default.position_ms),
+        duration_ms=_int(fields.get("duration_ms"), default.duration_ms),
+        paused=_bool(fields.get("paused"), default.paused),
+        locked=_bool(fields.get("locked"), default.locked),
+    )
 
 class StatusWriter:
     def __init__(
