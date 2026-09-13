@@ -10,7 +10,7 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
-from player_core.mpv_player import _MpvControl
+from player_core.mpv_player import _MpvControl, _shared_options
 
 
 class FakeMpv:
@@ -69,6 +69,39 @@ def test_between_files_there_is_no_frame_rate():
     mpv.report("container-fps", None)
 
     assert control.frame_rate == 0.0
+
+
+def test_a_picture_holds_the_screen_for_the_pace_it_was_given():
+    mpv = FakeMpv()
+
+    Control(mpv).set_pace(2.5)
+
+    assert mpv.image_display_duration == 2.5
+
+
+def test_a_pace_of_nought_holds_the_picture_until_something_moves_it():
+    mpv = FakeMpv()
+
+    Control(mpv).set_pace(0)
+
+    assert mpv.image_display_duration == "inf"
+
+
+def test_the_player_shows_a_picture_when_mpv_says_its_video_track_is_an_image():
+    mpv = FakeMpv()
+    control = Control(mpv)
+
+    mpv.report("current-tracks/video/image", True)
+    assert control.showing_picture is True
+
+    mpv.report("current-tracks/video/image", None)
+    assert control.showing_picture is False
+
+
+def test_a_player_holds_a_picture_four_seconds_until_a_source_sets_a_pace():
+    options = _shared_options(muted=False, loop_file=False, prefetch=True)
+
+    assert options["image_display_duration"] == 4.0
 
 
 def test_staging_the_next_clip_never_removes_by_index():
