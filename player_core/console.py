@@ -24,7 +24,7 @@ from shared_ui.spacing import BUTTON_SIZE_HUD
 
 from .geometry import Rect, contains
 from .hud_marks import shared_mark
-from .hud_status import LATEST_LABEL, SHUFFLE_LABEL
+from .hud_status import LATEST_LABEL, PLAYBACK_SPEED_LABEL, SHUFFLE_LABEL
 from .playback_rate import format_rate
 
 __all__ = [
@@ -46,7 +46,7 @@ VALUE_W = 22  # a value read-out between a pair of buttons (the playback rate)
 PLAYBACK_LABEL_W = 66
 # The words those cells carry, named here so whoever CAN measure text sizes the
 # cell to them rather than to a number that drifts from the font.
-_ROW_LABELS = ("Playback speed", "Clip seconds")
+_ROW_LABELS = (PLAYBACK_SPEED_LABEL, "Clip seconds")
 GAP = 4       # between buttons along a row
 ROW_GAP = 5   # between rows
 GROUP_GAP = 12  # between groups of buttons that mean different things
@@ -795,7 +795,7 @@ def _playback_speed_row(model: ConsoleModel, label_width: int = PLAYBACK_LABEL_W
     readout and an unlabelled −/+ pair beside a number said neither.
     """
     return [
-        Button("", "Playback speed", "", width=label_width),
+        Button("", PLAYBACK_SPEED_LABEL, "", width=label_width),
         Button("main_player_speed_down", _GLYPHS["minus"], "Play the video slower"),
         Button("", format_rate(model.playback_speed), "", width=VALUE_W),
         Button("main_player_speed_up", _GLYPHS["plus"], "Play the video faster"),

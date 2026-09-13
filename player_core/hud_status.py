@@ -40,6 +40,8 @@ SHUFFLE_LABEL = "Shuffle"
 # between two screens is comparing the same switch, so it is named once here.
 F_MODE_LABEL = "F-Mode"
 
+PLAYBACK_SPEED_LABEL = "Playback speed"
+
 
 # What Origenerator's enhanced-only filter is called where a HUD names it.  A
 # plural of the thing itself, the way every other filter slot on these lines
