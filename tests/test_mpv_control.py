@@ -25,6 +25,13 @@ class FakeMpv:
         self.playlist_pos = pos
         self.playlist_count = count
         self.calls: list[tuple] = []
+        self.observers: dict[str, object] = {}
+
+    def observe_property(self, name: str, handler) -> None:
+        self.observers[name] = handler
+
+    def report(self, name: str, value) -> None:
+        self.observers[name](name, value)
 
     def playlist_clear(self) -> None:
         self.calls.append(("clear",))
@@ -42,7 +49,26 @@ class FakeMpv:
 class Control(_MpvControl):
     def __init__(self, mpv) -> None:
         super().__init__()  # the call gate every method here runs under
-        self._mpv = mpv
+        self._adopt(mpv)
+
+
+def test_the_frame_rate_is_the_one_mpv_reported_for_the_file_on_screen():
+    mpv = FakeMpv()
+    control = Control(mpv)
+
+    mpv.report("container-fps", 29.970029830932617)
+
+    assert control.frame_rate == 29.970029830932617
+
+
+def test_between_files_there_is_no_frame_rate():
+    mpv = FakeMpv()
+    control = Control(mpv)
+    mpv.report("container-fps", 60.0)
+
+    mpv.report("container-fps", None)
+
+    assert control.frame_rate == 0.0
 
 
 def test_staging_the_next_clip_never_removes_by_index():
@@ -138,6 +164,23 @@ def test_close_waits_for_a_read_that_is_still_inside_mpv():
     closing.join(timeout=10.0)
     reading.join(timeout=10.0)
     assert mpv.terminated == 1
+
+
+def test_the_frame_rate_is_answered_while_a_read_is_stuck_inside_mpv():
+    """A file being opened holds mpv's core lock for hundreds of milliseconds,
+    and a player asks for the frame rate every frame it paints."""
+    mpv = BlockingMpv()
+    control = Control(mpv)
+    mpv.report("container-fps", 25.0)
+    reading = threading.Thread(target=lambda: control.position_ms)
+    reading.start()
+    assert mpv.entered.wait(5.0)
+
+    try:
+        assert control.frame_rate == 25.0
+    finally:
+        mpv.release.set()
+        reading.join(timeout=10.0)
 
 
 def test_a_call_arriving_after_the_close_reaches_no_handle():

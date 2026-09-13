@@ -54,7 +54,7 @@ class MpvRenderPlayer(_MpvControl):
             # silent by design opts out of audio selection entirely, and the
             # clock runs on video timing, immune to any device's state.
             options["aid"] = "no"
-        self._mpv = mpv.MPV(**options)
+        self._adopt(mpv.MPV(**options))
 
         def _resolve(_ctx, name: bytes):
             return get_proc_address(name.decode("utf-8"))
