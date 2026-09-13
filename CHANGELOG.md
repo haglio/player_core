@@ -9,6 +9,25 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-09-13 — the player contract, written where it is read
+
+What a content source hands a player and what it gets back was spread across
+two repos: Fun Time wrote the playlist line, the console's JSON and each
+player's verbs by hand, and this package read them. Each format is now one
+pair in one module — `playlist` (`PlaylistItem`, `write_playlist`,
+`item_line` / `item_from_line`), `player_verbs`, `status` (`PlayerStatus`,
+`status_fields` / `parse_status`), `satellite_hud.hud_text`,
+`console.console_text` / `parse_console` — and `control_registry.look_up`
+folds the keyword alone, so every player can dispatch through it. README's
+"The player contract" says what each carries and what is left for the steps
+that first draw a picture or a source-declared button.
+
+**Nothing new is declared yet.** The consumer gate calls a name published for
+nobody until a sibling imports it; Fun Time's move onto these names lands
+after this does, and the names go into `__all__` then. Until it lands the
+players in Fun Time still unpack the playlist item as the `(video, funscript)`
+pair it was — it is a `NamedTuple` for exactly that.
+
 ## 2026-09-04 — Genau's engine moves in, for the headset
 
 Everything Genau does that is not its pygame window now lives here, so Fun
