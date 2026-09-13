@@ -20,6 +20,7 @@ from player_core.console_hud import (
 )
 from player_core.drive_layout import AMPLITUDE, CENTER, SPEED
 from player_core.drive_readout import DriveHud
+from player_core.geometry import Rect
 from player_core.hud_panel import (
     ICON_GRIDS,
     TOOLTIP_PAD,
@@ -42,6 +43,16 @@ def _line(*, locked: bool = True, order_latest: bool = False, **modes) -> str:
     return ConsoleHud(modes=ModeHud(**modes),
                       console=ConsoleModel(mode="video", locked=locked,
                                            latest=order_latest)).status_line
+
+
+def _rect_of(painter: ConsolePainter, action: str) -> Rect:
+    return next(rect for rect, button in painter.buttons if button.action == action)
+
+
+def _over(painter: ConsolePainter, action: str) -> tuple[int, int]:
+    bx, by, bw, bh = _rect_of(painter, action)
+    left, top = hud_xy()
+    return left + bx + bw // 2, top + by + bh // 2
 
 
 class TestLine:
@@ -349,8 +360,7 @@ class TestPainter:
     def _busiest_shade(self, action: str, model: ConsoleModel, modes=None):
         painter = ConsolePainter()
         rgb = _rgb(painter.bgra(ConsoleHud(console=model, modes=modes or ModeHud())))
-        (bx, by, bw, bh), _b = next(
-            (rect, b) for rect, b in painter.buttons if b.action == action)
+        bx, by, bw, bh = _rect_of(painter, action)
         pixels = rgb[by:by + bh, bx:bx + bw].astype(int)
         shades, counts = np.unique(pixels.reshape(-1, 3), axis=0, return_counts=True)
         return tuple(shades[counts.argmax()]), pixels
@@ -493,8 +503,7 @@ class TestPainter:
     def _button_pixels(action: str, model: ConsoleModel) -> np.ndarray:
         painter = ConsolePainter()
         rgb = _rgb(painter.bgra(ConsoleHud(console=model)))
-        (bx, by, bw, bh), _b = next(
-            (rect, b) for rect, b in painter.buttons if b.action == action)
+        bx, by, bw, bh = _rect_of(painter, action)
         return rgb[by:by + bh, bx:bx + bw]
 
     def _broker_pixels(self, broker: bool) -> np.ndarray:
@@ -558,8 +567,7 @@ class TestPainter:
         painter = ConsolePainter()
         rgb = _rgb(painter.bgra(
             ConsoleHud(console=ConsoleModel(mode="video", record="recording"))))
-        (bx, by, bw, bh), _b = next(
-            (rect, b) for rect, b in painter.buttons if b.action == "nau_record_tap")
+        bx, by, bw, bh = _rect_of(painter, "nau_record_tap")
         pixels = rgb[by:by + bh, bx:bx + bw].astype(int)
 
         assert tuple(pixels[bh // 2, 2]) == (255, 60, 60)   # the fill went red …
@@ -573,25 +581,40 @@ class TestPresses:
         painter.bgra(ConsoleHud(console=ConsoleModel(mode=mode)))
         return painter
 
-    @staticmethod
-    def _over(painter: ConsolePainter, action: str) -> tuple[int, int]:
-        (bx, by, bw, bh), _b = next(
-            (rect, b) for rect, b in painter.buttons if b.action == action)
-        left, top = hud_xy()
-        return left + bx + bw // 2, top + by + bh // 2
-
     def test_a_press_on_a_button_carries_that_buttons_command(self):
         painter = self._painted()
 
-        assert painter.press_at(*self._over(painter, "main_next")) == "main_next"
+        assert painter.press_at(*_over(painter, "main_next")) == "main_next"
 
     def test_a_press_that_missed_every_button_carries_nothing(self):
         assert self._painted().press_at(2000, 2000) == ""
 
+    def test_a_dimmed_button_posts_nothing_but_the_press_is_still_on_the_panel(self):
+        painter = self._painted()
+        over = _over(painter, "nau_cycle_version")
+
+        assert painter.press_at(*over) == ""
+        assert painter.covers(*over)
+
+    def test_the_panel_under_a_press_ends_where_its_painting_does(self):
+        painter = ConsolePainter()
+        height, width = painter.bgra(ConsoleHud(console=ConsoleModel(mode="video"))).shape[:2]
+        left, top = hud_xy()
+
+        assert painter.covers(left, top)
+        assert painter.covers(left + width - 1, top + height - 1)
+        assert not painter.covers(left + width, top)
+        assert not painter.covers(left, top + height)
+        assert not painter.covers(left - 1, top - 1)
+
+    def test_nothing_is_under_a_press_before_the_panel_is_first_painted(self):
+        left, top = hud_xy()
+
+        assert not ConsolePainter().covers(left, top)
+
     def test_the_panels_own_corner_is_not_read_as_the_windows(self):
         painter = self._painted()
-        (bx, by, _bw, _bh), _b = next(
-            (rect, b) for rect, b in painter.buttons if b.action == "main_prev")
+        bx, by, _bw, _bh = _rect_of(painter, "main_prev")
 
         assert painter.press_at(bx, by) == ""
 
@@ -600,7 +623,7 @@ class TestPresses:
         painter.bgra(ConsoleHud(
             console=ConsoleModel(mode="video", osr2="robot_hand"), drive=_drive()))
 
-        assert painter.press_at(*self._over(painter, "robot_hand_amplitude_up")) == "robot_hand_amplitude_up"
+        assert painter.press_at(*_over(painter, "robot_hand_amplitude_up")) == "robot_hand_amplitude_up"
 
     def test_the_readouts_controls_are_dead_while_a_funscript_has_the_device(self):
         """Genau is paused through a funscript's stretch, so a motion it is not
@@ -610,13 +633,13 @@ class TestPresses:
         painter.bgra(ConsoleHud(
             console=ConsoleModel(mode="video", osr2="funscript"), drive=_drive()))
 
-        over = self._over(painter, "robot_hand_amplitude_up")
+        over = _over(painter, "robot_hand_amplitude_up")
         assert painter.press_at(*over) == ""
         assert all(b.dim for _rect, b in painter.buttons if b.action.startswith("genau_amplitude"))
 
     def test_the_cursor_over_a_button_is_reported_in_panel_coordinates(self):
         painter = self._painted()
-        mx, my = self._over(painter, "main_next")
+        mx, my = _over(painter, "main_next")
         left, top = hud_xy()
 
         assert painter.hover_at(mx, my) == (mx - left, my - top)
@@ -703,11 +726,8 @@ class TestDrags:
         long after the gesture that grabbed it was over."""
         painter = self._painted()
         painter.press_at(*self._at(self._band(painter, SPEED), 0.0))
-        (bx, by, bw, bh), _b = next(
-            (rect, b) for rect, b in painter.buttons if b.action == "main_next")
-        left, top = hud_xy()
 
-        painter.press_at(left + bx + bw // 2, top + by + bh // 2)
+        painter.press_at(*_over(painter, "main_next"))
 
         assert painter.holding is False
 
@@ -906,8 +926,7 @@ class TestTheLockIsGreen:
 
         painter = ConsolePainter()
         rgb = _rgb(painter.bgra(ConsoleHud(console=ConsoleModel(mode="video", locked=True))))
-        (bx, by, bw, bh), _b = next(
-            (rect, b) for rect, b in painter.buttons if b.action == "main_lock")
+        bx, by, bw, bh = _rect_of(painter, "main_lock")
         pixels = rgb[by:by + bh, bx:bx + bw].astype(int)
         shades, counts = np.unique(pixels.reshape(-1, 3), axis=0, return_counts=True)
 
@@ -918,8 +937,7 @@ class TestTheLockIsGreen:
 
         painter = ConsolePainter()
         rgb = _rgb(painter.bgra(ConsoleHud(console=ConsoleModel(mode="video", locked=False))))
-        (bx, by, bw, bh), _b = next(
-            (rect, b) for rect, b in painter.buttons if b.action == "main_lock")
+        bx, by, bw, bh = _rect_of(painter, "main_lock")
         pixels = rgb[by:by + bh, bx:bx + bw].astype(int)
         shades, counts = np.unique(pixels.reshape(-1, 3), axis=0, return_counts=True)
 

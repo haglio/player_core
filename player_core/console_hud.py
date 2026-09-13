@@ -431,6 +431,10 @@ class ConsolePainter:
         px, py = self._local(mx, my)
         return hit_test(self.buttons, px, py) or self._grab(px, py)
 
+    def covers(self, mx: int, my: int) -> bool:
+        return self._image is not None and contains(
+            (0, 0, *self._image.size), *self._local(mx, my))
+
     @property
     def holding(self) -> bool:
         """Whether a press took hold of one of the readout's bands and has not let
