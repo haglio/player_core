@@ -121,8 +121,9 @@ CLOSE_DRAIN_TIMEOUT_S = 10.0
 class _MpvControl:
     """The control surface shared by the windowed and offscreen players.
 
-    Subclasses construct ``self._mpv`` and must call ``super().__init__()``;
-    every method here only drives it, so the session classes (the main player's, a
+    Subclasses call ``super().__init__()`` and hand the handle they construct to
+    ``_adopt``; every method here only drives it, so the session classes (the main
+    player's, a
     satellite's, fun_time_vr's roles) can hold either player without knowing
     which rendering path is backing it.
 
@@ -136,6 +137,18 @@ class _MpvControl:
 
     def __init__(self) -> None:
         self._gate = CallGate()
+        self._frame_rate = 0.0
+
+    def _adopt(self, handle) -> None:
+        self._mpv = handle
+        handle.observe_property("container-fps", self._note_frame_rate)
+
+    def _note_frame_rate(self, _name: str, value) -> None:
+        self._frame_rate = value or 0.0
+
+    @property
+    def frame_rate(self) -> float:
+        return self._frame_rate
 
     @mpv_call()
     def load(self, path: Path) -> None:
@@ -363,4 +376,4 @@ class MpvPlayer(_MpvControl):
             vo="gpu",
             input_vo_keyboard=False,
         )
-        self._mpv = mpv.MPV(**options)
+        self._adopt(mpv.MPV(**options))
