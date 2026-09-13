@@ -186,8 +186,8 @@ class HudRenderer:
     that is still valid is still the right image.
     """
 
-    def __init__(self, side: str) -> None:
-        self._side = side
+    def __init__(self, player: str) -> None:
+        self._player = player
         self._body = load_font(_SIZE_BODY)
         self._tiny = load_font(_SIZE_TINY)
         self._row = load_font(_ROW_LABEL_PT)
@@ -197,7 +197,7 @@ class HudRenderer:
 
     def _thumbnail(self, cell: HudCell) -> Image.Image:
         """*cell*'s thumbnail scaled to the map's row height, or a neutral
-        placeholder shaped like this side's clips while it is still being made."""
+        placeholder shaped like this player's clips while it is still being made."""
         if cell.thumb:
             cached = self._thumbs.get(cell.thumb)
             if cached is None:
@@ -211,7 +211,7 @@ class HudRenderer:
                     self._thumbs[cell.thumb] = cached
             if cached is not None:
                 return cached
-        return Image.new("RGBA", (cell_width(self._side), MAP_THUMB_H),
+        return Image.new("RGBA", (cell_width(self._player), MAP_THUMB_H),
                          (*_PLACEHOLDER, 255))
 
     def _map_thumbnails(
@@ -273,7 +273,7 @@ class HudRenderer:
         corner_thumb, seed_thumbs, action_thumbs = self._map_thumbnails(model)
         row = ([corner_thumb.width] + [thumb.width for thumb in seed_thumbs]
                if corner_thumb is not None
-               else [cell_width(model.side)] * MAP_CELLS)
+               else [cell_width(model.player)] * MAP_CELLS)
         subtitle_h = (SUBTITLE_GAP + sum(self._tiny.getmetrics())) if video else 0
         # The row's reach covers the action column too: it hangs under the cell
         # ``playing`` lights, which can be partway along the row.
@@ -321,7 +321,7 @@ class HudRenderer:
             draw.text((PAD, y + CTRL_BTN / 2), PLAYBACK_SPEED_LABEL,
                       font=self._tiny, anchor="lm", fill=(*TEXT_MUTED, 255))
             speed_buttons = [
-                (rect, Button(f"{model.side}_{name}",
+                (rect, Button(f"{model.player}_{name}",
                               "−" if name == "speed_down" else "+",
                               CONTROL_TOOLTIPS[name]))
                 for rect, name in speed_rects
