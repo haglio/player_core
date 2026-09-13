@@ -1,7 +1,9 @@
-"""The verbs a content source sends a player, and the one that carries an item."""
+"""The verbs a content source sends a player, and the two whose values it reads: an item and a pace."""
 from __future__ import annotations
 
 from pathlib import Path
+
+import pytest
 
 from player_core import player_verbs
 from player_core.playlist import PlaylistItem, item_from_line
@@ -36,3 +38,13 @@ def test_play_file_carries_the_item_as_the_playlist_would():
     keyword, _, value = line.partition(" ")
     assert keyword == player_verbs.PLAY_FILE
     assert item_from_line(value) == item
+
+
+def test_a_pace_is_read_as_the_seconds_it_names():
+    assert player_verbs.pace_seconds("2.5") == 2.5
+    assert player_verbs.pace_seconds("0") == 0.0
+
+
+@pytest.mark.parametrize("value", ["-1", "soon", "", "inf", "nan"])
+def test_a_value_that_names_no_pace_is_refused(value):
+    assert player_verbs.pace_seconds(value) is None
