@@ -110,6 +110,7 @@ class GenauReadout:
         # Which arrow would do nothing — the readout dims those.  The same six
         # the status file publishes, from the same answer.
         limits = control_limits(ds)
+        waveform, slide, edge = self._trace(display_seconds, start_phase, phase_per_second)
         return DriveHud(
             speed=ds.speed,
             amplitude=ds.amplitude,
@@ -127,33 +128,38 @@ class GenauReadout:
             ctr_at_min=limits.ctr_at_min,
             trace_seconds=display_seconds,
             let_go=let_go,
-            waveform=tuple(self._trace(
-                display_seconds, start_phase, phase_per_second)),
+            waveform=tuple(waveform),
+            slide=slide,
+            edge=edge,
         )
 
     def _trace(self, display_seconds: float, start_phase: float,
-               phase_per_second: float) -> list[float]:
+               phase_per_second: float) -> tuple[list[float], float, float | None]:
         """The motion sampled forward as the readout draws it — and as the
-        console draws a funscript over it, which is why both are the same span.
+        console draws a funscript over it, which is why both are the same span
+        — with how far the line is shifted and the knot past the border, for a
+        motion read on knots.
 
         Cruise control's motion cannot be sampled by walking one phase: its
         waves each run at their own speed, and every parameter of every one of
-        them is moving over a span this long. It is walked in time instead, and
-        so is the learned motion, which has no phase at all.
+        them is moving over a span this long. It is walked in time instead.  The
+        learned motion has no phase at all and is read on knots, so its picture
+        holds still and slides rather than being redrawn.
         """
         if self.learned is not None and self.learned.active:
-            return learned_motion.trace(self.learned, self.robot_hand, TRACE_SAMPLES,
-                                        display_seconds)
+            heights, slide = learned_motion.trace_window(
+                self.learned, self.robot_hand, TRACE_SAMPLES, display_seconds)
+            return heights[:TRACE_SAMPLES], slide, heights[TRACE_SAMPLES]
         if self.cruise_control is not None and self.cruise_control.stack:
             return wave_stack.trace(
                 self.cruise_control.stack, self.cruise_control.clock,
-                TRACE_SAMPLES, display_seconds)
+                TRACE_SAMPLES, display_seconds), 0.0, None
         ds = self.robot_hand
         return sample_waveform(
             ds.shape, ds.amplitude, ds.center, TRACE_SAMPLES,
             start_phase=start_phase,
             phase_range=phase_per_second * display_seconds,
-        )
+        ), 0.0, None
 
     def _publish_drive(self, hud: DriveHud, now: float) -> None:
         """Say the readout for the console to draw, at a fraction of the refresh

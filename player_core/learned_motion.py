@@ -8,10 +8,12 @@ to the last where it ended, so the motion is an endless script that no video
 was written for.
 
 The dials are the envelope rather than the motion.  Amplitude and center say
-the range the phrases play inside, and the speed dial scales their pace, with
-the dial's resting 50 meaning the pace the scripts were written at.  Cruise
-control and this are never on together: switching one on switches the other
-off, which :mod:`player_core.genau_controls` sees to.
+the range the phrases play inside, and the speed dial says how many cycles a
+minute the motion makes, exactly as it does for the wave: the scripts' own
+pace (:attr:`~player_core.learned_model.LearnedModel.native_cycle_ms`) is
+scaled to the dial's rate, so a dial at 50 cycles about as often as the wave
+does at 50.  Cruise control and this are never on together: switching one on
+switches the other off, which :mod:`player_core.genau_controls` sees to.
 
 The motion has a clock of its own, in script seconds: it advances only while
 the motion is running, and faster or slower than the wall as the speed dial
@@ -21,6 +23,7 @@ pace from here on without a step.
 from __future__ import annotations
 
 import bisect
+import math
 import random
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -37,16 +40,14 @@ __all__ = [
     "position",
     "tick_learned_motion",
     "toggle_learned_motion",
-    "trace",
+    "trace_window",
 ]
 
 # The trained model that ships with the package.
 DEFAULT_MODEL = Path(__file__).with_name("learned_motion.json.gz")
-# How far past the clock the phrases are laid out, so the readout's trace and a
-# command aimed ahead always have motion to read.
+# How far past the clock the phrases are laid out, in script seconds, so the
+# readout's trace and a command aimed ahead always have motion to read.
 _AHEAD_S = 30.0
-# The speed dial's resting position: the pace the scripts were written at.
-_NATIVE_SPEED = 50
 
 
 @dataclass
@@ -115,7 +116,7 @@ def tick_learned_motion(robot_hand: RobotHandState, state: LearnedMotionState, n
     # A clock that stalled comes back owing a step no motion should take at
     # once, so it is capped like every other clock in the hand.
     step = max(0.0, min(dt, MAX_TICK_SECONDS))
-    state.clock += step * _pace(robot_hand)
+    state.clock += step * _pace(state, robot_hand)
     _lay_out(state, state.clock + _AHEAD_S)
     _forget_the_past(state)
 
@@ -124,28 +125,50 @@ def position(state: LearnedMotionState, robot_hand: RobotHandState | None,
              lead_s: float = 0.0) -> float:
     """Where the motion is now, 0-100 on the device's axis -- or where it will
     be *lead_s* wall seconds on, which is what a command should aim at."""
-    at = state.clock + lead_s * _pace(robot_hand)
+    at = state.clock + lead_s * _pace(state, robot_hand)
     return _into_the_envelope(_raw(state, at), robot_hand)
 
 
-def trace(state: LearnedMotionState, robot_hand: RobotHandState | None,
-          samples: int, span_s: float) -> list[float]:
-    """The motion sampled forward from now as 0-1 heights, *span_s* wall
-    seconds of it -- the drive readout's picture of what is coming."""
-    step = span_s / max(1, samples - 1)
-    return [position(state, robot_hand, i * step) / 100.0 for i in range(samples)]
+def trace_window(state: LearnedMotionState, robot_hand: RobotHandState | None,
+                 samples: int, span_s: float) -> tuple[list[float], float]:
+    """The coming motion as the readout draws it: *samples* + 1 heights (0-1)
+    on knots a fixed stretch of script apart, the last one just past the far
+    edge, and how far past the first knot the clock sits as a fraction of one.
+
+    Read on knots rather than from the clock itself so the picture holds
+    still: the values only change when the clock crosses a knot, when the
+    window moves on by one sample, and between knots the painter slides the
+    whole line left by the fraction.  Sampled from the clock instead, the
+    heights at fixed columns changed every frame as the swings passed under
+    them, and the line writhed rather than glided.
+    """
+    grid = span_s / max(1, samples - 1) * _pace(state, robot_hand)
+    if grid <= 0:
+        return [position(state, robot_hand) / 100.0] * (samples + 1), 0.0
+    first = math.floor(state.clock / grid) * grid
+    heights = [
+        _into_the_envelope(_raw(state, first + i * grid), robot_hand) / 100.0
+        for i in range(samples + 1)
+    ]
+    return heights, (state.clock - first) / grid
 
 
 def rest_at_floor(state: LearnedMotionState) -> None:
-    """Put the motion at the floor of its envelope, to begin again from there --
-    where it resumes from after something else has had the device."""
+    """Put the motion at the floor of its envelope and lay the phrases out
+    again from there -- what it resumes with after something else has had
+    the device, and what the readout shows while it waits."""
     _clear(state)
+    if state.active and state.model:
+        _begin(state, 0.0)
+        _lay_out(state, state.clock + _AHEAD_S)
 
 
-def _pace(robot_hand: RobotHandState | None) -> float:
-    if robot_hand is None:
+def _pace(state: LearnedMotionState, robot_hand: RobotHandState | None) -> float:
+    """Script seconds per wall second: the dial's cycles a minute over the
+    cycles a minute the scripts were written at."""
+    if robot_hand is None or state.model is None:
         return 1.0
-    return bpm_for_speed(robot_hand.speed) / bpm_for_speed(_NATIVE_SPEED)
+    return bpm_for_speed(robot_hand.speed) * state.model.native_cycle_ms / 60_000.0
 
 
 def _into_the_envelope(raw: float, robot_hand: RobotHandState | None) -> float:

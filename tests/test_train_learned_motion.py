@@ -80,6 +80,13 @@ def _script(swings: int, *, duration_ms: int, low: int, high: int, start_ms: int
 
 
 class TestFittingTheModel:
+    def test_the_model_carries_the_pace_the_scripts_were_written_at(self):
+        steady = _script(64, duration_ms=300, low=10, high=90)
+
+        model = train.fit([steady], rng=random.Random(1))
+
+        assert model.native_cycle_ms == 600.0
+
     def test_phrases_are_kept_by_class_and_their_order_is_counted(self):
         steady = _script(32, duration_ms=300, low=10, high=90)
         quick = _script(16, duration_ms=150, low=40, high=60)

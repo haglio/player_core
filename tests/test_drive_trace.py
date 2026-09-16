@@ -441,6 +441,21 @@ class TestStillPicture:
     """He watched the line boil, twitch and flicker in turn.  Every one of
     those was a value that depended on something other than the playhead."""
 
+    def test_a_motion_published_on_knots_is_read_where_its_knots_sit(self):
+        """The learned motion publishes its samples on knots a fraction short of
+        now, and says so; the composed line reads them there rather than as if
+        the first sample were now, or the blue would jump by up to a whole
+        sample every time Genau's knot slid."""
+        published = _motion(slide=0.5, edge=0.5 + 0.4 * np.sin(TRACE_SAMPLES / 6))
+        script = _script_ahead(from_ms=100_000, to_ms=101_000)
+
+        composed = _read(script, at=0, published=published).waveform
+
+        assert composed[0] == pytest.approx(
+            (published.waveform[0] + published.waveform[1]) / 2)
+        assert composed[TRACE_SAMPLES - 1] == pytest.approx(
+            (published.waveform[TRACE_SAMPLES - 1] + published.edge) / 2)
+
     def test_the_shape_slides_along_rather_than_being_redrawn(self):
         script = _script(until_ms=120_000)
 
