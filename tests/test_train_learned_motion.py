@@ -136,9 +136,31 @@ class TestReadingTheCorpus:
             + json.dumps({"file": "t2_p1_1.funscript", "tags": ["alpha", "ai-generated"]}) + "\n",
             encoding="utf-8")
 
-        scripts = list(train.scripts_in([harvested, own], skip_tags={"ai-generated"}))
+        scripts = list(train.scripts_in([harvested, own], skip_tags={"ai-generated"},
+                                        keep_tags={"alpha"}))
 
         assert scripts == [steady]
+
+    def test_only_scripts_wearing_a_kept_tag_are_taken_from_an_indexed_folder(self, tmp_path):
+        harvested = tmp_path / "harvested"
+        (harvested / "scripts").mkdir(parents=True)
+        own = tmp_path / "own"
+        own.mkdir()
+        steady = _script(20, duration_ms=300, low=10, high=90)
+        quick = _script(20, duration_ms=150, low=40, high=60)
+        slow = _script(20, duration_ms=700, low=10, high=90)
+        _write_script(harvested / "scripts" / "t1_p1_1.funscript", steady)
+        _write_script(harvested / "scripts" / "t2_p1_1.funscript", quick)
+        _write_script(own / "scene one.funscript", slow)
+        (harvested / "index.jsonl").write_text(
+            json.dumps({"file": "t1_p1_1.funscript", "tags": ["alpha", "beta"]}) + "\n"
+            + json.dumps({"file": "t2_p1_1.funscript", "tags": ["gamma"]}) + "\n",
+            encoding="utf-8")
+
+        scripts = list(train.scripts_in([harvested, own], skip_tags=set(), keep_tags={"beta"}))
+
+        # The kept one, and the un-indexed folder whole.
+        assert scripts == [steady, slow]
 
     def test_a_folder_may_name_more_tags_to_skip_beside_its_index(self, tmp_path):
         harvested = tmp_path / "harvested"

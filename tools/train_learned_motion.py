@@ -3,9 +3,10 @@
     python tools/train_learned_motion.py --corpus <dir> [--corpus <dir> ...] --out <model.json.gz>
 
 Each ``--corpus`` folder is searched for ``*.funscript``; a folder holding the
-harvester's ``index.jsonl`` also has its topics' tags read, and a script whose
-topic wears a tag in ``--skip-tag`` (:data:`SKIPPED_TAGS` unless said otherwise)
-is left out.  What comes out is a
+harvester's ``index.jsonl`` also has its topics' tags read: only a script whose
+topic wears a tag in ``--keep-tag`` (:data:`KEPT_TAGS` unless said otherwise)
+is taken, and one wearing a tag in ``--skip-tag`` (:data:`SKIPPED_TAGS`) is
+left out.  A folder with no index -- his own scripts -- is taken whole.  What comes out is a
 :class:`player_core.learned_model.LearnedModel`: up to ``--kept`` phrases per
 class, drawn evenly from everything seen, and the counts of which class
 followed which.  Nothing named in the corpus reaches the model.
@@ -191,22 +192,31 @@ SKIPPED_TAGS = (
     "pmv", "hmv", "beat-based", "music-based", "music", "joi", "audio-only",
 )
 SKIP_TAGS_FILENAME = "skip_tags.txt"
+# Taken by default, where a folder's index says what each script is of:
+# scripts of real people.  Drawn and rendered scenes move as no person can,
+# which is the motion this model is not for.
+KEPT_TAGS = ("real",)
 
 
-def scripts_in(folders: Iterable[Path], *, skip_tags: set[str]) -> Iterator[list[tuple[int, int]]]:
+def scripts_in(folders: Iterable[Path], *, skip_tags: set[str],
+               keep_tags: set[str] = frozenset(KEPT_TAGS)) -> Iterator[list[tuple[int, int]]]:
     """Every distinct script under *folders*, as sorted (ms, position) pairs.
 
-    A folder holding the harvester's index has its scripts' tags read from it,
-    and one tagged with anything in *skip_tags*, or in the folder's own
-    ``skip_tags.txt``, is left out.  A script seen before, wherever it was, is
-    not yielded twice.
+    A folder holding the harvester's index has its scripts' tags read from it:
+    only one tagged with something in *keep_tags* is taken, and one tagged with
+    anything in *skip_tags*, or in the folder's own ``skip_tags.txt``, is left
+    out.  A folder with no index is taken whole.  A script seen before,
+    wherever it was, is not yielded twice.
     """
     seen: set[str] = set()
     for folder in folders:
         tags_of = _tags_by_file(Path(folder) / "index.jsonl")
         skipped = skip_tags | _tags_listed_in(Path(folder) / SKIP_TAGS_FILENAME)
         for path in sorted(Path(folder).rglob("*.funscript")):
-            if skipped & set(tags_of.get(path.name, ())):
+            tags = set(tags_of.get(path.name, ()))
+            if tags_of and not (tags & keep_tags):
+                continue
+            if skipped & tags:
                 continue
             actions = _actions_of(path)
             if len(actions) < MIN_ACTIONS:
@@ -252,6 +262,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--kept", type=int, default=KEPT_PER_CLASS)
     parser.add_argument("--skip-tag", action="append", default=list(SKIPPED_TAGS))
+    parser.add_argument("--keep-tag", action="append", default=list(KEPT_TAGS))
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stderr)
@@ -259,7 +270,8 @@ def main(argv: list[str] | None = None) -> int:
     scripts = 0
     def counted() -> Iterator[list[tuple[int, int]]]:
         nonlocal scripts
-        for actions in scripts_in(args.corpus, skip_tags=set(args.skip_tag)):
+        for actions in scripts_in(args.corpus, skip_tags=set(args.skip_tag),
+                                  keep_tags=set(args.keep_tag)):
             scripts += 1
             yield actions
 
