@@ -38,7 +38,6 @@ __all__ = [
     "set_center",
     "set_speed",
     "toggle_playing",
-    "trace_window",
 ]
 
 class WaveformShape(Enum):
