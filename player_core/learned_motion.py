@@ -32,9 +32,7 @@ from . import learned_model
 from .learned_model import LearnedModel
 from .robot_hand import MAX_TICK_SECONDS, RobotHandState, bpm_for_speed
 
-# Package-internal until the three apps that play it land their imports; the
-# consumer gate declares a name only once somebody reaches it.
-__all__: list[str] = []
+__all__ = ["LearnedMotionState", "load_default_model"]
 
 # The trained model that ships with the package.
 DEFAULT_MODEL = Path(__file__).with_name("learned_motion.json.gz")

@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from statistics import median
 
-__all__: list[str] = []  # package-internal: the siblings play a model through learned_motion
+__all__ = ["LearnedModel"]
 
 # How many swings a phrase holds.  Even, so a phrase that begins going up ends
 # coming down, and the next one begins going up again from wherever it ended.
