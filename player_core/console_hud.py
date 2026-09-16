@@ -122,7 +122,7 @@ _REVISION = re.compile(r"\s*\(v\d+\)$")
 OSR2_ROBOT_HAND = "robot_hand"  # the one state in which the drive readout can be pressed
 OSR2_FUNSCRIPT = "funscript"
 OSR2_BUFFER = "buffer"
-# The buffer pill wears the trace's own neutral grey, so the word and the line
+# The buffer pill wears the trace's own neutral gray, so the word and the line
 # under the dot are visibly the same state.
 _NEUTRAL_PILL = (168, 168, 174)
 _OSR2_LABELS = {
@@ -216,7 +216,7 @@ class ConsoleHud:
     modes: ModeHud = field(default_factory=ModeHud)
     console: ConsoleModel = field(default_factory=ConsoleModel)
     drive: DriveHud | None = None
-    # The grey the slab is made of, or None for the canvas colour every player
+    # The gray the slab is made of, or None for the canvas color every player
     # floating this over a video wants (see hud_panel.HudPanel).  Part of the
     # value compared for the repaint cache, like the rest.
     ground: tuple[int, int, int] | None = None
@@ -627,7 +627,7 @@ class ConsolePainter:
     def _osr2_state(self, model: ConsoleModel) -> str:
         """What the pill says has the device — the drawn line's own answer
         when a composed trace is on the panel, so the pill flips exactly when
-        the line under the dot changes hands, and says Buffer through the grey
+        the line under the dot changes hands, and says Buffer through the gray
         where the device belongs to neither driver.  The round-tripped osr2
         stands in everywhere else, and for its own device-level states.
 
