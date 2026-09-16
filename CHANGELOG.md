@@ -9,6 +9,19 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-09-16 — a named output is the device, not a driver sharing its name
+
+New module `audio_outputs` (`Output`, `pick_output`, package-internal until Fun
+Time's audio companion lands its import): a session names the output
+it wants by a fragment of its name, and a headset maker's own software installs
+outputs carrying that name too — a wireless streaming driver Windows enumerates
+under `ROOT`, with no device of its own. Which one the fragment lands on was the
+order Windows happened to list them in, so the sound could go to the driver
+nobody is listening to. `pick_output` prefers the output a real device answers,
+reading which is which from Windows' own endpoint registry, and still takes the
+streaming one when it is the only one named. `mpv_player.set_audio_device_matching`
+routes through it; Fun Time's audio companion is the second caller.
+
 ## 2026-09-16 — the names the siblings reach are declared
 
 Fun Time now imports the buttons contract, so each module a sibling reaches
