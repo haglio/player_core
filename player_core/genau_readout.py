@@ -10,7 +10,7 @@ layer driving the device.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from . import learned_motion, wave_stack
@@ -101,6 +101,10 @@ class GenauReadout:
         self.set_console = set_console or (lambda _console: None)
         self.current_clip = current_clip
         self._last_drive_publish = 0.0
+        # The broker's beat, counted up across its wraps: the auto trace's
+        # knots stay put only on a phase that never starts round again.
+        self._auto_turns = 0
+        self._auto_phase: float | None = None
         # The console around the readout -- mode, OSR2, broker -- as the
         # orchestrator published it; its own mode until the first publish lands.
         self._console_model = ConsoleModel(mode="genau")
@@ -117,7 +121,7 @@ class GenauReadout:
         hand's -- what its controls will move when it takes the device back --
         and whoever draws them dims them, exactly as while a funscript drives.
         """
-        hud = self._build_drive_hud(auto)
+        hud = self._build_drive_hud(self._counted_up(auto))
         self._publish_drive(hud, now)
         if now - self._last_console_read >= _CONSOLE_READ_INTERVAL_S and self.console_file:
             self._last_console_read = now
@@ -135,6 +139,14 @@ class GenauReadout:
             modes=ModeHud(video=Path(clip).stem if clip else ""),
             console=self._console_model, drive=hud,
         ))
+
+    def _counted_up(self, auto: AutoMotion | None) -> AutoMotion | None:
+        if auto is None:
+            return None
+        if self._auto_phase is not None and auto.phase < self._auto_phase - 0.5:
+            self._auto_turns += 1
+        self._auto_phase = auto.phase
+        return replace(auto, phase=self._auto_turns + auto.phase)
 
     def _build_drive_hud(self, auto: AutoMotion | None = None) -> DriveHud:
         ds = self.robot_hand

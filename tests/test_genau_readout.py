@@ -193,6 +193,21 @@ class TestWhatThePanelIsToldEachTime:
 
         assert shown[-1] is not None
 
+    def test_its_line_does_not_jump_where_the_beat_starts_round_again(self):
+        """The broker's beat counts 0 to 1 and starts again, while the trace's
+        knots stay put only on a phase counted up without wrapping: taken as it
+        comes, the line jumped sideways at every wrap."""
+        wrapped, counted = [], []
+        wrapping = _readout(set_console=wrapped.append)
+        counting = _readout(set_console=counted.append)
+
+        wrapping.update(1.0, AutoMotion(phase=0.99, bpm=87.0))
+        wrapping.update(1.1, AutoMotion(phase=0.01, bpm=87.0))
+        counting.update(1.0, AutoMotion(phase=0.99, bpm=87.0))
+        counting.update(1.1, AutoMotion(phase=1.01, bpm=87.0))
+
+        assert wrapped[-1].drive == counted[-1].drive
+
 
 class TestTheSpanTheTraceIsDrawnOver:
     """Published with the readout, because a funscript the main player draws on this same
