@@ -926,6 +926,29 @@ class TestControlOff:
             assert painter._painted[0].drive.driven == "nothing", mode
             assert painter._painted[0].drive.live is False, mode
 
+    def test_the_line_itself_goes_gray_and_not_only_the_word(self):
+        """A composed trace names who has the device at each knot, and those
+        names outlive the letting go: the word above read "control off" over a
+        line still drawn in the script's green."""
+        painter = ConsolePainter()
+        for mode in ("video", "genau"):
+            painter.rgba(self._hud(mode, "funscript", OSR2_CONTROL_OFF))
+            drive = painter._painted[0].drive
+
+            assert {who for _start, _end, who in drive.runs} == {"nothing"}, mode
+
+    def test_the_trace_holds_still_while_the_room_has_let_go(self):
+        """The script's plan slides on through its own rests, which is right
+        while the session is driving; with the OSR2 let go of, a sliding line
+        and a walking dot are a picture of a device that is not moving at all."""
+        painter = ConsolePainter()
+        console = ConsoleModel(mode="video", osr2="funscript",
+                               osr2_control=OSR2_CONTROL_OFF)
+        first = painter.bgra(ConsoleHud(console=console, drive=_drive(0.0))).copy()
+
+        assert np.array_equal(
+            painter.bgra(ConsoleHud(console=console, drive=_drive(3.0))), first)
+
     def test_driving_leaves_the_readout_alone(self):
         painter = ConsolePainter()
         hud = self._hud("video", "funscript", OSR2_DRIVING)

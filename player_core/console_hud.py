@@ -387,11 +387,11 @@ class ConsolePainter:
                 edge=None, let_go=None, driven=DRIVEN_BY_NEUTRAL)
         elif hud.console.osr2_control == OSR2_CONTROL_OFF:
             # Nothing is going out, so nobody has the device — whatever the
-            # round trip or the composed trace last said had it.  A video-mode
-            # handoff plan is still a plan for a device that is hearing none of
-            # it, and drawn live it is a picture of a session driving something
-            # it has let go of.
-            drive = replace(drive, driven=DRIVEN_BY_NOTHING)
+            # round trip or the composed trace last said had it.  The trace's own
+            # names go with it: a video-mode plan says who has the device at each
+            # knot, and kept, they drew the line in the script's green under a
+            # word that read "control off".
+            drive = replace(drive, driven=DRIVEN_BY_NOTHING, segments=())
         elif not (main_player_displays(hud.console.mode) and drive.segments):
             drive = replace(drive, driven=_driven_by(hud.console.osr2))
         # In video mode the readout is not a picture of the Robot Hand's motion: it is the
@@ -406,7 +406,8 @@ class ConsolePainter:
         # every handoff whatever the OSR2 state says, because the rests ARE
         # part of what it draws — freezing it on the round-tripped "idle"/"off"
         # was the picture that stopped scrolling for the length of each gap.
-        if not drive.live and not main_player_displays(hud.console.mode):
+        if not drive.live and (hud.console.osr2_control == OSR2_CONTROL_OFF
+                               or not main_player_displays(hud.console.mode)):
             # Genau goes on driving regardless — it cannot see that the OSR2 is
             # off — so both the trace and the position it publishes keep moving,
             # and either one left running is a dead readout still claiming to be
