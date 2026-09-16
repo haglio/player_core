@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-__all__: list[str] = []
+__all__ = [
+    "MAX_RATE",
+    "MIN_RATE",
+    "RATE_STEP",
+    "clamp_rate",
+    "parse_rate",
+]
 
 MIN_RATE = 0.25
 MAX_RATE = 2.0
