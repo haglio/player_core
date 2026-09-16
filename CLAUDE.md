@@ -47,9 +47,12 @@ install -- so a fresh worktree needs nothing copied in. A checkout's own
 
 ## Changing this repo changes three apps
 
-- A change here lands in `../genau` and `../fun_time` the moment it is saved —
-  they install this editable, so there is no version to bump and no release to
-  cut, and equally no buffer against a mistake.
+- A change here reaches an app when that app moves its pin, not before: each
+  names a tag of this repo in its `[project.dependencies]`. Landing is two
+  commits — this repo's, which tags a version, then the app's, which takes it.
+- **To try a change here inside an app**, install this checkout over the pin in
+  that app's venv (`pip install -e ../player_core --config-settings
+  editable_mode=compat`), and reinstall the app afterwards to put its pin back.
 - **Run all three suites before merging**: this one, genau's unit suite, and
   fun_time's unit *and* hidden-desktop integration suites (the last is what
   actually launches `MpvPlayer` against the real DLL).
