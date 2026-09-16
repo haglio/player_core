@@ -21,6 +21,8 @@ from .tcode import POSITION_MAX
 __all__ = [
     "MAX_SPEED",
     "MIN_SPEED",
+    "PARK_CENTER",
+    "RETRACT_CENTER",
     "RobotHandState",
     "WaveformShape",
     "adjust_amplitude",

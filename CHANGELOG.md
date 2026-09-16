@@ -9,6 +9,19 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-09-16 — the names the siblings reach are declared
+
+Fun Time now imports the buttons contract, so each module a sibling reaches
+through declares its API in `__all__`: `hud_button` (`Button`, `BUTTON`,
+`FIT_THE_WORD`), `hud_marks` (the shared-mark and app-mark names), `hud_panel`
+(`SYMBOL_FONT`, `load_font`), and `console`'s layout names (`GAP`, `GROUP_GAP`,
+`ROW_LABEL_W`, `VALUE_W`, `place_rows`, `hit_test`, `parse_console`). The OSR2
+control states a console consumer reaches, `robot_hand`'s two hold centers and
+`drive_readout.publish_drive` are declared for the same reason; `console` drops
+`CONSOLE_VERBS` from its list, which no consumer imports. The fixed fallback
+rows stay until Origenerator declares its own buttons. Nothing here does
+anything differently.
+
 ## 2026-09-13 — a picture is an item a player shows
 
 A playlist item can be a still picture, and every player shows one with what

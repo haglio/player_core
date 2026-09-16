@@ -35,7 +35,10 @@ from shared_ui.palette import (
 )
 from shared_ui.spacing import BUTTON_MARK_INSET_HUD
 
-__all__: list[str] = []  # package-internal: no sibling reaches anything here
+__all__ = [
+    "SYMBOL_FONT",
+    "load_font",
+]
 
 # Segoe UI Bold — every label on these HUDs is bold, because they are read at a
 # glance over moving video.  A caller wanting another face passes its filename.
