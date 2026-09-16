@@ -47,6 +47,7 @@ from .console import (
     FULL,
     GAP,
     MINIMIZE_ICON,
+    OSR2_CONTROL_OFF,
     PLAYBACK_LABEL_W,
     SHORTS,
     Button,
@@ -141,15 +142,22 @@ _NEUTRAL_PILL = (168, 168, 174)
 _OSR2_LABELS = {
     "off": "Off", "auto": "Auto", OSR2_FUNSCRIPT: "FunScript",
     OSR2_ROBOT_HAND: "Robot Hand", "idle": "Idle", OSR2_BUFFER: "Buffer",
+    # Said in three words because two of them would be read as the device: the
+    # OSR2 is on and well, this app has simply stopped sending it anything.  In
+    # the red its own button wears, so the lit control and the pill saying what
+    # it did are visibly the one fact.
+    OSR2_CONTROL_OFF: "Control off",
 }
 _OSR2_COLORS = {
     "funscript": GREEN, OSR2_ROBOT_HAND: BLUE, "auto": MAGENTA,
     "off": TEXT_MUTED, "idle": TEXT_MUTED, OSR2_BUFFER: _NEUTRAL_PILL,
+    OSR2_CONTROL_OFF: RED,
 }
 
-# What the OSR2 state means for the trace.  Auto is the device running itself and
-# idle is nothing running at all; either way nothing here is being sent, so there
-# is no motion of ours to draw.
+# What the OSR2 state means for the trace.  Auto is the device running itself,
+# idle is nothing running at all, and control off is this app having let go;
+# in none of them is anything here being sent, so there is no motion of ours to
+# draw and the readout goes gray.
 _DRIVEN_BY_OSR2 = {OSR2_ROBOT_HAND: DRIVEN_BY_ROBOT_HAND, OSR2_FUNSCRIPT: DRIVEN_BY_FUNSCRIPT}
 
 
@@ -379,7 +387,14 @@ class ConsolePainter:
         # playhead — set by the same function that drew the line under the dot —
         # since the round trip lags the arbiter, and the arbiter itself decides
         # seconds before the device is done riding the blue.
-        if not (main_player_displays(hud.console.mode) and drive.segments):
+        if hud.console.osr2_control == OSR2_CONTROL_OFF:
+            # Nothing is going out, so nobody has the device — whatever the
+            # round trip or the composed trace last said had it.  A video-mode
+            # handoff plan is still a plan for a device that is hearing none of
+            # it, and drawn live it is a picture of a session driving something
+            # it has let go of.
+            drive = replace(drive, driven=DRIVEN_BY_NOTHING)
+        elif not (main_player_displays(hud.console.mode) and drive.segments):
             drive = replace(drive, driven=_driven_by(hud.console.osr2))
         # In video mode the readout is not a picture of the Robot Hand's motion: it is the
         # picture of the handoff, and the device changes hands inside it.  The
@@ -603,7 +618,12 @@ class ConsolePainter:
         when a composed trace is on the panel, so the pill flips exactly when
         the line under the dot changes hands, and says Buffer through the grey
         where the device belongs to neither driver.  The round-tripped osr2
-        stands in everywhere else, and for its own device-level states."""
+        stands in everywhere else, and for its own device-level states.
+
+        Control off answers ahead of all of it: with nothing going out there is
+        nobody to name, and what the reader needs to know is why."""
+        if model.osr2_control == OSR2_CONTROL_OFF:
+            return OSR2_CONTROL_OFF
         drive = self._composed_drive
         if drive is None:
             return model.osr2
