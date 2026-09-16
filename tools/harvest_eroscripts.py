@@ -70,13 +70,15 @@ class Forum:
                  opener: Callable = urllib.request.urlopen,
                  sleep: Callable[[float], None] = time.sleep,
                  clock: Callable[[], float] = time.monotonic,
-                 pace_s: float = 1.0) -> None:
+                 pace_s: float = 1.0,
+                 log: logging.Logger = logging.getLogger(__name__)) -> None:
         self._base_url = base_url.rstrip("/")
         self._headers = headers
         self._opener = opener
         self._sleep = sleep
         self._clock = clock
         self._pace_s = pace_s
+        self._log = log
         self._last_request: float | None = None
 
     def get_json(self, path: str) -> dict:
@@ -108,7 +110,9 @@ class Forum:
             except urllib.error.HTTPError as error:
                 if error.code != 429:
                     raise
-                self._sleep(_wait_named_by(error) + RETRY_GRACE_S)
+                wait = _wait_named_by(error) + RETRY_GRACE_S
+                self._log.info("rate limited at %s: waiting %.0f s", url, wait)
+                self._sleep(wait)
         raise RuntimeError(f"{url}: still rate limited after {_RETRIES} attempts")
 
     def _wait_the_pace(self) -> None:
