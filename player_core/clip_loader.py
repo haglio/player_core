@@ -58,11 +58,11 @@ class ClipLoadController:
         return False
 
     def request_clip_load(self, path: Path) -> None:
-        if self.frames_ready(path):
+        if self.frames_ready(path) or self._already_decoding(path):
             return
 
         self.logger.info("Loading clip %s (no prefetch available)", path.name)
-        request_id = self.load_state.begin()
+        request_id = self.load_state.begin(path)
         self.start_thread(
             target=self._loader_thread_fn,
             args=(path, request_id),
@@ -74,7 +74,7 @@ class ClipLoadController:
             return
 
         self.logger.info("Prefetching clip %s", path.name)
-        request_id = self.prefetch_state.begin()
+        request_id = self.prefetch_state.begin(path)
         self.start_thread(
             target=self._prefetch_thread_fn,
             args=(path, request_id),
@@ -108,6 +108,16 @@ class ClipLoadController:
         self.logger.info("Prefetch ready: %s (%d frames)", path.name, len(frames) if frames else 0)
         self.clip_store.cache_decoded_frames(
             path, frames, protected_paths=self._clip_on_screen())
+
+    def _already_decoding(self, path: Path) -> bool:
+        """Whether a decode of this very clip is running, either side.
+
+        A clip asked for while it is being decoded ahead is waited for rather
+        than decoded twice over: the second decode would take half the machine
+        from the first, and the two finish later than the one would have.
+        """
+        return (self.load_state.is_decoding(path)
+                or self.prefetch_state.is_decoding(path))
 
     def _clip_on_screen(self) -> set[Path]:
         """What trimming may never take: whatever is up now."""
