@@ -383,7 +383,13 @@ class ConsolePainter:
         # since the round trip lags the arbiter, and the arbiter itself decides
         # seconds before the device is done riding the blue.
         held = _HELD_HEIGHT.get(hud.console.osr2_control)
-        if held is not None:
+        if hud.console.device_drives_itself:
+            # The device is running its own firmware, and that wins over
+            # everything the room does to it: a hold, a let-go, a handoff
+            # between two drivers.  None of those reaches it, so none is the
+            # picture — one line, the device's own, in its own color.
+            drive = replace(drive, driven=DRIVEN_BY_AUTO, segments=())
+        elif held is not None:
             # The device is being kept at one end, so that is the picture: a
             # flat line there with the dot on it, in the gray of a device nobody
             # is moving.  Whatever the motion or the script had planned is not
@@ -399,13 +405,6 @@ class ConsolePainter:
             # knot, and kept, they drew the line in the script's green under a
             # word that read "control off".
             drive = replace(drive, driven=DRIVEN_BY_NOTHING, segments=())
-        elif hud.console.device_drives_itself:
-            # The device has taken itself, so nothing on either side of the
-            # handoff is reaching it: a composed trace here is two drivers'
-            # plans for a device neither of them has, drawn in their two
-            # colors.  One line instead, the device's own, and with the
-            # segments goes the pill's reason to read anything but Auto.
-            drive = replace(drive, driven=DRIVEN_BY_AUTO, segments=())
         elif not (main_player_displays(hud.console.mode) and drive.segments):
             drive = replace(drive, driven=_driven_by(hud.console.osr2))
         # In video mode the readout is not a picture of the Robot Hand's motion: it is the
@@ -632,7 +631,11 @@ class ConsolePainter:
         stands in everywhere else, and for its own device-level states.
 
         Control off and the two holds answer ahead of all of it: then nobody is
-        driving to be named, and what the reader needs to know is why."""
+        driving to be named, and what the reader needs to know is why.  Auto
+        answers ahead of those in turn, because the device running itself wins
+        over anything the room is doing to it."""
+        if model.device_drives_itself:
+            return model.osr2
         if model.osr2_control in (OSR2_CONTROL_OFF, *_HELD_HEIGHT):
             return model.osr2_control
         drive = self._composed_drive

@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 import numpy as np
+import pytest
 from shared_ui.palette import MAGENTA, TEXT_MUTED, WHITE
 
 from player_core.console import (
@@ -938,9 +939,11 @@ class TestControlOff:
                            segments=((0, "robot_hand"), (30, "funscript"))))
 
     def test_the_pill_says_control_off_whoever_would_have_had_the_device(self):
+        """Whoever in the room would have had it.  The device running itself is
+        not the room's, and wins over a let-go (see the auto readout's tests)."""
         painter = ConsolePainter()
         for mode in ("video", "genau"):
-            for osr2 in ("robot_hand", "funscript", "auto", "off"):
+            for osr2 in ("robot_hand", "funscript", "off"):
                 hud = self._hud(mode, osr2, OSR2_CONTROL_OFF)
                 painter.rgba(hud)
                 assert painter._osr2_state(hud.console) == OSR2_CONTROL_OFF, (mode, osr2)
@@ -1105,6 +1108,20 @@ class TestTheDeviceRunningItselfKeepsMoving:
         later = painter.bgra(ConsoleHud(
             console=ConsoleModel(mode="genau", osr2="auto"), drive=_drive(3.0)))
 
+        assert not np.array_equal(later, first)
+
+    @pytest.mark.parametrize("control", [OSR2_PARKED, OSR2_RETRACTED, OSR2_CONTROL_OFF])
+    def test_it_wins_over_whatever_the_room_is_doing_to_the_device(self, control):
+        """Auto wins over everything the room might be doing, a hold and a let-go
+        included: none of those reaches a device running its own firmware, so the
+        word and the moving line are the device's own."""
+        painter = ConsolePainter()
+        console = ConsoleModel(mode="genau", osr2="auto", osr2_control=control)
+        first = painter.bgra(ConsoleHud(console=console, drive=_drive(0.0))).copy()
+
+        later = painter.bgra(ConsoleHud(console=console, drive=_drive(3.0)))
+
+        assert painter._osr2_state(console) == "auto"
         assert not np.array_equal(later, first)
 
 
