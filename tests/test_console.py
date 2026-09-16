@@ -1007,6 +1007,12 @@ class TestTheLearnedMotionButton:
 
         assert actions.index("robot_hand_toggle_learned") == actions.index("robot_hand_toggle_cruise") + 1
 
+    def test_it_is_called_human_inspired_on_the_button(self):
+        button = _button(ConsoleModel(mode="genau"), "robot_hand_toggle_learned")
+
+        assert button.glyph == "hi"
+        assert button.tooltip.startswith("Human inspired")
+
     def test_it_lights_while_the_learned_motion_has_the_hand(self):
         assert _button(ConsoleModel(mode="genau"), "robot_hand_toggle_learned").lit is False
         assert _button(ConsoleModel(mode="genau", learned=True), "robot_hand_toggle_learned").lit is True
