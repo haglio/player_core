@@ -107,8 +107,8 @@ class TestDangerIsRed:
     def test_a_dangerous_control_draws_its_mark_in_red(self):
         from shared_ui.palette import RED
 
-        from player_core.console import Button
         from player_core.console_hud import ConsolePainter
+        from player_core.hud_button import Button
 
         panel = Image.new("RGBA", (18, 18), (0, 0, 0, 255))
         draw = ImageDraw.Draw(panel)
@@ -128,8 +128,8 @@ class TestButtonGrounds:
         # family offers for the same act.
         from shared_ui.palette import BG_BUTTON
 
-        from player_core.console import Button
         from player_core.console_hud import ConsolePainter
+        from player_core.hud_button import Button
 
         panel = Image.new("RGBA", (18, 18), (0, 0, 0, 255))
         ConsolePainter()._button(panel, ImageDraw.Draw(panel), (0, 0, 18, 18),
@@ -143,8 +143,8 @@ class TestButtonGrounds:
         # white, and would say nothing if resting looked the same.
         from shared_ui.palette import BG_BUTTON
 
-        from player_core.console import Button
         from player_core.console_hud import ConsolePainter
+        from player_core.hud_button import Button
 
         def ground(lit: bool):
             panel = Image.new("RGBA", (18, 18), (0, 0, 0, 255))
