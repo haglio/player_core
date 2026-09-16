@@ -49,6 +49,12 @@ MAX_BPM = 200.0
 MIN_SPEED = 5
 MAX_SPEED = 100
 
+# The two ends a still motion is held at, on the same 0-100 axis the center runs
+# on: home, and as far from the user as the travel goes.  Named here because
+# every app that holds this motion has to agree which end is which.
+PARK_CENTER = 0
+RETRACT_CENTER = 100
+
 # The most wall time one tick of a caller's clock may move the phase — see
 # :func:`phase_advanced`.
 MAX_TICK_SECONDS = 0.1

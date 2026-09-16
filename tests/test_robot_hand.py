@@ -3,6 +3,8 @@ from __future__ import annotations
 import pytest
 
 from player_core.robot_hand import (
+    PARK_CENTER,
+    RETRACT_CENTER,
     RobotHandState,
     WaveformShape,
     adjust_amplitude,
@@ -533,3 +535,18 @@ class TestThePhaseForAHeight:
         for height in (-3.0, 4.0):
             phase = phase_for_position_fraction(height)
             assert 0.0 <= phase < 1.0
+
+
+def test_the_two_held_ends_are_the_ends_of_the_travel():
+    """A hold settles the motion at one end of the axis or the other, and the
+    two apps that hold it have to mean the same end by the same word."""
+    from player_core.robot_hand import POSITION_MAX
+
+    for center in (PARK_CENTER, RETRACT_CENTER):
+        state = RobotHandState()
+        set_amplitude(state, 0)
+        set_center(state, center)
+
+        assert {phase_to_position(phase / 8, amplitude=state.amplitude,
+                                 center=state.center)
+                for phase in range(8)} == {center * POSITION_MAX // 100}
