@@ -954,8 +954,8 @@ class TestThePublishedConsoleIsWrittenWhereItIsRead:
         model = ConsoleModel(
             mode="genau", active=True, osr2="auto", osr2_control=OSR2_RETRACTED,
             broker=True, record="looping",
-            locked=False, f_mode=True, latest=True, cruise=True, shape="triangle",
-            plays_vr=True, plays_flat=False,
+            locked=False, f_mode=True, latest=True, cruise=True, learned=True,
+            shape="triangle", plays_vr=True, plays_flat=False,
         )
 
         assert parse_console(console_text(model)) == model
@@ -996,3 +996,29 @@ class TestThePublishedConsoleIsWrittenWhereItIsRead:
     def test_a_torn_read_is_no_panel(self):
         assert parse_console('{"mode": "video"') is None
         assert parse_console("") is None
+
+
+class TestTheLearnedMotionButton:
+    """The learned motion sits beside cruise control on the row that says what
+    the motion IS, and lights the same white while it has the hand."""
+
+    def test_it_follows_cruise_on_the_control_row(self):
+        actions = [b.action for row in console_rows(ConsoleModel(mode="genau")) for b in row]
+
+        assert actions.index("robot_hand_toggle_learned") == actions.index("robot_hand_toggle_cruise") + 1
+
+    def test_it_lights_while_the_learned_motion_has_the_hand(self):
+        assert _button(ConsoleModel(mode="genau"), "robot_hand_toggle_learned").lit is False
+        assert _button(ConsoleModel(mode="genau", learned=True), "robot_hand_toggle_learned").lit is True
+
+    def test_it_is_white_like_cruise_rather_than_green(self):
+        button = _button(ConsoleModel(mode="genau", learned=True), "robot_hand_toggle_learned")
+
+        assert (button.favorite, button.warn, button.hold) == (False, False, False)
+
+    def test_a_published_panel_says_whether_it_is_on(self, tmp_path: Path):
+        path = tmp_path / "main_player_console.json"
+        path.write_text(json.dumps({"mode": "genau", "learned": True}), encoding="utf-8")
+
+        assert read_console(path).learned is True
+        assert parse_console(json.dumps({"mode": "genau"})).learned is False

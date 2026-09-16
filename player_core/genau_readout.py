@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import wave_stack
+from . import learned_motion, wave_stack
 from .console import ConsoleModel, read_console
 from .console_hud import ConsoleHud, ModeHud
 from .drive_readout import TRACE_SAMPLES, DriveHud, publish_drive
@@ -47,6 +47,7 @@ class GenauReadout:
     ):
         self.robot_hand = controls.robot_hand
         self.cruise_control = controls.cruise_control_state
+        self.learned = controls.learned_motion_state
         self.clip_advance = controls.clip_advance_state
         self.beats_per_loop = beats_per_loop
         self.tcode_sender = tcode_sender
@@ -137,8 +138,12 @@ class GenauReadout:
 
         Cruise control's motion cannot be sampled by walking one phase: its
         waves each run at their own speed, and every parameter of every one of
-        them is moving over a span this long. It is walked in time instead.
+        them is moving over a span this long. It is walked in time instead, and
+        so is the learned motion, which has no phase at all.
         """
+        if self.learned is not None and self.learned.active:
+            return learned_motion.trace(self.learned, self.robot_hand, TRACE_SAMPLES,
+                                        display_seconds)
         if self.cruise_control is not None and self.cruise_control.stack:
             return wave_stack.trace(
                 self.cruise_control.stack, self.cruise_control.clock,

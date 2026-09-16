@@ -390,3 +390,48 @@ class TestTheSender:
 
         handoff.watch(True)   # must not raise
         handoff.watch(False)
+
+
+class TestLearnedMotionOnTheWire:
+    """While the learned motion has the hand, the device follows its phrases
+    rather than the waveform, and losing the device rests it at its floor."""
+
+    def _learned(self, *, playing: bool = True):
+        import random
+
+        from player_core.learned_model import LearnedModel, Phrase, classify
+        from player_core.learned_motion import (
+            LearnedMotionState,
+            enable_learned_motion,
+            tick_learned_motion,
+        )
+
+        phrase = Phrase(tuple((500, 80 if i % 2 == 0 else 20) for i in range(16)))
+        model = LearnedModel(phrases={classify(phrase): [phrase]}, seen={classify(phrase): 1})
+        hand = RobotHandState(playing=playing, amplitude=100, intended_center=50)
+        learned = LearnedMotionState(model=model, rng=random.Random(1))
+        enable_learned_motion(learned)
+        tick_learned_motion(hand, learned, now=10.0)
+        for i in range(1, 6):
+            tick_learned_motion(hand, learned, now=10.0 + i * 0.05)
+        return hand, learned
+
+    def test_the_device_is_sent_where_the_phrases_have_the_motion(self):
+        hand, learned = self._learned()
+        sink = FakeTCodeSink()
+        sender = RobotHandTCodeDriver(sink, robot_hand=hand, learned=learned, min_interval=0.033)
+
+        sender.maybe_send(phase=0.6, now=11.0)
+
+        # A quarter second into a half-second climb from the floor to 80.
+        assert sink.sent[-1].startswith("L04000")
+
+    def test_losing_the_device_rests_the_phrases_at_the_floor(self):
+        hand, learned = self._learned()
+        sink = FakeTCodeSink()
+        sender = RobotHandTCodeDriver(sink, robot_hand=hand, learned=learned, min_interval=0.033)
+
+        sender.hand_over()
+
+        assert sender.let_go_position == 4000
+        assert sender.current_position() == 0

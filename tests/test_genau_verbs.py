@@ -15,6 +15,8 @@ from player_core.genau_controls import (
     GenauControls,
     apply_runtime_command,
 )
+from player_core.learned_model import LearnedModel
+from player_core.learned_motion import LearnedMotionState
 from player_core.robot_hand import RobotHandState, WaveformShape
 from player_core.robot_hand_beat import BeatEngine
 
@@ -782,3 +784,57 @@ class TestAnUnhandledCommand:
         self._run("NEXT", caplog)
 
         assert caplog.records == []
+
+
+class TestLearnedMotionVerbs:
+    """The learned motion answers the same three spellings cruise does, and the
+    two are never on together: switching one on switches the other off."""
+
+    def _learned(self, active: bool = False) -> LearnedMotionState:
+        return LearnedMotionState(model=LearnedModel(), active=active)
+
+    def test_toggle_learned_arms_it(self):
+        learned = self._learned()
+
+        handled = _answered("TOGGLE_LEARNED", engine=BeatEngine(phase=0.0, last_tick=0.0),
+                            paused=Flag(), step_clip=lambda _step: None,
+                            learned_motion_state=learned)
+
+        assert handled is True
+        assert learned.active is True
+
+    def test_learned_on_and_off_say_which_way(self):
+        learned = self._learned(active=True)
+        collaborators = dict(engine=BeatEngine(phase=0.0, last_tick=0.0), paused=Flag(),
+                             step_clip=lambda _step: None, learned_motion_state=learned)
+
+        assert _answered("LEARNED_OFF", **collaborators) is True
+        assert learned.active is False
+        assert _answered("LEARNED_ON", **collaborators) is True
+        assert learned.active is True
+
+    def test_learned_verbs_are_refused_without_the_learned_state(self):
+        assert _answered("TOGGLE_LEARNED", engine=BeatEngine(phase=0.0, last_tick=0.0),
+                         paused=Flag(), step_clip=lambda _step: None) is False
+
+    def test_switching_learned_on_switches_cruise_off(self):
+        learned = self._learned()
+        cruise = CruiseControlState(active=True)
+
+        _answered("LEARNED_ON", engine=BeatEngine(phase=0.0, last_tick=0.0), paused=Flag(),
+                  step_clip=lambda _step: None, learned_motion_state=learned,
+                  cruise_control_state=cruise)
+
+        assert learned.active is True
+        assert cruise.active is False
+
+    def test_switching_cruise_on_switches_learned_off(self):
+        learned = self._learned(active=True)
+        cruise = CruiseControlState(active=False)
+
+        _answered("TOGGLE_CRUISE", engine=BeatEngine(phase=0.0, last_tick=0.0), paused=Flag(),
+                  step_clip=lambda _step: None, learned_motion_state=learned,
+                  cruise_control_state=cruise)
+
+        assert cruise.active is True
+        assert learned.active is False

@@ -13,6 +13,8 @@ from player_core.cruise_control import CruiseControlState
 from player_core.flag import Flag
 from player_core.genau_controls import GenauControls
 from player_core.genau_refresh import GenauRefreshController
+from player_core.learned_model import LearnedModel, Phrase, classify
+from player_core.learned_motion import LearnedMotionState
 from player_core.robot_hand import RobotHandState, position_fraction
 from player_core.robot_hand_beat import BeatEngine
 
@@ -135,6 +137,7 @@ def _build_controller(
     robot_hand: RobotHandState | None = None,
     tcode_sender: FakeTCodeSender | None = None,
     cruise_control: CruiseControlState | None = None,
+    learned: LearnedMotionState | None = None,
     clip_advance: ClipAdvanceState | None = None,
     hud: Flag | None = None,
     set_hud_mode=None,
@@ -163,6 +166,7 @@ def _build_controller(
         condemn_clip=selection.condemn_current,
         robot_hand=robot_hand if robot_hand is not None else RobotHandState(),
         cruise_control_state=cruise_control,
+        learned_motion_state=learned,
         set_motion_phase=(
             tcode_sender.set_motion_phase if tcode_sender is not None else None
         ),
@@ -938,3 +942,39 @@ class TestSeekingTheClip:
         built["controller"].seek_the_clip(0.5)
 
         assert built["controller"].tcode_sender.motion_phase == 0.0
+
+
+def _learned_model() -> LearnedModel:
+    phrase = Phrase(tuple((500, 80 if i % 2 == 0 else 20) for i in range(16)))
+    return LearnedModel(phrases={classify(phrase): [phrase]}, seen={classify(phrase): 1})
+
+
+def test_toggle_learned_command_via_refresh():
+    dc = RobotHandState(playing=True, bpm=120.0)
+    learned = LearnedMotionState(model=_learned_model())
+    built = _build_controller(
+        entry={"frames": [object() for _ in range(8)]}, robot_hand=dc,
+        tcode_sender=FakeTCodeSender(), learned=learned, command="TOGGLE_LEARNED",
+    )
+
+    built["controller"].refresh()
+
+    assert learned.active is True
+
+
+def test_the_learned_motion_ticks_during_refresh(tmp_path):
+    """Once armed, a refresh lays its phrases out ahead of the clock, so the
+    sender and the readout have motion to read from the very same tick."""
+    dc = RobotHandState(playing=True, bpm=120.0)
+    learned = LearnedMotionState(model=_learned_model(), rng=random.Random(1), active=True)
+    built = _build_controller(
+        entry={"frames": [object() for _ in range(8)]}, robot_hand=dc,
+        tcode_sender=FakeTCodeSender(), cruise_control=CruiseControlState(), learned=learned,
+        status_file=tmp_path / "status.txt",
+    )
+
+    built["controller"].refresh()
+
+    assert learned.times, "no phrases laid out"
+    assert learned.times[-1] >= learned.clock + 30.0
+    assert "learned=1" in (tmp_path / "status.txt").read_text(encoding="utf-8")
