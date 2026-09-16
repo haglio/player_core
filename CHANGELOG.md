@@ -23,6 +23,26 @@ picture once it opens the file, the still a HUD map draws is the cell's
 `thumb`, and an id is nothing a player needs until a source answers presses
 about one.
 
+## 2026-09-13 — the buttons a source declares
+
+A satellite's HUD drew a fixed band (`CONTROL_GROUPS`, `MODE_BUTTONS`,
+`CONTROL_TOOLTIPS`) and the console fixed rows (`console_rows`), each lit
+off the panel's switches. A source now declares its buttons — rows of
+`hud_button.Button` on `HudModel.rows` and `ConsoleModel.rows` (with the
+OSR2 line's controls on `osr2_controls`), published by `hud_text` and
+`console_text` — and the players draw from them and nothing else, posting
+each one's verb verbatim. The two numbers on the console only the drawing host
+knows, the video's rate and a clip's pace, are read-outs that name their
+number (`host_value`) for the painter to fill; that fixed the clip-seconds
+read-out in Genau's window and the headset, which read the pace off the
+published panel and so always said "0s". Both painters draw a button through
+one `hud_panel.draw_button`; the minimize bar is the satellite's nine pixels
+on the console too, and hovering a console button no longer recolors its edge.
+
+The fixed rows stay for now, as `satellite_hud.standard_rows` and
+`console.console_rows`, drawing a panel that declares none — Fun Time's move
+onto declaring its own is the next landing, and they go with it.
+
 ## 2026-09-13 — the player contract, written where it is read
 
 What a content source hands a player and what it gets back was spread across

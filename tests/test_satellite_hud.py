@@ -4,9 +4,12 @@ from __future__ import annotations
 import json
 from itertools import pairwise
 
-from shared_ui.spacing import BUTTON_GAP, BUTTON_GROUP_GAP, BUTTON_PAD_H_TIGHT
+from satellite_rows import band, short_name, side_rows
+from shared_ui.spacing import BUTTON_GAP, BUTTON_GROUP_GAP
 
+from player_core.hud_button import Button
 from player_core.satellite_hud import (
+    CONTROL_TOOLTIPS,
     CTRL_BTN,
     DOUBLE_CLICK_S,
     ELLIPSIS,
@@ -15,6 +18,7 @@ from player_core.satellite_hud import (
     MAP_CELLS,
     MAP_GAP,
     MIN_GUTTER,
+    MODE_LABEL_PAD,
     PAD,
     ROW_GAP,
     STATUS_TEXT_X,
@@ -25,8 +29,8 @@ from player_core.satellite_hud import (
     act_is_filtered,
     action_label_blocks,
     build_click_targets,
+    button_row_rects,
     button_tooltip,
-    control_button_rects,
     ellipsis_rects,
     expand_button_rect,
     filter_button_rects,
@@ -39,13 +43,21 @@ from player_core.satellite_hud import (
     map_reach,
     map_row_width,
     map_window,
-    mode_button_rects,
-    mode_row_rects,
     panel_width,
     parse_hud,
     speed_row_rects,
     thumbnail_rects,
 )
+
+
+def _squares(x: int, y: int, buttons) -> list:
+    """*buttons* laid out as a row of squares from ``(x, y)``."""
+    return button_row_rects(x, y, buttons, [CTRL_BTN] * len(buttons))
+
+
+def _at(targets: HudTargets) -> dict[str, tuple[int, int]]:
+    """A point inside each declared button, by what it is for."""
+    return {short_name(button): (rect[0] + 5, rect[1] + 5) for rect, button in targets.buttons}
 
 # --- the status line ---------------------------------------------------------
 
@@ -442,13 +454,14 @@ def test_act_is_filtered_picks_out_which_of_a_rows_acts_the_filter_named():
 
 def test_button_tooltip_names_each_button():
     """Every glyph on the panel is cryptic on purpose, so each one names itself on
-    hover — the side's own controls and the favorite mark included."""
+    hover — a declared button by the tooltip its source gave it, the map's own
+    chrome and the favorite mark by the words the panel has for them."""
     targets = HudTargets(
         click=[],
         loop=[((0, 0, 20, 20), "action"), ((30, 0, 20, 20), "seed")],
         filter=[((0, 100, FILTER_BTN, 54), "gamma")],
         expand=(30, 30, 18, 18),
-        control=control_button_rects(0, 60),
+        buttons=_squares(0, 60, band(latest=False)),
         favorite=(300, 60, CTRL_BTN, CTRL_BTN),
     )
 
@@ -458,7 +471,7 @@ def test_button_tooltip_names_each_button():
     assert button_tooltip(targets, 35, 35) == "More seeds — widen the net"
     # Probed off the rects the row was actually laid out at rather than off a
     # fixed pitch: the band breaks into groups now, so a stride is not the answer.
-    at = {name: (rect[0] + 5, rect[1] + 5) for rect, name in targets.control}
+    at = _at(targets)
     assert button_tooltip(targets, *at["prev"]) == "Previous clip"
     assert button_tooltip(targets, *at["next"]) == "Next clip"
     assert button_tooltip(targets, *at["reset"]) == (
@@ -471,19 +484,36 @@ def test_button_tooltip_names_each_button():
     assert button_tooltip(targets, 400, 400) == ""
 
 
-def test_control_button_rects_lays_the_sides_own_controls_out_in_a_row():
+def test_the_standard_band_is_the_sides_own_controls_in_a_row():
     """The browse pair, then the three about the clip on screen and the library it
     came from, then the browse itself, then minimize — the buttons the dashboard
     used to carry for this side, now in the side's own HUD, widening from the clip
     on screen out to the whole side and ending with the one that acts on the
     window rather than on anything in it."""
-    rects = control_button_rects(10, 40)
+    rects = _squares(10, 40, band(latest=False))
 
-    assert [name for _rect, name in rects] == [
+    assert [short_name(button) for _rect, button in rects] == [
         "prev", "next", "lock", "trash", "fmode", "reset", "shuffle", "latest",
         "minimize",
     ]
-    assert all(rect[1:] == (40, CTRL_BTN, CTRL_BTN) for rect, _name in rects)
+    assert all(rect[1:] == (40, CTRL_BTN, CTRL_BTN) for rect, _button in rects)
+
+
+def test_a_declared_row_is_laid_out_as_wide_as_each_button_says():
+    """A square is a square; a word button is as wide as the painter measured its
+    word, handed in here because this module is font-free; and the wider gap
+    opens before a button that says it starts a group."""
+    rects = button_row_rects(10, 40, (
+        Button("go_video", "Video", "Video mode", width=0),
+        Button("go_shows", "Origenerator", "Origenerator mode", width=0),
+        Button("park", "\x00minimize", "Park it", group_break=True),
+    ), [52, 90, CTRL_BTN])
+
+    assert [rect for rect, _button in rects] == [
+        (10, 40, 52, CTRL_BTN),
+        (10 + 52 + BUTTON_GAP, 40, 90, CTRL_BTN),
+        (10 + 52 + BUTTON_GAP + 90 + BUTTON_GROUP_GAP, 40, CTRL_BTN, CTRL_BTN),
+    ]
 
 
 def test_the_control_band_breaks_into_the_groups_the_console_breaks_into():
@@ -492,10 +522,10 @@ def test_the_control_band_breaks_into_the_groups_the_console_breaks_into():
     controls stop being about the same thing.  The bands do it the same way and
     at the same four seams, so a reader glancing between the two screens is
     reading one control panel in two places."""
-    rects = control_button_rects(0, 0)
+    rects = _squares(0, 0, band(latest=False))
     gap_before = {
-        name: rect[0] - (previous[0] + previous[2])
-        for (previous, _p), (rect, name) in pairwise(rects)
+        short_name(button): rect[0] - (previous[0] + previous[2])
+        for (previous, _p), (rect, button) in pairwise(rects)
     }
 
     assert gap_before["next"] == BUTTON_GAP          # stepping
@@ -512,14 +542,15 @@ def test_the_enhanced_switch_joins_the_browse_group_rather_than_the_switches():
     """It narrows what there is to browse, which is what reset puts back and what
     the order pair runs through — so it belongs in that group rather than beside
     F-mode, where it read as a second switch on the clip."""
-    names = ("prev", "next", "lock", "trash", "fmode", "enhanced", "reset",
-             "shuffle", "latest", "minimize")
-    rects = control_button_rects(0, 0, names)
+    rects = _squares(0, 0, band(enhanced_filter=False, latest=False))
     gap_before = {
-        name: rect[0] - (previous[0] + previous[2])
-        for (previous, _p), (rect, name) in pairwise(rects)
+        short_name(button): rect[0] - (previous[0] + previous[2])
+        for (previous, _p), (rect, button) in pairwise(rects)
     }
 
+    assert [short_name(button) for _rect, button in rects] == [
+        "prev", "next", "lock", "trash", "fmode", "enhanced", "reset",
+        "shuffle", "latest", "minimize"]
     assert gap_before["enhanced"] == BUTTON_GROUP_GAP
     assert gap_before["reset"] == BUTTON_GAP
     assert gap_before["shuffle"] == BUTTON_GROUP_GAP
@@ -542,9 +573,11 @@ def test_the_speed_buttons_name_themselves_in_the_consoles_words():
 
     console = {button.action: button.tooltip
                for row in console_rows(ConsoleModel(mode="video")) for button in row}
-    buttons, _rate = speed_row_rects(0, 0, label_width=70)
-    at = {name: (rect[0] + 5, rect[1] + 5) for rect, name in buttons}
-    targets = _targets(control=buttons)
+    rects, _rate = speed_row_rects(0, 0, label_width=70)
+    targets = _targets(buttons=[
+        (rect, Button(f"portrait_{name}", "", CONTROL_TOOLTIPS[name]))
+        for rect, name in rects])
+    at = {short_name(b): (rect[0] + 5, rect[1] + 5) for rect, b in targets.buttons}
 
     assert button_tooltip(targets, *at["speed_down"]) == console["main_player_speed_down"]
     assert button_tooltip(targets, *at["speed_up"]) == console["main_player_speed_up"]
@@ -614,16 +647,26 @@ def test_a_second_click_past_the_window_is_another_single_click():
     assert clicks.due(now=DOUBLE_CLICK_S * 8) == "landscape_play_video|C:/v/pick.mp4"
 
 
-def test_clicking_a_side_control_posts_that_sides_command():
-    """Each button posts exactly the command that side answers to —
-    "portrait_prev", "landscape_trash", "portrait_fmode" — so the dispatch loop
-    needs no new verbs for a button, only for the thing it does."""
-    targets = _targets(control=control_button_rects(0, 0))
+def test_clicking_a_declared_button_posts_what_it_declares():
+    """Each button posts exactly the verb its source gave it — "portrait_prev",
+    "landscape_trash" — so the dispatch loop needs no new verbs for a button,
+    only for the thing it does."""
+    for side in ("portrait", "landscape"):
+        targets = _targets(buttons=_squares(0, 0, band(side)))
 
-    for rect, name in targets.control:
-        for side in ("portrait", "landscape"):
+        for rect, button in targets.buttons:
             assert HudClicks(side).press(
-                targets, rect[0] + 5, rect[1] + 5, now=0.0) == f"{side}_{name}"
+                targets, rect[0] + 5, rect[1] + 5, now=0.0) == button.action
+            assert button.action.startswith(f"{side}_")
+
+
+def test_a_dimmed_button_posts_nothing_but_the_press_stays_on_the_panel():
+    """Dimmed is at the end of its range or with nothing to act on: the press
+    it would post is one nothing would answer, so nothing goes out."""
+    targets = _targets(buttons=_squares(0, 0, (
+        Button("portrait_step", "⏭", "Step", dim=True),)))
+
+    assert HudClicks("portrait").press(targets, 5, 5, now=0.0) == ""
 
 
 def test_parse_hud_reads_this_sides_f_mode():
@@ -638,7 +681,7 @@ def test_a_side_control_posts_at_once_rather_than_waiting_out_a_double_click():
     button means one thing, so it fires on the press and leaves nothing pending."""
     clicks = HudClicks("portrait")
 
-    assert clicks.press(_targets(control=control_button_rects(0, 0)), 5, 5, now=0.0) == "portrait_prev"
+    assert clicks.press(_targets(buttons=_squares(0, 0, band())), 5, 5, now=0.0) == "portrait_prev"
     assert clicks.due(now=5.0) == ""
 
 
@@ -693,30 +736,27 @@ class TestModePair:
         assert parse_hud(json.dumps({"side": "portrait"})).satellites_mode == ""
 
     def test_mode_buttons_run_right_with_their_commands(self):
-        rects = mode_button_rects(100, 50, [40, 80])
-        assert [command for _rect, command in rects] == [
-            "satellites_video_activate", "origenerator_activate"]
-        (first, _), (second, _) = rects
-        assert first == (100, 50, 40 + 2 * BUTTON_PAD_H_TIGHT, CTRL_BTN)
+        pair, minimize = side_rows(satellites_mode="video")[0][:2], side_rows(satellites_mode="video")[0][2]
+        rects = button_row_rects(100, 50, (*pair, minimize),
+                                 [40 + 2 * MODE_LABEL_PAD, 80 + 2 * MODE_LABEL_PAD, CTRL_BTN])
+        assert [button.action for _rect, button in rects] == [
+            "satellites_video_activate", "origenerator_activate", "portrait_minimize"]
+        (first, _), (second, _), (third, _) = rects
+        assert first == (100, 50, 40 + 2 * MODE_LABEL_PAD, CTRL_BTN)
         assert second[0] == first[0] + first[2] + BUTTON_GAP
-
-    def test_minimize_rides_the_pair_a_group_apart(self):
-        modes, minimize = mode_row_rects(100, 50, [40, 80])
-
-        assert modes == mode_button_rects(100, 50, [40, 80])
-        last_x, _y, last_w, _h = modes[-1][0]
-        assert minimize == (last_x + last_w + BUTTON_GROUP_GAP, 50, CTRL_BTN, CTRL_BTN)
+        assert third[0] == second[0] + second[2] + BUTTON_GROUP_GAP  # minimize stands apart
 
     def test_a_mode_press_posts_the_command_verbatim(self):
         # Side-less on purpose: the mode belongs to the whole satellite side.
         clicks = HudClicks("portrait")
         targets = HudTargets(click=[], loop=[], filter=[], expand=None,
-                             modes=[((0, 0, 60, 18), "origenerator_activate")])
+                             buttons=[((0, 0, 60, 18), Button(
+                                 "origenerator_activate", "Origenerator", "", width=0))])
         assert clicks.press(targets, 5, 5, now=0.0) == "origenerator_activate"
 
     def test_the_pair_names_itself_on_hover(self):
         targets = HudTargets(click=[], loop=[], filter=[], expand=None,
-                             modes=[((0, 0, 60, 18), "satellites_video_activate")])
+                             buttons=[((0, 0, 60, 18), side_rows(satellites_mode="video")[0][0])])
         assert "Video mode" in button_tooltip(targets, 5, 5)
 
 
@@ -735,13 +775,11 @@ def test_the_enhanced_switch_names_itself_and_posts_its_sides_command():
     it carries a tooltip like every glyph here, and a press posts
     "<side>_enhanced" — the verb falls out of the name, as every other
     control's does."""
-    names = ("prev", "next", "lock", "trash", "fmode", "enhanced", "reset",
-             "shuffle", "latest", "minimize")
-    targets = _targets(control=control_button_rects(0, 0, names))
-    at = {name: (rect[0] + 5, rect[1] + 5) for rect, name in targets.control}
+    targets = _targets(buttons=_squares(0, 0, band(enhanced_filter=False, latest=False)))
+    at = _at(targets)
 
     assert HudClicks("portrait").press(targets, *at["enhanced"], now=0.0) == "portrait_enhanced"
-    assert HudClicks("landscape").press(targets, *at["reset"], now=0.0) == "landscape_reset"
+    assert HudClicks("portrait").press(targets, *at["reset"], now=0.0) == "portrait_reset"
     assert "enhanced" in button_tooltip(targets, *at["enhanced"]).lower()
 
 
@@ -771,6 +809,9 @@ class TestThePublishedPanelIsWrittenWhereItIsRead:
             current_action="alpha", filter_query="alpha", active_loop="seed",
             seed_count=7, action_count=3, playing=("seed", 1),
             satellites_mode="video",
+            rows=((Button("origenerator_activate", "Origenerator", "Shows", width=0),
+                   Button("landscape_minimize", "\x00minimize", "Park", group_break=True)),
+                  (Button("landscape_lock", "🔒", "Hold", lit=True, favorite=True),)),
         )
 
         assert parse_hud(hud_text(model)) == model

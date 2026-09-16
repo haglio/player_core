@@ -68,13 +68,17 @@ reader in one module — so the two sides cannot spell a thing differently:
 | verbs on its command file, spelled in `player_verbs` | `file_channel` (`append_command` / `consume_command_file`); the player answers the ones it declares in a `control_registry` | |
 | the pace a picture holds the screen for: `SET_PACE <seconds>`, 0 holding it | `player_verbs.pace_seconds` reads the value, `set_pace` hands it to mpv | |
 | the paused flag | `app_support.file_channel.write_flag` / `file_channel.read_paused_state` | |
-| its HUD: a `HudModel` for a satellite, a `ConsoleModel` for the main slot | `satellite_hud` (`hud_text` / `parse_hud`), `console` (`console_text` / `parse_console`) | |
+| its HUD: a `HudModel` for a satellite, a `ConsoleModel` for the main slot, each carrying the buttons the source declares — rows of `hud_button.Button`: the verb a press posts, the face, the tooltip, lit or dim, where a group starts | `satellite_hud` (`hud_text` / `parse_hud`), `console` (`console_text` / `parse_console`) | |
 | | `status` (`status_fields` / `parse_status`, published by `StatusWriter`) | a `PlayerStatus`: the item on screen, the playhead, paused, locked, the rate it plays at, whether the item is a picture — and after those seven lines, whatever that player adds of its own |
 
 A player answers the verbs it can (`TRASH` is a satellite's, `TOGGLE_LOCK` the
-main slot's) and refuses the rest on its log. What is not in the contract yet is
-what no player does yet: a HUD whose buttons the source declares rather than
-the fixed rows `satellite_hud` and `console` draw.
+main slot's) and refuses the rest on its log. It draws the buttons its source
+declared and nothing else, and posts each one's verb verbatim; a read-out
+whose number only the drawing host knows (the video's rate, a clip's pace)
+names it in `host_value` and the painter fills it in. Until every source
+declares its own, a panel declaring none is drawn from the rows
+`satellite_hud.standard_rows` and `console.console_rows` still build off the
+panel's switches.
 
 A picture is shown by libmpv itself: it holds the frame for the pace and then
 ends the file the way a finished video ends, so a picture moves on, holds under
