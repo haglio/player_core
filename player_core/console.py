@@ -32,6 +32,7 @@ __all__ = [
     "OSR2_CONTROL_OFF",
     "OSR2_DRIVING",
     "OSR2_PARKED",
+    "OSR2_RETRACTED",
     "ROW_LABEL_W",
     "VALUE_W",
     "ConsoleModel",
