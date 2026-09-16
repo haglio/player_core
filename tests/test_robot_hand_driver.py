@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from player_core.funscript import HANDOFF_RAMP_MS
-from player_core.robot_hand import RobotHandState, WaveformShape
+from player_core.robot_hand import RobotHandState, WaveformShape, bpm_for_speed
 from player_core.robot_hand_driver import DeviceHandoff, RobotHandTCodeDriver
 from player_core.tcode import HANDOFF_MS
 
@@ -407,7 +407,10 @@ class TestLearnedMotionOnTheWire:
         )
 
         phrase = Phrase(tuple((500, 80 if i % 2 == 0 else 20) for i in range(16)))
-        model = LearnedModel(phrases={classify(phrase): [phrase]}, seen={classify(phrase): 1})
+        # Scripts at the wave's own resting pace, so at the dial's 50 the
+        # phrases play as written.
+        model = LearnedModel(phrases={classify(phrase): [phrase]}, seen={classify(phrase): 1},
+                             native_cycle_ms=60_000 / bpm_for_speed(50))
         hand = RobotHandState(playing=playing, amplitude=100, intended_center=50)
         learned = LearnedMotionState(model=model, rng=random.Random(1))
         enable_learned_motion(learned)

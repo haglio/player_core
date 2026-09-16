@@ -137,7 +137,11 @@ def drive_readout(
     # Sample times anchored to the window's own knots, so what each sample says
     # never depends on where inside a knot the playhead sits.
     anchor_ms = position_ms - slide * step
-    motion = base.waveform if len(base.waveform) == TRACE_SAMPLES else None
+    # A motion published on knots carries the knot past the border too, and
+    # says how far short of now its first knot sits (``base.slide``).
+    motion = None
+    if len(base.waveform) == TRACE_SAMPLES:
+        motion = base.waveform + ((base.edge,) if base.edge is not None else ())
 
     def motion_at(index: float) -> float:
         """The published motion at a possibly fractional sample offset.
@@ -146,10 +150,11 @@ def drive_readout(
         rounded one moves by a whole sample's height every time the playhead
         crosses a half-knot.
         """
+        last = len(motion) - 1
         if index <= 0:
             return motion[0]
-        if index >= TRACE_SAMPLES - 1:
-            return motion[TRACE_SAMPLES - 1]
+        if index >= last:
+            return motion[last]
         whole = int(index)
         frac = index - whole
         if not frac:
@@ -190,7 +195,7 @@ def drive_readout(
         if motion is None:
             return 0.0
         if began is None or began + climb_ms <= position_ms:
-            return motion_at((sample_ms - position_ms) / step)
+            return motion_at((sample_ms - position_ms) / step + base.slide)
         return motion_at(resume_base + (sample_ms - began - climb_ms) / step)
 
     def park_touch_after(turn_start: int, began: int | None) -> int | None:

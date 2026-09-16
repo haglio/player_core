@@ -166,7 +166,8 @@ class DriveHud:
     # re-reading values at the shifted positions morphed the shape at fixed
     # columns as it moved.  edge is the knot just past the right border,
     # so the shifted line still reaches it; None when nothing is shifted.
-    # Neither is published — Genau's own motion slides by being resampled live.
+    # Published: Genau's wave slides by being resampled live, but its learned
+    # motion is read on knots and says how far it has slid, like the script.
     slide: float = 0.0
     edge: float | None = None
     # The height (0-1) Genau last let the device go at, and None while Genau
@@ -412,6 +413,9 @@ def drive_text(hud: DriveHud) -> str:
     lines.append(f"trace_seconds={hud.trace_seconds:.3f}")
     if hud.let_go is not None:
         lines.append(f"let_go={hud.let_go:.3f}")
+    lines.append(f"slide={hud.slide:.3f}")
+    if hud.edge is not None:
+        lines.append(f"edge={hud.edge:.3f}")
     lines.append("waveform=" + ",".join(f"{value:.3f}" for value in hud.waveform))
     return "\n".join(lines) + "\n"
 
@@ -445,6 +449,8 @@ def read_drive(path: Path) -> DriveHud | None:
         trace_seconds=_seconds(values.get("trace_seconds", "")),
         waveform=_waveform(values.get("waveform", "")),
         let_go=_let_go(values.get("let_go")),
+        slide=_let_go(values.get("slide")) or 0.0,
+        edge=_let_go(values.get("edge")),
     )
 
 

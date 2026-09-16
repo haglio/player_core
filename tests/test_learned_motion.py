@@ -23,8 +23,10 @@ def _phrase(duration_ms: int, low: int, high: int, swings: int = 16) -> Phrase:
     return Phrase(tuple((duration_ms, high if i % 2 == 0 else low) for i in range(swings)))
 
 
-def _model(*phrases: Phrase) -> LearnedModel:
-    model = LearnedModel()
+def _model(*phrases: Phrase, native_cycle_ms: float | None = None) -> LearnedModel:
+    """A library of *phrases* whose scripts cycle at the wave's own resting
+    pace, so that at the dial's 50 the phrases play as written."""
+    model = LearnedModel(native_cycle_ms=native_cycle_ms or 60_000 / bpm_for_speed(50))
     for phrase in phrases:
         model.phrases.setdefault(classify(phrase), []).append(phrase)
         model.seen[classify(phrase)] = model.seen.get(classify(phrase), 0) + 1
@@ -85,7 +87,7 @@ class TestPlayingThePhrases:
         # Raw 80 inside a 25-75 envelope.
         assert learned_motion.position(state, hand) == pytest.approx(25 + 0.8 * 50)
 
-    def test_the_speed_dial_scales_the_pace_with_50_as_the_scripts_own(self):
+    def test_the_speed_dial_scales_the_pace(self):
         quick_hand, quick = _playing(_model(_phrase(500, 20, 80)), speed=68)
         steady_hand, steady = _playing(_model(_phrase(500, 20, 80)), speed=50)
         ratio = bpm_for_speed(68) / bpm_for_speed(50)
@@ -96,6 +98,18 @@ class TestPlayingThePhrases:
         assert ratio == pytest.approx(2.0, abs=0.05)
         assert learned_motion.position(quick, quick_hand) == pytest.approx(
             learned_motion.position(steady, steady_hand), abs=1.0)
+
+    def test_the_dial_means_the_same_cycles_a_minute_it_means_for_the_wave(self):
+        # Scripts that cycle a hundred times a minute (two swings of 300 ms)
+        # are slowed to the wave's own rate at the dial's 50 -- about 29 a
+        # minute -- so one cycle takes as long as one cycle of the wave.
+        hand, state = _playing(_model(_phrase(300, 20, 80), native_cycle_ms=600.0), speed=50)
+        one_cycle_s = 60.0 / bpm_for_speed(50)
+
+        _run(hand, state, round(one_cycle_s / 2, 2))
+        assert learned_motion.position(state, hand) == pytest.approx(80.0, abs=3.0)
+        _run(hand, state, round(one_cycle_s / 2, 2), start=100.0 + round(one_cycle_s / 2, 2))
+        assert learned_motion.position(state, hand) == pytest.approx(20.0, abs=3.0)
 
     def test_nothing_moves_while_the_motion_is_not_running(self):
         hand, state = _playing(_model(_phrase(500, 20, 80)))
@@ -146,13 +160,49 @@ class TestHandingTheDeviceAbout:
 
 
 class TestWhatTheReadoutDraws:
-    def test_the_trace_is_the_coming_motion_from_now(self):
+    def test_the_trace_is_the_coming_motion_on_knots_from_now(self):
         hand, state = _playing(_model(_phrase(500, 20, 80)))
 
-        heights = learned_motion.trace(state, hand, samples=5, span_s=1.0)
+        heights, slide = learned_motion.trace_window(state, hand, samples=5, span_s=1.0)
 
-        # A sample every quarter second: mid-rise, the top, mid-fall, the floor.
-        assert heights == pytest.approx([0.0, 0.4, 0.8, 0.5, 0.2])
+        # Five knots a quarter second apart, and the one past the edge: the
+        # floor, mid-rise, the top, mid-fall, the floor, mid-rise again.
+        assert heights == pytest.approx([0.0, 0.4, 0.8, 0.5, 0.2, 0.5])
+        assert slide == 0.0
+
+    def test_the_picture_holds_still_between_knots_and_slides_by_the_leftover(self):
+        # A tenth of a second on, the knots' values are the same and the line
+        # is shifted left by the tenth of a quarter-second knot it has moved.
+        hand, state = _playing(_model(_phrase(500, 20, 80)))
+        before, _ = learned_motion.trace_window(state, hand, samples=5, span_s=1.0)
+
+        _run(hand, state, 0.1)
+        heights, slide = learned_motion.trace_window(state, hand, samples=5, span_s=1.0)
+
+        assert heights == pytest.approx(before)
+        assert slide == pytest.approx(0.4)
+
+    def test_crossing_a_knot_moves_the_window_on_by_one_sample(self):
+        hand, state = _playing(_model(_phrase(500, 20, 80)))
+        before, _ = learned_motion.trace_window(state, hand, samples=5, span_s=1.0)
+
+        _run(hand, state, 0.3)
+        heights, slide = learned_motion.trace_window(state, hand, samples=5, span_s=1.0)
+
+        assert heights[:-1] == pytest.approx(before[1:])
+        assert slide == pytest.approx(0.2)
+
+    def test_resting_at_the_floor_shows_the_phrases_that_will_resume(self):
+        hand, state = _playing(_model(_phrase(500, 20, 80)))
+        _run(hand, state, 0.3)
+
+        learned_motion.rest_at_floor(state)
+        heights, slide = learned_motion.trace_window(state, hand, samples=5, span_s=1.0)
+
+        # From the floor, and climbing into the first phrase rather than flat.
+        assert heights[0] == 0.0
+        assert max(heights) > 0.5
+        assert slide == pytest.approx(0.2)
 
 
 class TestKeepingItGoing:

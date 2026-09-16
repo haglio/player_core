@@ -69,9 +69,32 @@ class LearnedModel:
     successions: dict[Class, dict[Class, int]] = field(default_factory=dict)
     # How many phrases of each class the training saw, kept or not.
     seen: dict[Class, int] = field(default_factory=dict)
+    # The cycle -- up and back down -- the scripts mostly keep, in ms: what the
+    # speed dial's rate is measured against when the phrases are played.
+    native_cycle_ms: float = 600.0
 
     def __bool__(self) -> bool:
         return bool(self.phrases)
+
+
+def measure_native_cycle_ms(model: LearnedModel) -> float:
+    """Two swings of the median swing the model would play: every kept phrase's
+    swings, each weighted by how many phrases of its class were seen -- a class
+    kept in full and a class sampled down count by what they stood for."""
+    weighted: list[tuple[int, float]] = []
+    for cls, kept in model.phrases.items():
+        weight = model.seen.get(cls, len(kept)) / len(kept)
+        weighted.extend((duration, weight) for phrase in kept for duration, _end in phrase.swings)
+    if not weighted:
+        return LearnedModel.native_cycle_ms
+    weighted.sort()
+    half = sum(weight for _duration, weight in weighted) / 2
+    run = 0.0
+    for duration, weight in weighted:
+        run += weight
+        if run >= half:
+            return 2.0 * duration
+    return 2.0 * weighted[-1][0]
 
 
 def save(model: LearnedModel, path: Path) -> None:
@@ -87,6 +110,7 @@ def save(model: LearnedModel, path: Path) -> None:
             for cls, following in model.successions.items()
         },
         "seen": {_key(cls): count for cls, count in model.seen.items()},
+        "native_cycle_ms": model.native_cycle_ms,
     }
     with gzip.open(path, "wt", encoding="utf-8") as handle:
         json.dump(document, handle, separators=(",", ":"))
@@ -105,6 +129,7 @@ def load(path: Path) -> LearnedModel:
             for key, following in document["successions"].items()
         },
         seen={_class(key): count for key, count in document["seen"].items()},
+        native_cycle_ms=float(document.get("native_cycle_ms", LearnedModel.native_cycle_ms)),
     )
 
 

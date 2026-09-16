@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 from shared_ui.palette import BLUE, GREEN, TEXT_MUTED, TEXT_PRIMARY
 
 from player_core.drive_layout import (
@@ -250,6 +251,29 @@ class TestPublishing:
         assert (read.shape, read.advance_interval) == ("sawtooth", 7)
         assert (read.spd_at_max, read.ctr_at_min) == (True, True)
         assert np.allclose(read.waveform, hud.waveform, atol=5e-4)
+
+    def test_the_knot_slide_and_the_edge_go_over_the_wire_too(self, tmp_path):
+        """A trace read on knots (the learned motion's) is published with how
+        far the line is shifted and the knot past the border, so the player
+        drawing it slides the same stable picture Genau does."""
+        path = tmp_path / "genau_drive.txt"
+        publish_drive(path, _hud(slide=0.4, edge=0.75))
+
+        read = read_drive(path)
+
+        assert read.slide == pytest.approx(0.4)
+        assert read.edge == pytest.approx(0.75)
+
+    def test_a_file_from_before_the_slide_was_published_shifts_nothing(self, tmp_path):
+        path = tmp_path / "genau_drive.txt"
+        publish_drive(path, _hud())
+        text = "\n".join(line for line in path.read_text(encoding="utf-8").splitlines()
+                         if not line.startswith(("slide=", "edge=")))
+        path.write_text(text + "\n", encoding="utf-8")
+
+        read = read_drive(path)
+
+        assert (read.slide, read.edge) == (0.0, None)
 
     def test_a_readout_that_has_been_over_the_wire_survives_going_again(self, tmp_path):
         path = tmp_path / "genau_drive.txt"

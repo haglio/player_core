@@ -18,7 +18,7 @@ from player_core.cruise_control import CruiseControlState
 from player_core.flag import Flag
 from player_core.genau_controls import GenauControls
 from player_core.genau_readout import GenauReadout
-from player_core.robot_hand import RobotHandState
+from player_core.robot_hand import RobotHandState, bpm_for_speed
 from player_core.robot_hand_beat import BeatEngine
 
 
@@ -230,3 +230,34 @@ class TestTheTraceUnderTheLearnedMotion:
         assert heights[0] == pytest.approx(0.0)
         assert max(heights) == pytest.approx(0.8, abs=0.02)
         assert min(heights[1:]) == pytest.approx(0.2, abs=0.05)
+        assert shown[-1].drive.slide == 0.0
+        assert shown[-1].drive.edge is not None
+
+    def test_it_holds_still_between_knots_and_slides(self):
+        import random
+
+        from player_core.learned_model import LearnedModel, Phrase, classify
+        from player_core.learned_motion import (
+            LearnedMotionState,
+            enable_learned_motion,
+            tick_learned_motion,
+        )
+
+        phrase = Phrase(tuple((500, 80 if i % 2 == 0 else 20) for i in range(16)))
+        model = LearnedModel(phrases={classify(phrase): [phrase]}, seen={classify(phrase): 1},
+                             native_cycle_ms=60_000 / bpm_for_speed(50))
+        hand = RobotHandState(playing=True, speed=50, amplitude=100)
+        learned = LearnedMotionState(model=model, rng=random.Random(1))
+        enable_learned_motion(learned)
+        tick_learned_motion(hand, learned, now=1.0)
+        controls = _controls(direct=hand)
+        controls.learned_motion_state = learned
+        shown = []
+        readout = _readout(controls=controls, set_console=shown.append)
+        readout.update(1.0)
+        tick_learned_motion(hand, learned, now=1.05)
+
+        readout.update(1.05)
+
+        assert shown[-1].drive.waveform == shown[-2].drive.waveform
+        assert shown[-1].drive.slide > shown[-2].drive.slide

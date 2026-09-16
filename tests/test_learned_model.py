@@ -38,6 +38,7 @@ def _model() -> LearnedModel:
                  learned_model.classify(quick): [quick]},
         successions={learned_model.classify(steady): {learned_model.classify(quick): 3}},
         seen={learned_model.classify(steady): 5, learned_model.classify(quick): 3},
+        native_cycle_ms=640.0,
     )
 
 
@@ -47,6 +48,18 @@ class TestSavingAndLoading:
         learned_model.save(model, tmp_path / "model.json.gz")
 
         assert learned_model.load(tmp_path / "model.json.gz") == model
+
+
+class TestTheNativePace:
+    def test_it_is_the_cycle_the_phrases_mostly_keep_weighted_by_how_many_were_seen(self):
+        # Three steady phrases kept for a class seen a hundred times outweigh
+        # one quick phrase kept for a class seen once: the pace the model was
+        # trained on is the steady one's, two swings of 400 ms a cycle.
+        model = _model()
+        model.seen = {learned_model.classify(_phrase(400, 20, 80)): 100,
+                      learned_model.classify(_phrase(150, 40, 60)): 1}
+
+        assert learned_model.measure_native_cycle_ms(model) == 800.0
 
 
 class TestDrawingWhatComesNext:

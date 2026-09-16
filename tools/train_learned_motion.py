@@ -31,6 +31,7 @@ from player_core.learned_model import (
     LearnedModel,
     Phrase,
     classify,
+    measure_native_cycle_ms,
     save,
 )
 
@@ -164,6 +165,7 @@ def fit(scripts: Iterable[list[tuple[int, int]]], *, rng: random.Random,
                     following = model.successions.setdefault(previous, {})
                     following[cls] = following.get(cls, 0) + 1
                 previous = cls
+    model.native_cycle_ms = measure_native_cycle_ms(model)
     return model
 
 
