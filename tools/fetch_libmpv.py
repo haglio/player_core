@@ -28,8 +28,8 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
-import os
 import re
 import shutil
 import subprocess
@@ -39,16 +39,25 @@ import urllib.request
 from pathlib import Path
 
 LOCK = Path(__file__).resolve().parent / "libmpv.lock"
+LOADER = Path(__file__).resolve().parent.parent / "player_core" / "libmpv_loader.py"
 
 _ASSET = re.compile(r"mpv-dev-x86_64-[0-9].*\.7z$")
 _DOWNLOAD_TIMEOUT = 300
 
 
+def _loader():
+    """player_core's own loader, read from this checkout by path: it is standard
+    library only, and this script runs before anything is installed."""
+    spec = importlib.util.spec_from_file_location(
+        "_player_core_libmpv_loader", LOADER)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def dll_path() -> Path:
     """Where the DLL goes: the machine-wide copy every install of player_core finds."""
-    local = os.environ.get("LOCALAPPDATA")
-    base = Path(local) if local else Path.home() / "AppData" / "Local"
-    return base / "haglio" / "libmpv" / "libmpv-2.dll"
+    return _loader().machine_libmpv_dir() / "libmpv-2.dll"
 
 
 def lock() -> dict[str, str]:
