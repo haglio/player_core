@@ -11,9 +11,9 @@ baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
 ## 2026-09-16 — a named output is the device, not a driver sharing its name
 
-New module `audio_outputs` (`Output`, `pick_output`, package-internal until Fun
-Time's audio companion lands its import): a session names the output
-it wants by a fragment of its name, and a headset maker's own software installs
+New module `audio_outputs` (`Output`, `pick_output`, declared once Fun Time's
+audio companion imported them): a session names the output it wants by a
+fragment of its name, and a headset maker's own software installs
 outputs carrying that name too — a wireless streaming driver Windows enumerates
 under `ROOT`, with no device of its own. Which one the fragment lands on was the
 order Windows happened to list them in, so the sound could go to the driver
