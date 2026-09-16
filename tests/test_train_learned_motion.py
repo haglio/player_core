@@ -139,3 +139,15 @@ class TestReadingTheCorpus:
         scripts = list(train.scripts_in([harvested, own], skip_tags={"ai-generated"}))
 
         assert scripts == [steady]
+
+    def test_a_folder_may_name_more_tags_to_skip_beside_its_index(self, tmp_path):
+        harvested = tmp_path / "harvested"
+        (harvested / "scripts").mkdir(parents=True)
+        _write_script(harvested / "scripts" / "t1_p1_1.funscript",
+                      _script(20, duration_ms=300, low=10, high=90))
+        (harvested / "index.jsonl").write_text(
+            json.dumps({"file": "t1_p1_1.funscript", "tags": ["gamma"]}) + "\n",
+            encoding="utf-8")
+        (harvested / train.SKIP_TAGS_FILENAME).write_text("# private\ngamma\n", encoding="utf-8")
+
+        assert list(train.scripts_in([harvested], skip_tags=set())) == []

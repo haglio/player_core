@@ -4,7 +4,8 @@
 
 Each ``--corpus`` folder is searched for ``*.funscript``; a folder holding the
 harvester's ``index.jsonl`` also has its topics' tags read, and a script whose
-topic wears a tag in ``--skip-tag`` is left out.  What comes out is a
+topic wears a tag in ``--skip-tag`` (:data:`SKIPPED_TAGS` unless said otherwise)
+is left out.  What comes out is a
 :class:`player_core.learned_model.LearnedModel`: up to ``--kept`` phrases per
 class, drawn evenly from everything seen, and the counts of which class
 followed which.  Nothing named in the corpus reaches the model.
@@ -181,21 +182,31 @@ def _keep(model: LearnedModel, rng: random.Random, cls, phrase: Phrase, limit: i
 
 # A script with fewer actions than this is a fragment or a placeholder.
 MIN_ACTIONS = 20
-SKIPPED_TAGS = ("ai-generated", "ai-assisted")
+# Left out by default: scripts a machine wrote, and scripts written to music
+# or to spoken instruction rather than to a person's motion -- their swings
+# are beats and buzzes, not what this model is for.  A corpus folder may name
+# more in a ``skip_tags.txt`` beside its index, one tag per line.
+SKIPPED_TAGS = (
+    "ai-generated", "ai-assisted",
+    "pmv", "hmv", "beat-based", "music-based", "music", "joi", "audio-only",
+)
+SKIP_TAGS_FILENAME = "skip_tags.txt"
 
 
 def scripts_in(folders: Iterable[Path], *, skip_tags: set[str]) -> Iterator[list[tuple[int, int]]]:
     """Every distinct script under *folders*, as sorted (ms, position) pairs.
 
     A folder holding the harvester's index has its scripts' tags read from it,
-    and one tagged with anything in *skip_tags* is left out.  A script seen
-    before, wherever it was, is not yielded twice.
+    and one tagged with anything in *skip_tags*, or in the folder's own
+    ``skip_tags.txt``, is left out.  A script seen before, wherever it was, is
+    not yielded twice.
     """
     seen: set[str] = set()
     for folder in folders:
         tags_of = _tags_by_file(Path(folder) / "index.jsonl")
+        skipped = skip_tags | _tags_listed_in(Path(folder) / SKIP_TAGS_FILENAME)
         for path in sorted(Path(folder).rglob("*.funscript")):
-            if skip_tags & set(tags_of.get(path.name, ())):
+            if skipped & set(tags_of.get(path.name, ())):
                 continue
             actions = _actions_of(path)
             if len(actions) < MIN_ACTIONS:
@@ -205,6 +216,13 @@ def scripts_in(folders: Iterable[Path], *, skip_tags: set[str]) -> Iterator[list
                 continue
             seen.add(digest)
             yield actions
+
+
+def _tags_listed_in(path: Path) -> set[str]:
+    if not path.exists():
+        return set()
+    return {line.strip() for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.startswith("#")}
 
 
 def _tags_by_file(index: Path) -> dict[str, list[str]]:
