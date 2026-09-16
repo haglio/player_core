@@ -67,7 +67,6 @@ __all__ = [
     "disable_cruise_control",
     "enable_cruise_control",
     "tick_cruise_control",
-    "toggle_cruise_control",
 ]
 
 if TYPE_CHECKING:
@@ -159,20 +158,6 @@ class CruiseControlState:
     # its own clock reads, so the first tick has no interval before it and must
     # not be given one — the motion would jump the whole of it in a step.
     _last_tick: float | None = None
-
-
-def toggle_cruise_control(state: CruiseControlState) -> float | None:
-    """Hands off, or hands back on.
-
-    Returns the phase the single wave should pick up at when this hands the
-    motion back — the phase of the wave that had the most travel, which is the
-    one the device was mostly following — or None when it has just taken over.
-    A caller with nowhere to put that may ignore it.
-    """
-    if state.active:
-        return disable_cruise_control(state)
-    enable_cruise_control(state)
-    return None
 
 
 def enable_cruise_control(state: CruiseControlState) -> None:

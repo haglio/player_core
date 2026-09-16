@@ -139,29 +139,6 @@ def test_aiming_ahead_lands_where_carrying_the_motion_forward_gets_to():
     assert aimed == pytest.approx(wave_stack.position(stack, 0.04), abs=1e-9)
 
 
-def test_the_trace_is_the_motion_being_sent_not_a_drawing_of_it():
-    # Held still, the walk and the projection are the same arithmetic, so the
-    # end of the trace is exactly the place a command 12 seconds long would aim
-    # at. (Under ramping speeds they part company, which is the point of walking
-    # it: 12 seconds is long enough for every parameter to have moved.)
-    stack = WaveStack(waves=[
-        Wave(speed=Ramp(50.0, 50.0), amplitude=Ramp(45.0, 45.0),
-             center=Ramp(30.0, 30.0)),
-        Wave(shape=WaveformShape.TRIANGLE, speed=Ramp(20.0, 20.0),
-             amplitude=Ramp(25.0, 25.0), center=Ramp(20.0, 20.0)),
-    ])
-    heights = wave_stack.trace(stack, 3.0, samples=80, span_s=12.0)
-    assert len(heights) == 80
-    assert heights[0] == pytest.approx(wave_stack.position(stack, 3.0) / 100)
-    assert heights[-1] == pytest.approx(
-        wave_stack.position_ahead(stack, 3.0, 12.0) / 100)
-
-    rng = random.Random(7)
-    moving = wave_stack.trace(_stack(rng, 2), 3.0, samples=80, span_s=12.0)
-    assert all(0.0 <= height <= 1.0 for height in moving)
-    assert not all(math.isclose(height, moving[0]) for height in moving)
-
-
 def test_the_console_is_told_the_whole_motion_and_the_wave_you_can_feel():
     stack = WaveStack(waves=[
         Wave(shape=WaveformShape.SAWTOOTH, speed=Ramp(30.0, 30.0),
@@ -192,7 +169,15 @@ class TestTheTraceOnKnots:
 
         assert len(heights) == 6
         assert slide == 0.0
-        assert heights == pytest.approx(wave_stack.trace(stack, 10.0, 6, 2.5))
+        assert heights == pytest.approx([
+            wave_stack.position_ahead(stack, 10.0, i * 0.5) / 100 for i in range(6)])
+
+    def test_a_moving_stacks_trace_stays_on_the_axis_and_moves(self):
+        heights, _ = wave_stack.trace_window(
+            _stack(random.Random(7), 2), 3.0, samples=80, span_s=12.0)
+
+        assert all(0.0 <= height <= 1.0 for height in heights)
+        assert not all(math.isclose(height, heights[0]) for height in heights)
 
     def test_between_knots_the_heights_hold_and_the_slide_grows(self):
         stack = self._stack()
