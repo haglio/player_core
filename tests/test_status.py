@@ -151,7 +151,7 @@ class TestStatusWriter:
 
 
 class TestWhatEveryPlayerPublishes:
-    """The six lines every player's status leads with, written and read here so
+    """The seven lines every player's status leads with, written and read here so
     a player and the source polling it cannot disagree about a key."""
 
     def test_the_lines_in_the_order_they_are_written(self):

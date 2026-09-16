@@ -17,7 +17,7 @@ then the file ends as a finished video ends, so no player's advance, lock or
 pause had to learn anything. `mpv_player` gained `set_pace` (0 holds; a player
 opens at 4 seconds) and `showing_picture`, observed off
 `current-tracks/video/image`; `player_verbs` gained `SET_PACE` and
-`pace_seconds`, the one reader of its value; `PlayerStatus` leads with a sixth
+`pace_seconds`, the one reader of its value; `PlayerStatus` leads with a seventh
 line, `picture`. `PlaylistItem` gained no column: mpv says whether an item is a
 picture once it opens the file, the still a HUD map draws is the cell's
 `thumb`, and an id is nothing a player needs until a source answers presses
