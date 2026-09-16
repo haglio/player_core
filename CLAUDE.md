@@ -20,13 +20,12 @@ installed editable:
 Always `--config-settings editable_mode=compat`; the README says why, and
 `tests/test_install.py` goes red if a venv is ever reinstalled without it.
 
-## Worktrees lack the DLL
+## Where the DLL is
 
-`vendor/libmpv-2.dll` is fetched, not tracked, so a fresh worktree has no
-`vendor/` and anything importing `MpvPlayer` through that worktree — a consumer
-suite pointed at it, or a fun_time verification session naming it in
-`genau_project_dirs` — dies on load. Copy the DLL in from the primary's
-`vendor/` first.
+`libmpv-2.dll` is fetched, not tracked, into `%LOCALAPPDATA%\haglio\libmpv\`
+(`python tools/fetch_libmpv.py`), and `libmpv_loader` finds it there from any
+install -- so a fresh worktree needs nothing copied in. A checkout's own
+`vendor/` is looked in first and still wins where one exists.
 
 ## What belongs here
 

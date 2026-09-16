@@ -117,10 +117,11 @@ root wins as an implicit namespace package: submodules still import, but
 
 ## libmpv
 
-`vendor/libmpv-2.dll` (~117 MB) is **not committed**. Fetch it once into
-`vendor/`; every app resolves the DLL through this one copy, because
-`libmpv_loader` looks beside the installed package rather than inside each
-consuming repo.
+`libmpv-2.dll` (~117 MB) is **not committed**. Fetch it once; it lands in
+`%LOCALAPPDATA%\haglio\libmpv\`, and every install of this package finds it
+there -- an app's pinned copy, an editable checkout and a fresh worktree alike.
+`libmpv_loader` looks in a checkout's own `vendor/` first, so a copy fetched
+there by hand still wins for that checkout.
 
 ```bash
 python tools/fetch_libmpv.py

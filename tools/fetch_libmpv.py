@@ -1,9 +1,9 @@
 """Fetch the libmpv build this family runs against, at the pinned version.
 
-    python tools/fetch_libmpv.py            # fetch into vendor/ if absent
+    python tools/fetch_libmpv.py            # fetch it if absent
     python tools/fetch_libmpv.py --require  # ...and exit non-zero unless it is there
 
-``vendor/libmpv-2.dll`` is ~117 MB, is in no package, and is the engine every
+``libmpv-2.dll`` is ~117 MB, is in no package, and is the engine every
 player in the suite stands on.  It was provisioned two ways, neither of them
 recorded: fun_time's merge gate asked the GitHub API for the newest asset
 matching a glob in a community repository's last fifteen releases and copied the
@@ -18,12 +18,18 @@ releases, so a pinned tag eventually stops existing; that case is loud, names
 the lock file, and falls back to resolving the newest build the way every run
 behaved before the pin -- worse than a pin, never worse than what it replaced.
 Standard library only, so this runs before anything is installed.
+
+It lands in ``%LOCALAPPDATA%\\haglio\\libmpv``, the one copy every install finds:
+an app pins a version of player_core, so its venv holds a copy of the package
+beside no ``vendor/`` of its own.  ``player_core.libmpv_loader`` spells the same
+path, and ``tests/test_fetch_libmpv.py`` holds the two together.
 """
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -32,13 +38,17 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
 LOCK = Path(__file__).resolve().parent / "libmpv.lock"
-VENDOR = ROOT / "vendor"
-DLL = VENDOR / "libmpv-2.dll"
 
 _ASSET = re.compile(r"mpv-dev-x86_64-[0-9].*\.7z$")
 _DOWNLOAD_TIMEOUT = 300
+
+
+def dll_path() -> Path:
+    """Where the DLL goes: the machine-wide copy every install of player_core finds."""
+    local = os.environ.get("LOCALAPPDATA")
+    base = Path(local) if local else Path.home() / "AppData" / "Local"
+    return base / "haglio" / "libmpv" / "libmpv-2.dll"
 
 
 def lock() -> dict[str, str]:
@@ -134,16 +144,17 @@ def extract(archive: Path, into: Path) -> Path:
 
 
 def fetch() -> Path:
-    """Put the pinned DLL in ``vendor/``, and say which build it is."""
+    """Put the pinned DLL in its machine-wide home, and say which build it is."""
     pinned = lock()
     url, digest = resolve(pinned)
+    dll = dll_path()
     with tempfile.TemporaryDirectory() as scratch:
         scratch = Path(scratch)
         found = extract(download(url, digest, scratch), scratch)
-        VENDOR.mkdir(exist_ok=True)
-        shutil.copy2(found, DLL)
-    print(f"vendor/libmpv-2.dll <- {url}")
-    return DLL
+        dll.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(found, dll)
+    print(f"{dll} <- {url}")
+    return dll
 
 
 def main() -> int:
@@ -151,11 +162,12 @@ def main() -> int:
     parser.add_argument("--require", action="store_true",
                         help="exit non-zero unless the DLL is in place afterwards")
     arguments = parser.parse_args()
-    if DLL.is_file() and DLL.stat().st_size > 0:
-        print(f"vendor/libmpv-2.dll is already here ({DLL.stat().st_size} bytes)")
+    dll = dll_path()
+    if dll.is_file() and dll.stat().st_size > 0:
+        print(f"{dll} is already here ({dll.stat().st_size} bytes)")
     else:
         fetch()
-    present = DLL.is_file() and DLL.stat().st_size > 0
+    present = dll.is_file() and dll.stat().st_size > 0
     return 0 if present or not arguments.require else 1
 
 
