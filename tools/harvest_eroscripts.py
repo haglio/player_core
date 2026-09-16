@@ -94,12 +94,14 @@ class Forum:
             if error.code not in _REDIRECTS:
                 raise
             where = error.headers.get("Location")
-        return self._read(where, {"User-Agent": self._headers.get("User-Agent", "")}), where
+        return self._read(where, {"User-Agent": self._headers.get("User-Agent", "")},
+                          paced=False), where
 
-    def _read(self, url: str, headers: dict[str, str]) -> bytes:
+    def _read(self, url: str, headers: dict[str, str], *, paced: bool = True) -> bytes:
         request = urllib.request.Request(url, headers=headers)
         for _attempt in range(_RETRIES):
-            self._wait_the_pace()
+            if paced:
+                self._wait_the_pace()
             try:
                 with self._opener(request, timeout=_TIMEOUT_S) as response:
                     return response.read()
