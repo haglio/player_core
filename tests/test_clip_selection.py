@@ -8,17 +8,26 @@ from player_core.clip_sequence import ClipSequenceController
 
 
 class FakeLoader:
-    def __init__(self, clip_store: ClipCacheStore, *, is_busy: bool = False, adopt_on_load: bool = False):
+    def __init__(self, clip_store: ClipCacheStore, *, is_busy: bool = False):
         self.clip_store = clip_store
         self.is_busy = is_busy
-        self.adopt_on_load = adopt_on_load
         self.load_requests: list[Path] = []
         self.prefetch_requests: list[Path] = []
 
+    def frames_ready(self, path: Path) -> bool:
+        """The real loader's one question, answered the way it answers it: in
+        the clips-on-screen cache, or decoded ahead and moved across by the
+        asking."""
+        if path in self.clip_store.clip_cache:
+            return True
+        frames = self.clip_store.decoded_frame_cache.get(path)
+        if frames is None:
+            return False
+        self.clip_store.clip_cache[path] = {"frames": frames}
+        return True
+
     def request_clip_load(self, path: Path) -> None:
         self.load_requests.append(path)
-        if self.adopt_on_load:
-            self.clip_store.clip_cache[path] = {"frames": ["f0"]}
 
     def request_prefetch(self, path: Path) -> None:
         self.prefetch_requests.append(path)
@@ -44,12 +53,10 @@ class FakeNotifier:
         self.clip_notifications.append(path)
 
 
-def _build_controller(
-    *paths: str, loader_busy: bool = False, adopt_on_load: bool = False, condemn_clip=None,
-):
+def _build_controller(*paths: str, loader_busy: bool = False, condemn_clip=None):
     clip_store = ClipCacheStore(limit=3)
     sequence = ClipSequenceController([Path(path) for path in paths])
-    loader = FakeLoader(clip_store, is_busy=loader_busy, adopt_on_load=adopt_on_load)
+    loader = FakeLoader(clip_store, is_busy=loader_busy)
     renderer = FakeRenderer()
     notifier = FakeNotifier()
 
@@ -90,20 +97,19 @@ def test_set_current_clip_requests_load_for_uncached_entry():
     assert loader.load_requests == [path]
 
 
-def test_set_current_clip_prepares_when_load_adopts_immediately():
-    controller, _clip_store, loader, renderer, notifier = _build_controller(
-        "a.mp4",
-        "b.mp4",
-        adopt_on_load=True,
-    )
+def test_set_current_clip_takes_up_frames_decoded_ahead_without_loading():
+    """A clip decoded ahead of being asked for is as ready as one that has been
+    up before: it goes straight on screen, and nothing is decoded again."""
+    controller, clip_store, loader, renderer, notifier = _build_controller("a.mp4", "b.mp4")
     path = Path("b.mp4")
+    clip_store.decoded_frame_cache[path] = ["f0"]
 
     controller.set_current_clip(path)
 
     assert renderer.current_clip_path == path
     assert renderer.prepare_calls == 1
     assert notifier.clip_notifications == [path]
-    assert loader.load_requests == [path]
+    assert loader.load_requests == []
 
 
 def test_step_switches_immediately_when_cached():
