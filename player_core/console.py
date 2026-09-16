@@ -26,10 +26,20 @@ from .hud_marks import BROKER_ICON, FMODE_ICON, MINIMIZE_ICON, shared_mark
 from .hud_status import LATEST_LABEL, SHUFFLE_LABEL
 
 __all__ = [
-    "CONSOLE_VERBS",
+    "GAP",
+    "GROUP_GAP",
+    "OSR2_CONTROL_BUTTONS",
+    "OSR2_CONTROL_OFF",
+    "OSR2_DRIVING",
+    "OSR2_PARKED",
+    "ROW_LABEL_W",
+    "VALUE_W",
     "ConsoleModel",
     "console_rows",
     "console_text",
+    "hit_test",
+    "parse_console",
+    "place_rows",
     "read_console",
     "tooltip_at",
 ]

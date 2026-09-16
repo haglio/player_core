@@ -12,7 +12,11 @@ from dataclasses import dataclass, fields
 
 from shared_ui.spacing import BUTTON_SIZE_HUD
 
-__all__: list[str] = []  # declared once a sibling imports from here
+__all__ = [
+    "BUTTON",
+    "FIT_THE_WORD",
+    "Button",
+]
 
 BUTTON = BUTTON_SIZE_HUD  # a square control; the wider ones say their own width
 
