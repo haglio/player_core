@@ -45,9 +45,7 @@ __all__ = [
     "dials",
     "position",
     "position_ahead",
-    "shape_at",
     "trace",
-    "trace_window",
 ]
 
 @dataclass
