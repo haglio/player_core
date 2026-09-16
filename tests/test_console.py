@@ -596,6 +596,15 @@ class TestDriveControls:
             assert action not in actions
 
 
+def _gaps(model: ConsoleModel) -> dict[str, int]:
+    """How far each button on the control row sits from the one before it."""
+    placed = place_rows([console_rows(model)[-1]], x=0, y=0)
+    return {
+        button.action: rect[0] - (previous[0] + previous[2])
+        for (previous, _p), (rect, button) in itertools.pairwise(placed)
+    }
+
+
 def _answering(**overrides) -> ConsoleModel:
     """A console whose host answers the control group -- what Fun Time and a
     standalone Origenerator both publish."""
@@ -659,20 +668,32 @@ class TestOsr2ControlStates:
             drawn = _button(ConsoleModel(mode="video"), action)
             assert (drawn.lit, drawn.warn) == (False, False), state
 
+    def test_they_read_from_off_to_on_left_to_right(self):
+        """Control off first, then the two holds, then the motion running: the
+        row is a progression, so the one press that lets go of the device sits
+        at the far end from the one that drives it."""
+        row = [b.action for b in console_rows(_answering(mode="genau"))[-1]]
+        group = [a for a in row if a in set(OSR2_CONTROL_BUTTONS.values())]
+
+        assert group == [OSR2_CONTROL_BUTTONS[state] for state in (
+            OSR2_CONTROL_OFF, OSR2_PARKED, OSR2_RETRACTED, OSR2_DRIVING)]
+
     def test_the_four_sit_together_as_one_group(self):
-        """They are one radio group, so no wider gap opens inside them -- a break
-        between the third and the fourth would read as three holds and a switch."""
-        row = console_rows(_answering(mode="genau"))[-1]
-        placed = place_rows([row], x=0, y=0)
-        gaps = {
-            button.action: rect[0] - (previous[0] + previous[2])
-            for (previous, _p), (rect, button) in itertools.pairwise(placed)
-        }
-        inside = [OSR2_CONTROL_BUTTONS[state]
-                  for state in (OSR2_RETRACTED, OSR2_DRIVING, OSR2_CONTROL_OFF)]
+        """They are one radio group, so the gap opens before the first of them
+        and nowhere inside -- a break inside would read as two controls."""
+        gaps = _gaps(_answering(mode="genau"))
+        order = list(OSR2_CONTROL_BUTTONS.values())
+
+        assert gaps[order[0]] == GROUP_GAP
+        assert all(gaps[action] == GAP for action in order[1:])
+
+    def test_without_the_off_button_the_holds_lead_the_group(self):
+        """A host that answers none of it draws no off button, so the gap the
+        group opens with falls before park instead."""
+        gaps = _gaps(ConsoleModel(mode="genau"))
 
         assert gaps[OSR2_CONTROL_BUTTONS[OSR2_PARKED]] == GROUP_GAP
-        assert all(gaps[action] == GAP for action in inside)
+        assert gaps[OSR2_CONTROL_BUTTONS[OSR2_RETRACTED]] == GAP
 
 
 class TestLockAcrossModes:

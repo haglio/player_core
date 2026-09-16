@@ -9,10 +9,13 @@ from shared_ui.palette import TEXT_MUTED, WHITE
 from player_core.console import (
     OSR2_CONTROL_OFF,
     OSR2_DRIVING,
+    OSR2_PARKED,
+    OSR2_RETRACTED,
     ConsoleModel,
 )
-from player_core.console_hud import _PAD as PAD
 from player_core.console_hud import (
+    _OSR2_COLORS,
+    _OSR2_LABELS,
     FULL,
     SHORTS,
     ConsoleHud,
@@ -22,8 +25,14 @@ from player_core.console_hud import (
     hud_xy,
     with_playback_speed,
 )
+from player_core.console_hud import _PAD as PAD
 from player_core.drive_layout import AMPLITUDE, CENTER, SPEED
-from player_core.drive_readout import DriveHud
+from player_core.drive_readout import (
+    DRIVEN_BY_NEUTRAL,
+    POSITION_MAX,
+    DriveHud,
+    trace_ink,
+)
 from player_core.geometry import Rect
 from player_core.hud_button import Button
 from player_core.hud_marks import BROKER_ICON, shared_mark
@@ -931,6 +940,62 @@ class TestControlOff:
         red = (rgb[:, :, 0] > 150) & (rgb[:, :, 1] < 110) & (rgb[:, :, 2] < 110)
 
         assert red.any()
+
+
+class TestHolds:
+    """Parked and retracted are the device held still at one end of its travel,
+    by this app.  The pill names the hold, and the readout is the held device:
+    a flat line at that end with the dot on it -- whatever the motion or the
+    script would otherwise have been drawing."""
+
+    @staticmethod
+    def _hud(mode: str, osr2: str, control: str) -> ConsoleHud:
+        wave = tuple(0.5 for _ in range(80))
+        return ConsoleHud(
+            modes=ModeHud(video="clip one"),
+            console=ConsoleModel(mode=mode, osr2=osr2, osr2_control=control),
+            drive=DriveHud(waveform=wave, driven="funscript", position=5000,
+                           segments=((0, "robot_hand"), (30, "funscript"))))
+
+    def test_the_pill_names_the_hold_whoever_would_have_had_the_device(self):
+        painter = ConsolePainter()
+        for control in (OSR2_PARKED, OSR2_RETRACTED):
+            for mode in ("video", "genau"):
+                for osr2 in ("robot_hand", "funscript", "off"):
+                    hud = self._hud(mode, osr2, control)
+                    painter.rgba(hud)
+                    assert painter._osr2_state(hud.console) == control, (mode, osr2)
+
+    def test_the_pill_says_it_in_words(self):
+        assert _OSR2_LABELS[OSR2_PARKED] == "Parked"
+        assert _OSR2_LABELS[OSR2_RETRACTED] == "Retracted"
+
+    def test_a_held_device_is_drawn_flat_at_the_end_it_is_held_at(self):
+        for control, height in ((OSR2_PARKED, 0.0), (OSR2_RETRACTED, 1.0)):
+            for mode in ("video", "genau"):
+                painter = ConsolePainter()
+                painter.rgba(self._hud(mode, "funscript", control))
+                drive = painter._painted[0].drive
+
+                assert set(drive.waveform) == {height}, (control, mode)
+                assert drive.position == round(height * POSITION_MAX), (control, mode)
+                assert drive.segments == (), (control, mode)
+
+    def test_a_held_readout_cannot_be_pressed(self):
+        """Nudging a level under a hold is what would move the device while the
+        pill still said it was held."""
+        for control in (OSR2_PARKED, OSR2_RETRACTED):
+            painter = ConsolePainter()
+            painter.rgba(self._hud("genau", "robot_hand", control))
+
+            assert painter._painted[0].drive.driving is False
+            assert painter._painted[0].drive.live is True
+
+    def test_the_held_pill_wears_the_held_lines_gray(self):
+        """The line and the word beside it describe one state, so they are one
+        color -- the handoff's gray, since nobody is moving the device."""
+        for control in (OSR2_PARKED, OSR2_RETRACTED):
+            assert _OSR2_COLORS[control] == trace_ink(DRIVEN_BY_NEUTRAL)
 
 
 class TestNothingDriving:

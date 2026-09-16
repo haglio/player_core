@@ -125,16 +125,17 @@ OSR2_CONTROL_OFF = "control_off"
 # nothing.  The same third answer ``latest`` and the two filters give.
 OSR2_CONTROL_UNANSWERED = ""
 
-# Which button stands for which state, in the order they sit: the two holds, the
-# motion running, and nothing going out.  Data, so a consumer routing a press can
-# read the state off the verb rather than spelling this out a second time -- the
-# same job CONSOLE_VERBS does for the whole panel.  The buttons themselves still
-# post their verb as a literal, which is what lets that gate read them.
+# Which button stands for which state, in the order they sit, from off to on:
+# nothing going out, the two holds, the motion running.  Data, so a consumer
+# routing a press can read the state off the verb rather than spelling this out a
+# second time -- the same job CONSOLE_VERBS does for the whole panel.  The buttons
+# themselves still post their verb as a literal, which is what lets that gate
+# read them.
 OSR2_CONTROL_BUTTONS: dict[str, str] = {
+    OSR2_CONTROL_OFF: "osr2_control_off",
     OSR2_PARKED: "robot_hand_park",
     OSR2_RETRACTED: "robot_hand_retract",
     OSR2_DRIVING: "robot_hand_release",
-    OSR2_CONTROL_OFF: "osr2_control_off",
 }
 
 
@@ -823,7 +824,8 @@ def _clip_seconds_row() -> list[Button]:
 
 
 def _control_row(model: ConsoleModel) -> list[Button]:
-    """The shape of the motion, then the four states OSR2 control can be in.
+    """The shape of the motion, then the four states OSR2 control can be in,
+    from off to on.
 
     Those four are a group of their own because they are a different kind of
     thing from the three before them — those say what the motion IS, these say
@@ -852,9 +854,17 @@ def _control_row(model: ConsoleModel) -> list[Button]:
                "Cruise control: vary the motion hands-free", lit=model.cruise),
         Button("robot_hand_cycle_shape", WAVE_ICON, f"Waveform: {shape_label(model.shape)}"),
         Button("quarter_button", QUARTER_ICON, "Offset the motion a ¼ cycle"),
+        *([
+            Button("osr2_control_off", CONTROL_OFF_ICON,
+                   "Control off — the OSR2 is left exactly where it is and "
+                   "nothing here moves it.  The device itself is untouched: "
+                   "this is the app letting go of it, not the OSR2 switching "
+                   "off",
+                   warn=control == OSR2_CONTROL_OFF, group_break=True),
+        ] if control else []),
         Button("robot_hand_park", PARK_ICON,
                "Parked — the OSR2 held still, settled home",
-               lit=control == OSR2_PARKED, group_break=True),
+               lit=control == OSR2_PARKED, group_break=not control),
         Button("robot_hand_retract", RETRACT_ICON,
                "Retracted — the OSR2 held still at the far end, away from you",
                lit=control == OSR2_RETRACTED),
@@ -862,14 +872,6 @@ def _control_row(model: ConsoleModel) -> list[Button]:
                "Driving — the OSR2 back on whatever the motion was doing, "
                "cruise included",
                lit=control == OSR2_DRIVING),
-        *([
-            Button("osr2_control_off", CONTROL_OFF_ICON,
-                   "Control off — the OSR2 is left exactly where it is and "
-                   "nothing here moves it.  The device itself is untouched: "
-                   "this is the app letting go of it, not the OSR2 switching "
-                   "off",
-                   warn=control == OSR2_CONTROL_OFF),
-        ] if control else []),
         *([
             Button("main_player_funscript_jump", FUNSCRIPT_JUMP_ICON,
                    "Skip ahead to where this video's scripting starts up again",
