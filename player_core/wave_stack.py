@@ -45,7 +45,7 @@ __all__ = [
     "dials",
     "position",
     "position_ahead",
-    "trace",
+    "trace_window",
 ]
 
 @dataclass
@@ -284,27 +284,6 @@ def position_ahead(stack: WaveStack, now: float, lead_s: float) -> float:
         for wave in stack.waves
     ]
     return position(stack, now + lead_s, phases)
-
-
-def trace(stack: WaveStack, now: float, samples: int,
-          span_s: float) -> list[float]:
-    """The sum sampled forward from *now* as 0-1 heights, *span_s* of it.
-
-    Walked step by step rather than solved: every parameter in the stack is
-    moving over a span this long, so each sample is taken at its own moment and
-    carries the phases on at whatever speed the waves are running by then.
-    """
-    step = span_s / max(1, samples - 1)
-    phases = [wave.phase for wave in stack.waves]
-    heights = []
-    for i in range(samples):
-        at = now + i * step
-        heights.append(position(stack, at, phases) / 100.0)
-        phases = [
-            phase + step * bpm_for_speed(wave.speed.at(at + step / 2)) / 60.0
-            for wave, phase in zip(stack.waves, phases)
-        ]
-    return heights
 
 
 def trace_window(stack: WaveStack, now: float, samples: int, span_s: float,

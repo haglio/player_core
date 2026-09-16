@@ -37,6 +37,7 @@ from .hud_status import LATEST_LABEL, SHUFFLE_LABEL
 
 __all__ = [
     "MARGIN",
+    "MODE_BUTTONS",
     "HudCell",
     "HudClicks",
     "HudModel",

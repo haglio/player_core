@@ -21,7 +21,6 @@ from player_core.cruise_control import (
     disable_cruise_control,
     enable_cruise_control,
     tick_cruise_control,
-    toggle_cruise_control,
 )
 from player_core.robot_hand import (
     MAX_TICK_SECONDS,
@@ -57,13 +56,6 @@ def _bpm(wave, cc):
 
 
 class TestArming:
-    def test_toggle_arms_and_disarms(self):
-        cc = CruiseControlState(rng=random.Random(42))
-        assert toggle_cruise_control(cc) is None
-        assert cc.active is True
-        toggle_cruise_control(cc)
-        assert cc.active is False
-
     def test_enable_and_disable_are_idempotent(self):
         cc = CruiseControlState(rng=random.Random(42))
         enable_cruise_control(cc)
@@ -117,7 +109,7 @@ class TestTakingTheMotionOver:
         direct, cc = _cruising(2)
         _run(direct, cc, seconds=45)
         expected = wave_stack.biggest(cc.stack, cc.clock).phase
-        assert toggle_cruise_control(cc) == expected
+        assert disable_cruise_control(cc) == expected
         assert not cc.active and not cc.stack
 
 

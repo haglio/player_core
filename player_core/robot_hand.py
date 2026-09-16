@@ -20,6 +20,7 @@ from .tcode import POSITION_MAX
 
 __all__ = [
     "MAX_SPEED",
+    "MAX_TICK_SECONDS",
     "MIN_SPEED",
     "PARK_CENTER",
     "RETRACT_CENTER",
@@ -38,6 +39,7 @@ __all__ = [
     "set_center",
     "set_speed",
     "toggle_playing",
+    "trace_window",
 ]
 
 class WaveformShape(Enum):
