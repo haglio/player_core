@@ -66,8 +66,8 @@ DRIVEN_BY_NOTHING = "nothing"
 # color its bars already wear.  The device driving itself is neither of those
 # and takes a third color, the magenta the word beside the line already says
 # "Auto" in.  The neutral buffers around a handoff are a light
-# grey: the stretch belonging to neither driver wears neither driver's color.
-# Nothing driving is the same muted grey a dead control is drawn in, so the
+# gray: the stretch belonging to neither driver wears neither driver's color.
+# Nothing driving is the same muted gray a dead control is drawn in, so the
 # readout reads as one switched-off thing rather than as a live trace
 # surrounded by dead furniture.
 _NEUTRAL_INK = (168, 168, 174)
@@ -88,7 +88,7 @@ _CTRL = drive_layout.CONTROL_SIZE
 _GAP = drive_layout.GAP
 _KEY_GAP = 6  # between a key and the value it names
 
-# A disabled part's ink: a dark grey, laid down opaque.  While a funscript has
+# A disabled part's ink: a dark gray, laid down opaque.  While a funscript has
 # the device the controls stay put — removing them resized the panel, and the
 # trace shifting at every handoff is worse than dead furniture — so everything
 # unpressable is drawn in this instead.  Dark and opaque on purpose: over a
@@ -196,7 +196,7 @@ class DriveHud:
 
         It is not with the OSR2 off, and then the whole readout is a picture of
         a motion nobody is making: it holds still and every part of it goes the
-        muted grey of a dead control, the trace and the bars and the numbers
+        muted gray of a dead control, the trace and the bars and the numbers
         alike.  In auto mode the device IS moving, to its own firmware rather
         than to anything sent from here, so the line goes on animating and it is
         ``driving`` alone that dims the controls nobody here can press.
@@ -308,7 +308,7 @@ class DriveSection:
 
     def _value(self, draw, y: int, key: str, value: str, *,
                center: int, ink=(*TEXT_PRIMARY, 255)) -> None:
-        """A muted key with its value, placed as one unit centred on *center*."""
+        """A muted key with its value, placed as one unit centered on *center*."""
         span = text_width(self._tiny, key) + _KEY_GAP + text_width(self._tiny, value)
         key_x, value_x = label_pair_x(self._tiny, key, left=center - span // 2)
         draw.text((key_x, y + _LABEL_H / 2), key, font=self._tiny, anchor="lm",
@@ -339,7 +339,7 @@ class DriveSection:
         s = _SUPERSAMPLE
         block = Image.new("RGBA", (w * s, h * s))
         draw = ImageDraw.Draw(block)
-        # Opaque, and the same grey whatever is beneath it: a part-strength edge
+        # Opaque, and the same gray whatever is beneath it: a part-strength edge
         # takes its brightness from the video and reads as two different borders.
         draw.rectangle([0, 0, w * s - 1, h * s - 1], fill=(*_TRACK, 255),
                        outline=(*TEXT_MUTED, 255), width=s)
