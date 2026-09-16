@@ -93,17 +93,36 @@ installed in any venv that imports this package — every consumer's already is.
 
 ## Install
 
-Each consuming project installs this editable into its own venv, from a local
-path — this package is never published, so it must not appear in any project's
-`[project.dependencies]`:
+Each consuming project names a tag of this repo in its own
+`[project.dependencies]`, and pip fetches it:
+
+```toml
+"player-core @ git+https://github.com/haglio/player_core@v0.1.243",
+```
+
+Every landing here is tagged (`tag-the-landing`, called from this repo's
+merge gate), and the version this package reports is that tag, read by
+setuptools-scm. A consumer moves to a newer one in its own commit, with its
+own suite to answer for it.
+
+## Working across this repo and a consumer
+
+A consumer names a tag of this repo, so a change here does not reach it until
+that consumer moves its pin. To try a change here inside one, install this
+checkout over the pin in that consumer's venv and put it back after:
 
 ```bash
-# from ../genau
+# from the consumer
 ".venv/Scripts/python.exe" -m pip install -e ../player_core --config-settings editable_mode=compat
-
-# from ../fun_time
-".venv/Scripts/python.exe" -m pip install -e ../player_core --config-settings editable_mode=compat
+# ...and back to the tag the consumer names: reinstalling the consumer
+# replaces the checkout with its pin
+".venv/Scripts/python.exe" -m pip install -e . --config-settings editable_mode=compat
 ```
+
+Landing is two commits, in this order: this repo's, which tags a new version,
+then the consumer's, which moves its pin to that tag. Between them the consumer
+is untouched -- which is the whole point.
+
 
 **`editable_mode=compat` is required, not cosmetic.** This repo's directory is
 named `player_core`, the same as the package inside it, and the directory that
