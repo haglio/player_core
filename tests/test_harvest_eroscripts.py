@@ -141,6 +141,8 @@ class TestDownloadingAScript:
             ("https://forum.invalid/uploads/short-url/aaa.funscript", "k"),
             ("https://files.invalid/original/1/2/abc123.funscript", None),
         ]
+        # The pace is the forum's; a file server is not asked to wait for it.
+        assert clock.slept == []
 
 
 class _FakeForum:
