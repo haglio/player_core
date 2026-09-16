@@ -40,6 +40,8 @@ from .console import (
     FULL,
     GAP,
     OSR2_CONTROL_OFF,
+    OSR2_PARKED,
+    OSR2_RETRACTED,
     SHORTS,
     Button,
     ConsoleModel,
@@ -58,6 +60,7 @@ from .drive_readout import (
     DRIVEN_BY_NEUTRAL,
     DRIVEN_BY_NOTHING,
     DRIVEN_BY_ROBOT_HAND,
+    POSITION_MAX,
     DriveHud,
     DriveSection,
     DriveTrack,
@@ -128,12 +131,19 @@ _OSR2_LABELS = {
     # the red its own button wears, so the lit control and the pill saying what
     # it did are visibly the one fact.
     OSR2_CONTROL_OFF: "Control off",
+    OSR2_PARKED: "Parked", OSR2_RETRACTED: "Retracted",
 }
 _OSR2_COLORS = {
     "funscript": GREEN, OSR2_ROBOT_HAND: BLUE, "auto": MAGENTA,
     "off": TEXT_MUTED, "idle": TEXT_MUTED, OSR2_BUFFER: _NEUTRAL_PILL,
     OSR2_CONTROL_OFF: RED,
+    # The held device's line is the handoff's gray -- nobody is moving it -- and
+    # the word beside it says so in the same ink.
+    OSR2_PARKED: _NEUTRAL_PILL, OSR2_RETRACTED: _NEUTRAL_PILL,
 }
+
+# Where each hold keeps the device, as a trace height: home, and the far end.
+_HELD_HEIGHT = {OSR2_PARKED: 0.0, OSR2_RETRACTED: 1.0}
 
 # What the OSR2 state means for the trace.  Auto is the device running itself,
 # idle is nothing running at all, and control off is this app having let go;
@@ -365,7 +375,17 @@ class ConsolePainter:
         # playhead — set by the same function that drew the line under the dot —
         # since the round trip lags the arbiter, and the arbiter itself decides
         # seconds before the device is done riding the blue.
-        if hud.console.osr2_control == OSR2_CONTROL_OFF:
+        held = _HELD_HEIGHT.get(hud.console.osr2_control)
+        if held is not None:
+            # The device is being kept at one end, so that is the picture: a
+            # flat line there with the dot on it, in the gray of a device nobody
+            # is moving.  Whatever the motion or the script had planned is not
+            # reaching it, and drawn it would be a picture of a device in motion.
+            drive = replace(
+                drive, waveform=(held,) * len(drive.waveform or (0.0,)),
+                position=round(held * POSITION_MAX), segments=(), slide=0.0,
+                edge=None, let_go=None, driven=DRIVEN_BY_NEUTRAL)
+        elif hud.console.osr2_control == OSR2_CONTROL_OFF:
             # Nothing is going out, so nobody has the device — whatever the
             # round trip or the composed trace last said had it.  A video-mode
             # handoff plan is still a plan for a device that is hearing none of
@@ -596,10 +616,10 @@ class ConsolePainter:
         where the device belongs to neither driver.  The round-tripped osr2
         stands in everywhere else, and for its own device-level states.
 
-        Control off answers ahead of all of it: with nothing going out there is
-        nobody to name, and what the reader needs to know is why."""
-        if model.osr2_control == OSR2_CONTROL_OFF:
-            return OSR2_CONTROL_OFF
+        Control off and the two holds answer ahead of all of it: then nobody is
+        driving to be named, and what the reader needs to know is why."""
+        if model.osr2_control in (OSR2_CONTROL_OFF, *_HELD_HEIGHT):
+            return model.osr2_control
         drive = self._composed_drive
         if drive is None:
             return model.osr2
