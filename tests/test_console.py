@@ -1,6 +1,7 @@
 """The main console: the controls whichever player holds the slot draws."""
 from __future__ import annotations
 
+import itertools
 import json
 from pathlib import Path
 
@@ -10,6 +11,11 @@ from player_core.console import (
     GAP,
     GROUP_GAP,
     MINIMIZE_ICON,
+    OSR2_CONTROL_BUTTONS,
+    OSR2_CONTROL_OFF,
+    OSR2_DRIVING,
+    OSR2_PARKED,
+    OSR2_RETRACTED,
     ConsoleModel,
     ModeHud,
     console_rows,
@@ -586,6 +592,85 @@ class TestDriveControls:
             assert action not in actions
 
 
+def _answering(**overrides) -> ConsoleModel:
+    """A console whose host answers the control group -- what Fun Time and a
+    standalone Origenerator both publish."""
+    return ConsoleModel(osr2_control=OSR2_DRIVING, **overrides)
+
+
+class TestOsr2ControlStates:
+    """parked / retracted / driving / control off: one radio group saying what
+    this app is doing to the OSR2, with exactly one of the four lit."""
+
+    def test_every_state_has_a_button_in_both_modes(self):
+        for mode in ("video", "genau"):
+            actions = _actions(_answering(mode=mode))
+            for action in OSR2_CONTROL_BUTTONS.values():
+                assert action in actions, (mode, action)
+
+    def test_the_row_posts_exactly_the_four_verbs_the_mapping_names(self):
+        """The mapping is what a consumer routes a press by, so a fifth button
+        added to the group without a state -- or a verb renamed on one side only
+        -- fails here rather than at a click that lights nothing."""
+        row = [b for b in console_rows(_answering(mode="video"))[-1] if b.action]
+        group = [b.action for b in row if b.action in set(OSR2_CONTROL_BUTTONS.values())]
+
+        assert group == list(OSR2_CONTROL_BUTTONS.values())
+
+    def test_the_state_it_is_in_is_the_one_that_lights(self):
+        for state in OSR2_CONTROL_BUTTONS:
+            model = ConsoleModel(mode="video", osr2_control=state)
+            for other, button in OSR2_CONTROL_BUTTONS.items():
+                drawn = _button(model, button)
+                on = drawn.lit or drawn.warn
+                assert on is (other == state), (state, other)
+
+    def test_control_off_lights_red_where_the_other_three_light_blue(self):
+        """Blue is this family's "engaged"; red is what the pill below reads
+        "Control off" in, and the one press on this panel that means the device
+        is hearing nothing at all."""
+        for state in (OSR2_PARKED, OSR2_RETRACTED, OSR2_DRIVING):
+            drawn = _button(ConsoleModel(mode="video", osr2_control=state),
+                            OSR2_CONTROL_BUTTONS[state])
+            assert (drawn.lit, drawn.warn) == (True, False), state
+
+        off = _button(ConsoleModel(mode="video", osr2_control=OSR2_CONTROL_OFF),
+                      OSR2_CONTROL_BUTTONS[OSR2_CONTROL_OFF])
+        assert (off.lit, off.warn) == (False, True)
+
+    def test_a_host_that_answers_none_of_it_gets_the_holds_and_no_off_button(self):
+        """A switch nothing hears is worse than no switch, so the fourth button
+        is the one thing an unanswering host does not get -- the two holds have
+        been on this row, and pressable, all along."""
+        actions = _actions(ConsoleModel(mode="video"))
+
+        assert OSR2_CONTROL_BUTTONS[OSR2_CONTROL_OFF] not in actions
+        assert OSR2_CONTROL_BUTTONS[OSR2_PARKED] in actions
+        assert OSR2_CONTROL_BUTTONS[OSR2_RETRACTED] in actions
+
+    def test_an_unanswered_group_lights_nothing(self):
+        for state, action in OSR2_CONTROL_BUTTONS.items():
+            if state == OSR2_CONTROL_OFF:
+                continue
+            drawn = _button(ConsoleModel(mode="video"), action)
+            assert (drawn.lit, drawn.warn) == (False, False), state
+
+    def test_the_four_sit_together_as_one_group(self):
+        """They are one radio group, so no wider gap opens inside them -- a break
+        between the third and the fourth would read as three holds and a switch."""
+        row = console_rows(_answering(mode="genau"))[-1]
+        placed = place_rows([row], x=0, y=0)
+        gaps = {
+            button.action: rect[0] - (previous[0] + previous[2])
+            for (previous, _p), (rect, button) in itertools.pairwise(placed)
+        }
+        inside = [OSR2_CONTROL_BUTTONS[state]
+                  for state in (OSR2_RETRACTED, OSR2_DRIVING, OSR2_CONTROL_OFF)]
+
+        assert gaps[OSR2_CONTROL_BUTTONS[OSR2_PARKED]] == GROUP_GAP
+        assert all(gaps[action] == GAP for action in inside)
+
+
 class TestLockAcrossModes:
     """One padlock on the console, whichever player is showing: it holds the main player's
     video in video mode, and Genau's clip in genau."""
@@ -847,7 +932,8 @@ class TestThePublishedConsoleIsWrittenWhereItIsRead:
 
     def test_every_published_field_survives_the_round_trip(self):
         model = ConsoleModel(
-            mode="genau", active=True, osr2="auto", broker=True, record="looping",
+            mode="genau", active=True, osr2="auto", osr2_control=OSR2_RETRACTED,
+            broker=True, record="looping",
             locked=False, f_mode=True, latest=True, cruise=True, shape="triangle",
             plays_vr=True, plays_flat=False,
         )

@@ -6,7 +6,12 @@ from dataclasses import replace
 import numpy as np
 from shared_ui.palette import TEXT_MUTED, WHITE
 
-from player_core.console import _ROW_LABELS, ConsoleModel
+from player_core.console import (
+    _ROW_LABELS,
+    OSR2_CONTROL_OFF,
+    OSR2_DRIVING,
+    ConsoleModel,
+)
 from player_core.console_hud import _PAD as PAD
 from player_core.console_hud import (
     FULL,
@@ -845,6 +850,55 @@ class TestEveryConsolePaints:
         painter.rgba(hud)
 
         assert painter._osr2_state(hud.console) == "buffer"
+
+
+class TestControlOff:
+    """Control off is this app letting go of the OSR2, which is a different fact
+    from the device being off the wire -- so the pill says so in its own words,
+    and the readout goes gray whoever would otherwise have had the device."""
+
+    @staticmethod
+    def _hud(mode: str, osr2: str, control: str) -> ConsoleHud:
+        wave = tuple(0.5 for _ in range(80))
+        return ConsoleHud(
+            modes=ModeHud(video="clip one"),
+            console=ConsoleModel(mode=mode, osr2=osr2, osr2_control=control),
+            drive=DriveHud(waveform=wave, driven="funscript",
+                           segments=((0, "robot_hand"), (30, "funscript"))))
+
+    def test_the_pill_says_control_off_whoever_would_have_had_the_device(self):
+        painter = ConsolePainter()
+        for mode in ("video", "genau"):
+            for osr2 in ("robot_hand", "funscript", "auto", "off"):
+                hud = self._hud(mode, osr2, OSR2_CONTROL_OFF)
+                painter.rgba(hud)
+                assert painter._osr2_state(hud.console) == OSR2_CONTROL_OFF, (mode, osr2)
+
+    def test_the_readout_goes_gray_even_over_a_composed_trace(self):
+        """Video mode draws the script's own plan, which keeps sliding through
+        every rest -- but a plan for a device hearing none of it is not a live
+        readout, and the one thing left claiming otherwise."""
+        painter = ConsolePainter()
+        for mode in ("video", "genau"):
+            hud = self._hud(mode, "funscript", OSR2_CONTROL_OFF)
+            painter.rgba(hud)
+            assert painter._painted[0].drive.driven == "nothing", mode
+            assert painter._painted[0].drive.live is False, mode
+
+    def test_driving_leaves_the_readout_alone(self):
+        painter = ConsolePainter()
+        hud = self._hud("video", "funscript", OSR2_DRIVING)
+        painter.rgba(hud)
+
+        assert painter._painted[0].drive.live is True
+
+    def test_the_pill_is_drawn_in_the_red_its_button_wears(self):
+        painter = ConsolePainter()
+        bgra = painter.bgra(self._hud("video", "funscript", OSR2_CONTROL_OFF))
+        rgb = _rgb(bgra)
+        red = (rgb[:, :, 0] > 150) & (rgb[:, :, 1] < 110) & (rgb[:, :, 2] < 110)
+
+        assert red.any()
 
 
 class TestNothingDriving:

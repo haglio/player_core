@@ -152,6 +152,35 @@ class Button:
     group_break: bool = False
 
 
+# Those four states themselves.  One word rather than a flag each, because they
+# are exclusive: whatever this app is doing to the OSR2, it is doing exactly one
+# of these, and the console lights exactly one button to say which.  Off is the
+# app not driving the device at all — the device itself is untouched by it, which
+# is why the word on the button and the pill is "control off" rather than "off".
+OSR2_PARKED = "parked"
+OSR2_RETRACTED = "retracted"
+OSR2_DRIVING = "driving"
+OSR2_CONTROL_OFF = "control_off"
+# And a fifth answer that is not a state: this host does not answer the group at
+# all.  The two holds are still drawn -- they are a spoken word here as well, and
+# have been pressable all along -- but nothing lights and the off button is not
+# offered, because a host that never hears the verb would draw one that does
+# nothing.  The same third answer ``latest`` and the two filters give.
+OSR2_CONTROL_UNANSWERED = ""
+
+# Which button stands for which state, in the order they sit: the two holds, the
+# motion running, and nothing going out.  Data, so a consumer routing a press can
+# read the state off the verb rather than spelling this out a second time -- the
+# same job CONSOLE_VERBS does for the whole panel.  The buttons themselves still
+# post their verb as a literal, which is what lets that gate read them.
+OSR2_CONTROL_BUTTONS: dict[str, str] = {
+    OSR2_PARKED: "robot_hand_park",
+    OSR2_RETRACTED: "robot_hand_retract",
+    OSR2_DRIVING: "robot_hand_release",
+    OSR2_CONTROL_OFF: "osr2_control_off",
+}
+
+
 @dataclass(frozen=True)
 class ConsoleModel:
     """What Fun Time tells the main player about its slot, so the console can
@@ -167,6 +196,12 @@ class ConsoleModel:
     active: bool = False
     # What is driving the OSR2 right now: off / auto / funscript / robot_hand / idle.
     osr2: str = "off"
+    # And what this app is doing to it, which is a different question: one of
+    # OSR2_CONTROL_BUTTONS' four states, or OSR2_CONTROL_UNANSWERED from a host
+    # that has no such switch.  Published like the rest of this, because the
+    # state is the orchestrator's and the player drawing the console is not
+    # always the one it is about.
+    osr2_control: str = OSR2_CONTROL_UNANSWERED
     # Whether the OSR2 broker service is up — its own concern, only the main player's.
     broker: bool = False
     # Where the main player's loop machine is: normal / recording (the record key is down and
@@ -260,6 +295,7 @@ def console_text(model: ConsoleModel) -> str:
         "f_mode": model.f_mode,
         "latest": model.latest,
         "osr2": model.osr2,
+        "osr2_control": model.osr2_control,
         "broker": model.broker,
         "record": model.record,
         "locked": model.locked,
@@ -287,6 +323,7 @@ def parse_console(text: str) -> ConsoleModel | None:
         # it is in, so a panel nothing would answer does not grow two dead ones.
         latest=(None if raw.get("latest") is None else bool(raw.get("latest"))),
         osr2=str(raw.get("osr2", "off") or "off"),
+        osr2_control=str(raw.get("osr2_control", "") or OSR2_CONTROL_UNANSWERED),
         broker=bool(raw.get("broker", False)),
         record=str(raw.get("record", "normal") or "normal"),
         locked=bool(raw.get("locked", True)),
@@ -356,11 +393,14 @@ SCENE_TO_CLIP_ICON = shared_mark("scene_to_clip")
 # running into the F every scripted thing in this family is marked with.
 FUNSCRIPT_JUMP_ICON = shared_mark("funscript_jump")
 
-# The three motion holds, as one drawing of the device from above read three
-# ways — the sleeve at the near end, at the far end, or free in between.
+# The four states of OSR2 control, as one drawing of the device read four ways —
+# the sleeve at the near end, at the far end, free in between, or free with the
+# motion crossed out because nothing is being sent to it at all.
 PARK_ICON = shared_mark("park")
 RETRACT_ICON = shared_mark("retract")
 RELEASE_ICON = shared_mark("release")
+CONTROL_OFF_ICON = shared_mark("control_off")
+
 
 # The phase nudge: the fraction stacked rather than typed, which makes it as tall
 # as the marks beside it and leaves room for the arrow saying which way it goes.
@@ -417,6 +457,7 @@ CONSOLE_VERBS = frozenset({
     "main_reset",
     "main_shuffle",
     "main_video_activate",
+    "osr2_control_off",
     "main_player_clip_jump",
     "main_player_compilation",
     "main_player_cycle_version",
@@ -823,31 +864,53 @@ def _clip_seconds_row(model: ConsoleModel, label_width: int = PLAYBACK_LABEL_W) 
 
 
 def _control_row(model: ConsoleModel) -> list[Button]:
-    """Everything the Robot Hand does that is not a level on the readout: the
-    shape of the motion, then the three ways to stop it and start it again.
+    """The shape of the motion, then the four states OSR2 control can be in.
 
-    The holds are a group of their own because they are a different kind of
+    Those four are a group of their own because they are a different kind of
     thing from the three before them — those say what the motion IS, these say
-    whether there is one.  Park settles the device home and retract sends it to
-    the far end, away; release puts back whatever it was doing before either,
-    cruise included.  Unlike OmniPause the room plays on through all three.
+    whether the device is getting one.  Park settles it home and retract sends it
+    to the far end, away; driving puts back whatever the motion was doing before
+    either, cruise included; control off stops sending it anything.  Unlike
+    OmniPause the room plays on through all four.
+
+    Exactly one is lit, because the device is in exactly one of them.  The three
+    that ARE control light the family's blue like any other engaged switch; off
+    lights red, the one state in which nothing this panel does reaches the device
+    — and the same red the pill below then reads "Control off" in.
+
+    A host that answers none of it (OSR2_CONTROL_UNANSWERED) gets the two holds
+    it has always had, dark, and no off button: a switch nothing hears is worse
+    than no switch.
 
     The funscript jump rides the end of this row rather than the transport's:
     the transport row is full, and this is the row about what the device is
     doing, which is the very thing that jump goes looking for.  The main player's, so it is
     not there in genau mode, where there is no scripted video to skip inside.
     """
+    control = model.osr2_control
     return [
         Button("robot_hand_toggle_cruise", "cc",
                "Cruise control: vary the motion hands-free", lit=model.cruise),
         Button("robot_hand_cycle_shape", WAVE_ICON, f"Waveform: {shape_label(model.shape)}"),
         Button("quarter_button", QUARTER_ICON, "Offset the motion a ¼ cycle"),
         Button("robot_hand_park", PARK_ICON,
-               "Park — hold the motion still, settled home"),
+               "Parked — the OSR2 held still, settled home",
+               lit=control == OSR2_PARKED),
         Button("robot_hand_retract", RETRACT_ICON,
-               "Retract — hold it still at the far end, away from you"),
+               "Retracted — the OSR2 held still at the far end, away from you",
+               lit=control == OSR2_RETRACTED),
         Button("robot_hand_release", RELEASE_ICON,
-               "Release — back to whatever the motion was doing, cruise included"),
+               "Driving — the OSR2 back on whatever the motion was doing, "
+               "cruise included",
+               lit=control == OSR2_DRIVING),
+        *([
+            Button("osr2_control_off", CONTROL_OFF_ICON,
+                   "Control off — the OSR2 is left exactly where it is and "
+                   "nothing here moves it.  The device itself is untouched: "
+                   "this is the app letting go of it, not the OSR2 switching "
+                   "off",
+                   warn=control == OSR2_CONTROL_OFF),
+        ] if control else []),
         *([
             Button("main_player_funscript_jump", FUNSCRIPT_JUMP_ICON,
                    "Skip ahead to where this video's scripting starts up again"),
@@ -935,12 +998,12 @@ _LENGTH_CONTROLS = frozenset({
 _COMPILATION_CONTROLS = frozenset({"main_player_compilation", "main_player_end_compilation"})
 _CLIP_JUMP_CONTROLS = frozenset({"main_player_full_vid", "main_player_clip_jump"})
 _VERSION_CONTROLS = frozenset({"main_player_cycle_version"})
-# The three ways to stop the motion and start it again, on the control row.  A
-# different kind of thing from the shape controls before them — those say what
-# the motion IS, these say whether there is one — and they share the Robot Hand's
-# prefix, so they have to be named to leave that run.  The funscript jump is not
-# the Robot Hand's at all, and closes that row on its own.
-_HOLD_CONTROLS = frozenset({"robot_hand_park", "robot_hand_retract", "robot_hand_release"})
+# The four states of OSR2 control, on the control row.  A different kind of thing
+# from the shape controls before them — those say what the motion IS, these say
+# whether the device is getting one — and three of them share the Robot Hand's
+# prefix, so the group has to be named to leave that run.  The funscript jump is
+# not the Robot Hand's at all, and closes that row on its own.
+_HOLD_CONTROLS = frozenset(OSR2_CONTROL_BUTTONS.values())
 _JUMP_CONTROLS = frozenset({"main_player_funscript_jump"})
 # The controls that act on the window rather than on anything inside it, so they
 # stand apart from whatever they share a row with.  Named rather than left to the
