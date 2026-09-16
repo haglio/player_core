@@ -28,7 +28,7 @@ from shared_ui.palette import (
     TEXT_PRIMARY,
     WHITE,
 )
-from shared_ui.spacing import BUTTON_RADIUS_HUD
+from shared_ui.spacing import BUTTON_GROUP_GAP, BUTTON_RADIUS_HUD
 
 from player_core.hud_marks import SHARED_MARK, shared_mark, shared_mark_name
 from player_core.hud_panel import (
@@ -54,7 +54,6 @@ from .satellite_hud import (
     CONTROLS,
     CTRL_BAND_H,
     CTRL_BTN,
-    CTRL_GROUP_GAP,
     ELLIPSIS_ROOM,
     FILTER_ROOM,
     MAP_CELLS,
@@ -398,7 +397,7 @@ class HudRenderer:
         y += CTRL_BAND_H
         if model.playback_speed is not None:
             speed_buttons, rate_rect = speed_row_rects(
-                x, y, label_width=text_width(self._tiny, PLAYBACK_SPEED_LABEL) + CTRL_GROUP_GAP)
+                x, y, label_width=text_width(self._tiny, PLAYBACK_SPEED_LABEL) + BUTTON_GROUP_GAP)
             self._draw_speed_row(image, draw, y, model, speed_buttons, rate_rect)
             controls = controls + speed_buttons
             y += CTRL_BAND_H
