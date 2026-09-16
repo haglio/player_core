@@ -17,7 +17,9 @@ jobs:
   full-suite:
     uses: haglio/.github/.github/workflows/merge-gate.yml@main
     with:
-      siblings: "app_support shared_ui"
+      # No siblings cloned: both are pinned in pyproject, so pip fetches the
+      # tags this repo was built against.
+      siblings: ""
       python-version: "3.12"
       timeout-minutes: 6
       # tests/test_consumer_imports.py is this repo's dead-code gate, and it
@@ -46,6 +48,16 @@ jobs:
       python-version: "3.12"
       timeout-minutes: 15
       sdl-video: dummy
+
+  # A version for each landing, so the apps that run this one can pin the copy
+  # they were built against. The tag is the version: pyproject reads it with
+  # setuptools-scm.
+  tag:
+    if: github.event_name == 'push'
+    needs: full-suite
+    uses: haglio/.github/.github/workflows/tag-the-landing.yml@main
+    permissions:
+      contents: write
 
   # What the machine this is developed on would say. It runs 3.14 and the gate
   # runs 3.12, and the two evaluate annotations differently (PEP 649), so a
