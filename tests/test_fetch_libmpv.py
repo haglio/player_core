@@ -123,11 +123,16 @@ class TestWhenThePinExpires:
             fetch_libmpv.resolve(pinned)
 
 
-def test_the_dll_lands_where_the_loader_looks():
+def test_the_dll_lands_where_the_loader_looks(monkeypatch, tmp_path):
     """The script's destination and what puts the DLL on PATH agree.
 
-    Each spells the path for itself; this is the test that reds if either moves.
+    Each spells the path for itself -- the script runs before anything is
+    installed, so it cannot import the loader -- and this is the test that reds
+    if either moves.  The machine-wide copy, because every app now pins a copy of
+    this package that sits beside no vendor dir.
     """
-    from player_core.libmpv_loader import libmpv_dir
+    from player_core.libmpv_loader import machine_libmpv_dir
 
-    assert fetch_libmpv.DLL.parent == libmpv_dir()
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+
+    assert fetch_libmpv.dll_path().parent == machine_libmpv_dir()
