@@ -1,10 +1,13 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "setuptools-scm>=8,<9"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "player-core"
-version = "0.1.0"
+# The version is the tag on the landing, read by setuptools-scm, so the three
+# apps that run this one can name the copy they were built against. Written
+# down it said 0.1.0 for the life of the repo.
+dynamic = ["version"]
 # 3.12, not 3.10: every gate in the family runs 3.12 and nothing has ever
 # collected a suite on anything older, so >=3.10 was a promise no run backed.
 requires-python = ">=3.12"
@@ -12,11 +15,21 @@ requires-python = ">=3.12"
 # PyPI served that morning, which is how the family's gates came to run a major
 # version of the imaging stack past the one the machines have. Floors are what
 # the consumer venvs hold today.
+# app_support and shared_ui are named at the tags this repo was built against
+# rather than left to be whatever checkouts sit beside it. Unpinned, a change
+# landing in one of them reached every consumer the same minute, and one whose
+# other half had not landed turned all of them red at once.
 dependencies = [
+    "app-support @ git+https://github.com/haglio/app_support@v0.1.140",
+    "shared-ui @ git+https://github.com/haglio/shared_ui@v0.1.123",
     "numpy>=2.4,<3",
     "pillow>=12,<13",
     "python-mpv>=1,<2",
 ]
+
+# The version is `git describe` of the checkout being built: a landing's tag
+# exactly, and that tag plus a development suffix for a checkout past one.
+[tool.setuptools_scm]
 
 [project.optional-dependencies]
 dev = [
