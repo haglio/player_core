@@ -175,3 +175,72 @@ def test_the_console_is_told_the_whole_motion_and_the_wave_you_can_feel():
     assert dials.shape is WaveformShape.SAWTOOTH
     # and the wave the device is mostly following is still the bigger one
     assert wave_stack.biggest(stack, 0.0) is stack.waves[1]
+
+
+class TestTheTraceOnKnots:
+    """The readout's picture of the sum, read on knots a fixed stretch of the
+    motion's clock apart, so it holds still between knots and slides."""
+
+    def _stack(self):
+        return WaveStack(waves=[Wave(speed=Ramp(50.0, 50.0), amplitude=Ramp(60.0, 60.0),
+                                     center=Ramp(50.0, 50.0), phase=0.2)])
+
+    def test_the_first_knot_is_at_or_before_the_clock_and_the_rest_follow(self):
+        stack = self._stack()
+
+        heights, slide = wave_stack.trace_window(stack, 10.0, samples=5, span_s=2.0)
+
+        assert len(heights) == 6
+        assert slide == 0.0
+        assert heights == pytest.approx(wave_stack.trace(stack, 10.0, 6, 2.5))
+
+    def test_between_knots_the_heights_hold_and_the_slide_grows(self):
+        stack = self._stack()
+        at_knot, _ = wave_stack.trace_window(stack, 10.0, samples=5, span_s=2.0)
+
+        # A fifth of a knot later: the same phases carried on that far.
+        wave_stack.advance(stack, 10.1, 0.1)
+        later, slide = wave_stack.trace_window(stack, 10.1, samples=5, span_s=2.0)
+
+        assert later == pytest.approx(at_knot, abs=1e-6)
+        assert slide == pytest.approx(0.2)
+
+    def test_crossing_a_knot_moves_the_window_on_by_one(self):
+        stack = self._stack()
+        at_knot, _ = wave_stack.trace_window(stack, 10.0, samples=5, span_s=2.0)
+
+        # Carried on a tick at a time: a step is capped at a tenth of a second.
+        for tick in range(1, 13):
+            wave_stack.advance(stack, 10.0 + tick * 0.05, 0.05)
+        later, slide = wave_stack.trace_window(stack, 10.6, samples=5, span_s=2.0)
+
+        assert later[:-1] == pytest.approx(at_knot[1:], abs=1e-6)
+        assert slide == pytest.approx(0.2)
+
+
+class TestARampWithTheNextChainedOn:
+    def test_past_its_end_it_reads_the_one_that_follows(self):
+        ramp = Ramp(10.0, 20.0, begun=0.0, seconds=10.0,
+                    then=Ramp(20.0, 60.0, begun=10.0, seconds=10.0))
+
+        assert ramp.at(5.0) == 15.0
+        assert ramp.at(15.0) == 40.0
+        assert ramp.at(30.0) == 60.0
+        assert ramp.last().end == 60.0
+
+    def test_a_hand_on_the_dial_keeps_what_follows(self):
+        ramp = Ramp(10.0, 20.0, begun=0.0, seconds=10.0,
+                    then=Ramp(20.0, 60.0, begun=10.0, seconds=10.0))
+
+        assert ramp.resumed(14.0, 5.0).then is ramp.then
+        assert ramp.shifted(5.0).then.end == 65.0
+        assert ramp.shifted(50.0).clamped(0.0, 100.0).then.end == 100.0
+
+    def test_the_shape_a_speed_ramp_brings_shows_from_when_it_begins(self):
+        wave = Wave(shape=WaveformShape.SINE, speed=Ramp(
+            50.0, 50.0, begun=0.0, seconds=10.0,
+            then=Ramp(50.0, 50.0, begun=10.0, seconds=10.0, shape=WaveformShape.TRIANGLE)))
+
+        assert wave_stack.shape_at(wave, 5.0) is WaveformShape.SINE
+        assert wave_stack.shape_at(wave, 10.0) is WaveformShape.TRIANGLE
+        assert wave_stack.shape_at(wave, 25.0) is WaveformShape.TRIANGLE

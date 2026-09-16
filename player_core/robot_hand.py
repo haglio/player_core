@@ -38,6 +38,7 @@ __all__ = [
     "set_center",
     "set_speed",
     "toggle_playing",
+    "trace_window",
 ]
 
 class WaveformShape(Enum):
@@ -163,23 +164,38 @@ def _waveform_raw(phase: float, shape: WaveformShape) -> float:
     return (1 - math.cos(2 * math.pi * phase)) / 2
 
 
-def sample_waveform(
+def trace_window(
     shape: WaveformShape,
     amplitude: int,
     center: int,
-    n_points: int,
     *,
-    start_phase: float = 0.0,
-    phase_range: float = 1.0,
-) -> list[float]:
-    """Sample waveform over a phase range, returning 0-1 normalized positions."""
-    return [
-        position_fraction(
-            start_phase + (i / n_points) * phase_range,
-            shape=shape, amplitude=amplitude, center=center,
-        )
-        for i in range(n_points)
+    phase: float,
+    bpm: float,
+    samples: int,
+    span_s: float,
+) -> tuple[list[float], float]:
+    """The wave as the readout draws it: *samples* + 1 heights (0-1) on knots
+    a fixed stretch of phase apart, the first at or before *phase* and the
+    last just past the far edge, and how far past the first knot *phase* sits
+    as a fraction of one.
+
+    *phase* has to be the wave's phase counted up without wrapping (the
+    sender's), so the knots stay put from one cycle to the next; the heights
+    change only when the phase crosses a knot, and between knots the painter
+    slides the whole line by the fraction.  Sampled from the phase itself
+    instead, the heights at fixed columns changed every frame as the wave
+    passed under them.
+    """
+    grid = span_s / max(1, samples - 1) * bpm / 60.0
+    if grid <= 0:
+        held = position_fraction(phase, shape=shape, amplitude=amplitude, center=center)
+        return [held] * (samples + 1), 0.0
+    first = math.floor(phase / grid) * grid
+    heights = [
+        position_fraction(first + i * grid, shape=shape, amplitude=amplitude, center=center)
+        for i in range(samples + 1)
     ]
+    return heights, (phase - first) / grid
 
 
 def position_fraction(
