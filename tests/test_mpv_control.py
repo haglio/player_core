@@ -10,6 +10,7 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
+from player_core import audio_outputs
 from player_core.mpv_player import _MpvControl, _shared_options
 
 
@@ -26,6 +27,8 @@ class FakeMpv:
         self.playlist_count = count
         self.calls: list[tuple] = []
         self.observers: dict[str, object] = {}
+        self.audio_device_list: list[dict] = []
+        self.audio_device = "auto"
 
     def observe_property(self, name: str, handler) -> None:
         self.observers[name] = handler
@@ -243,3 +246,31 @@ def test_closing_twice_frees_once():
     control.close()
     control.close()
     assert mpv.terminated == 1
+
+
+STREAMING = {"name": "wasapi/{stream-id}", "description": "Speakers (Example AirLink)"}
+HEADSET = {"name": "wasapi/{headset-id}", "description": "Headphones (Example Headset)"}
+
+
+def test_a_headset_named_for_its_maker_takes_the_sound_over_that_makers_software_output(
+        monkeypatch):
+    """Two outputs can carry the maker's name — the headset's own, and the
+    streaming driver its software installed — and the streaming one is listed
+    first, so taking the first match leaves the headset silent."""
+    monkeypatch.setattr(audio_outputs, "software_outputs",
+                        lambda: frozenset({STREAMING["description"]}))
+    mpv = FakeMpv()
+    mpv.audio_device_list = [STREAMING, HEADSET]
+
+    picked = Control(mpv).set_audio_device_matching("Example")
+
+    assert mpv.audio_device == HEADSET["name"]
+    assert picked == HEADSET["description"]
+
+
+def test_an_output_no_device_is_named_by_leaves_the_sound_on_the_system_default():
+    mpv = FakeMpv()
+    mpv.audio_device_list = [STREAMING, HEADSET]
+
+    assert Control(mpv).set_audio_device_matching("Nowhere") is None
+    assert mpv.audio_device == "auto"

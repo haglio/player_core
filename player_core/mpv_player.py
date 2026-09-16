@@ -29,6 +29,7 @@ from pathlib import Path
 
 import numpy as np
 
+from .audio_outputs import Output, pick_output
 from .libmpv_loader import add_libmpv_to_path
 from .mpv_gate import CallGate, mpv_call
 
@@ -277,20 +278,20 @@ class _MpvControl:
 
     @mpv_call()
     def set_audio_device_matching(self, substring: str) -> str | None:
-        """Route audio to the first output device whose name or description
-        contains *substring*, case-insensitively.
+        """Route audio to the output device named *substring*, by the rule
+        :mod:`player_core.audio_outputs` states.
 
         Returns the picked device's description, or None — with the device
         untouched — when nothing matches, so a headset that is off falls back
         to the system default rather than to silence.
         """
-        needle = substring.lower()
-        for device in self._mpv.audio_device_list or []:
-            label = f"{device.get('name', '')} {device.get('description', '')}"
-            if needle in label.lower():
-                self._mpv.audio_device = device["name"]
-                return str(device.get("description") or device["name"])
-        return None
+        outputs = [Output(str(device.get("description") or device["name"]), device["name"])
+                   for device in self._mpv.audio_device_list or []]
+        picked = pick_output(outputs, substring)
+        if picked is None:
+            return None
+        self._mpv.audio_device = picked.handle
+        return picked.label
 
     @mpv_call()
     def seek_ms(self, ms: float) -> None:

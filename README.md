@@ -18,9 +18,11 @@ take the HUDs and the motion without the player.
 Everything they had to agree on lives here, so none of them has to import
 another application's internals to get it. By what it is:
 
-- **the engine** — `mpv_player`, its offscreen twin `render_player`, and the
+- **the engine** — `mpv_player`, its offscreen twin `render_player`, the
   `libmpv_loader` that puts the vendored DLL on `%PATH%` first, which is the
-  only way python-mpv finds it on Windows.
+  only way python-mpv finds it on Windows, and `audio_outputs`, which says
+  which of the machine's outputs a session means by the device name it
+  configures.
 - **the player contract** — what a content source hands a player and what
   it gets back, each format written and read in one module; see below.
   `session_quit` is beside them (a close on one window of a session asks the
