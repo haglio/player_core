@@ -296,3 +296,22 @@ class TestPark:
         driver.park(now=0.15)  # past the resend interval: resends
 
         assert sink.sent == ["L00000I2000", "L00000I1850"]
+
+
+class TestDepthAtSpeed:
+    def _fast_fs(self):
+        # A full cycle every 200ms -- past what the device can travel, so
+        # doubling the rate has to buy its timing with depth.
+        return Funscript(actions=[(0, 0), (200, 100), (400, 0), (600, 100)])
+
+    def _aimed_at(self, speed):
+        sink = FakeSink()
+        driver = FunscriptTCodeDriver(sink)
+        driver.update(0, self._fast_fs(), now=0.0, speed=speed)
+        return int(sink.sent[0][2:6])
+
+    def test_a_script_past_the_devices_reach_is_aimed_shallower_when_sped_up(self):
+        assert self._aimed_at(2.0) == 5000
+
+    def test_the_same_script_is_aimed_at_its_full_depth_at_normal_speed(self):
+        assert self._aimed_at(1.0) == 9999
