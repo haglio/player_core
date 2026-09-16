@@ -13,9 +13,7 @@ from __future__ import annotations
 
 from typing import NamedTuple
 
-# Package-internal until Fun Time's audio companion lands its import; the
-# consumer gate declares a name only once somebody on a consumer's main reaches it.
-__all__: list[str] = []
+__all__ = ["Output", "pick_output"]
 
 _RENDER_ENDPOINTS = r"SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Render"
 _DESCRIPTION = "{a45c254e-df1c-4efd-8020-67d146a850e0},2"  # PKEY_Device_DeviceDesc
