@@ -20,7 +20,7 @@ jobs:
       # No siblings cloned: both are pinned in pyproject, so pip fetches the
       # tags this repo was built against.
       siblings: ""
-      python-version: "3.12"
+      python-version: "3.14"
       timeout-minutes: 6
       # tests/test_consumer_imports.py is this repo's dead-code gate, and it
       # asks the consumers: every caller of this package lives in another repo,
@@ -45,7 +45,7 @@ jobs:
     with:
       repo: genau
       siblings: "app_support shared_ui"
-      python-version: "3.12"
+      python-version: "3.14"
       timeout-minutes: 15
       sdl-video: dummy
 
@@ -58,23 +58,3 @@ jobs:
     uses: haglio/.github/.github/workflows/tag-the-landing.yml@main
     permissions:
       contents: write
-
-  # What the machine this is developed on would say. It runs 3.14 and the gate
-  # runs 3.12, and the two evaluate annotations differently (PEP 649), so a
-  # branch can be green here and fail to collect there. On `push` only: never on
-  # a pull request and never in the queue, so this reads without gating and
-  # nothing here can hold up a landing.
-  next-python:
-    if: github.event_name == 'push'
-    uses: haglio/.github/.github/workflows/merge-gate.yml@main
-    with:
-      siblings: "app_support shared_ui"
-      python-version: "3.14"
-      timeout-minutes: 6
-      # The same three checkouts the full suite gets, so the two legs collect the
-      # same tests and the reading is about the version and nothing else.
-      prepare: |
-        set -euo pipefail
-        for repo in genau fun_time origenerator; do
-          git clone --quiet --depth 1 "https://github.com/haglio/$repo.git" "../$repo"
-        done
