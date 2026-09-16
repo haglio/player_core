@@ -16,11 +16,11 @@ from player_core.robot_hand import (
     phase_for_position_fraction,
     phase_to_position,
     position_fraction,
-    sample_waveform,
     set_amplitude,
     set_center,
     set_speed,
     toggle_playing,
+    trace_window,
 )
 
 
@@ -429,28 +429,6 @@ class TestCycleShape:
         assert state.shape is WaveformShape.SAWTOOTH
 
 
-class TestSampleWaveform:
-    def test_returns_correct_number_of_points(self):
-        points = sample_waveform(WaveformShape.SINE, amplitude=100, center=50, n_points=60)
-        assert len(points) == 60
-
-    def test_all_points_in_0_1_range(self):
-        for shape in WaveformShape:
-            points = sample_waveform(shape, amplitude=100, center=50, n_points=30)
-            for p in points:
-                assert 0.0 <= p <= 1.0
-
-    def test_sine_first_point_near_zero(self):
-        points = sample_waveform(WaveformShape.SINE, amplitude=100, center=50, n_points=60)
-        assert points[0] == pytest.approx(0.0, abs=0.01)
-
-    def test_amplitude_50_scales_range(self):
-        points = sample_waveform(WaveformShape.SINE, amplitude=50, center=50, n_points=60)
-        # With amplitude=50, center=50: range is 2500-7500, normalized to ~0.25-0.75
-        assert min(points) >= 0.24
-        assert max(points) <= 0.76
-
-
 class TestAdjustSpeed:
     def test_increase(self):
         state = RobotHandState(speed=50)
@@ -550,3 +528,46 @@ def test_the_two_held_ends_are_the_ends_of_the_travel():
         assert {phase_to_position(phase / 8, amplitude=state.amplitude,
                                  center=state.center)
                 for phase in range(8)} == {center * POSITION_MAX // 100}
+
+
+class TestTheWaveTracedOnKnots:
+    """The single wave's picture for the readout: read on knots a fixed stretch
+    of phase apart, anchored to a phase that never wraps, so it holds still
+    between knots and slides rather than being redrawn at fixed columns."""
+
+    def test_the_knots_start_at_or_before_the_phase(self):
+        heights, slide = trace_window(
+            WaveformShape.SINE, 100, 50, phase=0.0, bpm=60.0, samples=5, span_s=1.0)
+
+        # A quarter second a knot at 60 a minute is a quarter cycle: floor,
+        # halfway, ceiling, halfway, floor, halfway.
+        assert heights == pytest.approx([0.0, 0.5, 1.0, 0.5, 0.0, 0.5], abs=1e-9)
+        assert slide == 0.0
+
+    def test_between_knots_the_heights_hold_and_the_slide_grows(self):
+        at_knot, _ = trace_window(
+            WaveformShape.SINE, 100, 50, phase=3.0, bpm=60.0, samples=5, span_s=1.0)
+
+        later, slide = trace_window(
+            WaveformShape.SINE, 100, 50, phase=3.1, bpm=60.0, samples=5, span_s=1.0)
+
+        assert later == pytest.approx(at_knot, abs=1e-9)
+        assert slide == pytest.approx(0.4)
+
+    def test_crossing_a_knot_moves_the_window_on_by_one(self):
+        at_knot, _ = trace_window(
+            WaveformShape.SINE, 100, 50, phase=3.0, bpm=60.0, samples=5, span_s=1.0)
+
+        later, slide = trace_window(
+            WaveformShape.SINE, 100, 50, phase=3.3, bpm=60.0, samples=5, span_s=1.0)
+
+        assert later[:-1] == pytest.approx(at_knot[1:], abs=1e-9)
+        assert slide == pytest.approx(0.2)
+
+    @pytest.mark.parametrize("shape", list(WaveformShape))
+    def test_every_shape_stays_on_the_axis_and_inside_the_dials(self, shape):
+        heights, _ = trace_window(shape, 50, 50, phase=0.7, bpm=45.0, samples=60, span_s=12.0)
+
+        assert len(heights) == 61
+        assert min(heights) >= 0.24
+        assert max(heights) <= 0.76

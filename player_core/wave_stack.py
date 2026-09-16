@@ -28,6 +28,7 @@ the caller says what time it is — and no randomness: drawing the ramps is
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 from .robot_hand import (
@@ -44,25 +45,39 @@ __all__ = [
     "dials",
     "position",
     "position_ahead",
+    "shape_at",
     "trace",
+    "trace_window",
 ]
 
 @dataclass
 class Ramp:
-    """A value on its way from *start* to *end*, taking *seconds* over it.
+    """A value on its way from *start* to *end*, taking *seconds* over it,
+    and the ramp that follows.
 
     This is the dynamic half of the motion: a travel that is 40 going on 20
     rather than a travel that is 30. Before it begins it reads *start* and after
-    it ends it reads *end*, so a finished ramp is simply a number until
-    something draws it a new one.
+    it ends it reads what follows -- ``then``, the next ramp, decided already
+    so the motion a window ahead is written once and the readout can show it
+    sliding; only a ramp with nothing chained on yet holds its *end*.  A
+    speed ramp may carry the *shape* the wave takes as it begins, so a swap
+    is scheduled with the ramp rather than rolled when it arrives.
     """
 
     start: float
     end: float
     begun: float = 0.0
     seconds: float = 0.0
+    then: Ramp | None = None
+    shape: WaveformShape | None = None
+
+    @property
+    def ends_at(self) -> float:
+        return self.begun + self.seconds
 
     def at(self, now: float) -> float:
+        if self.then is not None and now >= self.ends_at:
+            return self.then.at(now)
         if self.seconds <= 0:
             return self.end
         through = (now - self.begun) / self.seconds
@@ -73,23 +88,59 @@ class Ramp:
         return self.start + (self.end - self.start) * through
 
     def finished(self, now: float) -> bool:
-        return now >= self.begun + self.seconds
+        return now >= self.ends_at
+
+    def last(self) -> Ramp:
+        """The end of the chain: where the next ramp is chained on."""
+        ramp = self
+        while ramp.then is not None:
+            ramp = ramp.then
+        return ramp
 
     def resumed(self, value: float, now: float) -> Ramp:
         """This ramp carried on from *value* — a hand on the dial mid-glide.
 
         Same destination, and the time that was left to reach it, but starting
         from where the hand put it rather than snapping back to where the glide
-        had got to on its own.
+        had got to on its own.  What follows still follows.
         """
-        return Ramp(value, self.end, now,
-                    max(0.0, self.begun + self.seconds - now))
+        return Ramp(value, self.end, now, max(0.0, self.ends_at - now),
+                    then=self.then, shape=self.shape)
 
     def shifted(self, delta: float) -> Ramp:
-        """This ramp with both ends moved by *delta*, keeping its schedule —
-        a dial nudged by hand while cruise control is steering it."""
-        return Ramp(self.start + delta, self.end + delta, self.begun,
-                    self.seconds)
+        """This ramp and every one chained on with both ends moved by *delta*,
+        keeping their schedule — a dial nudged by hand while cruise control is
+        steering it."""
+        return Ramp(self.start + delta, self.end + delta, self.begun, self.seconds,
+                    then=None if self.then is None else self.then.shifted(delta),
+                    shape=self.shape)
+
+    def rescaled_ahead(self, factor: float) -> Ramp:
+        """Where this ramp is going, and every ramp chained on, scaled by
+        *factor* -- the travel the hand asked for from here on -- with where
+        it is now left alone."""
+        return Ramp(self.start, self.end * factor, self.begun, self.seconds,
+                    then=None if self.then is None else self.then.scaled(factor),
+                    shape=self.shape)
+
+    def scaled(self, factor: float) -> Ramp:
+        return Ramp(self.start * factor, self.end * factor, self.begun, self.seconds,
+                    then=None if self.then is None else self.then.scaled(factor),
+                    shape=self.shape)
+
+    def moved_ahead(self, delta: float) -> Ramp:
+        """Where this ramp is going, and every ramp chained on, moved by
+        *delta*, with where it is now left alone."""
+        return Ramp(self.start, self.end + delta, self.begun, self.seconds,
+                    then=None if self.then is None else self.then.shifted(delta),
+                    shape=self.shape)
+
+    def clamped(self, low: float, high: float) -> Ramp:
+        """This ramp and every one chained on kept within *low* and *high*."""
+        return Ramp(min(high, max(low, self.start)), min(high, max(low, self.end)),
+                    self.begun, self.seconds,
+                    then=None if self.then is None else self.then.clamped(low, high),
+                    shape=self.shape)
 
 
 @dataclass
@@ -101,6 +152,9 @@ class Wave:
     which is what the console shows — but a wave whose center is ramping while
     another's holds is a different motion from one where they move together, and
     that difference is the whole reason each carries its own.
+
+    ``shape`` is the shape the wave has now; a speed ramp chained on ahead may
+    carry the one it swaps to as it begins (:func:`shape_at`).
     """
 
     shape: WaveformShape = WaveformShape.SINE
@@ -150,6 +204,19 @@ class Dials:
     shape: WaveformShape
 
 
+def shape_at(wave: Wave, at: float) -> WaveformShape:
+    """The shape *wave* has at *at*: its own, swapped by every speed ramp that
+    has begun by then and carries one -- so a swap scheduled ahead shows in the
+    readout's picture before it happens, as the rest of the motion does."""
+    shape = wave.shape
+    ramp: Ramp | None = wave.speed
+    while ramp is not None and at >= ramp.begun:
+        if ramp.shape is not None:
+            shape = ramp.shape
+        ramp = ramp.then
+    return shape
+
+
 def room(travel: float, center: float) -> float:
     """*center*, moved in far enough that a swing of *travel* still fits.
 
@@ -191,16 +258,19 @@ def position(stack: WaveStack, now: float,
     total = landed.center
     for wave, phase in zip(stack.waves, phases):
         # position_fraction on its default dials is the bare waveform, 0-1.
-        raw = position_fraction(phase, shape=wave.shape)
+        raw = position_fraction(phase, shape=shape_at(wave, now))
         total += landed.scale * wave.amplitude.at(now) * (raw - 0.5)
     return min(100.0, max(0.0, total))
 
 
 def advance(stack: WaveStack, now: float, dt_s: float) -> None:
-    """Carry every wave's phase forward by *dt_s* seconds of motion."""
+    """Carry every wave's phase forward by *dt_s* seconds of motion, ending at
+    *now* -- at the speed each was running halfway through, which is what a
+    ramping speed comes to over a tick, and what the readout's projection of
+    the same stretch assumes."""
     for wave in stack.waves:
         wave.phase = phase_advanced(
-            wave.phase, bpm_for_speed(wave.speed.at(now)), dt_s)
+            wave.phase, bpm_for_speed(wave.speed.at(now - dt_s / 2)), dt_s)
 
 
 def position_ahead(stack: WaveStack, now: float, lead_s: float) -> float:
@@ -233,10 +303,42 @@ def trace(stack: WaveStack, now: float, samples: int,
         at = now + i * step
         heights.append(position(stack, at, phases) / 100.0)
         phases = [
-            phase + step * bpm_for_speed(wave.speed.at(at)) / 60.0
+            phase + step * bpm_for_speed(wave.speed.at(at + step / 2)) / 60.0
             for wave, phase in zip(stack.waves, phases)
         ]
     return heights
+
+
+def trace_window(stack: WaveStack, now: float, samples: int, span_s: float,
+                 ) -> tuple[list[float], float]:
+    """The sum as the readout draws it: *samples* + 1 heights on knots a fixed
+    stretch of the motion's clock apart, the first at or before *now* and the
+    last just past the far edge, and how far past the first knot *now* sits as
+    a fraction of one.
+
+    Read on knots rather than from *now* so the picture holds still between
+    knots and slides by the fraction, instead of being redrawn at fixed
+    columns every frame (:func:`trace` is that redraw).  The phases at the
+    first knot are the waves' own carried back by the fraction of a knot they
+    have moved since, at the speed each was running halfway back -- exact for
+    a steady speed, and as near as makes no difference for a ramping one.
+    """
+    step = span_s / max(1, samples - 1)
+    first = math.floor(now / step) * step
+    back = now - first
+    phases = [
+        wave.phase - back * bpm_for_speed(wave.speed.at(now - back / 2)) / 60.0
+        for wave in stack.waves
+    ]
+    heights = []
+    for i in range(samples + 1):
+        at = first + i * step
+        heights.append(position(stack, at, phases) / 100.0)
+        phases = [
+            phase + step * bpm_for_speed(wave.speed.at(at + step / 2)) / 60.0
+            for wave, phase in zip(stack.waves, phases)
+        ]
+    return heights, back / step
 
 
 def biggest(stack: WaveStack, now: float) -> Wave:
@@ -259,7 +361,7 @@ def dials(stack: WaveStack, now: float) -> Dials:
     landed = fit(stack, now)
     lead = stack.waves[0]
     return Dials(travel=landed.travel, center=landed.center,
-                 speed=lead.speed.at(now), shape=lead.shape)
+                 speed=lead.speed.at(now), shape=shape_at(lead, now))
 
 
 def rest_at_floor(stack: WaveStack) -> None:

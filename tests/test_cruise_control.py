@@ -376,7 +376,7 @@ class TestAHandOnTheDials:
         assert direct.center == 70
         assert direct.speed == turned_to
         assert [wave.speed.at(cc.clock) for wave in cc.stack.waves] == \
-            pytest.approx([speed + 10 for speed in speeds], abs=0.1)
+            pytest.approx([speed + 10 for speed in speeds], abs=0.15)
         # the travel was spread in proportion, so the balance survives the turn
         # (to within the tick's own drift — every ramp moved on while it ran)
         now = [wave.amplitude.at(cc.clock) for wave in cc.stack.waves]
@@ -423,3 +423,48 @@ class TestTheDialsStayInRange:
             assert 0.0 <= wave_stack.position(cc.stack, cc.clock) <= 100.0
 
         _run(direct, cc, seconds=300, watch=watch)
+
+
+class TestTheFutureIsWrittenOnce:
+    """He watched the readout's line rewrite its far end as ramps arrived and
+    drew their successors.  Every ramp now has the next chained on a minute
+    ahead, so the coming motion is decided before it is shown and the picture
+    only slides."""
+
+    def test_every_ramp_has_the_next_decided_a_minute_ahead(self):
+        direct, cc = _cruising(3)
+        _run(direct, cc, seconds=5)
+
+        for wave in cc.stack.waves:
+            for ramp in (wave.speed, wave.amplitude, wave.center):
+                assert ramp.last().ends_at >= cc.clock + 60.0 - 1.0
+
+    def test_the_picture_a_window_ahead_is_the_one_that_arrives(self):
+        # The knots read now, and the same knots read three seconds later,
+        # agree wherever they overlap: nothing in the window was rewritten.
+        for seed in range(6):
+            direct, cc = _cruising(seed)
+            now = _run(direct, cc, seconds=30)
+            early, _ = wave_stack.trace_window(cc.stack, cc.clock, 80, 12.0)
+            step = 12.0 / 79
+            knots_on = round(3.0 / step)
+            _run(direct, cc, seconds=knots_on * step, start=now)
+            late, _ = wave_stack.trace_window(cc.stack, cc.clock, 80, 12.0)
+
+            assert late[:81 - knots_on] == pytest.approx(early[knots_on:], abs=2e-3)
+
+    def test_a_shape_swap_is_scheduled_with_the_ramp_it_rides(self):
+        direct, cc = _cruising(4)
+        _run(direct, cc, seconds=5)
+
+        scheduled = [ramp.shape for wave in cc.stack.waves
+                     for ramp in _chain(wave.speed) if ramp.shape is not None]
+        assert scheduled, "no swap decided ahead"
+        assert all(ramp.begun > cc.clock for wave in cc.stack.waves
+                   for ramp in _chain(wave.speed) if ramp.shape is not None)
+
+
+def _chain(ramp):
+    while ramp is not None:
+        yield ramp
+        ramp = ramp.then

@@ -14,7 +14,11 @@ from pathlib import Path
 import pytest
 
 from player_core.clip_advance import ClipAdvanceState
-from player_core.cruise_control import CruiseControlState
+from player_core.cruise_control import (
+    CruiseControlState,
+    enable_cruise_control,
+    tick_cruise_control,
+)
 from player_core.flag import Flag
 from player_core.genau_controls import GenauControls
 from player_core.genau_readout import GenauReadout
@@ -201,6 +205,46 @@ class TestTheSpanTheTraceIsDrawnOver:
 
         assert shown[-1].drive.trace_seconds == pytest.approx(
             60.0 * beats_per_loop / MIN_BPM)
+
+
+class TestTheTraceHoldsStillAndSlides:
+    """He watched the blue line writhe in every mode: it was re-read from the
+    clock at every publish, and with a few samples to a swing the heights at
+    fixed columns changed every frame.  Every mode is read on knots now."""
+
+    def test_the_wave_holds_its_picture_between_knots(self):
+        sender = FakeSender()
+        shown = []
+        readout = _readout(tcode_sender=sender, set_console=shown.append)
+        readout.update(1.0)
+        # A twelfth of a knot on: the readout spans 12 s over 80 samples, and
+        # at speed 50 the phase moves 0.0126 cycles in 0.05 s.
+        sender.motion_phase = 0.0126
+
+        readout.update(1.05)
+
+        assert shown[-1].drive.waveform == shown[-2].drive.waveform
+        assert shown[-1].drive.slide > shown[-2].drive.slide
+        assert shown[-1].drive.edge is not None
+
+    def test_cruise_controls_sum_holds_its_picture_between_knots(self):
+        import random
+
+        hand = RobotHandState(playing=True, speed=50, amplitude=60)
+        cruise = CruiseControlState(rng=random.Random(2))
+        enable_cruise_control(cruise)
+        tick_cruise_control(hand, cruise, now=1.0)
+        tick_cruise_control(hand, cruise, now=1.05)
+        controls = _controls(direct=hand, cruise=cruise)
+        shown = []
+        readout = _readout(controls=controls, set_console=shown.append)
+        readout.update(1.05)
+        tick_cruise_control(hand, cruise, now=1.1)
+
+        readout.update(1.1)
+
+        assert shown[-1].drive.waveform == pytest.approx(shown[-2].drive.waveform, abs=1e-4)
+        assert shown[-1].drive.slide > shown[-2].drive.slide
 
 
 class TestTheTraceUnderTheLearnedMotion:

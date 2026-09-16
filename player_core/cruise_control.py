@@ -7,9 +7,10 @@ its own idea of what "vary it for me" means.
 What it hands the device is :mod:`player_core.wave_stack`'s — waves summed, each
 with its own travel, center and speed. This is the part with the dice in it. It
 decides how many waves there are and how far below the main one the others run,
-and then never stops: every ramp that arrives somewhere is given somewhere else
-to be, over its own stretch of seconds, so no dial in the motion is ever simply
-a number.
+and then never stops: every ramp has the next one chained on, decided a minute
+ahead of the motion's clock, so no dial in the motion is ever simply a number
+-- and the readout's picture of what is coming is written once and only slides
+into view, never redrawn as a ramp arrives.
 
 Four things it is careful about.
 
@@ -23,9 +24,10 @@ anchor, and it moves it by exactly what the hand turned.
 
 **What rides on what.** The first wave *is* the motion: it keeps most of the
 travel and runs at the pace the dial names. Every other one runs far slower — a
-fifth of it down to a fortieth — and gets what travel is left, so what it adds
-is a swell carrying the whole motion from base to tip and back. A wave at half
-the main pace with as much travel is not a swell; it is a second motion
+fifth of it down to a fortieth, measured against the least the main wave runs
+while the swell's own ramp lasts — and gets what travel is left, so what it
+adds is a swell carrying the whole motion from base to tip and back. A wave at
+half the main pace with as much travel is not a swell; it is a second motion
 interfering with the first, and that interference is what makes a stack sound
 busy while feeling weak — no two swings the same depth, and none of them the
 depth you asked for.
@@ -94,10 +96,12 @@ _MAIN_SHARE = (0.68, 0.88)
 _SPEED_S = (10.0, 40.0)
 _TRAVEL_S = (8.0, 30.0)
 _CENTER_S = (15.0, 60.0)
-# Where each wave's speed wanders, in dial units either side of the session's
-# base. The dial is exponential — about 18 units doubles the cycles a minute —
-# so the first wave is the motion you set, and the ones under it run at a fifth
-# to a fortieth of it: swells, not partials.
+# Where the main wave's speed wanders, in dial units either side of the
+# session's base, and where each swell's runs, in dial units under the least
+# the main wave runs while the swell's ramp lasts. The dial is exponential —
+# about 18 units doubles the cycles a minute — so the first wave is the motion
+# you set, and the ones under it run at a fifth to a fortieth of it: swells,
+# not partials.
 _MAIN_SPAN = (-12.0, 12.0)
 _UNDER_SPANS = ((-72.0, -45.0), (-95.0, -70.0))
 # The base drifts, so an hour of cruising is not all one pace — but only within
@@ -109,6 +113,12 @@ _BASE_S = (60.0, 120.0)
 # What a swell may be shaped like. The main wave can be any of them; a swell is
 # an envelope, and one that snaps between two levels is a lurch, not a carry.
 _SWELL_SHAPES = (WaveformShape.SINE, WaveformShape.TRIANGLE)
+# How far ahead of the motion's clock every ramp is decided.  The readout shows
+# the coming motion, and a motion whose next stretch is drawn only when the
+# last one arrives rewrites the picture as it is being watched; decided this
+# far ahead -- past any span the readout draws -- the future is written once
+# and only slides into view.
+_DECIDED_AHEAD_S = 60.0
 
 
 @dataclass
@@ -137,7 +147,8 @@ class CruiseControlState:
     anchor_travel: float = 100.0
     anchor_center: float = 50.0
     base_speed: float = 50.0
-    bands: list[tuple[float, float]] = field(default_factory=list)
+    # Where the main wave's speed is drawn from: the base, either side.
+    band: tuple[float, float] = (50.0, 50.0)
     # How the travel is divided: most of it to the wave the dial names.
     shares: list[float] = field(default_factory=list)
     next_base: float = 0.0
@@ -176,7 +187,6 @@ def disable_cruise_control(state: CruiseControlState) -> float | None:
              if state.stack else None)
     state.active = False
     state.stack = WaveStack()
-    state.bands = []
     state.shares = []
     state.wrote = None
     return phase
@@ -231,11 +241,9 @@ def _within(low: float, high: float, value: float) -> float:
     return min(high, max(low, value))
 
 
-def _bands(base: float, count: int) -> list[tuple[float, float]]:
-    """Where each wave's speed may wander: the main one first, then the swells,
-    each running slower than the one before it."""
-    spans = (_MAIN_SPAN,) + _UNDER_SPANS[:max(0, count - 1)]
-    return [(_clamped(base + low), _clamped(base + high)) for low, high in spans]
+def _band(base: float) -> tuple[float, float]:
+    """Where the main wave's speed may wander."""
+    return (_clamped(base + _MAIN_SPAN[0]), _clamped(base + _MAIN_SPAN[1]))
 
 
 def _shares(rng: random.Random, count: int) -> list[float]:
@@ -276,10 +284,66 @@ def _settled(value: float, now: float) -> Ramp:
 
 def _onward(cc: CruiseControlState, ramp: Ramp, span: tuple[float, float],
             seconds: tuple[float, float]) -> Ramp:
-    """*ramp* given somewhere new to be — from where it got to, to a fresh draw
-    out of *span*, over a fresh stretch of seconds."""
-    return Ramp(ramp.at(cc.clock), cc.rng.uniform(*span), cc.clock,
-                cc.rng.uniform(*seconds))
+    """Somewhere new for the chain ending in *ramp* to be next — from where
+    that ramp arrives, to a fresh draw out of *span*, over a fresh stretch of
+    seconds, beginning the moment it arrives."""
+    return Ramp(ramp.end, cc.rng.uniform(*span), ramp.ends_at, cc.rng.uniform(*seconds))
+
+
+def _decided_ahead(cc: CruiseControlState, ramp: Ramp, span: tuple[float, float],
+                   seconds: tuple[float, float], *, until: float,
+                   shapes: tuple[WaveformShape, ...] | None = None) -> None:
+    """Chain ramps onto *ramp* until they reach past *until*.
+
+    A speed chain (*shapes* given) schedules a shape swap with each ramp that
+    follows a drawn one -- never with the one that follows the ramp born
+    finished at the takeover, whose whole point is that it cannot be felt.
+    """
+    last = ramp.last()
+    while last.ends_at < until:
+        following = _onward(cc, last, span, seconds)
+        if shapes is not None and last.seconds > 0:
+            following.shape = cc.rng.choice(list(shapes))
+        last.then = following
+        last = following
+
+
+def _decided_under(cc: CruiseControlState, ramp: Ramp, main: Ramp,
+                   span: tuple[float, float], *, until: float) -> None:
+    """A swell's speed chained on until *until*, each ramp drawn under the
+    main wave: *span* below the least the main runs while the ramp lasts, so a
+    swell is never within earshot of the pace you feel, whatever the main
+    does meanwhile -- and never below the dial's floor, where the slowest
+    swells pile up."""
+    last = ramp.last()
+    while last.ends_at < until:
+        seconds = cc.rng.uniform(*_SPEED_S)
+        lowest = _lowest(main, last.ends_at, last.ends_at + seconds)
+        following = Ramp(last.end, _clamped(lowest + cc.rng.uniform(*span)),
+                         last.ends_at, seconds)
+        if last.seconds > 0:
+            following.shape = cc.rng.choice(list(_SWELL_SHAPES))
+        last.then = following
+        last = following
+
+
+def _lowest(ramp: Ramp, since: float, until: float) -> float:
+    """The least a chain reads between *since* and *until*: at one end of the
+    stretch, or where a ramp inside it arrives, each being straight between."""
+    values = [ramp.at(since), ramp.at(until)]
+    link: Ramp | None = ramp
+    while link is not None:
+        if since < link.ends_at < until:
+            values.append(link.at(link.ends_at))
+        link = link.then
+    return min(values)
+
+
+def _promoted(ramp: Ramp, now: float) -> Ramp:
+    """The ramp active at *now*: every finished one before it is dropped."""
+    while ramp.then is not None and ramp.finished(now):
+        ramp = ramp.then
+    return ramp
 
 
 def _draw_the_waves(cc: CruiseControlState, robot_hand: RobotHandState,
@@ -299,7 +363,7 @@ def _draw_the_waves(cc: CruiseControlState, robot_hand: RobotHandState,
     cc.anchor_travel = float(robot_hand.amplitude)
     cc.anchor_center = float(robot_hand.intended_center)
     cc.shares = _shares(cc.rng, count)
-    cc.bands = _bands(cc.base_speed, count)
+    cc.band = _band(cc.base_speed)
     cc.next_base = now + cc.rng.uniform(*_BASE_S)
     cc.wrote = None
     cc.stack = WaveStack(waves=[
@@ -322,24 +386,30 @@ def _onward_all(cc: CruiseControlState) -> None:
         cc.base_speed = _clamped(_within(
             cc.anchor_speed - _BASE_SWING, cc.anchor_speed + _BASE_SWING,
             cc.base_speed + cc.rng.choice(_BASE_STEP)))
-        cc.bands = _bands(cc.base_speed, count)
+        cc.band = _band(cc.base_speed)
         cc.next_base = now + cc.rng.uniform(*_BASE_S)
-    for index, (wave, band) in enumerate(zip(waves, cc.bands)):
-        if wave.speed.finished(now):
-            # A shape swapping under the phase steps the position a little, so
-            # it is not free: a wave takes one only when its speed arrives
-            # somewhere, and never on the ramp born finished at the takeover,
-            # whose whole point is that it cannot be felt.
-            if wave.speed.seconds > 0:
-                wave.shape = cc.rng.choice(
-                    list(WaveformShape) if index == 0 else list(_SWELL_SHAPES))
-            wave.speed = _onward(cc, wave.speed, band, _SPEED_S)
-        if wave.amplitude.finished(now):
-            wave.amplitude = _onward(cc, wave.amplitude,
-                                     _travel_span(cc, index), _TRAVEL_S)
-        if wave.center.finished(now):
-            wave.center = _onward(cc, wave.center,
-                                  _center_span(cc, count), _CENTER_S)
+    until = now + _DECIDED_AHEAD_S
+    for wave in waves:
+        # A ramp that has arrived hands over to the one decided after it.  A
+        # shape swapping under the phase steps the position a little, so it is
+        # not free: a wave takes one only as a speed ramp begins, and the swap
+        # was scheduled with that ramp when it was decided -- taken up here,
+        # and cleared so a shape set by hand afterwards is not overridden by it.
+        wave.speed = _promoted(wave.speed, now)
+        if wave.speed.shape is not None and now >= wave.speed.begun:
+            wave.shape, wave.speed.shape = wave.speed.shape, None
+        wave.amplitude = _promoted(wave.amplitude, now)
+        wave.center = _promoted(wave.center, now)
+    # The main wave's pace first, decided far enough past *until* that every
+    # swell's ramp drawn up to *until* runs under a main wave already decided.
+    main = waves[0]
+    _decided_ahead(cc, main.speed, cc.band, _SPEED_S, until=until + _SPEED_S[1],
+                   shapes=tuple(WaveformShape))
+    for index, wave in enumerate(waves):
+        if index > 0:
+            _decided_under(cc, wave.speed, main.speed, _UNDER_SPANS[index - 1], until=until)
+        _decided_ahead(cc, wave.amplitude, _travel_span(cc, index), _TRAVEL_S, until=until)
+        _decided_ahead(cc, wave.center, _center_span(cc, count), _CENTER_S, until=until)
 
 
 def _write_dials(cc: CruiseControlState, robot_hand: RobotHandState) -> None:
@@ -371,13 +441,17 @@ def _hand_turns(cc: CruiseControlState, robot_hand: RobotHandState) -> None:
     waves = cc.stack.waves
     count = len(waves)
     if robot_hand.amplitude != amplitude:
+        was = cc.anchor_travel
         cc.anchor_travel = _within(
             0.0, 100.0, cc.anchor_travel + robot_hand.amplitude - amplitude)
+        # Every ramp already decided ahead was drawn off the old anchor, so
+        # where each is going, and every one after it, is scaled to the new.
+        factor = cc.anchor_travel / was if was > 0 else 1.0
         travel = sum(wave.amplitude.at(now) for wave in waves)
         for wave in waves:
             part = (wave.amplitude.at(now) * robot_hand.amplitude / travel
                     if travel > 0 else robot_hand.amplitude / count)
-            wave.amplitude = wave.amplitude.resumed(part, now)
+            wave.amplitude = wave.amplitude.resumed(part, now).rescaled_ahead(factor)
     if robot_hand.intended_center != center:
         cc.anchor_center = _within(
             *_CENTER_LIMITS,
@@ -385,15 +459,16 @@ def _hand_turns(cc: CruiseControlState, robot_hand: RobotHandState) -> None:
         moved = (robot_hand.intended_center
                  - sum(wave.center.at(now) for wave in waves)) / count
         for wave in waves:
-            wave.center = wave.center.resumed(wave.center.at(now) + moved, now)
+            wave.center = wave.center.resumed(wave.center.at(now) + moved, now).moved_ahead(moved)
     if robot_hand.speed != speed:
         delta = robot_hand.speed - speed
         cc.anchor_speed = _clamped(cc.anchor_speed + delta)
         cc.base_speed = _clamped(cc.base_speed + delta)
-        cc.bands = _bands(cc.base_speed, count)
+        cc.band = _band(cc.base_speed)
         for wave in waves:
-            shifted = wave.speed.shifted(delta)
-            wave.speed = Ramp(_clamped(shifted.start), _clamped(shifted.end),
-                              shifted.begun, shifted.seconds)
+            wave.speed = wave.speed.shifted(delta).clamped(float(MIN_SPEED), float(MAX_SPEED))
     if robot_hand.shape is not shape:
         waves[0].shape = robot_hand.shape  # the console named the main wave's
+        # ...and holds until the next swap already scheduled, not one this
+        # ramp still carried from before.
+        waves[0].speed.shape = None
