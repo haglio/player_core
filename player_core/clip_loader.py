@@ -42,12 +42,23 @@ class ClipLoadController:
     def is_busy(self) -> bool:
         return self.load_state.loading or self.prefetch_state.loading
 
-    def request_clip_load(self, path: Path) -> None:
-        if path in self.clip_store.clip_cache:
-            return
+    def frames_ready(self, path: Path) -> bool:
+        """Whether *path* can go on screen now, taking up a prefetch that landed.
 
-        if self._adopt_decoded_frames(path):
+        The two caches are one question to everyone outside this class: a clip
+        decoded ahead is as ready as one that has been up before, and asking
+        moves it across.
+        """
+        if path in self.clip_store.clip_cache:
+            return True
+        if self.clip_store.adopt_decoded_frames(
+                path, protected_paths=self._clip_on_screen()):
             self.logger.info("Adopted prefetched clip %s", path.name)
+            return True
+        return False
+
+    def request_clip_load(self, path: Path) -> None:
+        if self.frames_ready(path):
             return
 
         self.logger.info("Loading clip %s (no prefetch available)", path.name)
@@ -59,9 +70,7 @@ class ClipLoadController:
         )
 
     def request_prefetch(self, path: Path) -> None:
-        if path in self.clip_store.clip_cache or path in self.clip_store.decoded_frame_cache:
-            return
-        if self.is_busy:
+        if self.clip_store.holds(path) or self.is_busy:
             return
 
         self.logger.info("Prefetching clip %s", path.name)
@@ -81,8 +90,8 @@ class ClipLoadController:
         if err:
             return
 
-        self._cache_decoded_frames(path, frames)
-        self._adopt_decoded_frames(path)
+        self.clip_store.cache_clip(
+            path, frames, protected_paths=self._clip_on_screen())
 
         if self.current_clip_path_getter() == path:
             self.on_active_clip_loaded()
@@ -97,20 +106,12 @@ class ClipLoadController:
             return
 
         self.logger.info("Prefetch ready: %s (%d frames)", path.name, len(frames) if frames else 0)
-        self._cache_decoded_frames(path, frames)
-
-    def _cache_decoded_frames(self, path: Path, frames: list) -> None:
         self.clip_store.cache_decoded_frames(
-            path,
-            frames,
-            protected_paths={self.current_clip_path_getter()},
-        )
+            path, frames, protected_paths=self._clip_on_screen())
 
-    def _adopt_decoded_frames(self, path: Path) -> bool:
-        return self.clip_store.adopt_decoded_frames(
-            path,
-            protected_paths={self.current_clip_path_getter()},
-        )
+    def _clip_on_screen(self) -> set[Path]:
+        """What trimming may never take: whatever is up now."""
+        return {self.current_clip_path_getter()}
 
     def _decode_thread_fn(self, path: Path, request_id: int, state, log_error) -> None:
         # Not the frame loop's clock: this runs on a decode thread and the two

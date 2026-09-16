@@ -115,10 +115,22 @@ class ClipCacheStore:
             protected_paths=protected_paths,
         )
 
+    def holds(self, path: Path) -> bool:
+        """Whether this clip's frames are in hand at all -- up, or decoded ahead."""
+        return path in self.clip_cache or path in self.decoded_frame_cache
+
     def clip_entry_for(self, path: Path) -> dict:
         entry = self.clip_cache[path]
         self.clip_cache.move_to_end(path)
         return entry
+
+    def cache_clip(self, path: Path, frames: list, *, protected_paths: set[Path] | None = None) -> None:
+        """Keep *frames* as the clip at *path*, ready to go on screen."""
+        self.clip_cache[path] = {
+            "frames": frames,
+        }
+        self.clip_cache.move_to_end(path)
+        self.trim_cache(protected_paths=protected_paths)
 
     def cache_decoded_frames(self, path: Path, frames: list, *, protected_paths: set[Path] | None = None) -> None:
         self.decoded_frame_cache[path] = frames
@@ -126,14 +138,15 @@ class ClipCacheStore:
         self.trim_decoded_cache(protected_paths=protected_paths)
 
     def adopt_decoded_frames(self, path: Path, *, protected_paths: set[Path] | None = None) -> bool:
-        frames = self.decoded_frame_cache.get(path)
+        """Move *path*'s decode-ahead frames into the clips-on-screen cache.
+
+        Moved rather than copied: decode-ahead room is for clips that are not up
+        yet, and a clip left on both piles holds one of the two slots against
+        its own neighbors for as long as it is showing.
+        """
+        frames = self.decoded_frame_cache.pop(path, None)
         if frames is None:
             return False
 
-        self.decoded_frame_cache.move_to_end(path)
-        self.clip_cache[path] = {
-            "frames": frames,
-        }
-        self.clip_cache.move_to_end(path)
-        self.trim_cache(protected_paths=protected_paths)
+        self.cache_clip(path, frames, protected_paths=protected_paths)
         return True

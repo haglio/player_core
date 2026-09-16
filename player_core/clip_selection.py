@@ -50,14 +50,14 @@ class ClipSelectionController:
         return self._pending_path.name if self._pending_path is not None else None
 
     def set_current_clip(self, path: Path) -> None:
-        """Switch to a clip immediately, loading it if it isn't cached yet."""
+        """Switch to a clip immediately, decoding it if its frames aren't in hand."""
         self._pending_path = None
         self._show(path)
 
-        if path not in self.clip_store.clip_cache:
-            self.loader.request_clip_load(path)
-        if path in self.clip_store.clip_cache:
+        if self.loader.frames_ready(path):
             self._prepare_active_clip()
+        else:
+            self.loader.request_clip_load(path)
 
     def reorder(self, clips: list[Path]) -> None:
         """Browse *clips* — the folder rescanned in a new order — from the top.
@@ -70,12 +70,13 @@ class ClipSelectionController:
         self.set_current_clip(self.sequence.take_up(clips))
 
     def step(self, delta: int) -> None:
-        """Advance to next/prev clip.  If the clip is cached, switch
-        immediately.  Otherwise keep the current clip playing and defer
-        the switch until the new clip is loaded."""
+        """Advance to next/prev clip.  A clip whose frames are in hand -- up
+        before, or decoded ahead of being asked for -- goes up at once;
+        otherwise the current clip keeps playing and the switch waits for the
+        decode."""
         path = self.sequence.step(delta)
 
-        if path in self.clip_store.clip_cache:
+        if self.loader.frames_ready(path):
             self._switch_to(path)
             return
 
@@ -102,10 +103,10 @@ class ClipSelectionController:
 
     def adopt_pending_clip(self) -> bool:
         """Called from the refresh loop.  If a deferred clip has finished
-        loading, switch the renderer to it and return True."""
+        decoding, switch the renderer to it and return True."""
         if self._pending_path is None:
             return False
-        if self._pending_path not in self.clip_store.clip_cache:
+        if not self.loader.frames_ready(self._pending_path):
             return False
 
         self._switch_to(self._pending_path)
@@ -116,7 +117,7 @@ class ClipSelectionController:
             return
 
         for candidate in self.sequence.nearby_candidates():
-            if candidate not in self.clip_store.clip_cache and candidate not in self.clip_store.decoded_frame_cache:
+            if not self.clip_store.holds(candidate):
                 self.loader.request_prefetch(candidate)
                 return
 
