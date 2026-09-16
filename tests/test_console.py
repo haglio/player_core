@@ -5,6 +5,8 @@ import itertools
 import json
 from pathlib import Path
 
+import pytest
+
 from player_core.console import (
     _GLYPHS,
     BUTTON,
@@ -80,6 +82,20 @@ class TestOsr2Row:
 
         assert broker.glyph == BROKER_ICON
         assert broker.width == BUTTON
+
+
+class TestTheDeviceRunningItself:
+    """Auto mode is the OSR2 on its own firmware: the broker stops forwarding
+    the script's T-Code and Genau is not sending either.  Asked of the model
+    rather than compared against the word, because two apps outside this
+    package draw a picture that depends on the answer."""
+
+    def test_auto_is_the_device_driving_itself(self):
+        assert ConsoleModel(osr2="auto").device_drives_itself is True
+
+    @pytest.mark.parametrize("osr2", ["off", "funscript", "robot_hand", "idle"])
+    def test_nothing_else_is(self, osr2):
+        assert ConsoleModel(osr2=osr2).device_drives_itself is False
 
 
 class TestTransport:

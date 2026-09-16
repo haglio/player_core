@@ -10,6 +10,7 @@ layer driving the device.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from . import learned_motion, wave_stack
@@ -17,7 +18,14 @@ from .console import ConsoleModel, read_console
 from .console_hud import ConsoleHud, ModeHud
 from .drive_readout import TRACE_SAMPLES, DriveHud, publish_drive
 from .genau_controls import GenauControls
-from .robot_hand import MIN_BPM, POSITION_MAX, control_limits, trace_window
+from .robot_hand import (
+    MIN_BPM,
+    POSITION_MAX,
+    WaveformShape,
+    control_limits,
+    position_fraction,
+    trace_window,
+)
 
 __all__: list[str] = []  # package-internal: no sibling reaches anything here
 
@@ -31,6 +39,43 @@ _DRIVE_PUBLISH_INTERVAL_S = 0.04
 # times a minute, so the file is read far less often than the readout is
 # rebuilt.
 _CONSOLE_READ_INTERVAL_S = 0.2
+
+# The travel the device uses when it runs itself: the whole axis, centered.  Its
+# free mode is firmware, and the only things it says over serial are its tempo
+# and its downbeat -- nothing about how far it swings -- so a picture of it is a
+# plain swing end to end.
+_AUTO_AMPLITUDE = 100
+_AUTO_CENTER = 50
+
+
+@dataclass(frozen=True)
+class AutoMotion:
+    """The motion the OSR2 makes for itself, as much of it as the PC can see.
+
+    ``phase`` is where the broker's beat has reached and ``bpm`` how fast it is
+    going round -- the same beat the clip's own frames are scrubbed by while the
+    device has the room, so the line and the picture move together.
+    """
+
+    phase: float
+    bpm: float
+
+    @property
+    def height(self) -> float:
+        """Where the swing is now, 0-1 of the device's travel."""
+        return position_fraction(self.phase, amplitude=_AUTO_AMPLITUDE,
+                                 center=_AUTO_CENTER)
+
+    def trace(self, seconds: float, beats_per_loop: float,
+              ) -> tuple[list[float], float, float]:
+        """The swing over *seconds* as the readout draws every trace: the
+        heights on knots, how far the line is shifted, and the knot past the
+        border."""
+        heights, slide = trace_window(
+            WaveformShape.SINE, _AUTO_AMPLITUDE, _AUTO_CENTER, phase=self.phase,
+            bpm=self.bpm / beats_per_loop if self.bpm > 0 else 0.0,
+            samples=TRACE_SAMPLES, span_s=seconds)
+        return heights[:TRACE_SAMPLES], slide, heights[TRACE_SAMPLES]
 
 
 class GenauReadout:
@@ -61,14 +106,18 @@ class GenauReadout:
         self._console_model = ConsoleModel(mode="genau")
         self._last_console_read = 0.0
 
-    def blank(self) -> None:
-        """Under the broker there is no drive of Genau's own to show."""
-        self.set_console(None)
-
-    def update(self, now: float) -> None:
+    def update(self, now: float, auto: AutoMotion | None = None) -> None:
         """Build the drive readout, publish it for the console, and draw the
-        whole console for Genau's own window."""
-        hud = self._build_drive_hud()
+        whole console for Genau's own window.
+
+        *auto* is the device running itself, and None while the Robot Hand
+        drives.  Either way there is a line and a panel: the room's one set of
+        controls is up whoever has the device, and the line is a picture of
+        whatever is actually reaching it.  The numbers beside the line stay the
+        hand's -- what its controls will move when it takes the device back --
+        and whoever draws them dims them, exactly as while a funscript drives.
+        """
+        hud = self._build_drive_hud(auto)
         self._publish_drive(hud, now)
         if now - self._last_console_read >= _CONSOLE_READ_INTERVAL_S and self.console_file:
             self._last_console_read = now
@@ -87,30 +136,35 @@ class GenauReadout:
             console=self._console_model, drive=hud,
         ))
 
-    def _build_drive_hud(self) -> DriveHud:
+    def _build_drive_hud(self, auto: AutoMotion | None = None) -> DriveHud:
         ds = self.robot_hand
-        position = 0
-        start_phase = 0.0
-        let_go = None
-        if self.tcode_sender is not None:
-            position = self.tcode_sender.current_position()
-            start_phase = self.tcode_sender.motion_phase
-            if self.tcode_sender.let_go_position is not None:
-                # The height the device was handed over at, 0-1 — the one number
-                # the trace cannot recompute once the phase has rested.
-                let_go = self.tcode_sender.let_go_position / POSITION_MAX
-
-        phase_per_second = ds.bpm / 60.0 / self.beats_per_loop if ds.bpm > 0 else 1.0
         # Show enough time that one whole cycle is visible at the slowest speed.
         # Published with the readout, because a funscript drawn on this same trace
         # has to be sampled over the same stretch and the console has nowhere
         # else to learn it — two spans would make a handoff look like a jump.
         display_seconds = 60.0 * self.beats_per_loop / MIN_BPM
+        # Under the broker the sender's position and its let-go height are both
+        # stale: the device is where the broker's beat puts it, and a handoff
+        # Genau made before the device took itself away describes nothing here.
+        if auto is not None:
+            position, let_go = round(auto.height * POSITION_MAX), None
+            waveform, slide, edge = auto.trace(display_seconds, self.beats_per_loop)
+        else:
+            position, let_go, start_phase = 0, None, 0.0
+            if self.tcode_sender is not None:
+                position = self.tcode_sender.current_position()
+                start_phase = self.tcode_sender.motion_phase
+                if self.tcode_sender.let_go_position is not None:
+                    # The height the device was handed over at, 0-1 — the one
+                    # number the trace cannot recompute once the phase has rested.
+                    let_go = self.tcode_sender.let_go_position / POSITION_MAX
+            waveform, slide, edge = self._trace(
+                display_seconds, start_phase,
+                ds.bpm / 60.0 / self.beats_per_loop if ds.bpm > 0 else 1.0)
 
         # Which arrow would do nothing — the readout dims those.  The same six
         # the status file publishes, from the same answer.
         limits = control_limits(ds)
-        waveform, slide, edge = self._trace(display_seconds, start_phase, phase_per_second)
         return DriveHud(
             speed=ds.speed,
             amplitude=ds.amplitude,

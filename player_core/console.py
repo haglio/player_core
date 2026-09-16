@@ -63,6 +63,11 @@ GROUP_GAP = 12  # between groups of buttons that mean different things
 # says by lighting both, and none is neither, which it says by lighting neither.
 FULL, SHORTS, MIXED, NONE = "full", "shorts", "mixed", "none"
 
+# What ConsoleModel.osr2 says when the device is running its own firmware --
+# named here, beside the field, because the answer changes what two apps
+# outside this package draw (see ConsoleModel.device_drives_itself).
+OSR2_AUTO = "auto"
+
 _SHAPE_LABELS = {"rounded_square": "Square"}
 
 
@@ -237,6 +242,18 @@ class ConsoleModel:
     # this module still builds.
     rows: tuple[tuple[Button, ...], ...] = ()
     osr2_controls: tuple[Button, ...] = ()
+
+    @property
+    def device_drives_itself(self) -> bool:
+        """Whether the OSR2 is in auto mode, running its own firmware.
+
+        Neither driver reaches it there: the broker stops forwarding the
+        script's T-Code and Genau is not sending.  So the picture is the
+        device's own motion rather than a handoff between the two, which is
+        what both players hanging this console over a video ask before they
+        let the gate fold a script in.
+        """
+        return self.osr2 == OSR2_AUTO
 
 
 def read_console(path: Path) -> ConsoleModel | None:

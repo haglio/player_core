@@ -17,7 +17,7 @@ from .clip_scrub import ClipScrub, scrub_clip
 from .cruise_control import tick_cruise_control
 from .file_channel import consume_command_file
 from .genau_controls import GenauControls, apply_runtime_command
-from .genau_readout import GenauReadout
+from .genau_readout import AutoMotion, GenauReadout
 from .genau_status import GENAU_STATUS_FILENAME, write_status_file
 from .learned_motion import tick_learned_motion
 from .robot_hand import POSITION_MAX, phase_for_position_fraction
@@ -159,7 +159,11 @@ class GenauRefreshController:
         if beat.robot_hand_active:
             self.readout.update(now)
         else:
-            self.readout.blank()
+            # The device is running itself.  The panel stays up and the line
+            # goes on moving -- on the broker's beat, the same one the frames
+            # below are scrubbed by.
+            self.readout.update(now, AutoMotion(
+                phase=self.engine.phase, bpm=self.engine.estimated_bpm or 0.0))
 
         self._follow_the_window_flags()
         self._show_the_frame(beat)
