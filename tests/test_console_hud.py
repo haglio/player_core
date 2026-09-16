@@ -1091,6 +1091,23 @@ class TestNothingDriving:
         assert not np.array_equal(moving, still)
 
 
+class TestTheDeviceRunningItselfKeepsMoving:
+    """The readout holds still only when the device is not moving.  In auto mode
+    it is -- to its own firmware, on the beat the broker reports -- so the line
+    must scroll, which is the whole of what he asked the readout to show there.
+    """
+
+    def test_the_trace_scrolls_on_its_own_beat(self):
+        painter = ConsolePainter()
+        first = painter.bgra(ConsoleHud(
+            console=ConsoleModel(mode="genau", osr2="auto"), drive=_drive(0.0))).copy()
+
+        later = painter.bgra(ConsoleHud(
+            console=ConsoleModel(mode="genau", osr2="auto"), drive=_drive(3.0)))
+
+        assert not np.array_equal(later, first)
+
+
 class TestTheHandoffKeepsMoving:
     """In video mode the readout draws the device changing hands, and between the
     two drivers is a gap where nothing is being sent at all — the OSR2 stops
