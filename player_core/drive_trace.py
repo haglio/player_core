@@ -131,7 +131,8 @@ def drive_readout(
     # on whole knots — the script never changes while it plays, so its picture is
     # computed once and only reread — and the leftover fraction of a knot rides
     # along as ``slide`` for the painter to shift the stable shape by.
-    scripted, slide = script.planned_trace_window(position_ms, span_ms, TRACE_SAMPLES)
+    scripted, slide = script.planned_trace_window(
+        position_ms, span_ms, TRACE_SAMPLES, speed)
     if len(scripted) != TRACE_SAMPLES + 1:
         return base
     # Sample times anchored to the window's own knots, so what each sample says
@@ -353,7 +354,8 @@ def drive_readout(
     # dot can never ride a line that is not there.  Keyed on the console's osr2
     # instead it would sit on Genau's frozen position over a gray ramp at every
     # handoff, for as long as the console lags the arbiter.
-    height, who_now = at(position_ms, script.planned_position_at(position_ms) / 100)
+    height, who_now = at(
+        position_ms, script.planned_position_at(position_ms, speed) / 100)
     marker = (base.position if who_now == DRIVEN_BY_ROBOT_HAND
               else round(height * POSITION_MAX))
     return replace(

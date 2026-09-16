@@ -113,19 +113,19 @@ class FunscriptTCodeDriver:
         Ahead of the whole script that is the opening action itself, so a
         playhead approaching the script's start glides to where the script
         begins rather than skipping to where its first motion ends.
+
+        The gap is *media* time and the OSR2 moves in wall-clock, so at
+        playback rate ``speed`` the move has that many wall-milliseconds to
+        finish in -- and the height is the paced one, which is how that rate
+        stays inside what the device can travel.
         """
         if next_index < len(fs.actions):
-            next_t, next_pos = fs.actions[next_index]
-            # ``next_t - position_ms`` is the gap to the waypoint in *media* time;
-            # the OSR2 executes its move in wall-clock time, so at playback rate
-            # ``speed`` the move must finish in that many wall-milliseconds.
+            next_t = fs.actions[next_index][0]
             remaining = max(1, round((next_t - position_ms) / speed))
-            tcode_pos = to_tcode_position(next_pos)
-            self._send(tcode_pos, remaining, now)
         else:
-            _, pos = fs.actions[-1]
-            tcode_pos = to_tcode_position(pos)
-            self._send(tcode_pos, 100, now)
+            next_t, remaining = fs.actions[-1][0], 100
+        self._send(
+            to_tcode_position(fs.paced_position_at(next_t, speed)), remaining, now)
 
     def _send(self, position: int, interval_ms: int, now: float) -> None:
         """One waypoint, given the handoff's glide while one is running.

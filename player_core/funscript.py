@@ -12,6 +12,7 @@ lands), plus loop-boundary snapping for A-B loops.
 from __future__ import annotations
 
 import bisect
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -85,6 +86,22 @@ PARK_TOUCH_WAIT_CAP_MS = 2500
 # either being spent on nothing or eaten whole by the ramp.
 QUIET_LEAD_OUT_MS = QUIET_LEAD_IN_MS - HANDOFF_RAMP_MS
 
+# The quickest run of the OSR2's linear axis from its floor to its ceiling.
+# The axis is driven by a pair of hobby servos -- the build's MG996R is rated
+# 0.13 seconds per 60 degrees unloaded, and a full run is more than two of
+# those sweeps, under load -- so a quarter second is as fast as it goes.
+FASTEST_FULL_TRAVEL_MS = 250
+
+# The same figure as a rate: position units a second, the axis running 0-100.
+_MAX_TRAVEL_PER_SECOND = 100_000 / FASTEST_FULL_TRAVEL_MS
+
+# How far either side of a moment its fastest move still governs the depth.
+# The look ahead is short, so the shrink arrives just before the burst that
+# needs it; the look back is long, so the depth walks up again over several
+# cycles rather than pumping between one cycle and the next.
+_DEPTH_LOOKAHEAD_MS = 500
+_DEPTH_RECOVERY_MS = 3000
+
 # Past any real playhead, so a turn's start alone orders it against a position
 # in :meth:`Funscript.turn_bounds_at`'s bisect.
 _MS_MAX = 1 << 62
@@ -99,9 +116,10 @@ class Funscript:
         self._dense_times = self._compute_dense_times()
         self._onsets = self._compute_onsets()
         self._turns = self._compute_turns()
+        self._demand = self._compute_demand()
         # The device's plan sampled on a fixed grid, for
         # :meth:`planned_trace_window` to take windows of.
-        self._planned_grid_step: float | None = None
+        self._planned_grid_key: tuple[float, float] | None = None
         self._planned_grid_values: tuple[float, ...] = ()
 
     @property
@@ -143,7 +161,7 @@ class Funscript:
             prv is not None and nxt is not None and nxt - prv < _QUIET_LEAD_IN_MS
         )
 
-    def planned_position_at(self, position_ms: int) -> float:
+    def planned_position_at(self, position_ms: int, speed: float = 1.0) -> float:
         """Where the device is *planned* to be at *position_ms*, 0-100.
 
         The script's own motion through each dense cluster, the parked position
@@ -161,17 +179,19 @@ class Funscript:
             if prv is not None and position_ms - prv < PARK_SETTLE_MS:
                 # The drop out of a cluster is the driver's own park glide,
                 # drawn: a straight descent from the last action onto the rest.
-                return self.position_at(prv) * (1 - (position_ms - prv) / PARK_SETTLE_MS)
+                return (self.paced_position_at(prv, speed)
+                        * (1 - (position_ms - prv) / PARK_SETTLE_MS))
             return 0.0
         rising = (
             nxt is not None and position_ms < nxt
             and (prv is None or nxt - prv >= _QUIET_LEAD_IN_MS)
         )
         if rising:
-            return self.position_at(nxt) * (1 - (nxt - position_ms) / _RISE_MS)
-        return self.position_at(position_ms)
+            return self.paced_position_at(nxt, speed) * (1 - (nxt - position_ms) / _RISE_MS)
+        return self.paced_position_at(position_ms, speed)
 
     def planned_trace_window(self, start_ms: int, span_ms: int, count: int,
+                             speed: float = 1.0,
                              ) -> tuple[tuple[float, ...], float]:
         """The device's plan as a picture: *count* + 1 knot samples covering
         *span_ms* from the knot at or before *start_ms*, as 0-1 heights, and how
@@ -197,7 +217,7 @@ class Funscript:
         samples = count + 1
         if step <= 0:
             return (0.0,) * samples, 0.0
-        grid = self._planned_grid(step)
+        grid = self._planned_grid(step, speed)
         whole, frac = divmod(start_ms / step, 1)
         first = int(whole)
         return tuple(
@@ -205,14 +225,15 @@ class Funscript:
             for i in range(samples)
         ), frac
 
-    def _planned_grid(self, step_ms: float) -> tuple[float, ...]:
-        """The whole plan at one sample every *step_ms*, from zero, memoized."""
-        if self._planned_grid_step != step_ms:
+    def _planned_grid(self, step_ms: float, speed: float) -> tuple[float, ...]:
+        """The whole plan at one sample every *step_ms*, from zero, memoized --
+        by the rate as well, the plan's depth being the rate's too."""
+        if self._planned_grid_key != (step_ms, speed):
             last = self.actions[-1][0]
             count = int(last / step_ms) + 2 if step_ms > 0 else 1
-            self._planned_grid_step = step_ms
+            self._planned_grid_key = (step_ms, speed)
             self._planned_grid_values = tuple(
-                self.planned_position_at(round(i * step_ms)) / 100
+                self.planned_position_at(round(i * step_ms), speed) / 100
                 for i in range(count))
         return self._planned_grid_values
 
@@ -233,6 +254,65 @@ class Funscript:
         if t1 <= t0:
             return float(p1)
         return p0 + (p1 - p0) * (position_ms - t0) / (t1 - t0)
+
+    def paced_position_at(self, position_ms: int, speed: float) -> float:
+        """Where the script has the device at *position_ms* with the video
+        playing at *speed*, 0-100 -- its own shape until the rate asks the
+        device to travel faster than it can, and from there the same shape
+        scaled toward the park.
+        """
+        return self.position_at(position_ms) * self._depth_scale(position_ms, speed)
+
+    def _depth_scale(self, position_ms: int, speed: float) -> float:
+        """What fraction of its depth the script keeps at playback rate *speed*.
+
+        The allowance is never below what this stretch already asks for at 1x,
+        which is what makes normal speed and every slowed one a no-op rather
+        than something the caller has to remember to skip.
+        """
+        if speed <= 1.0 or not self._demand:
+            return 1.0
+        demand = self._demand_at(position_ms)
+        if demand <= 0:
+            return 1.0
+        return min(1.0, max(_MAX_TRAVEL_PER_SECOND / demand, 1.0) / speed)
+
+    def _demand_at(self, position_ms: int) -> float:
+        """The neighbourhood's fastest travel at *position_ms*, interpolated
+        because the envelope only steps at an action and the depth would jump
+        mid-cycle by the whole size of the step."""
+        i = bisect.bisect_left(self._times, position_ms)
+        if i <= 0:
+            return self._demand[0]
+        if i >= len(self._demand):
+            return self._demand[-1]
+        t0, t1 = self._times[i - 1], self._times[i]
+        d0, d1 = self._demand[i - 1], self._demand[i]
+        if t1 <= t0:
+            return d1
+        return d0 + (d1 - d0) * (position_ms - t0) / (t1 - t0)
+
+    def _compute_demand(self) -> list[float]:
+        """The fastest travel the script asks for around each action, in
+        position units a second."""
+        travel = [0.0] * len(self.actions)
+        for k in range(1, len(self.actions)):
+            (t0, p0), (t1, p1) = self.actions[k - 1], self.actions[k]
+            if t1 > t0:
+                travel[k] = abs(p1 - p0) * 1000 / (t1 - t0)
+        fastest: deque[int] = deque()
+        out: list[float] = []
+        ahead = 0
+        for t in self._times:
+            while ahead < len(self._times) and self._times[ahead] <= t + _DEPTH_LOOKAHEAD_MS:
+                while fastest and travel[fastest[-1]] <= travel[ahead]:
+                    fastest.pop()
+                fastest.append(ahead)
+                ahead += 1
+            while fastest and self._times[fastest[0]] < t - _DEPTH_RECOVERY_MS:
+                fastest.popleft()
+            out.append(travel[fastest[0]] if fastest else 0.0)
+        return out
 
     def next_active_ms(self, position_ms: int) -> int | None:
         """Where scripted action next starts up after *position_ms*, else None.

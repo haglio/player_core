@@ -460,3 +460,41 @@ class TestThePlanAsAPicture:
         """A player stopped dead publishes a span of nothing — the trace's seconds
         scaled by a playback speed of zero — and asks for a picture of it anyway."""
         assert _gapped().planned_trace_window(0, 0, 3) == ((0.0,) * 4, 0.0)
+
+
+class TestDepthAtSpeed:
+    def _fast(self):
+        # A full cycle every 200ms: faster than the device can travel, so at
+        # double speed the only way to keep the timing is to go half as far.
+        return Funscript(actions=[(0, 0), (200, 100), (400, 0), (600, 100)])
+
+    def test_normal_speed_leaves_every_position_where_the_script_put_it(self):
+        assert self._fast().paced_position_at(200, 1.0) == 100
+
+    def test_a_script_already_at_the_devices_limit_halves_its_depth_at_double_speed(self):
+        assert self._fast().paced_position_at(200, 2.0) == 50
+
+    def test_a_script_inside_the_devices_reach_keeps_its_depth_when_sped_up(self):
+        # A cycle a second: even doubled it is well inside what the device can
+        # travel, so there is nothing to give up.
+        fs = Funscript(actions=[(0, 0), (1000, 100), (2000, 0), (3000, 100)])
+
+        assert fs.paced_position_at(1000, 2.0) == 100
+
+    def test_the_shrunk_motion_sits_on_the_park_rather_than_the_middle(self):
+        # A stretch riding high and fast: halved, its floor comes down toward
+        # the park with everything else instead of the motion staying where it
+        # was and closing in on its own middle.
+        fs = Funscript(actions=[(0, 20), (100, 100), (200, 20), (300, 100)])
+
+        assert fs.paced_position_at(0, 2.0) == 10
+        assert fs.paced_position_at(100, 2.0) == 50
+
+    def test_the_drawn_plan_gives_up_the_same_depth_the_device_is_given(self):
+        fs = self._fast()
+
+        full, _ = fs.planned_trace_window(0, 600, 4, speed=1.0)
+        paced, _ = fs.planned_trace_window(0, 600, 4, speed=2.0)
+
+        assert max(full) == 1.0
+        assert max(paced) == 0.5
