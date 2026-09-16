@@ -58,6 +58,12 @@ siblings = ["app_support", "shared_ui"]
 [tool.setuptools.packages.find]
 include = ["player_core*"]
 
+# The learned motion's trained model ships inside the package: numbers only,
+# built by tools/train_learned_motion.py from a corpus that lives outside
+# every repo.
+[tool.setuptools.package-data]
+player_core = ["learned_motion.json.gz"]
+
 [tool.pytest.ini_options]
 # The content guard's tracked-tree check comes from app_support, not a copy
 # kept here; a `-p` that cannot be imported fails the run outright, which is
