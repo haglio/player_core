@@ -12,6 +12,7 @@ from app_support.state_files import GENAU_STATUS
 
 from .clip_advance import ClipAdvanceState
 from .cruise_control import CruiseControlState
+from .learned_motion import LearnedMotionState
 from .robot_hand import RobotHandState, control_limits
 
 __all__ = [
@@ -28,6 +29,7 @@ def build_status_text(
     hand: RobotHandState,
     cruise: CruiseControlState,
     *,
+    learned: LearnedMotionState | None = None,
     clip_advance: ClipAdvanceState | None = None,
     hud_active: bool = False,
     clip: Path | None = None,
@@ -36,6 +38,7 @@ def build_status_text(
     advance = clip_advance or ClipAdvanceState()
     return (
         f"cruise={'1' if cruise.active else '0'}\n"
+        f"learned={'1' if learned is not None and learned.active else '0'}\n"
         f"locked={'1' if advance.locked else '0'}\n"
         # Which clip is up.  Empty until the first clip is on screen.
         f"clip={clip if clip is not None else ''}\n"
@@ -55,12 +58,14 @@ def write_status_file(
     hand: RobotHandState,
     cruise: CruiseControlState,
     *,
+    learned: LearnedMotionState | None = None,
     clip_advance: ClipAdvanceState | None = None,
     hud_active: bool = False,
     clip: Path | None = None,
 ) -> bool:
     text = build_status_text(
-        hand, cruise, clip_advance=clip_advance, hud_active=hud_active, clip=clip,
+        hand, cruise, learned=learned, clip_advance=clip_advance, hud_active=hud_active,
+        clip=clip,
     )
     try:
         if path.read_text(encoding="utf-8") == text:

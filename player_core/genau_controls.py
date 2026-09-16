@@ -3,8 +3,8 @@
 Genau -- the family's clip player, whatever window or headset it is drawn in --
 is spoken to from three places: a verb in ``genau_cmd.txt``, a key in a window,
 a press on the console.  Every one of them has to be able to move the same
-handful of things: the hand's own state, the cruise stack, the clip advance, the
-two flags an orchestrator flips, the clip sequence.
+handful of things: the hand's own state, the cruise stack, the learned motion,
+the clip advance, the two flags an orchestrator flips, the clip sequence.
 
 Passing those one at a time is what made adding a control a four-to-six file
 edit: a keyword parameter on the dispatcher, another on the refresh controller,
@@ -35,9 +35,13 @@ from .cruise_control import (
     CruiseControlState,
     disable_cruise_control,
     enable_cruise_control,
-    toggle_cruise_control,
 )
 from .flag import Flag
+from .learned_motion import (
+    LearnedMotionState,
+    disable_learned_motion,
+    enable_learned_motion,
+)
 from .player_verbs import (
     LOCK_OFF,
     LOCK_ON,
@@ -81,6 +85,7 @@ class GenauControls:
     condemn_clip: Callable[[], None] | None = None
     robot_hand: RobotHandState | None = None
     cruise_control_state: CruiseControlState | None = None
+    learned_motion_state: LearnedMotionState | None = None
     set_motion_phase: Callable[[float], None] | None = None
     clip_advance_state: ClipAdvanceState | None = None
     stop_event: threading.Event | None = None
@@ -154,17 +159,42 @@ def _handed_back(controls: GenauControls, phase) -> None:
 
 
 def _cruise_toggled(controls: GenauControls, _value: str) -> bool:
-    _handed_back(controls, toggle_cruise_control(controls.cruise_control_state))
-    return True
+    if controls.cruise_control_state.active:
+        return _cruise_off(controls, _value)
+    return _cruise_on(controls, _value)
 
 
 def _cruise_on(controls: GenauControls, _value: str) -> bool:
+    """Hands off to the dice -- and away from the learned motion, which cannot
+    hold the hand at the same time."""
+    if controls.learned_motion_state is not None:
+        disable_learned_motion(controls.learned_motion_state)
     enable_cruise_control(controls.cruise_control_state)
     return True
 
 
 def _cruise_off(controls: GenauControls, _value: str) -> bool:
     _handed_back(controls, disable_cruise_control(controls.cruise_control_state))
+    return True
+
+
+def _learned_toggled(controls: GenauControls, _value: str) -> bool:
+    if controls.learned_motion_state.active:
+        return _learned_off(controls, _value)
+    return _learned_on(controls, _value)
+
+
+def _learned_on(controls: GenauControls, _value: str) -> bool:
+    """Hands off to the scripts -- and away from cruise control, which lets go
+    of the motion the way it always does."""
+    if controls.cruise_control_state is not None:
+        _cruise_off(controls, _value)
+    enable_learned_motion(controls.learned_motion_state)
+    return True
+
+
+def _learned_off(controls: GenauControls, _value: str) -> bool:
+    disable_learned_motion(controls.learned_motion_state)
     return True
 
 
@@ -318,6 +348,15 @@ CONTROLS: tuple[Control, ...] = (
             Verb("TOGGLE_CRUISE", _cruise_toggled, key="K_SLASH"),
             Verb("CRUISE_ON", _cruise_on),
             Verb("CRUISE_OFF", _cruise_off),
+        ),
+    ),
+    Control(
+        name="learned",
+        needs=("learned_motion_state",),
+        verbs=(
+            Verb("TOGGLE_LEARNED", _learned_toggled, key="K_SEMICOLON"),
+            Verb("LEARNED_ON", _learned_on),
+            Verb("LEARNED_OFF", _learned_off),
         ),
     ),
     # The lock, under the same three verbs the video player answers to, because

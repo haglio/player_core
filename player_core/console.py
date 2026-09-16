@@ -193,6 +193,9 @@ class ConsoleModel:
     # show's own set, not a browse.
     latest: bool | None = None
     cruise: bool = False
+    # Whether the learned motion has the hand: phrases of real scripting in
+    # place of the waveform.  Never on with cruise, and published like it.
+    learned: bool = False
     shape: str = "sine"
     # The main player's video playback rate, shown while the main player is on screen.  Not published —
     # The main player knows its own rate and folds it in; Genau leaves it at 1.
@@ -265,6 +268,7 @@ def console_text(model: ConsoleModel) -> str:
         "record": model.record,
         "locked": model.locked,
         "cruise": model.cruise,
+        "learned": model.learned,
         "shape": model.shape,
         "plays_vr": model.plays_vr,
         "plays_flat": model.plays_flat,
@@ -295,6 +299,7 @@ def parse_console(text: str) -> ConsoleModel | None:
         record=str(raw.get("record", "normal") or "normal"),
         locked=bool(raw.get("locked", True)),
         cruise=bool(raw.get("cruise", False)),
+        learned=bool(raw.get("learned", False)),
         shape=str(raw.get("shape", "sine") or "sine"),
         plays_vr=(None if raw.get("plays_vr") is None else bool(raw.get("plays_vr"))),
         plays_flat=(None if raw.get("plays_flat") is None else bool(raw.get("plays_flat"))),
@@ -434,6 +439,7 @@ CONSOLE_VERBS = frozenset({
     "robot_hand_release",
     "robot_hand_retract",
     "robot_hand_toggle_cruise",
+    "robot_hand_toggle_learned",
 })
 
 _MODE_BUTTONS = (
@@ -852,6 +858,9 @@ def _control_row(model: ConsoleModel) -> list[Button]:
     return [
         Button("robot_hand_toggle_cruise", "cc",
                "Cruise control: vary the motion hands-free", lit=model.cruise),
+        Button("robot_hand_toggle_learned", "lm",
+               "Learned motion: play what real scripts do, not a waveform",
+               lit=model.learned),
         Button("robot_hand_cycle_shape", WAVE_ICON, f"Waveform: {shape_label(model.shape)}"),
         Button("quarter_button", QUARTER_ICON, "Offset the motion a ¼ cycle"),
         *([

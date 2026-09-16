@@ -5,6 +5,7 @@ from pathlib import Path
 from player_core.clip_advance import ClipAdvanceState
 from player_core.cruise_control import CruiseControlState
 from player_core.genau_status import build_status_text, write_status_file
+from player_core.learned_motion import LearnedMotionState
 from player_core.robot_hand import RobotHandState, WaveformShape
 
 
@@ -174,3 +175,11 @@ def test_build_status_text_names_no_clip_before_one_is_up():
     text = build_status_text(RobotHandState(), CruiseControlState())
 
     assert "clip=\n" in text
+
+
+def test_build_status_text_says_whether_the_learned_motion_has_the_hand():
+    assert "learned=0" in build_status_text(RobotHandState(), CruiseControlState())
+    assert "learned=0" in build_status_text(
+        RobotHandState(), CruiseControlState(), learned=LearnedMotionState(active=False))
+    assert "learned=1" in build_status_text(
+        RobotHandState(), CruiseControlState(), learned=LearnedMotionState(active=True))

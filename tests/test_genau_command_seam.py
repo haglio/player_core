@@ -33,6 +33,8 @@ from player_core.cruise_control import CruiseControlState
 from player_core.flag import Flag
 from player_core.genau_controls import GenauControls
 from player_core.genau_refresh import GenauRefreshController
+from player_core.learned_model import LearnedModel
+from player_core.learned_motion import LearnedMotionState
 from player_core.robot_hand import RobotHandState, WaveformShape
 from player_core.robot_hand_beat import BeatEngine
 
@@ -61,6 +63,8 @@ class Seam:
             shape=start.get("shape", WaveformShape.TRIANGLE),
         )
         self.cruise = CruiseControlState(active=bool(start.get("cruise", False)))
+        self.learned = LearnedMotionState(model=LearnedModel(),
+                                          active=bool(start.get("learned", False)))
         self.advance = ClipAdvanceState(
             locked=bool(start.get("locked", False)),
             interval=start.get("interval", 20),
@@ -81,6 +85,7 @@ class Seam:
                 condemn_clip=self.selection.condemn_current,
                 robot_hand=self.direct,
                 cruise_control_state=self.cruise,
+                learned_motion_state=self.learned,
                 set_motion_phase=self.tcode.set_motion_phase,
                 clip_advance_state=self.advance,
                 stop_event=self.stop_event,
@@ -121,6 +126,7 @@ class Seam:
             "shape": self.direct.shape,
             "phase": round(self.engine.phase, 6),
             "cruise": self.cruise.active,
+            "learned": self.learned.active,
             "locked": self.advance.locked,
             "interval": self.advance.interval,
             "steps": tuple(self.selection.step_calls),
@@ -168,6 +174,13 @@ SEAM = [
     ("TOGGLE_CRUISE", {"cruise": True}, {"cruise": False}),
     ("CRUISE_ON", {}, {"cruise": True}),
     ("CRUISE_OFF", {"cruise": True}, {"cruise": False}),
+    ("TOGGLE_LEARNED", {}, {"learned": True}),
+    ("TOGGLE_LEARNED", {"learned": True}, {"learned": False}),
+    ("LEARNED_ON", {}, {"learned": True}),
+    ("LEARNED_OFF", {"learned": True}, {"learned": False}),
+    # Never both: switching one on switches the other off.
+    ("LEARNED_ON", {"cruise": True}, {"learned": True, "cruise": False}),
+    ("CRUISE_ON", {"learned": True}, {"cruise": True, "learned": False}),
     ("TOGGLE_LOCK", {}, {"locked": True}),
     ("TOGGLE_LOCK", {"locked": True}, {"locked": False}),
     ("LOCK_ON", {}, {"locked": True}),

@@ -19,6 +19,7 @@ from .file_channel import consume_command_file
 from .genau_controls import GenauControls, apply_runtime_command
 from .genau_readout import GenauReadout
 from .genau_status import GENAU_STATUS_FILENAME, write_status_file
+from .learned_motion import tick_learned_motion
 from .robot_hand import POSITION_MAX, phase_for_position_fraction
 from .robot_hand_beat import Beat, advance_beat
 from .robot_hand_driver import DeviceHandoff
@@ -63,6 +64,7 @@ class GenauRefreshController:
         self.paused = controls.paused
         self.robot_hand = controls.robot_hand
         self.cruise_control = controls.cruise_control_state
+        self.learned = controls.learned_motion_state
         self.clip_advance = controls.clip_advance_state
         self.hud = controls.hud
         self.broker = broker
@@ -201,8 +203,9 @@ class GenauRefreshController:
         )
 
     def _tick_the_hand(self, now: float) -> None:
-        """The two things that move the hand on their own: the cruise stack
-        varying it, and the clip advance letting the picture move on."""
+        """The three things that move the hand on their own: the cruise stack
+        varying it, the learned motion replacing it, and the clip advance
+        letting the picture move on."""
         if self.cruise_control is not None:
             # The phase is only read on the tick that draws the waves: they
             # all start where the motion already is, so taking over cannot
@@ -211,6 +214,13 @@ class GenauRefreshController:
                 self.robot_hand, self.cruise_control, now,
                 phase=(self.tcode_sender.motion_phase
                        if self.tcode_sender is not None else 0.0),
+            )
+        if self.learned is not None:
+            # Likewise where the device is, read on the tick that lays out the
+            # first phrase, so it begins from there.
+            tick_learned_motion(
+                self.robot_hand, self.learned, now,
+                start_fraction=self._where_the_device_is(),
             )
         if self.clip_advance is not None:
             # The interval is timed against the clip actually on screen — a
@@ -227,6 +237,19 @@ class GenauRefreshController:
                 on_screen_clip=on_screen_clip,
                 step_clip=self.selection.step,
             )
+
+    def _where_the_device_is(self) -> float:
+        """How far up its envelope the device is, 0 at the floor and 1 at the
+        ceiling -- where the learned motion begins so that taking over cannot be
+        felt.  A build with no sender, or a motion with no travel, begins at the
+        floor."""
+        hand = self.robot_hand
+        if self.tcode_sender is None or hand.amplitude <= 0:
+            return 0.0
+        low = max(0.0, hand.center - hand.amplitude / 2)
+        span = min(100.0, hand.center + hand.amplitude / 2) - low
+        height = 100.0 * self.tcode_sender.current_position() / POSITION_MAX
+        return (height - low) / span if span > 0 else 0.0
 
     def _follow_the_window_flags(self) -> None:
         """The one thing an orchestrator flips that the window has to be told."""
@@ -262,6 +285,7 @@ class GenauRefreshController:
             self.status_file,
             self.robot_hand,
             self.cruise_control,
+            learned=self.learned,
             clip_advance=self.clip_advance,
             hud_active=hud_on,
             clip=self.renderer.current_clip_path,
