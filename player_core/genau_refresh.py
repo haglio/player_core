@@ -135,7 +135,7 @@ class GenauRefreshController:
         # Said every tick and heard once: the notifier drops a repeat.  The
         # clip that goes with it is the clip selection's to announce, and it
         # already has by the time the first tick runs.
-        self.notifier.notify_visible(True)
+        self.notifier.notify_visible(not self._over_a_video)
 
         advance_beat(
             self.engine,
@@ -281,17 +281,20 @@ class GenauRefreshController:
             current_frame_index=self.renderer.current_frame_index,
         ))
 
+    @property
+    def _over_a_video(self) -> bool:
+        return self.hud is not None and self.hud.on
+
     def _publish_status(self) -> None:
         if self.cruise_control is None:
             return
-        hud_on = self.hud.on if self.hud is not None else False
         write_status_file(
             self.status_file,
             self.robot_hand,
             self.cruise_control,
             learned=self.learned,
             clip_advance=self.clip_advance,
-            hud_active=hud_on,
+            hud_active=self._over_a_video,
             clip=self.renderer.current_clip_path,
         )
 

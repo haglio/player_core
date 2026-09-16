@@ -688,6 +688,31 @@ def test_hud_off_command_calls_set_hud_mode_false():
     assert built["hud_mode_calls"] == [False]
 
 
+@pytest.mark.parametrize(("hud_on", "heard"), [(True, False), (False, True)])
+def test_the_clip_is_heard_only_while_it_has_the_main_screen(hud_on, heard):
+    """As the transparent layer over a video, Genau's clip is not on screen, so
+    its sound is not the room's: said visible there, the companion played the
+    hidden clip's music over the video every time the OSR2 went into auto."""
+    built = _build_controller(
+        entry={"frames": [object() for _ in range(8)]}, hud=Flag(on=hud_on))
+
+    built["controller"].refresh()
+
+    assert built["notifier"].visible_updates[-1] is heard
+
+
+def test_the_clip_is_heard_again_once_it_takes_the_main_screen_back():
+    hud = Flag(on=True)
+    built = _build_controller(
+        entry={"frames": [object() for _ in range(8)]}, hud=hud, commands=[])
+    built["controller"].refresh()
+
+    hud.on = False
+    built["controller"].refresh()
+
+    assert built["notifier"].visible_updates[-2:] == [False, True]
+
+
 def test_the_hud_is_published_in_the_status_file(tmp_path):
     dc = RobotHandState(playing=True, bpm=120.0)
     tcode = FakeTCodeSender()
