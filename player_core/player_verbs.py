@@ -31,6 +31,7 @@ __all__ = [
     "SEEK_BACK",
     "SEEK_FWD",
     "SET_F_MODE",
+    "SET_PACE",
     "SET_SPEED",
     "SET_TCODE_ENABLED",
     "SET_VOLUME",
@@ -38,6 +39,7 @@ __all__ = [
     "SPEED_UP",
     "TOGGLE_LOCK",
     "TRASH",
+    "pace_seconds",
     "play_file",
 ]
 
