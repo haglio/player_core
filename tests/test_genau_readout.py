@@ -21,7 +21,7 @@ from player_core.cruise_control import (
 )
 from player_core.flag import Flag
 from player_core.genau_controls import GenauControls
-from player_core.genau_readout import GenauReadout
+from player_core.genau_readout import AutoMotion, GenauReadout
 from player_core.robot_hand import RobotHandState, bpm_for_speed
 from player_core.robot_hand_beat import BeatEngine
 
@@ -183,12 +183,15 @@ class TestWhatThePanelIsToldEachTime:
 
         assert shown[-1].modes.video == ""
 
-    def test_under_the_broker_there_is_no_drive_of_our_own_to_show(self):
+    def test_under_the_broker_the_panel_still_goes_up(self):
+        """The whole console used to come down here -- the room's controls, the
+        OSR2 word and the line with them -- leaving the device running itself
+        with nothing at all on the screen."""
         shown = []
 
-        _readout(set_console=shown.append).blank()
+        _readout(set_console=shown.append).update(1.0, AutoMotion(phase=0.0, bpm=90.0))
 
-        assert shown == [None]
+        assert shown[-1] is not None
 
 
 class TestTheSpanTheTraceIsDrawnOver:

@@ -102,12 +102,26 @@ class DriveGate:
         self._position = 0
         self._stalled = 0
 
-    def readout(self, published: DriveHud | None) -> DriveHud:
+    def readout(self, published: DriveHud | None, *,
+                device_drives_itself: bool = False) -> DriveHud:
         """The readout to draw, with this video's funscript folded into it.
 
         *published* is Genau's readout as it last said it, or None while it has
         not published one yet.
+
+        *device_drives_itself* is the OSR2 in auto mode, where the script's
+        T-Code is dropped at the broker and Genau is not sending either: the
+        handoff this gate draws is not happening, so the publish is handed back
+        whole and every forecast is void.  A script folded in there would draw a
+        plan for a device nothing here has.
         """
+        if device_drives_itself:
+            self._latch.void_all()
+            self._video = self._session.current_video
+            self._seen_live = False
+            self._position = int(self._session.position_ms)
+            self._stalled = 0
+            return published or DriveHud()
         drive = published
         position = int(self._session.position_ms)
         if drive is None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 import numpy as np
-from shared_ui.palette import TEXT_MUTED, WHITE
+from shared_ui.palette import MAGENTA, TEXT_MUTED, WHITE
 
 from player_core.console import (
     OSR2_CONTROL_OFF,
@@ -833,6 +833,15 @@ class TestTraceSources:
             console=ConsoleModel(mode=mode, osr2=osr2), drive=drive or _drive()))
         return painter
 
+    @staticmethod
+    def _drawn(mode: str, osr2: str, drive: DriveHud | None = None):
+        """The painted panel and the colors in it, for a line's own color."""
+        painter = ConsolePainter()
+        rgb = _rgb(painter.bgra(ConsoleHud(
+            console=ConsoleModel(mode=mode, osr2=osr2),
+            drive=drive or _drive()))).astype(int)
+        return painter, {tuple(pixel) for row in rgb for pixel in row}
+
     def test_genau_driving_leaves_the_readout_pressable(self):
         painter = self._painted("video", "robot_hand")
 
@@ -845,6 +854,27 @@ class TestTraceSources:
 
         assert all(t.dim for t in painter.tracks)
         assert painter.tracks
+
+    def test_the_device_running_itself_draws_its_own_swing_and_names_it(self):
+        """Auto mode is the device's own: the line is neither driver's color and
+        the word says so, while the controls that would move a motion nobody
+        here is sending go dim."""
+        painter, colors = self._drawn("genau", "auto")
+
+        assert painter._osr2_state(ConsoleModel(mode="genau", osr2="auto")) == "auto"
+        assert all(t.dim for t in painter.tracks)
+        assert MAGENTA in colors
+
+    def test_the_device_running_itself_wins_over_a_composed_handoff(self):
+        """In video mode the console composes the funscript's plan over Genau's
+        motion -- but under auto neither of them reaches the device, so a plan
+        drawn in their two colors describes drivers that do not have it."""
+        painter, colors = self._drawn(
+            "video", "auto",
+            drive=_drive(segments=((0, "robot_hand"), (40, "funscript"))))
+
+        assert painter._osr2_state(ConsoleModel(mode="video", osr2="auto")) == "auto"
+        assert MAGENTA in colors
 
     def test_the_panel_keeps_its_size_whoever_has_the_device(self):
         """The controls dim for a funscript's turn rather than leave: removing

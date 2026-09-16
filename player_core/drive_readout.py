@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from PIL import Image, ImageDraw
-from shared_ui.palette import BLUE, GREEN, TEXT_MUTED, TEXT_PRIMARY, WHITE
+from shared_ui.palette import BLUE, GREEN, MAGENTA, TEXT_MUTED, TEXT_PRIMARY, WHITE
 from shared_ui.spacing import BUTTON_RADIUS_HUD
 
 from . import drive_layout
@@ -52,16 +52,20 @@ __all__ = [
 ]
 
 # What has the device, which is what the trace is a picture of.  The Robot
-# Hand's motion and a video's funscript take turns in video mode, and with the
-# OSR2 off or running itself nobody is sending anything at all.
+# Hand's motion and a video's funscript take turns in video mode; in auto mode
+# the OSR2 runs its own firmware and neither of them is sending; and with the
+# device off nothing is moving at all.
 DRIVEN_BY_ROBOT_HAND = "robot_hand"
 DRIVEN_BY_FUNSCRIPT = "funscript"
+DRIVEN_BY_AUTO = "auto"
 DRIVEN_BY_NEUTRAL = "neutral"
 DRIVEN_BY_NOTHING = "nothing"
 
 # Green means the funscripts everywhere else on these HUDs — the favorites and
 # the scripts — so it means one here too; blue is the Robot Hand's motion, the
-# color its bars already wear.  The neutral buffers around a handoff are a light
+# color its bars already wear.  The device driving itself is neither of those
+# and takes a third color, the magenta the word beside the line already says
+# "Auto" in.  The neutral buffers around a handoff are a light
 # grey: the stretch belonging to neither driver wears neither driver's color.
 # Nothing driving is the same muted grey a dead control is drawn in, so the
 # readout reads as one switched-off thing rather than as a live trace
@@ -70,6 +74,7 @@ _NEUTRAL_INK = (168, 168, 174)
 _TRACE_INK = {
     DRIVEN_BY_ROBOT_HAND: BLUE,
     DRIVEN_BY_FUNSCRIPT: GREEN,
+    DRIVEN_BY_AUTO: MAGENTA,
     DRIVEN_BY_NEUTRAL: _NEUTRAL_INK,
     DRIVEN_BY_NOTHING: TEXT_MUTED,
 }
@@ -187,12 +192,14 @@ class DriveHud:
 
     @property
     def live(self) -> bool:
-        """Whether anything at all is reaching the device.
+        """Whether the device is moving at all.
 
-        Nothing is, with the OSR2 off or running itself, and then the whole
-        readout is a picture of a motion nobody is making: it holds still and
-        every part of it goes the muted grey of a dead control, the trace and the
-        bars and the numbers alike.
+        It is not with the OSR2 off, and then the whole readout is a picture of
+        a motion nobody is making: it holds still and every part of it goes the
+        muted grey of a dead control, the trace and the bars and the numbers
+        alike.  In auto mode the device IS moving, to its own firmware rather
+        than to anything sent from here, so the line goes on animating and it is
+        ``driving`` alone that dims the controls nobody here can press.
         """
         return self.driven != DRIVEN_BY_NOTHING
 

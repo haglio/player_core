@@ -95,6 +95,39 @@ class TestChoosingAForecast:
         assert gate.handoff_touch() is None
 
 
+class TestTheDeviceRunningItself:
+    """In auto mode the OSR2 drives on its own firmware: the funscript's T-Code is
+    dropped at the broker and Genau is not sending either, so the handoff this
+    gate exists to draw is not happening.  What the picture must show is the one
+    motion there is -- the device's own, as Genau publishes it -- and folding a
+    script into that draws a plan for a device nothing here has.
+    """
+
+    def test_the_publish_is_drawn_whole_rather_than_composed_with_the_script(self):
+        session = FakeSession()
+        gate = DriveGate(session)
+        published = _motion()
+
+        hud = gate.readout(published, device_drives_itself=True)
+
+        assert hud.waveform == published.waveform
+        assert hud.segments == ()
+
+    def test_with_nothing_published_there_is_still_a_readout_to_draw(self):
+        gate = DriveGate(FakeSession())
+
+        assert gate.readout(None, device_drives_itself=True) is not None
+
+    def test_no_forecast_survives_the_device_taking_itself(self):
+        """A touch chosen for a boundary the device will sail through is a moment
+        the arbiter must not act on."""
+        gate, _session = _gate_holding_a_forecast()
+
+        gate.readout(_motion(NEWER_MS), device_drives_itself=True)
+
+        assert gate.handoff_touch() is None
+
+
 class TestAChoiceThatIsHeld:
     """Re-read live every frame, the top breathed with the beat between Genau's
     publish cadence and the frame clock, and the seam flickered between "blue

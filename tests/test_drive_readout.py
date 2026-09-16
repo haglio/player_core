@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from shared_ui.palette import BLUE, GREEN, TEXT_MUTED, TEXT_PRIMARY
+from shared_ui.palette import BLUE, GREEN, MAGENTA, TEXT_MUTED, TEXT_PRIMARY
 
 from player_core.drive_layout import (
     AMPLITUDE,
@@ -15,6 +15,7 @@ from player_core.drive_layout import (
 from player_core.drive_readout import (
     _DISABLED,
     _NEUTRAL_INK,
+    DRIVEN_BY_AUTO,
     DRIVEN_BY_FUNSCRIPT,
     DRIVEN_BY_NEUTRAL,
     DRIVEN_BY_NOTHING,
@@ -320,6 +321,16 @@ class TestWhoseMotion:
         """Green is what the funscripts own everywhere else on these HUDs."""
         assert GREEN in self._line_colors(_hud(driven=DRIVEN_BY_FUNSCRIPT))
 
+    def test_the_device_s_own_swing_is_neither_driver_s_color(self):
+        """In auto mode the OSR2 runs itself: neither the hand nor a funscript is
+        sending, so the line wears the third color the word beside it already
+        wears rather than borrowing either of theirs."""
+        colors = self._line_colors(_hud(driven=DRIVEN_BY_AUTO))
+
+        assert MAGENTA in colors
+        assert BLUE not in colors
+        assert GREEN not in colors
+
     def test_a_motion_nobody_is_sending_is_the_muted_gray_of_a_dead_control(self):
         """The readout is switched off whole rather than a live trace sitting in
         the middle of dead furniture."""
@@ -334,7 +345,7 @@ class TestWhoseMotion:
         assert not np.array_equal(hand, script)
 
     def test_only_the_robot_hand_s_motion_leaves_its_controls_live(self):
-        for driven in (DRIVEN_BY_FUNSCRIPT, DRIVEN_BY_NOTHING):
+        for driven in (DRIVEN_BY_FUNSCRIPT, DRIVEN_BY_NOTHING, DRIVEN_BY_AUTO):
             assert all(c.dim for c in controls(0, 0, _hud(driven=driven)))
         assert not all(c.dim for c in controls(0, 0, _hud(driven=DRIVEN_BY_ROBOT_HAND)))
 

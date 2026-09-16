@@ -39,6 +39,7 @@ from .console import (
     BUTTON,
     FULL,
     GAP,
+    OSR2_AUTO,
     OSR2_CONTROL_OFF,
     OSR2_PARKED,
     OSR2_RETRACTED,
@@ -56,6 +57,7 @@ from .console import (
     tooltip_at,
 )
 from .drive_readout import (
+    DRIVEN_BY_AUTO,
     DRIVEN_BY_FUNSCRIPT,
     DRIVEN_BY_NEUTRAL,
     DRIVEN_BY_NOTHING,
@@ -146,10 +148,15 @@ _OSR2_COLORS = {
 _HELD_HEIGHT = {OSR2_PARKED: 0.0, OSR2_RETRACTED: 1.0}
 
 # What the OSR2 state means for the trace.  Auto is the device running itself,
-# idle is nothing running at all, and control off is this app having let go;
-# in none of them is anything here being sent, so there is no motion of ours to
-# draw and the readout goes gray.
-_DRIVEN_BY_OSR2 = {OSR2_ROBOT_HAND: DRIVEN_BY_ROBOT_HAND, OSR2_FUNSCRIPT: DRIVEN_BY_FUNSCRIPT}
+# which is a motion of its own to draw in a color of its own.  Idle is nothing
+# running at all and control off is this app having let go; in neither is
+# anything here being sent, so there is no motion of ours to draw and the
+# readout goes gray.
+_DRIVEN_BY_OSR2 = {
+    OSR2_ROBOT_HAND: DRIVEN_BY_ROBOT_HAND,
+    OSR2_FUNSCRIPT: DRIVEN_BY_FUNSCRIPT,
+    OSR2_AUTO: DRIVEN_BY_AUTO,
+}
 
 
 def _driven_by(osr2: str) -> str:
@@ -392,6 +399,13 @@ class ConsolePainter:
             # knot, and kept, they drew the line in the script's green under a
             # word that read "control off".
             drive = replace(drive, driven=DRIVEN_BY_NOTHING, segments=())
+        elif hud.console.device_drives_itself:
+            # The device has taken itself, so nothing on either side of the
+            # handoff is reaching it: a composed trace here is two drivers'
+            # plans for a device neither of them has, drawn in their two
+            # colors.  One line instead, the device's own, and with the
+            # segments goes the pill's reason to read anything but Auto.
+            drive = replace(drive, driven=DRIVEN_BY_AUTO, segments=())
         elif not (main_player_displays(hud.console.mode) and drive.segments):
             drive = replace(drive, driven=_driven_by(hud.console.osr2))
         # In video mode the readout is not a picture of the Robot Hand's motion: it is the

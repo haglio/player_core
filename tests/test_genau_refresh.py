@@ -143,6 +143,7 @@ def _build_controller(
     set_hud_mode=None,
     command_file: Path | None = None,
     status_file: Path | None = None,
+    now_source=None,
 ):
     loading_texts: list[str | None] = []
     consoles: list = []
@@ -195,7 +196,7 @@ def _build_controller(
         sync_strength=0.5,
         set_loading_text=loading_texts.append,
         logger=logger,
-        now_source=lambda: 5.0,
+        now_source=now_source or (lambda: 5.0),
         consume_command=lambda _path, logger=None: (commands if commands is not None else ([command] if command else [])),
         read_paused_state=lambda _path, logger=None: paused_state,
         tcode_sender=tcode_sender,
@@ -229,6 +230,28 @@ def test_refresh_displays_active_frame():
     assert built["loader"].prefetch_adopt_calls == 1
     assert built["renderer"].display_calls == [5]
     assert built["selection"].prefetch_calls == 1
+
+
+def test_under_the_broker_the_line_is_the_device_s_own_swing():
+    """The device runs itself here, so the trace is the broker's beat -- and it
+    moves, which is the whole of what a readout under the broker is for.  The
+    panel used to come down instead, taking the room's controls with it."""
+    state = BrokerFeed(auto_active=True, raw_bpm=120.0)
+    entry = {"frames": [object() for _ in range(8)]}
+    clock = [5.0]
+    built = _build_controller(broker=state, entry=entry,
+                              now_source=lambda: clock[0])
+
+    built["controller"].refresh()
+    first = built["consoles"][-1].drive
+    clock[0] += 0.5
+    built["controller"].refresh()
+    second = built["consoles"][-1].drive
+
+    assert len(first.waveform) == 80
+    # Every trace slides on knots: between two the heights hold and the
+    # shift moves, so the picture is the pair.
+    assert (second.waveform, second.slide) != (first.waveform, first.slide)
 
 
 def test_refresh_skips_display_when_no_frames_are_ready():
