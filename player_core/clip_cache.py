@@ -49,19 +49,25 @@ class DecodeRequestState:
 
     request_id: int = 0
     loading: bool = False
+    decoding_path: Path | None = None
     loaded_clip_path: Path | None = None
     loaded_frames: list | None = None
     load_error: str | None = None
     request_id_done: int | None = None
 
-    def begin(self) -> int:
+    def begin(self, path: Path) -> int:
         self.request_id += 1
         self.loading = True
+        self.decoding_path = path
         self.loaded_clip_path = None
         self.loaded_frames = None
         self.load_error = None
         self.request_id_done = None
         return self.request_id
+
+    def is_decoding(self, path: Path) -> bool:
+        """Whether the decode in flight is this clip's."""
+        return self.loading and self.decoding_path == path
 
     def record_success(self, path: Path, frames: list, request_id: int) -> None:
         self.loaded_clip_path = path
@@ -92,6 +98,7 @@ class DecodeRequestState:
 
         self.request_id_done = None
         self.loading = False
+        self.decoding_path = None
         return path, frames, error
 
 

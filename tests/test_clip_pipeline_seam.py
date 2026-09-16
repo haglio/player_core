@@ -6,9 +6,9 @@ them sits what the two caches do to each other turn after turn, which neither
 can see: a sweep that re-decoded the same two clips for as long as Genau ran,
 and an advance that showed the loading line for a clip it already had.
 
-The decode is run on the calling thread, so a clip asked for this turn is
-decoded by the end of it and taken up on the next -- the same one turn of lag
-the real threads have, without the clock.
+A decode asked for during a turn comes back at the top of the next one -- the
+same one turn of lag the real threads have, without the clock -- so a test can
+also step while one is still running, by stepping between turns.
 """
 from __future__ import annotations
 
@@ -39,6 +39,7 @@ class Pipeline:
     def __init__(self, *names: str, logger=None):
         self.decodes: list[str] = []
         self.blits: list[object] = []
+        self._running: list[tuple] = []
         self.clip_store = ClipCacheStore(limit=CACHE_LIMIT)
         self.renderer = ClipRenderController(
             clip_store=self.clip_store, blit_frame=self.blits.append,
@@ -50,7 +51,7 @@ class Pipeline:
             prefetch_state=DecodeRequestState(),
             current_clip_path_getter=lambda: self.renderer.current_clip_path,
             decode_clip=self._decode,
-            start_thread=_run_on_this_thread,
+            start_thread=self._start_decode,
             logger=logger if logger is not None else _SilentLog(),
             on_active_clip_loaded=self.renderer.prepare_active_clip_for_current_size,
         )
@@ -66,11 +67,17 @@ class Pipeline:
         self.decodes.append(path.name)
         return [f"{path.name}:0"]
 
+    def _start_decode(self, *, target, args, name) -> None:
+        self._running.append((target, args))
+
     def open_on(self, name: str) -> None:
         self.selection.set_current_clip(Path(name))
 
     def turn(self) -> None:
-        """One turn of the tick, as far as the clips are concerned."""
+        """One turn of the tick, with whatever was asked for last turn come back."""
+        running, self._running = self._running, []
+        for target, args in running:
+            target(*args)
         self.loader.adopt_loaded_clip_if_ready()
         self.loader.adopt_prefetch_if_ready()
         self.selection.adopt_pending_clip()
@@ -91,10 +98,6 @@ class _SilentLog:
 
     def exception(self, *_args, **_kwargs) -> None:
         pass
-
-
-def _run_on_this_thread(*, target, args, name) -> None:
-    target(*args)
 
 
 def test_a_clip_is_decoded_once_however_long_the_sweep_runs():
@@ -157,3 +160,26 @@ def test_a_clip_that_goes_up_gives_its_decode_ahead_slot_back():
     assert pipeline.on_screen == "after.mp4"
     assert pipeline.decodes == [
         "weird.mp4", "after.mp4", "before.mp4", "third.mp4"]
+
+
+def test_an_advance_that_catches_a_decode_running_does_not_start_it_again():
+    """The clip the advance lands on is often the one being decoded ahead --
+    whenever a decode takes longer than the clip holds the screen, which is
+    every advance at a short interval.
+
+    Asking for it again started a second decode of the same file beside the
+    first, so the two halved each other's share of the machine at exactly the
+    moment it was already too slow.  The advance waits for the decode that is
+    running instead.
+    """
+    pipeline = Pipeline("on_screen.mp4", "after.mp4", "before.mp4")
+    pipeline.open_on("on_screen.mp4")
+    pipeline.turn()
+    assert pipeline.decodes == ["on_screen.mp4"]
+
+    pipeline.selection.step(1)
+    assert pipeline.selection.pending_clip_name == "after.mp4"
+    pipeline.turn()
+
+    assert pipeline.on_screen == "after.mp4"
+    assert pipeline.decodes == ["on_screen.mp4", "after.mp4"]

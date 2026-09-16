@@ -60,7 +60,7 @@ def test_request_clip_load_starts_background_job():
 def test_adopt_loaded_clip_if_ready_promotes_frames_and_notifies_current_clip():
     path = Path("demo.mp4")
     controller, clip_store, load_state, _prefetch_state, _starter, _logger, active_loaded = _make_loader(current_clip_path=path)
-    request_id = load_state.begin()
+    request_id = load_state.begin(path)
     load_state.record_success(path, ["f0", "f1"], request_id)
 
     controller.adopt_loaded_clip_if_ready()
@@ -77,7 +77,7 @@ def test_adopt_loaded_clip_if_ready_takes_up_nothing_from_a_failed_decode():
     """
     path = Path("demo.mp4")
     controller, clip_store, load_state, _prefetch_state, _starter, _logger, active_loaded = _make_loader(current_clip_path=path)
-    request_id = load_state.begin()
+    request_id = load_state.begin(path)
     load_state.record_error(path, "boom", request_id)
 
     controller.adopt_loaded_clip_if_ready()
@@ -89,7 +89,7 @@ def test_adopt_loaded_clip_if_ready_takes_up_nothing_from_a_failed_decode():
 def test_request_prefetch_skips_when_busy():
     path = Path("demo.mp4")
     controller, _clip_store, load_state, _prefetch_state, starter, _logger, _active_loaded = _make_loader()
-    load_state.begin()
+    load_state.begin(Path("other.mp4"))
 
     controller.request_prefetch(path)
 
@@ -109,7 +109,7 @@ def test_request_prefetch_starts_background_job_for_uncached_path():
 def test_adopt_prefetch_if_ready_caches_frames_without_active_notification():
     path = Path("demo.mp4")
     controller, clip_store, _load_state, prefetch_state, _starter, _logger, active_loaded = _make_loader()
-    request_id = prefetch_state.begin()
+    request_id = prefetch_state.begin(path)
     prefetch_state.record_success(path, ["f0"], request_id)
 
     controller.adopt_prefetch_if_ready()

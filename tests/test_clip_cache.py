@@ -17,10 +17,11 @@ class TestDecodeRequestState:
             request_id_done=2,
         )
 
-        request_id = state.begin()
+        request_id = state.begin(Path("new.mp4"))
 
         assert request_id == 3
         assert state.loading is True
+        assert state.decoding_path == Path("new.mp4")
         assert state.loaded_clip_path is None
         assert state.loaded_frames is None
         assert state.load_error is None
