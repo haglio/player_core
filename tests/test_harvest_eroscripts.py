@@ -103,6 +103,28 @@ class TestPacingTheForum:
         assert calls == 2
         assert clock.slept == [7.0 + harvest.RETRY_GRACE_S]
 
+    def test_a_limit_being_waited_out_is_said_in_the_log(self, caplog):
+        clock = _FakeClock()
+        calls = 0
+
+        def opener(request, timeout):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise _too_many_requests(request.full_url, retry_after="3600")
+            return _FakeResponse(b'{"ok": 1}')
+
+        forum = harvest.Forum("https://forum.invalid", {}, opener=opener,
+                              sleep=clock.sleep, clock=lambda: clock.now, pace_s=1.0,
+                              log=logging.getLogger("harvest-under-test"))
+
+        with caplog.at_level(logging.INFO, logger="harvest-under-test"):
+            forum.get_json("/a.json")
+
+        assert [record.getMessage() for record in caplog.records] == [
+            f"rate limited at https://forum.invalid/a.json: waiting {3600 + harvest.RETRY_GRACE_S:.0f} s",
+        ]
+
 
 def _too_many_requests(url: str, *, retry_after: str):
     headers = email.message.Message()
