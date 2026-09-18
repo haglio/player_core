@@ -107,6 +107,32 @@ def test_a_player_holds_a_picture_four_seconds_until_a_source_sets_a_pace():
     assert options["image_display_duration"] == 4.0
 
 
+# Every Lua script mpv loads for itself, by the option that keeps it out.
+MPVS_OWN_SCRIPTS = (
+    "osc", "load_scripts", "load_stats_overlay", "load_osd_console",
+    "load_auto_profiles", "load_select", "load_positioning", "load_commands",
+    "ytdl",
+)
+
+
+def test_a_player_runs_none_of_mpvs_lua_scripts():
+    """All of them, not just the on-screen controller.
+
+    A player here is driven through the client API alone, so mpv's scripting
+    layer can only cost.  What it costs is a crash: these scripts error on the
+    way out often enough to matter, LuaJIT unwinds a Lua error through a Windows
+    structured exception, and a process with faulthandler armed answers every one
+    by dumping all threads' Python frames without the GIL -- while python-mpv's
+    event thread is exiting, so the walk reaches a thread state being freed and
+    faults.  Measured on this family's options: 22 of 40 core teardowns raised
+    one with these left on, none of 60 with them off.
+    """
+    options = _shared_options(muted=False, loop_file=True, prefetch=False)
+
+    assert {name: options.get(name) for name in MPVS_OWN_SCRIPTS} == dict.fromkeys(
+        MPVS_OWN_SCRIPTS, "no")
+
+
 def test_staging_the_next_clip_never_removes_by_index():
     """The staged entry goes through ``playlist-clear``, which mpv resolves against
     whatever is playing at that instant.

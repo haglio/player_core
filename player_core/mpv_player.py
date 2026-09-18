@@ -42,6 +42,22 @@ logger = logging.getLogger(__name__)
 # Origenerator's slideshow opens at this pace (slideshow.DEFAULT_IMAGE_DWELL_MS).
 _DEFAULT_PACE_S = 4.0
 
+# Every Lua script mpv loads for itself, the on-screen controller among them.  A
+# player here is driven through the client API, so the scripting layer has
+# nothing to do but cost, and one of those scripts erroring on the way out takes
+# a host process down — see tests/test_mpv_control.py for the mechanism.
+_MPV_SCRIPTS_OFF = {
+    "osc": "no",
+    "load_scripts": "no",
+    "load_stats_overlay": "no",
+    "load_osd_console": "no",
+    "load_auto_profiles": "no",
+    "load_select": "no",
+    "load_positioning": "no",
+    "load_commands": "no",
+    "ytdl": "no",
+}
+
 # mpv's severities onto Python's.  Only warnings and worse are asked for below,
 # so anything that arrives belongs in the host's log at face value.
 _MPV_LEVELS = {"fatal": logging.CRITICAL, "error": logging.ERROR, "warn": logging.WARNING}
@@ -99,7 +115,7 @@ def _shared_options(*, muted: bool, loop_file: bool, prefetch: bool) -> dict:
         # clock running and the session alive (a headset sink that is not
         # accepting streams yet is the case that found this).
         audio_fallback_to_null="yes",
-        osc=False,
+        **_MPV_SCRIPTS_OFF,
         input_default_bindings=False,
         image_display_duration=_DEFAULT_PACE_S,
     )
