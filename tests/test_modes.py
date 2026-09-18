@@ -55,6 +55,14 @@ def test_read_mode_answers_the_default_for_a_word_it_does_not_know(raw):
     assert read_mode(MainMode, raw, MainMode.VIDEO) is MainMode.VIDEO
 
 
+def test_read_mode_answers_none_for_a_reader_whose_default_is_no_mode_at_all():
+    """The length buttons are drawn only for a player that names a length mode,
+    so its readers fall back on None rather than on an entry."""
+    assert read_mode(LengthMode, "", None) is None
+    assert read_mode(LengthMode, "every", None) is None
+    assert read_mode(LengthMode, "shorts", None) is LengthMode.SHORTS
+
+
 def test_read_mode_hands_an_entry_straight_back():
     assert read_mode(SatellitesMode, SatellitesMode.ORIGENERATOR, SatellitesMode.VIDEO) is (
         SatellitesMode.ORIGENERATOR)
