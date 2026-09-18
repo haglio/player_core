@@ -73,8 +73,9 @@ class NoticeLevel(StrEnum):
     HIGHLIGHT = "favorite"
 
 
-def read_mode[M: Enum](enum: type[M], raw: object, default: M) -> M:
-    """The entry of *enum* whose wire word is *raw*, or *default* for anything else."""
+def read_mode[M: Enum, D](enum: type[M], raw: object, default: D) -> M | D:
+    """The entry of *enum* whose wire word is *raw*, or *default* for anything else
+    -- an entry, or None from a reader for whom "no word" is itself an answer."""
     if isinstance(raw, enum):
         return raw
     try:
