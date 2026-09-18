@@ -33,7 +33,6 @@ __all__ = [
     "cycle_shape",
     "pause_playing",
     "phase_advanced",
-    "phase_to_position",
     "position_fraction",
     "set_amplitude",
     "set_center",
