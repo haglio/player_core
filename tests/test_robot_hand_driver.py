@@ -77,6 +77,26 @@ class TestTakingOver:
 
         assert f"I{HANDOFF_MS}" in sink.sent[2]
 
+    def test_with_its_output_off_the_motion_runs_on_and_nothing_is_sent(self):
+        sink = FakeTCodeSink()
+        sender = RobotHandTCodeDriver(sink, min_interval=0.0)
+
+        sender.maybe_send(phase=0.0, now=1.0, output=False)
+        sender.maybe_send(phase=0.25, now=1.05, output=False)
+
+        assert (sender.motion_phase, sink.sent) == (0.25, [])
+
+    def test_output_coming_back_eases_onto_the_motion(self):
+        sink = FakeTCodeSink()
+        sender = RobotHandTCodeDriver(sink, min_interval=0.033)
+        sender.maybe_send(phase=0.0, now=0.05)
+        sender.maybe_send(phase=0.25, now=1.0)
+        sender.maybe_send(phase=0.4, now=1.02, output=False)
+
+        sender.maybe_send(phase=0.5, now=1.05)
+
+        assert f"I{HANDOFF_MS}" in sink.sent[2]
+
     def test_every_tick_of_the_glide_is_stretched_not_just_the_first(self):
         """A motion sends thirty times a second: one stretched command would be
         superseded a frame later by an ordinary one, and the device would cover

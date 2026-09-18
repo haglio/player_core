@@ -76,6 +76,7 @@ class RobotHandTCodeDriver:
         # units; None while it holds the device.  Published with the readout —
         # see :meth:`hand_over`.
         self._let_go_position: int | None = None
+        self._output_was_off = False
 
     def take_over(self) -> None:
         """The hand has the device again: resume the motion from the foot of its
@@ -174,7 +175,7 @@ class RobotHandTCodeDriver:
         driver still has it."""
         return self._let_go_position
 
-    def maybe_send(self, phase: float, now: float) -> None:
+    def maybe_send(self, phase: float, now: float, *, output: bool = True) -> None:
         if self._rise < 1.0:
             # Climbing out of the park: the swing holds at the floor (phase 0)
             # while the device rises to it, so the phase is tracked but not
@@ -196,6 +197,12 @@ class RobotHandTCodeDriver:
             self._motion_phase += max(0.0, delta)
             self._last_phase = phase
 
+        if not output:
+            self._output_was_off = True
+            return
+        if self._output_was_off:
+            self._output_was_off = False
+            self._glide.begin()
         elapsed = now - self._last_send_time
         if elapsed < self._min_interval:
             return

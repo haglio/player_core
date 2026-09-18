@@ -21,7 +21,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .clip_advance import (
     ClipAdvanceState,
@@ -48,6 +48,7 @@ from .player_verbs import (
     NEXT,
     PREV,
     QUIT,
+    SET_TCODE_ENABLED,
     SET_VOLUME,
     SPEED_DOWN,
     SPEED_UP,
@@ -90,6 +91,7 @@ class GenauControls:
     clip_advance_state: ClipAdvanceState | None = None
     stop_event: threading.Event | None = None
     hud: Flag | None = None
+    tcode_enabled: Flag = field(default_factory=lambda: Flag(on=True))
     set_volume: Callable[[int, bool], None] | None = None
     reorder_clips: Callable[[bool], None] | None = None
 
@@ -273,6 +275,11 @@ def _playing(playing: bool) -> Act:
     return act
 
 
+def _tcode_enabled(controls: GenauControls, value: str) -> bool:
+    controls.tcode_enabled.on = value.strip() != "0"
+    return True
+
+
 def _flag_set(name: str, value: bool) -> Act:
     def act(controls: GenauControls, _value: str) -> bool:
         getattr(controls, name).on = value
@@ -416,6 +423,10 @@ CONTROLS: tuple[Control, ...] = (
     Control(
         name="pause",
         verbs=(Verb("PAUSE", _playing(False)), Verb("RESUME", _playing(True))),
+    ),
+    Control(
+        name="tcode",
+        verbs=(Verb(SET_TCODE_ENABLED, _tcode_enabled, takes_a_value=True),),
     ),
     Control(
         name="hud",

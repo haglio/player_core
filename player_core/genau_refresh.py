@@ -67,6 +67,7 @@ class GenauRefreshController:
         self.learned = controls.learned_motion_state
         self.clip_advance = controls.clip_advance_state
         self.hud = controls.hud
+        self.tcode_enabled = controls.tcode_enabled
         self.broker = broker
         self.loader = loader
         self.notifier = notifier
@@ -154,7 +155,8 @@ class GenauRefreshController:
         self.handoff.watch(self.robot_hand.playing)
 
         if self.tcode_sender is not None and beat.robot_hand_active and self.robot_hand.playing:
-            self.tcode_sender.maybe_send(self.engine.phase, now)
+            self.tcode_sender.maybe_send(
+                self.engine.phase, now, output=self.tcode_enabled.on)
 
         if beat.robot_hand_active:
             self.readout.update(now)
