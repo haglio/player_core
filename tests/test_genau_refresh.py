@@ -17,6 +17,7 @@ from player_core.learned_model import LearnedModel, Phrase, classify
 from player_core.learned_motion import LearnedMotionState
 from player_core.robot_hand import RobotHandState, position_fraction
 from player_core.robot_hand_beat import BeatEngine
+from player_core.robot_hand_driver import RobotHandTCodeDriver
 
 
 class FakeLoader:
@@ -90,8 +91,9 @@ class FakeTCodeSender:
         self._position = 5000
         self._motion_phase = 0.0
 
-    def maybe_send(self, phase: float, now: float) -> None:
-        self.sends.append((phase, now))
+    def maybe_send(self, phase: float, now: float, *, output: bool = True) -> None:
+        if output:
+            self.sends.append((phase, now))
         self._motion_phase = phase
 
     def take_over(self) -> None:
@@ -332,6 +334,24 @@ def test_refresh_calls_adopt_pending_clip():
     built["controller"].refresh()
 
     assert built["selection"].adopt_calls == 1
+
+
+def test_a_hand_whose_output_is_switched_off_plays_on_unheard():
+    """A park or retract switches the output off, and the console then draws what
+    the hand would be doing in gray -- a motion it can only draw if it runs."""
+    dc = RobotHandState(playing=True, bpm=120.0)
+    sink = MagicMock()
+    clock = [5.0]
+    built = _build_controller(entry={"frames": [object() for _ in range(8)]}, robot_hand=dc,
+                              tcode_sender=RobotHandTCodeDriver(sink, robot_hand=dc),
+                              command="SET_TCODE_ENABLED 0", now_source=lambda: clock[0])
+    built["controller"].refresh()
+
+    clock[0] = 5.5
+    built["controller"].refresh()
+
+    first, then = (console.drive for console in built["consoles"])
+    assert (sink.send.call_count, first.position != then.position) == (0, True)
 
 
 def test_direct_mode_playing_advances_phase():

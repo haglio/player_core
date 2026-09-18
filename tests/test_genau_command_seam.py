@@ -54,6 +54,7 @@ class Seam:
     def __init__(self, tmp_path: Path, **start):
         self.paused = Flag(on=bool(start.get("paused", False)))
         self.hud = Flag(on=bool(start.get("hud", False)))
+        self.tcode_enabled = Flag(on=bool(start.get("tcode_enabled", True)))
         self.direct = RobotHandState(
             playing=bool(start.get("playing", False)),
             speed=start.get("speed", 50),
@@ -90,6 +91,7 @@ class Seam:
                 clip_advance_state=self.advance,
                 stop_event=self.stop_event,
                 hud=self.hud,
+                tcode_enabled=self.tcode_enabled,
                 set_volume=lambda level, muted: self.volumes.append((level, muted)),
                 reorder_clips=self.reorders.append,
             ),
@@ -134,6 +136,7 @@ class Seam:
             "reorders": tuple(self.reorders),
             "volumes": tuple(self.volumes),
             "hud": self.hud.on,
+            "tcode_enabled": self.tcode_enabled.on,
             "stopping": self.stop_event.is_set(),
         }
 
@@ -189,12 +192,14 @@ SEAM = [
     ("CLIP_SECONDS_UP", {}, {"interval": 21}),
     ("HUD_ON", {}, {"hud": True}),
     ("HUD_OFF", {"hud": True}, {"hud": False}),
-    # The five that carry a value.
+    # The six that carry a value.
     ("AMP 80", {}, {"amplitude": 80}),
     ("CENTER 65", {}, {"center": 65, "intended_center": 65}),
     ("SPEED 90", {}, {"speed": 90}),
     ("CLIP_SECONDS 30", {}, {"interval": 30}),
     ("SET_VOLUME 40 1", {}, {"volumes": ((40, True),)}),
+    ("SET_TCODE_ENABLED 0", {}, {"tcode_enabled": False}),
+    ("SET_TCODE_ENABLED 1", {"tcode_enabled": False}, {"tcode_enabled": True}),
 ]
 
 

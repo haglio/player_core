@@ -94,7 +94,7 @@ WRITTEN_DOWN_VERBS = frozenset({
     "CRUISE_ON", "CRUISE_OFF", "TOGGLE_LEARNED", "LEARNED_ON", "LEARNED_OFF",
     "TOGGLE_LOCK", "LOCK_ON", "LOCK_OFF",
     "CLIP_SECONDS_DOWN", "CLIP_SECONDS_UP", "HUD_ON", "HUD_OFF",
-    "AMP", "CENTER", "SPEED", "CLIP_SECONDS", "SET_VOLUME",
+    "AMP", "CENTER", "SPEED", "CLIP_SECONDS", "SET_VOLUME", "SET_TCODE_ENABLED",
 })
 
 WRITTEN_DOWN_KEYS = {
@@ -127,7 +127,7 @@ class TestTheVocabularyIsWrittenDown:
 # player_verbs and imported from there.  The rest are Genau's own.
 FAMILY_VERBS = frozenset({
     "NEXT", "PREV", "TOGGLE_LOCK", "LOCK_ON", "LOCK_OFF", "QUIT", "SET_VOLUME",
-    "SPEED_DOWN", "SPEED_UP",
+    "SET_TCODE_ENABLED", "SPEED_DOWN", "SPEED_UP",
 })
 
 
