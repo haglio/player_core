@@ -5,14 +5,13 @@ genau mode.  The console is the same in both, so the mode switch and the drive
 controls do not move as you flip between them; only the transport changes,
 because prev/next step the main player's video in video mode and Genau's clips in genau.
 
-Kept free of Pillow, as :mod:`player_core.satellite_hud` is, so the rows, the
+Kept free of Pillow, as :mod:`player_core.satellite_hud` is, so the
 geometry and the hit-testing are testable without a font.  :mod:`player_core.console_hud` paints them; the
 drive readout's own arrows come from :mod:`player_core.drive_readout`.
 
-What each button posts is a Fun Time dashboard command verbatim, because that
-is where a press goes: appended to the same command file the dashboard wrote, so
-nothing new has to learn what these buttons mean, and Fun Time routes each to the
-player the mode says owns it.
+The buttons are the source's own (:attr:`ConsoleModel.rows`), each posting its
+command verbatim to the command file that source reads; this module only places
+them and says which one a press landed on.
 """
 from __future__ import annotations
 
@@ -22,9 +21,7 @@ from pathlib import Path
 
 from .geometry import Rect, contains
 from .hud_button import BUTTON, Button, buttons_from_raw, buttons_raw, rows_from_raw, rows_raw
-from .hud_marks import BROKER_ICON, FMODE_ICON, MINIMIZE_ICON, shared_mark
-from .hud_status import LATEST_LABEL, SHUFFLE_LABEL
-from .modes import LengthMode, LoopState, MainMode, Osr2State, read_mode
+from .modes import LengthMode, MainMode, Osr2State, read_mode
 
 __all__ = [
     "GAP",
@@ -38,12 +35,12 @@ __all__ = [
     "ROW_LABEL_W",
     "VALUE_W",
     "ConsoleModel",
-    "console_rows",
     "console_text",
     "hit_test",
     "parse_console",
     "place_rows",
     "read_console",
+    "shape_label",
     "tooltip_at",
 ]
 
@@ -83,10 +80,6 @@ class ModeHud:
     *scripted_filter* is Fun Time's F-mode over whichever of those runs, keeping
     the videos that have a funscript.  All empty in genau mode, where there is
     no main player playlist to describe.
-
-    The last three are what a control can and cannot do to the video on screen,
-    and each defaults to "cannot": a main player too old to publish them leaves its
-    buttons dim, which is the honest answer when nothing has said otherwise.
     """
 
     video: str = ""
@@ -97,16 +90,6 @@ class ModeHud:
     position: int = 0
     total: int = 0
     scripted_filter: bool = False
-    # Whether the video on screen belongs to a compilation at all — what says
-    # the button can be pressed, where ``compilation`` says you are inside one.
-    has_compilation: bool = False
-    # Whether the library holds another cut of this same video.
-    has_other_versions: bool = False
-    # Where the clip/scene jump would go from here: "scene" from a clip to the
-    # scene it was cut from, "clip" back the other way, "" from a video that is
-    # neither.  Most clips' source scenes are not in the library, so "" is the
-    # common answer and the button is dim more often than not.
-    jump_to: str = ""
 
 
 # Those four states themselves.  One word rather than a flag each, because they
@@ -118,19 +101,14 @@ OSR2_PARKED = "parked"
 OSR2_RETRACTED = "retracted"
 OSR2_DRIVING = "driving"
 OSR2_CONTROL_OFF = "control_off"
-# And a fifth answer that is not a state: this host does not answer the group at
-# all.  The two holds are still drawn -- they are a spoken word here as well, and
-# have been pressable all along -- but nothing lights and the off button is not
-# offered, because a host that never hears the verb would draw one that does
-# nothing.  The same third answer ``latest`` and the two filters give.
+# And a fifth answer that is not a state: this host has no such switch, so the
+# console names none of the four.
 OSR2_CONTROL_UNANSWERED = ""
 
 # Which button stands for which state, in the order they sit, from off to on:
 # nothing going out, the two holds, the motion running.  Data, so a consumer
-# routing a press can read the state off the verb rather than spelling this out a
-# second time -- the same job CONSOLE_VERBS does for the whole panel.  The buttons
-# themselves still post their verb as a literal, which is what lets that gate
-# read them.
+# routing a press can read the state off the command rather than spelling this
+# out a second time.
 OSR2_CONTROL_BUTTONS: dict[str, str] = {
     OSR2_CONTROL_OFF: "osr2_control_off",
     OSR2_PARKED: "robot_hand_park",
@@ -160,42 +138,17 @@ class ConsoleModel:
     # state is the orchestrator's and the player drawing the console is not
     # always the one it is about.
     osr2_control: str = OSR2_CONTROL_UNANSWERED
-    # Whether the OSR2 broker service is up — its own concern, only the main player's.
-    broker: bool = False
-    # Where the main player's loop machine is.  The main player publishes it in its status
-    # file and Fun Time forwards it, because the console is drawn in genau mode too
-    # — by a player that has no loop machine of its own to ask.
-    loop_state: LoopState = LoopState.NORMAL
     # Whether the player on the main slot is holding what is on screen rather
-    # than letting it move on — the main player's video in video mode, Genau's clip in
-    # genau.  One flag for one padlock, because whichever player is showing is the
-    # one the lock holds.  On is where both players open, so it is the default
-    # here too: a console drawn before the first panel arrives must not show the
-    # lock off when it is not.  Published the same way ``loop_state`` is, and for the
-    # same reason — the player drawing this console is not always the one it is
-    # describing.
+    # than letting it move on -- the main player's video in video mode, Genau's
+    # clip in genau.  On is where both players open, so it is the default here
+    # too: a console drawn before the first panel arrives must not show the lock
+    # off when it is not.
     locked: bool = True
-    # Whether the main player's own F-mode is on — its playlist narrowed to the videos
-    # that have a funscript.  The main player is told the flag directly as well (its subtitle
-    # says so), but the button lights off what Fun Time publishes, because the
-    # flag is set from three places — this button, the F key, and a spoken phrase —
-    # and only one of them is the player.
-    scripted_filter: bool = False
-    # Which browse order the main player is in: newest-first ("Latest") when set,
-    # shuffled when clear.  Published for the same reason F-mode is — the order is
-    # Fun Time's to set, and the playlist the main player is handed looks the same either way
-    # round, so nothing in the file says which order built it.  None is a third
-    # answer, the one ``enhanced_filter`` and ``favorites_filter`` below give: this
-    # host has no browse order to switch at all, so the console neither draws the
-    # pair of buttons for it nor names an order on its status line.  Origenerator's
-    # motion panel is the one console that answers that way — its slides are a
-    # show's own set, not a browse.
+    # Which browse order the status line names: newest-first ("Latest") when
+    # set, shuffled when clear, and nothing at all for a host with no browse
+    # order to name -- Origenerator's motion panel, whose slides are a show's
+    # own set.
     latest: bool | None = None
-    cruise: bool = False
-    # Whether the learned motion has the hand: phrases of real scripting in
-    # place of the waveform.  Never on with cruise, and published like it.
-    learned: bool = False
-    shape: str = "sine"
     # The main player's video playback rate, shown while the main player is on screen.  Not published —
     # The main player knows its own rate and folds it in; Genau leaves it at 1.
     playback_speed: float = 1.0
@@ -203,35 +156,9 @@ class ConsoleModel:
     # Genau owns the pace and says it on the drive readout, which whoever draws
     # the console folds in here.
     advance_interval: int = 0
-    # Whether the host is showing only the pictures it has enhanced — and None
-    # where the host has no such filter at all, which is every one of these
-    # players but Origenerator: an enhancement is a thing IT makes, so nothing
-    # else has a set to narrow.  None draws no button rather than a dead one
-    # nobody could explain.  Not published either — Fun Time neither sets this
-    # filter nor hears about it — so the host that owns it folds it in the way
-    # it folds in the pace.
-    enhanced_filter: bool | None = None
-    # And whether it is showing only its favorites — the same shape, and the
-    # same reason: a genau-mode host with a set of its own to narrow has these
-    # switches, and one with no set has neither.  ``scripted_filter`` above is the
-    # video branch's flag, published by Fun Time for a playlist IT owns; this one is
-    # the genau branch's, folded in by the host that owns the set.  Both light
-    # the same F, because a reader glancing between two screens is looking at
-    # one switch: play the favorites only.
-    favorites_filter: bool | None = None
-    # Which shape of video the main player's browse may reach: the VR masters
-    # that wrap the view, the flat ones that hang on a screen, or both.  Two
-    # flags rather than one word, because all four answers are legal here —
-    # including neither, which asks for a browse with nothing in it.  None from
-    # a session whose library holds one shape only, which is every one outside
-    # the headset: no pair of buttons, exactly as ``latest`` None draws none.
-    plays_vr: bool | None = None
-    plays_flat: bool | None = None
     # The buttons the source declares, row by row, and the controls it puts on
-    # the OSR2 line: what each posts, its face, its tooltip and its state.  A
-    # host that draws from these draws nothing it was not handed.  Empty from a
-    # source that has not declared any, which the painter fills from the rows
-    # this module still builds.
+    # the OSR2 line: what each posts, its face, its tooltip and its state.  The
+    # console draws nothing it was not handed.
     rows: tuple[tuple[Button, ...], ...] = ()
     osr2_controls: tuple[Button, ...] = ()
 
@@ -264,25 +191,16 @@ def read_console(path: Path) -> ConsoleModel | None:
 def console_text(model: ConsoleModel) -> str:
     """*model* as the text Fun Time publishes, and :func:`parse_console` reads back.
 
-    Only what the room knows and the player cannot see goes out; the fields the
-    drawing host folds in for itself (the rate, the pace, its own filters) are
-    not the panel's to carry, and come back at rest.
+    Only what the room knows and the player cannot see goes out; the rate and
+    the pace, which the drawing host folds in for itself, come back at rest.
     """
     return json.dumps({
         "main_mode": model.main_mode,
         "active": model.active,
-        "scripted_filter": model.scripted_filter,
         "latest": model.latest,
         "osr2": model.osr2,
         "osr2_control": model.osr2_control,
-        "broker": model.broker,
-        "loop_state": model.loop_state,
         "locked": model.locked,
-        "cruise": model.cruise,
-        "learned": model.learned,
-        "shape": model.shape,
-        "plays_vr": model.plays_vr,
-        "plays_flat": model.plays_flat,
         "rows": rows_raw(model.rows),
         "osr2_controls": buttons_raw(model.osr2_controls),
     })
@@ -299,619 +217,19 @@ def parse_console(text: str) -> ConsoleModel | None:
     return ConsoleModel(
         main_mode=read_mode(MainMode, raw.get("main_mode"), MainMode.VIDEO),
         active=bool(raw.get("active", False)),
-        scripted_filter=bool(raw.get("scripted_filter", False)),
-        # Absent is None — no browse order to switch — rather than "shuffled":
-        # the pair of buttons is drawn only for a publisher that says which order
-        # it is in, so a panel nothing would answer does not grow two dead ones.
+        # Absent is None -- no browse order to name -- rather than "shuffled".
         latest=(None if raw.get("latest") is None else bool(raw.get("latest"))),
         osr2=read_mode(Osr2State, raw.get("osr2"), Osr2State.OFF),
         osr2_control=str(raw.get("osr2_control", "") or OSR2_CONTROL_UNANSWERED),
-        broker=bool(raw.get("broker", False)),
-        loop_state=read_mode(LoopState, raw.get("loop_state"), LoopState.NORMAL),
         locked=bool(raw.get("locked", True)),
-        cruise=bool(raw.get("cruise", False)),
-        learned=bool(raw.get("learned", False)),
-        shape=str(raw.get("shape", "sine") or "sine"),
-        plays_vr=(None if raw.get("plays_vr") is None else bool(raw.get("plays_vr"))),
-        plays_flat=(None if raw.get("plays_flat") is None else bool(raw.get("plays_flat"))),
         rows=rows_from_raw(raw.get("rows")),
         osr2_controls=buttons_from_raw(raw.get("osr2_controls")),
     )
 
 
-# The glyphs this console types, as against the marks it draws above.
-_GLYPHS = {
-    # The transport, in one family of marks: to the ends of the video with a bar,
-    # ten seconds either way without one.
-    "prev": "⏮", "next": "⏭", "back": "⏪", "fwd": "⏩",
-    "open": "📂", "record": "⏺", "save": "💾",
-    "lock": "🔒", "minus": "−", "plus": "+",
-    # These two are the family's own drawings rather than characters out of a
-    # symbol face: the bin is the very bin Origenerator's toolbar wears, and
-    # reset is a gear with a circular arrow at its corner — a bare circular
-    # arrow is an undo, which is a different act and lives elsewhere.  Each
-    # satellite's HUD gives its own reset the same mark, so one gesture wears
-    # one face across the room.
-    "trash": shared_mark("trash"),
-    "reset": shared_mark("reset"),
-}
-
-# The switch that keeps only the enhanced pictures wears the family's own mark
-# for exactly that: the plus an enhanced picture carries in its corner, with a
-# funnel hanging off it.  A bare plus is Enhance — the button that MAKES one, which
-# Origenerator's toolbar already has — so the funnel is what tells the two apart.
-ENHANCE_FILTER_ICON = shared_mark("enhance_filter")
-
-# The two browse orders, each with a mark of its own: the family's crossed arrows
-# for shuffle and the same arrows uncrossed for latest.  A pair rather than one
-# button that cycles, because which of the two the player is in is what the panel
-# has to say at a glance, and a cycling button says only "press me".  The same
-# pair each satellite's HUD carries, so one order wears one face across the room.
-SHUFFLE_ICON = shared_mark("shuffle")
-LATEST_ICON = shared_mark("latest")
-
-# The two length filters, as one dial read twice: a sector filled to say how much
-# of a scene the filter keeps.  Mixed gets no mark of its own — it is every
-# length there is, which is what the panel says by lighting both of these.
-FULL_LENGTH_ICON = shared_mark("clock_full")
-SHORTS_ICON = shared_mark("clock_short")
-
-# The two shapes a video is watched on, read the same way: a gridded hemisphere
-# for a VR master that wraps the view, a gridded panel seen at an angle for an
-# ordinary flat one.
-VR_ICON = shared_mark("vr_hemisphere")
-FLAT_ICON = shared_mark("flat_2d")
-
-# Stepping to another cut of the video on screen: two pages offset along a
-# diagonal with a double-headed arrow across them.
-VERSIONS_ICON = shared_mark("versions")
-
-# The set the video belongs to, played in its own order: a stack of sheets.
-COMPILATION_ICON = shared_mark("compilation")
-
-# The jump between a clip and its scene, one mark per direction: the two length
-# dials with an arrow underneath saying which of them the press is going to.
-CLIP_TO_SCENE_ICON = shared_mark("clip_to_scene")
-SCENE_TO_CLIP_ICON = shared_mark("scene_to_clip")
-
-# Skipping ahead to where this video's scripting starts up again: an arrow
-# running into the F every scripted thing in this family is marked with.
-FUNSCRIPT_JUMP_ICON = shared_mark("funscript_jump")
-
-# The four states of OSR2 control, as one drawing of the device read four ways —
-# the sleeve at the near end, at the far end, free in between, or free with the
-# motion crossed out because nothing is being sent to it at all.
-PARK_ICON = shared_mark("park")
-RETRACT_ICON = shared_mark("retract")
-RELEASE_ICON = shared_mark("release")
-CONTROL_OFF_ICON = shared_mark("control_off")
-
-
-# The phase nudge: the fraction stacked rather than typed, which makes it as tall
-# as the marks beside it and leaves room for the arrow saying which way it goes.
-QUARTER_ICON = shared_mark("quarter_offset")
-
-# The waveform control wears a drawn mark rather than a glyph: ∿ is a small mark
-# low in the bounds its face lays out, so it read as a smudge in the corner of
-# its button whatever the centering.  It is the family's sine now — the very
-# one Origenerator's OSR2 switch wears — because from the outside the two are
-# the same thing: motion the app is sending the device.
-WAVE_ICON = shared_mark("wave")
-
-# Every dispatch verb a console button can post, as data: the verbs are the
-# dashboard's vocabulary, spelled here because the console's buttons post them,
-# and a consumer holds its dispatch table to this set rather than finding out
-# at the first click that a verb has drifted (which is how the clip-seconds
-# buttons came to post a verb nothing answered).  tests/test_console.py holds
-# this set to the buttons; the consumer's own test holds its table to this set.
-CONSOLE_VERBS = frozenset({
-    "broker_panel",
-    "browse_library",
-    "clipper_save",
-    "genau_activate",
-    "genau_clip_seconds_down",
-    "genau_clip_seconds_up",
-    "genau_filter_enhanced",
-    "genau_next_clip",
-    "genau_prev_clip",
-    "genau_weird_clip",
-    "main_fmode",
-    "main_latest",
-    "main_lock",
-    "main_minimize",
-    "main_next",
-    "main_nudge_next",
-    "main_nudge_prev",
-    "main_prev",
-    "main_projection_both",
-    "main_projection_flat",
-    "main_projection_none",
-    "main_projection_vr",
-    "main_reset",
-    "main_shuffle",
-    "main_video_activate",
-    "osr2_control_off",
-    "main_player_clip_jump",
-    "main_player_compilation",
-    "main_player_cycle_version",
-    "main_player_end_compilation",
-    "main_player_full_vid",
-    "main_player_funscript_jump",
-    "main_player_length_full",
-    "main_player_length_mixed",
-    "main_player_length_none",
-    "main_player_length_shorts",
-    "main_player_record_tap",
-    "main_player_speed_down",
-    "main_player_speed_up",
-    "quarter_button",
-    "robot_hand_cycle_shape",
-    "robot_hand_park",
-    "robot_hand_release",
-    "robot_hand_retract",
-    "robot_hand_toggle_cruise",
-    "robot_hand_toggle_learned",
-})
-
-_MODE_BUTTONS = (
-    ("main_video_activate", "Video", MainMode.VIDEO),
-    ("genau_activate", "Genau", MainMode.GENAU),
-)
-
-
 def main_player_displays(main_mode: MainMode) -> bool:
-    """Whether the main player's video is on the main slot — video mode.
-
-    The transport steps the main player's video then, and the nudge / open / clip / record
-    that act on a video make sense; in genau mode the transport steps Genau's own
-    clips instead and those video actions have nothing to act on.
-    """
+    """Whether the main player's video is on the main slot — video mode."""
     return main_mode == MainMode.VIDEO
-
-
-def console_rows(model: ConsoleModel, *, modes: bool = True,
-                 main_player: ModeHud | None = None) -> list[list[Button]]:
-    """The console's buttons, row by row, for the mode Fun Time says it is in.
-
-    The mode row leads, so it holds the same place in every mode.  Then the
-    transport — the main player's video or Genau's clips — then the pace of whatever that
-    transport is stepping (the video's playback rate, or the seconds a clip holds
-    the screen), and the Robot Hand's hands-free control row (the drive
-    readout's amplitude/center/speed arrows are drawn on the readout itself, not
-    here).
-
-    The file controls ride the mode row rather than the transport: browsing for
-    another video, recording a loop and saving what it caught are all about
-    files rather than about the video on screen, and the transport row below had
-    grown long enough that its own groups stopped reading as groups.  They are
-    video-mode only, like the rest of that branch, so the mode row's leading
-    half — the two mode buttons and the minimize riding them — is what holds its
-    place across a mode switch.
-
-    *modes* off drops that whole row.  A player embedded in another app's window
-    is not one of the two that row switches between, has no borderless window of
-    its own to park, and does its own file handling — but everything below it
-    means exactly what it means here, which is the whole point of asking for this
-    console rather than building a second one.
-
-    *main_player* is what only the player on the slot knows — the length filter, the
-    compilation it is inside, whether the video has another version or a scene to
-    jump to.  It arrives whole rather than field by field because it already
-    travels whole: :class:`ModeHud` is what the status line is built from too,
-    and two copies of one fact is what drifts.
-    """
-    main_player = main_player or ModeHud()
-    rows: list[list[Button]] = [] if not modes else [
-        [
-            *(
-                Button(command, label, f"{label} mode", width=BUTTON * 2 + GAP,
-                       lit=model.main_mode == mode)
-                for command, label, mode in _MODE_BUTTONS
-            ),
-            # Minimize rides the mode row because it is about the main *slot*
-            # rather than about what is playing on it — and because this row is
-            # the one that is the same in every mode, so the button holds its
-            # place as you flip between them where the transport below does not.
-            # The window it parks is borderless, like the satellites', so there is
-            # no title bar to carry this; the only other way to put it away is the
-            # dashboard's own minimize, which takes the whole room.
-            Button("main_minimize", MINIMIZE_ICON,
-                   "Minimize this player — bring it back from the taskbar",
-                   group_break=True),
-            *_file_controls(model),
-        ],
-    ]
-    rows.append(_transport_row(model, main_player))
-    if main_player_displays(model.main_mode):
-        rows.append(_playback_speed_row())
-    else:
-        rows.append(_clip_seconds_row())
-    rows.append(_control_row(model))
-    return rows
-
-
-def _file_controls(model: ConsoleModel) -> list[Button]:
-    """The file actions, riding the mode row: browse for another video, record a
-    loop, save the clip it caught.
-
-    The main player's own, so nothing in genau mode, where there is no video for any of them
-    to act on — the same branch the transport row takes, one row up.
-    """
-    if not main_player_displays(model.main_mode):
-        return []
-    return [
-        Button("browse_library", _GLYPHS["open"], "Browse the library", group_break=True),
-        # Recording a loop and saving what it caught are one job in two presses,
-        # so they sit together and apart from the browser.  The record button
-        # carries the loop machine: red while the out point is still being
-        # marked, blue once the loop is running — the two halves of the gesture
-        # look different, so a press that is still open cannot be mistaken for
-        # one that landed.
-        Button("main_player_record_tap", _GLYPHS["record"],
-               "Stop recording — mark the loop's out point"
-               if model.loop_state is LoopState.RECORDING else
-               "Looping — press to drop the loop" if model.loop_state is LoopState.LOOPING
-               else "Record loop",
-               warn=model.loop_state is LoopState.RECORDING,
-               hold=model.loop_state is LoopState.LOOPING, group_break=True),
-        Button("clipper_save", _GLYPHS["save"], "Save clip"),
-    ]
-
-
-def _browse_order_buttons(model: ConsoleModel, *,
-                          remembered: bool = False) -> list[Button]:
-    """Which way round the browse runs: shuffled, or newest-first.
-
-    A button each, with exactly one of them lit — the pair each satellite's HUD
-    carries, meaning the same thing there.  Both modes have it: in video mode it
-    reorders the playlist Fun Time built for the main player, in genau mode it tells Genau to
-    rescan its clips the other way round.
-
-    Nothing at all for a host with no browse order to name (``latest`` None) —
-    see :attr:`ConsoleModel.latest`.
-    """
-    if model.latest is None:
-        return []
-    on = (not model.latest, bool(model.latest))
-    return [
-        Button("main_shuffle", SHUFFLE_ICON, f"{SHUFFLE_LABEL} — reshuffle what plays",
-               lit=on[0] and not remembered, remembered=on[0] and remembered,
-               group_break=True),
-        Button("main_latest", LATEST_ICON, f"{LATEST_LABEL} — reload it newest-first",
-               lit=on[1] and not remembered, remembered=on[1] and remembered),
-    ]
-
-
-def _projection_buttons(model: ConsoleModel, *, remembered: bool) -> list[Button]:
-    """Which shape of video the browse may reach: VR masters, flat ones, or both.
-
-    Each button is a shape it INCLUDES, exactly as the length pair beside it is a
-    length it includes, so both lit is every shape there is.  Unlike the lengths,
-    turning the last one off is allowed: it asks for a browse with nothing in it,
-    which is a degenerate answer but a real one, and no press here is refused.
-
-    Nothing at all where the library holds one shape only — see
-    :attr:`ConsoleModel.plays_vr`.
-    """
-    if model.plays_vr is None or model.plays_flat is None:
-        return []
-    vr, flat = bool(model.plays_vr), bool(model.plays_flat)
-
-    def state(on: bool) -> dict:
-        return {"lit": on and not remembered, "remembered": on and remembered}
-
-    return [
-        Button(
-            ("main_projection_flat" if flat else "main_projection_none") if vr
-            else ("main_projection_both" if flat else "main_projection_vr"),
-            VR_ICON,
-            "Only the VR videos are playing" if vr and not flat
-            else "Drop the VR videos" if vr
-            else "Put the VR videos back", group_break=True, **state(vr)),
-        Button(
-            ("main_projection_vr" if vr else "main_projection_none") if flat
-            else ("main_projection_both" if vr else "main_projection_flat"),
-            FLAT_ICON,
-            "Only the flat videos are playing" if flat and not vr
-            else "Drop the flat videos" if flat
-            else "Put the flat videos back", **state(flat)),
-    ]
-
-
-def _length_buttons(main_player: ModeHud, *, remembered: bool) -> list[Button]:
-    """How long a thing has to be to play: full length, shorts, both, or neither.
-
-    Each button is a length it INCLUDES, exactly as the shapes pair beside it is
-    a shape it includes: both lit is every length there is, neither lit is a
-    browse with nothing in it.  Turning off the last one is allowed and holds
-    the video on screen rather than being refused — a control that cannot be
-    turned off is a control whose mark goes gray for a reason nobody can see.
-
-    Nothing at all where there is no length mode to name: a playlist Fun Time
-    handed over with no library under it has no length filter running, exactly
-    as the status line's own slot is empty there.
-    """
-    if main_player.length_mode is None:
-        return []
-    mixed = main_player.length_mode is LengthMode.MIXED
-    full = mixed or main_player.length_mode is LengthMode.FULL
-    shorts = mixed or main_player.length_mode is LengthMode.SHORTS
-
-    def state(on: bool) -> dict:
-        return {"lit": on and not remembered, "remembered": on and remembered}
-
-    return [
-        Button(
-            ("main_player_length_shorts" if shorts else "main_player_length_none") if full
-            else ("main_player_length_mixed" if shorts else "main_player_length_full"),
-            FULL_LENGTH_ICON,
-            "Only the full-length scenes are playing" if full and not shorts
-            else "Drop the full-length scenes" if full
-            else "Put the full-length scenes back", group_break=True, **state(full)),
-        Button(
-            ("main_player_length_full" if full else "main_player_length_none") if shorts
-            else ("main_player_length_mixed" if full else "main_player_length_shorts"),
-            SHORTS_ICON,
-            "Only the shorts are playing" if shorts and not full
-            else "Drop the shorts" if shorts
-            else "Put the shorts back", **state(shorts)),
-    ]
-
-
-def _compilation_button(main_player: ModeHud) -> Button:
-    """The set the video on screen belongs to, played in its own order.
-
-    One button for both halves of the gesture: pressing it enters the
-    compilation, and pressing the lit one leaves it again.  Dim for a video that
-    belongs to no compilation, which is most of the library.
-    """
-    inside = bool(main_player.compilation)
-    return Button(
-        "main_player_end_compilation" if inside else "main_player_compilation",
-        COMPILATION_ICON,
-        "Playing this compilation in order — press to leave it" if inside
-        else "Play this video's compilation, in order"
-        + ("" if main_player.has_compilation else " (this one belongs to none)"),
-        lit=inside, dim=not (inside or main_player.has_compilation), group_break=True,
-    )
-
-
-def _clip_scene_button(main_player: ModeHud) -> Button:
-    """The jump between a clip and the scene it was cut from.
-
-    One button both ways: from a clip it goes to the scene, from a scene to the
-    clip, and the mark says which by the direction of its arrow.  Neither
-    touches the playlist — one video, and "next" carries on from where it was.
-    Dim wherever there is nothing on the other end, which is the common case:
-    most clips' source scenes are not in the library.
-    """
-    to_scene = main_player.jump_to == "scene"
-    return Button(
-        "main_player_full_vid" if to_scene else "main_player_clip_jump",
-        CLIP_TO_SCENE_ICON if to_scene else SCENE_TO_CLIP_ICON,
-        "Play the full scene this clip came from" if to_scene
-        else "Back to the clip taken from this scene" if main_player.jump_to == "clip"
-        else "Play the full scene this clip came from"
-             " (no full scene in the library for this one)",
-        dim=not main_player.jump_to, group_break=True,
-    )
-
-
-def _transport_row(model: ConsoleModel, main_player: ModeHud) -> list[Button]:
-    """Stepping and the actions on what is on screen, then the browse itself.
-
-    In video mode the stepping is the main player's video — step it, nudge inside it, hold it
-    against the end of the playlist's advance.  In genau it is Genau's own clips
-    — step them, hold one, mark one weird; the nudges have no video to act on.
-    Both branches end with what narrows the browse and what orders it.
-
-    The padlock is in both, because both players have one and it means the same
-    thing on each: hold what is on screen.  Which player it reaches is the mode's
-    business, not this row's — the same rule prev/next already follow.
-    """
-    if main_player_displays(model.main_mode):
-        return [
-            # Ordered as the video runs: back to the last one, back ten, forward
-            # ten, on to the next.
-            Button("main_prev", _GLYPHS["prev"], "Previous video"),
-            Button("main_nudge_prev", _GLYPHS["back"], "Back 10s"),
-            Button("main_nudge_next", _GLYPHS["fwd"], "Forward 10s"),
-            Button("main_next", _GLYPHS["next"], "Next video"),
-            # What the end of the video does, so it belongs with the stepping:
-            # locked (the main player's default) the video repeats and the two
-            # buttons beside it are the only way off it; unlocked it plays out
-            # into the next one and the playlist runs around.  The same padlock a
-            # satellite's HUD carries, and lit the same way when it is on.
-            Button("main_lock", _GLYPHS["lock"],
-                   "Locked — this video repeats; press to play on through the "
-                   "playlist" if model.locked
-                   else "Unlocked — plays on through the playlist; press to hold "
-                        "this video",
-                   # Green, like the satellite HUDs' lock: a lock puts the clip
-                   # in the favorites, and green is what this family spends on
-                   # the favorites and the funscripts.  On the ordinary active
-                   # gray it was indistinguishable from every other toggle.
-                   lit=model.locked, favorite=True, group_break=True),
-            # F-mode is per player now — Fun Time's dashboard used to carry one
-            # switch for the room and every player carries its own instead.  Here
-            # it narrows the playlist to the videos that have a funscript, so it
-            # sits with the browser: both change what there is to step through,
-            # rather than acting on the video on screen or on where it ends.
-            Button("main_fmode", FMODE_ICON,
-                   "F-Mode — play only the videos that have a funscript",
-                   lit=model.scripted_filter, favorite=True),
-            # And the way back out of all of it, the same button each satellite's
-            # HUD carries: drop everything narrowing what plays — the length mode
-            # (with any compilation it was feeding) and F-mode together.  It sits
-            # past the two switches because it is the wider gesture: they each
-            # turn one thing on or off, this puts the lot back.  Only in this
-            # branch, like F-mode above — in genau mode there is no main player playlist
-            # for either of them to be narrowing.
-            Button("main_reset", _GLYPHS["reset"],
-                   "Reset — the whole library back, with F-Mode off", group_break=True),
-            # Then the browse itself, group by group: which way round it runs,
-            # which shape of video is in it, how long a thing has to be to be in
-            # it, the set the video belongs to, the scene it came from, and
-            # another cut of it.  Reset stands
-            # apart from all of them, being what puts them back rather than one
-            # more of them.  A compilation replaces the browse while it plays, so
-            # the order and the length show as held rather than in force.
-            *_browse_order_buttons(model, remembered=bool(main_player.compilation)),
-            *_projection_buttons(model, remembered=bool(main_player.compilation)),
-            *_length_buttons(main_player, remembered=bool(main_player.compilation)),
-            _compilation_button(main_player),
-            _clip_scene_button(main_player),
-            Button("main_player_cycle_version", VERSIONS_ICON,
-                   "Another version of this video"
-                   + ("" if main_player.has_other_versions else " (none for this one)"),
-                   dim=not main_player.has_other_versions, group_break=True),
-        ]
-    return [
-        Button("genau_prev_clip", _GLYPHS["prev"], "Previous clip"),
-        Button("genau_next_clip", _GLYPHS["next"], "Next clip"),
-        Button("main_lock", _GLYPHS["lock"],
-               "Locked — this clip repeats; press to move on every "
-               f"{model.advance_interval}s" if model.locked
-               else "Unlocked — moving on every "
-                    f"{model.advance_interval}s; press to hold this clip",
-               lit=model.locked, favorite=True, group_break=True),
-        # The narrowing switches sit straight after the lock, in the order the
-        # other branch puts them in: both say what there is to step through
-        # rather than acting on what is on screen or on where it ends.  F leads,
-        # holding the place it holds over there, and the rest group after it.
-        # Each appears only where the host has that filter at all — see
-        # ConsoleModel.favorites_filter and .enhanced_filter.
-        *([] if model.favorites_filter is None else [
-            Button("main_fmode", FMODE_ICON,
-                   "Showing the favorites only — press for all of them"
-                   if model.favorites_filter
-                   else "F-Mode — play only the favorites",
-                   lit=model.favorites_filter, favorite=True),
-        ]),
-        *([] if model.enhanced_filter is None else [
-            Button("genau_filter_enhanced", ENHANCE_FILTER_ICON,
-                   "Showing the enhanced pictures only — press for all of them"
-                   if model.enhanced_filter
-                   else "Show only the pictures that have been enhanced",
-                   lit=model.enhanced_filter, enhanced=True, group_break=True),
-        ]),
-        Button("genau_weird_clip", _GLYPHS["trash"], "Mark weird — move it out",
-               danger=True, group_break=model.enhanced_filter is None),
-        # And which way round Genau walks its clips — the same pair the video
-        # branch ends on, because the question is the same one.
-        *_browse_order_buttons(model),
-    ]
-
-
-def _playback_speed_row() -> list[Button]:
-    """The main player's video playback rate: slower, the rate itself, faster.
-
-    Named, because "Speed" already means the *motion* rate down on the drive
-    readout and an unlabelled −/+ pair beside a number said neither.  The rate
-    is the drawing player's own, so the read-out names it for the painter to
-    fill rather than carrying a number nobody here knows.
-    """
-    return [
-        Button("", "Playback speed", "", width=ROW_LABEL_W),
-        Button("main_player_speed_down", _GLYPHS["minus"], "Play the video slower",
-               group_break=True),
-        Button("", "", "", width=VALUE_W, host_value="playback_speed"),
-        Button("main_player_speed_up", _GLYPHS["plus"], "Play the video faster"),
-    ]
-
-
-def _clip_seconds_row() -> list[Button]:
-    """How long an unlocked Genau leaves each clip on screen: fewer, the number
-    itself, more.
-
-    Genau's clips are fractions of a second, so an unlocked Genau cannot simply
-    play through them — it would strobe — and this is the only thing that says how
-    fast it does move.  Shaped like the playback-speed row above, and named for the
-    same reason: a bare −/+ pair beside a number says "less/more" of nothing.
-
-    The padlock in the transport row is the only switch; this row is just its
-    pace.
-    """
-    return [
-        Button("", "Clip seconds", "", width=ROW_LABEL_W),
-        Button("genau_clip_seconds_down", _GLYPHS["minus"], "Move on sooner", group_break=True),
-        Button("", "", "", width=VALUE_W, host_value="advance_interval"),
-        Button("genau_clip_seconds_up", _GLYPHS["plus"], "Leave each clip longer"),
-    ]
-
-
-def _control_row(model: ConsoleModel) -> list[Button]:
-    """The shape of the motion, then the four states OSR2 control can be in,
-    from off to on.
-
-    Those four are a group of their own because they are a different kind of
-    thing from the three before them — those say what the motion IS, these say
-    whether the device is getting one.  Park settles it home and retract sends it
-    to the far end, away; driving puts back whatever the motion was doing before
-    either, cruise included; control off stops sending it anything.  Unlike
-    OmniPause the room plays on through all four.
-
-    Exactly one is lit, because the device is in exactly one of them.  The three
-    that ARE control light the family's blue like any other engaged switch; off
-    lights red, the one state in which nothing this panel does reaches the device
-    — and the same red the pill below then reads "Control off" in.
-
-    A host that answers none of it (OSR2_CONTROL_UNANSWERED) gets the two holds
-    it has always had, dark, and no off button: a switch nothing hears is worse
-    than no switch.
-
-    The funscript jump rides the end of this row rather than the transport's:
-    the transport row is full, and this is the row about what the device is
-    doing, which is the very thing that jump goes looking for.  The main player's, so it is
-    not there in genau mode, where there is no scripted video to skip inside.
-    """
-    control = model.osr2_control
-    return [
-        Button("robot_hand_toggle_cruise", "cc",
-               "Cruise control: vary the motion hands-free", lit=model.cruise),
-        Button("robot_hand_toggle_learned", "hi",
-               "Human inspired: motion drawn from real hand-made scripts, not a waveform",
-               lit=model.learned),
-        Button("robot_hand_cycle_shape", WAVE_ICON, f"Waveform: {shape_label(model.shape)}"),
-        Button("quarter_button", QUARTER_ICON, "Offset the motion a ¼ cycle"),
-        *([
-            Button("osr2_control_off", CONTROL_OFF_ICON,
-                   "Control off — the OSR2 settles home and is left there; "
-                   "nothing here moves it again until you park, retract or "
-                   "drive it.  The device itself stays on: this is the app "
-                   "letting go of it, not the OSR2 switching off",
-                   warn=control == OSR2_CONTROL_OFF, group_break=True),
-        ] if control else []),
-        Button("robot_hand_park", PARK_ICON,
-               "Parked — the OSR2 held still, settled home",
-               lit=control == OSR2_PARKED, group_break=not control),
-        Button("robot_hand_retract", RETRACT_ICON,
-               "Retracted — the OSR2 held still at the far end, away from you",
-               lit=control == OSR2_RETRACTED),
-        Button("robot_hand_release", RELEASE_ICON,
-               "Driving — the OSR2 back on whatever the motion was doing, "
-               "cruise included",
-               lit=control == OSR2_DRIVING),
-        *([
-            Button("main_player_funscript_jump", FUNSCRIPT_JUMP_ICON,
-                   "Skip ahead to where this video's scripting starts up again",
-                   group_break=True),
-        ] if main_player_displays(model.main_mode) else []),
-    ]
-
-
-def osr2_row(model: ConsoleModel) -> list[Button]:
-    """The control that sits beside the OSR2 read-out.
-
-    The broker is the service that talks to the OSR2 at all, so it acts on the
-    device rather than on a player and shares the device's line.
-    """
-    return [
-        Button("broker_panel", BROKER_ICON,
-               "OSR2 broker is running — press to stop it" if model.broker
-               else "OSR2 broker is not running — press to start it",
-               lit=model.broker, warn=not model.broker),
-    ]
 
 
 def place_rows(rows: list[list[Button]], *, x: int, y: int) -> list[tuple[Rect, Button]]:

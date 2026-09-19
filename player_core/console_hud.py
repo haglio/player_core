@@ -45,10 +45,8 @@ from .console import (
     ConsoleModel,
     ModeHud,
     _row_width,
-    console_rows,
     hit_test,
     main_player_displays,
-    osr2_row,
     place_rows,
     rows_height,
     tooltip_at,
@@ -82,7 +80,6 @@ from .hud_panel import (
     to_bgra,
 )
 from .hud_status import (
-    ENHANCED_LABEL,
     LATEST_LABEL,
     SEPARATOR,
     SHUFFLE_LABEL,
@@ -98,13 +95,10 @@ __all__ = [
     "with_playback_speed",
 ]
 
-# What the two length modes are called on the line.  The modes themselves are
-# named in :mod:`player_core.console`, which is where the buttons for them are
-# built — a font-free module, so it can hold the names a painter also needs.
-# MIXED is deliberately absent from this mapping: it applies no length filter at
-# all, so it narrows nothing and prints nothing — the same silence a satellite
-# keeps where its act filter would go when it has none, and the same silence the
-# two buttons keep by both sitting dark.
+# What the two length modes are called on the line.  MIXED is absent: it
+# applies no length filter at all, so it narrows nothing and prints nothing --
+# the same silence a satellite keeps where its act filter would go when it has
+# none.
 _LENGTH_LABELS = {LengthMode.FULL: "Full length", LengthMode.SHORTS: "Shorts"}
 
 # A compilation is titled for a shelf: "various - Ultimate Example Studio Alpha
@@ -217,12 +211,6 @@ class ConsoleHud:
     # floating this over a video wants (see hud_panel.HudPanel).  Part of the
     # value compared for the repaint cache, like the rest.
     ground: tuple[int, int, int] | None = None
-    # Whether to draw the row that switches between the two players, and the
-    # minimize button riding it.  A console drawn inside another app's window is
-    # not one of those three and has no borderless window of its own to park, so
-    # that row names nothing it can do; everything below it means what it means
-    # here.  Part of the value compared for the repaint cache, like the rest.
-    modes_row: bool = True
 
     @property
     def advance_interval(self) -> int:
@@ -247,10 +235,6 @@ class ConsoleHud:
         grammar and the shared states' wording live — the satellites say the same
         sentence, and a reader glancing between two screens is reading one sentence
         in two places.
-
-        F-mode is read from either place it can be set: Fun Time publishes it for
-        the playlist it owns, and a genau-mode host with a set of its own folds
-        in its own switch.  One word for one switch, whichever side turned it on.
 
         What fills the slots is the main player's own.  The compilation is its playing
         set — a fixed run it plays through rather than the browse it came from.
@@ -283,24 +267,9 @@ class ConsoleHud:
             playing_set=compilation,
             locked=self.console.locked,
             order=order,
-            f_mode=self.modes.scripted_filter or bool(self.console.favorites_filter),
-            filter_label=self._filter_label,
+            f_mode=self.modes.scripted_filter,
+            filter_label=_LENGTH_LABELS.get(self.modes.length_mode, ""),
         )
-
-    @property
-    def _filter_label(self) -> str:
-        """What has been cut out of what is playing, in the one slot for it.
-
-        Two players fill it and neither can fill it at once: the main player narrows a
-        library by length, and Origenerator keeps only the pictures it has
-        enhanced — a genau-mode console with no main player playlist backing it, so the
-        length mode is empty there by construction.  One slot rather than two
-        because a reader glancing between screens is reading one sentence, and
-        the answer to "what is left" is one phrase wherever it is asked.
-        """
-        if self.console.enhanced_filter:
-            return ENHANCED_LABEL
-        return _LENGTH_LABELS.get(self.modes.length_mode, "")
 
 
 class ConsolePainter:
@@ -545,7 +514,7 @@ class ConsolePainter:
         self._composed_drive = (
             drive if (drive is not None and drive.segments
                       and main_player_displays(console.main_mode)) else None)
-        rows = [[self._filled(button, hud) for button in row] for row in self._rows(hud)]
+        rows = [[self._filled(button, hud) for button in row] for row in hud.console.rows]
         status = hud.status_line
         filename = hud.modes.video
         drive_w, drive_h = section_size() if drive is not None else (0, 0)
@@ -617,8 +586,12 @@ class ConsolePainter:
         return panel.image
 
     @staticmethod
-    def _osr2_controls_width(controls: list[Button]) -> int:
-        return sum(b.width for b in controls) + GAP * (len(controls) - 1)
+    def _osr2_controls_width(controls: tuple[Button, ...]) -> int:
+        """The controls' run and the gap after it -- nothing at all for a line
+        with no controls, whose label then starts where they would have."""
+        if not controls:
+            return 0
+        return sum(b.width for b in controls) + GAP * (len(controls) - 1) + _OSR2_GROUP_GAP
 
     def _osr2_state(self, model: ConsoleModel) -> str:
         """What the pill says has the device — the drawn line's own answer
@@ -649,22 +622,23 @@ class ConsolePainter:
         return text_width(self._tiny, _OSR2_LABELS.get(osr2, osr2)) + 10
 
     def _osr2_width(self, model: ConsoleModel) -> int:
-        return (self._osr2_controls_width(self._osr2_controls(model)) + _OSR2_GROUP_GAP
+        return (self._osr2_controls_width(model.osr2_controls)
                 + text_width(self._tiny, "OSR2") + _OSR2_LABEL_GAP
                 + self._osr2_pill_width(model))
 
     def _osr2(self, image, draw, x: int, y: int, model: ConsoleModel,
               hover: tuple[int, int] | None = None) -> None:
-        """The device's own line: its two controls, then what has it.
+        """The device's own line: the controls the source put on it, then what
+        has the device.
 
-        The broker and the takeover switch act on the OSR2 rather than on any
-        player, so they share the OSR2's line and sit together at its head —
-        placed by hand rather than through the row layout, which would read them
-        as different families and open a gap between them.  The label then hugs
-        its pill, well clear of the controls, so "OSR2 Robot Hand" reads as one
-        read-out instead of as a third button.
+        Those controls act on the OSR2 rather than on any player, so they share
+        its line and sit together at its head -- placed by hand rather than
+        through the row layout, which would read them as different families and
+        open a gap between them.  The label then hugs its pill, well clear of
+        the controls, so "OSR2 Robot Hand" reads as one read-out instead of as
+        another button.
         """
-        controls = self._osr2_controls(model)
+        controls = model.osr2_controls
         run_x = x
         for button in controls:
             rect = (run_x, y, button.width, _OSR2_H)
@@ -673,7 +647,7 @@ class ConsolePainter:
             self.buttons.append((rect, button))
             run_x += button.width + GAP
 
-        label_x = x + self._osr2_controls_width(controls) + _OSR2_GROUP_GAP
+        label_x = x + self._osr2_controls_width(controls)
         draw.text((label_x, y + _OSR2_H / 2), "OSR2", font=self._tiny, anchor="lm",
                   fill=(*TEXT_MUTED, 255))
         osr2 = self._osr2_state(model)
@@ -685,19 +659,6 @@ class ConsolePainter:
         # word beside two real buttons reads as a third one you can press.
         draw.text((pill_x + pill_w / 2, y + _OSR2_H / 2), state, font=self._tiny,
                   anchor="mm", fill=(*color, 255))
-
-    @staticmethod
-    def _rows(hud: ConsoleHud) -> list:
-        """The buttons to draw: the rows the source declared, or -- from one
-        that declared none -- the rows :mod:`player_core.console` still builds
-        from the panel's switches."""
-        if hud.console.rows:
-            return [list(row) for row in hud.console.rows]
-        return console_rows(hud.console, modes=hud.modes_row, main_player=hud.modes)
-
-    @staticmethod
-    def _osr2_controls(model: ConsoleModel) -> list[Button]:
-        return list(model.osr2_controls) or osr2_row(model)
 
     def _filled(self, button: Button, hud: ConsoleHud) -> Button:
         """A read-out as it is drawn: the host's own number written in where the

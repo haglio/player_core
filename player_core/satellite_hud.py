@@ -25,20 +25,15 @@ from dataclasses import dataclass, field
 from shared_ui.spacing import (
     BUTTON_GAP,
     BUTTON_GROUP_GAP,
-    BUTTON_PAD_H_TIGHT,
     BUTTON_SIZE_HUD,
 )
 
 from .console import VALUE_W
 from .geometry import Rect, contains
-from .hud_button import FIT_THE_WORD, Button, rows_from_raw, rows_raw
-from .hud_marks import FMODE_ICON, MINIMIZE_ICON, shared_mark
-from .hud_status import LATEST_LABEL, SHUFFLE_LABEL
-from .modes import SatellitesMode, read_mode
+from .hud_button import Button, rows_from_raw, rows_raw
 
 __all__ = [
     "MARGIN",
-    "MODE_BUTTONS",
     "HudCell",
     "HudClicks",
     "HudModel",
@@ -131,24 +126,6 @@ class HudModel:
     # Whether the clip on screen is one of the favorites — marked in the control
     # band, beside the buttons that act on that clip.
     is_favorite: bool = False
-    # Whether THIS player is in F-mode — its browse narrowed to the favorites.  Each
-    # player has its own, so it lights this player's own button in the control band.
-    # Named for what it keeps: the main player's F-mode keeps the scripted videos.
-    favorites_filter: bool = False
-    # Whether this player is narrowed to the pictures it has enhanced — or None for
-    # a player with no such filter, which is every one of fun_time's own players:
-    # only a hosted Origenerator's shows have enhanced pictures to keep, so only
-    # their HUDs grow the button (see :func:`satellite_hud_paint._row_names`).
-    # The same shape the main console's ``enhanced_filter`` takes, for the same
-    # reason: None is "has no such switch", not "switched off".
-    enhanced_filter: bool | None = None
-    # Which browse order this player is in — True for newest-first, False for
-    # shuffled — or None for a player that cannot be switched between them.  The
-    # same three-state shape ``enhanced_filter`` above takes, for the same
-    # reason: the pair of buttons is drawn only for a HUD whose owner can
-    # actually change the order, so a surface that merely HAS an order (a hosted
-    # Origenerator's show) does not grow two buttons nothing answers.
-    latest: bool | None = None
     corner: HudCell | None = None
     seeds: tuple[HudCell, ...] = ()
     actions: tuple[HudCell, ...] = ()
@@ -168,16 +145,12 @@ class HudModel:
     # while a loop plays a non-anchor clip of the group.  Drawn bright; the
     # rest dim.
     playing: Cell = ("corner", 0)
-    # The satellite side's own mode axis ("video" / "origenerator"), or "" for
-    # a session with no hosted Origenerator: in origenerator mode the player
-    # blacks its video out under this panel.
-    satellites_mode: SatellitesMode | None = None
     # The rate this player plays at, folded into its own HUD so the painter draws
     # the speed row under the bands; None for a surface with no rate to show.
     playback_speed: float | None = None
     # The buttons the source declares for this player, in the bands the panel
-    # draws them in: what each posts, its face, its tooltip and its state.  A
-    # panel declaring none is drawn from :func:`standard_rows`.
+    # draws them in: what each posts, its face, its tooltip and its state.  The
+    # panel draws nothing it was not handed.
     rows: tuple[tuple[Button, ...], ...] = ()
 
 
@@ -470,7 +443,6 @@ def ellipsis_rects(
 # before a button that starts a group -- the way the console's rows break.
 CTRL_BTN = BUTTON_SIZE_HUD
 CTRL_BAND_H = 24
-CTRL_GROUP_GAP = 12
 # Inside a word button, the room either side of its word.
 MODE_LABEL_PAD = 6
 
@@ -489,116 +461,25 @@ def button_row_rects(x: int, y: int, buttons: Sequence[Button],
     return rects
 
 
-# --- the family's standard band, for a panel that declares none ----------------
-# Drawn for a model with no rows, exactly as every panel was drawn before a
-# source could declare its own: Fun Time's move onto declaring these is the
-# next landing, and this goes with it.
-CONTROL_GROUPS = (
-    ("prev", "next"),
-    ("lock", "trash", "fmode"),
-    ("enhanced", "reset"),
-    ("shuffle", "latest"),
-    ("minimize",),
-)
-_GROUP_OF = {name: index for index, group in enumerate(CONTROL_GROUPS) for name in group}
-_ORDER_CONTROLS = ("shuffle", "latest")
-
-MODE_BUTTONS = (
-    ("satellites_video_activate", "Video", SatellitesMode.VIDEO),
-    ("origenerator_activate", "Origenerator", SatellitesMode.ORIGENERATOR),
+# The speed row's two buttons, drawn by the player rather than declared by the
+# source, since only the drawing player knows the rate that sits between them.
+_SPEED_BUTTONS = (
+    ("speed_down", "−", "Play the video slower"),
+    ("speed_up", "+", "Play the video faster"),
 )
 
-def mode_button_rects(x: int, y: int, label_widths: list[int]) -> list[tuple[Rect, str]]:
-    """Each mode button's ``(rect, command)``, running right from ``(x, y)``.
 
-    *label_widths* is each label as the paint module measured it — this module
-    is font-free — in :data:`MODE_BUTTONS` order.
-    """
-    rects: list[tuple[Rect, str]] = []
-    for (command, _label, _mode), label_width in zip(MODE_BUTTONS, label_widths):
-        width = label_width + 2 * BUTTON_PAD_H_TIGHT
-        rects.append(((x, y, width, CTRL_BTN), command))
-        x += width + BUTTON_GAP
-    return rects
-
-CONTROL_TOOLTIPS = {
-    "prev": "Previous clip",
-    "next": "Next clip",
-    "lock": "Lock / unlock this clip",
-    "trash": "Unfavorite it — or mark weird when it is not a favorite",
-    "fmode": "F-Mode — browse only the favorites on this player",
-    "enhanced": "Enhanced only — show just the pictures that have been enhanced",
-    "reset": "Reset — no filter, no lock, no loop, no F-Mode, shuffled from the top",
-    "shuffle": f"{SHUFFLE_LABEL} — reshuffle this player's browse",
-    "latest": f"{LATEST_LABEL} — reload this player's browse newest-first",
-    "minimize": "Minimize this player — bring it back from the taskbar",
-    "speed_down": "Play the video slower",
-    "speed_up": "Play the video faster",
-}
-MODE_TOOLTIPS = {
-    "satellites_video_activate": "Video mode — the satellite players and the Random Favs Browser",
-    "origenerator_activate":
-        "Origenerator mode — Origenerator over the browser, its shows over the players",
-}
-_CONTROL_FACES = {
-    "prev": "⏮", "next": "⏭", "lock": "🔒",
-    "trash": shared_mark("trash"), "reset": shared_mark("reset"),
-    "shuffle": shared_mark("shuffle"), "latest": shared_mark("latest"),
-    "fmode": FMODE_ICON, "enhanced": shared_mark("enhance_filter"),
-    "minimize": MINIMIZE_ICON,
-}
-
-
-def standard_rows(model: HudModel) -> tuple[tuple[Button, ...], ...]:
-    """The rows a panel declaring none is drawn from: the mode pair with
-    minimize riding it where a session hosts an Origenerator, then the player's
-    own band -- the enhanced switch only where the player has one, the order pair
-    only where the order can be switched."""
-    names = [name for group in CONTROL_GROUPS for name in group
-             if name != "enhanced" or model.enhanced_filter is not None]
-    if model.latest is None:
-        names = [name for name in names if name not in _ORDER_CONTROLS]
-    rows = []
-    if model.satellites_mode is not None:
-        names.remove("minimize")
-        pair = tuple(
-            Button(command, label, MODE_TOOLTIPS[command], width=FIT_THE_WORD,
-                   lit=model.satellites_mode == mode)
-            for command, label, mode in MODE_BUTTONS
-        )
-        rows.append(pair + (_standard_control(model, "minimize", group_break=True),))
-    band = [
-        _standard_control(model, name,
-                          group_break=index > 0 and _GROUP_OF[name] != _GROUP_OF[names[index - 1]])
-        for index, name in enumerate(names)
-    ]
-    rows.append(tuple(band))
-    return tuple(rows)
-
-
-def _standard_control(model: HudModel, name: str, *, group_break: bool) -> Button:
-    lit = {"lock": model.locked, "fmode": model.favorites_filter,
-           "enhanced": bool(model.enhanced_filter),
-           "latest": bool(model.latest), "shuffle": model.latest is False}
-    return Button(f"{model.player}_{name}", _CONTROL_FACES[name], CONTROL_TOOLTIPS[name],
-                  lit=lit.get(name, False), favorite=name in ("lock", "fmode"),
-                  enhanced=name == "enhanced", danger=name == "trash",
-                  group_break=group_break)
-
-
-def mode_row_rects(x: int, y: int,
-                   label_widths: list[int]) -> tuple[list[tuple[Rect, str]], Rect]:
-    modes = mode_button_rects(x, y, label_widths)
-    last_x, _y, last_w, _h = modes[-1][0]
-    return modes, (last_x + last_w + BUTTON_GROUP_GAP, y, CTRL_BTN, CTRL_BTN)
-
-
-def speed_row_rects(x: int, y: int, *, label_width: int) -> tuple[list[tuple[Rect, str]], Rect]:
+def speed_row(player: str, x: int, y: int, *,
+              label_width: int) -> tuple[list[tuple[Rect, Button]], Rect]:
+    """*player*'s slower and faster buttons after a name *label_width* wide, and
+    the cell between them the rate is written in."""
     down_x = x + label_width
     rate_x = down_x + CTRL_BTN + MAP_GAP
     up_x = rate_x + VALUE_W + MAP_GAP
-    buttons = [((down_x, y, CTRL_BTN, CTRL_BTN), "speed_down"),
-               ((up_x, y, CTRL_BTN, CTRL_BTN), "speed_up")]
+    buttons = [
+        ((button_x, y, CTRL_BTN, CTRL_BTN), Button(f"{player}_{name}", face, tooltip))
+        for button_x, (name, face, tooltip) in zip((down_x, up_x), _SPEED_BUTTONS)
+    ]
     return buttons, (rate_x, y, VALUE_W, CTRL_BTN)
 
 
@@ -1003,11 +884,7 @@ def hud_text(model: HudModel) -> str:
         "locked": model.locked,
         "lock_label": model.lock_label,
         "active": model.active,
-        "satellites_mode": model.satellites_mode,
         "is_favorite": model.is_favorite,
-        "favorites_filter": model.favorites_filter,
-        "enhanced_filter": model.enhanced_filter,
-        "latest": model.latest,
         "filter_query": model.filter_query,
         "seed_count": model.seed_count,
         "action_count": model.action_count,
@@ -1041,17 +918,7 @@ def parse_hud(text: str) -> HudModel | None:
         locked=bool(raw.get("locked", False)),
         lock_label=str(raw.get("lock_label", "") or ""),
         active=bool(raw.get("active", False)),
-
         is_favorite=bool(raw.get("is_favorite", False)),
-        favorites_filter=bool(raw.get("favorites_filter", False)),
-        # Absent is None — no such switch — rather than off: the button is drawn
-        # only for a player that says it has the filter at all.
-        enhanced_filter=(None if raw.get("enhanced_filter") is None
-                         else bool(raw.get("enhanced_filter"))),
-        # Absent is None the same way, and for the same reason: a publisher that
-        # says nothing about the order has no switch for it, so the pair is not
-        # drawn rather than drawn stuck on "Shuffle".
-        latest=(None if raw.get("latest") is None else bool(raw.get("latest"))),
         corner=_cell(raw.get("corner")),
         seeds=tuple(cell for cell in seeds if cell is not None),
         actions=tuple(cell for cell in actions if cell is not None),
@@ -1061,9 +928,5 @@ def parse_hud(text: str) -> HudModel | None:
         seed_count=int(raw.get("seed_count", 0) or 0),
         action_count=int(raw.get("action_count", 0) or 0),
         playing=(str(playing[0]), int(playing[1])),
-        # Absent or blank is None — no hosted Origenerator, so no mode pair —
-        # and any other word a session of another age wrote reads as video.
-        satellites_mode=(None if not raw.get("satellites_mode") else read_mode(
-            SatellitesMode, raw.get("satellites_mode"), SatellitesMode.VIDEO)),
         rows=rows_from_raw(raw.get("rows")),
     )
