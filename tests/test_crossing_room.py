@@ -32,9 +32,16 @@ class TestTheRoomsClock:
         clock, _fields = read_the_room(path)
         assert clock.video == str(Path("C:\\v\\one.mp4"))
 
-    def test_it_is_stamped_when_the_file_was_written(self, tmp_path: Path):
-        """A status is written the moment after its position is read, so the
-        file's own clock is the position's."""
+    def test_it_is_as_of_when_the_room_read_its_playhead(self, tmp_path: Path):
+        """Not when the file was written: a player reads several more of its own
+        properties between the two, and each of those can block for a frame or
+        more, which would read as the follower being that far ahead."""
+        path = _status(tmp_path, "video=C:/v/one.mp4\nposition_ms=4000\nread_at=999.875\n",
+                       written_at=1_000.0)
+        clock, _fields = read_the_room(path)
+        assert clock.said_at == pytest.approx(999.875)
+
+    def test_a_room_that_does_not_say_when_is_as_of_its_file(self, tmp_path: Path):
         path = _status(tmp_path, "video=C:/v/one.mp4\nposition_ms=4000\n", written_at=1_000.0)
         clock, _fields = read_the_room(path)
         assert clock.said_at == pytest.approx(1_000.0)

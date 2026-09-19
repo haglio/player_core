@@ -35,7 +35,7 @@ _HAS_THE_ROOM = "_has_the_room.flag"
 class RoomClock:
     video: str = ""
     position_ms: float = 0.0
-    said_at: float = 0.0  # the status file's mtime: a status is written as its position is read
+    said_at: float = 0.0  # when the room read the playhead it published
     paused: bool = False
     speed: float = 1.0
     locked: bool = False
@@ -114,7 +114,7 @@ def read_the_room(status_file: Path) -> tuple[RoomClock, dict[str, str]]:
     try:
         with Path(status_file).open(encoding="utf-8") as status:
             text = status.read()
-            said_at = os.fstat(status.fileno()).st_mtime  # the handle's, not a newer file's
+            written_at = os.fstat(status.fileno()).st_mtime  # the handle's, not a newer file's
     except OSError:
         return RoomClock(), {}
     fields = dict(line.split("=", 1) for line in text.splitlines() if "=" in line)
@@ -122,7 +122,7 @@ def read_the_room(status_file: Path) -> tuple[RoomClock, dict[str, str]]:
     return RoomClock(
         video=str(Path(said.video)) if said.video else "",
         position_ms=float(said.position_ms),
-        said_at=said_at,
+        said_at=said.read_at or written_at,
         paused=said.paused,
         speed=said.speed,
         locked=said.locked,
