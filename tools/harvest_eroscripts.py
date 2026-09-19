@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import http.client
 import json
 import logging
 import re
@@ -28,6 +29,10 @@ _TIMEOUT_S = 60
 # rather than on it.
 RETRY_GRACE_S = 1.0
 _RETRIES = 6
+# A request the network drops is asked again after each of these, then the
+# run ends with the error: three quarters of an hour covers a router restart
+# or the forum's nightly maintenance, and a run left for weeks meets both.
+NETWORK_WAITS_S = (30.0, 60.0, 120.0, 300.0, 600.0, 900.0, 900.0)
 _DEFAULT_WAIT_S = 60.0
 _REDIRECTS = (301, 302, 303, 307, 308)
 # A topic or upload the forum will not hand over is skipped, not retried.
@@ -101,7 +106,9 @@ class Forum:
 
     def _read(self, url: str, headers: dict[str, str], *, paced: bool = True) -> bytes:
         request = urllib.request.Request(url, headers=headers)
-        for _attempt in range(_RETRIES):
+        limited = 0
+        waits_left = list(NETWORK_WAITS_S)
+        while True:
             if paced:
                 self._wait_the_pace()
             try:
@@ -110,10 +117,18 @@ class Forum:
             except urllib.error.HTTPError as error:
                 if error.code != 429:
                     raise
+                limited += 1
+                if limited == _RETRIES:
+                    raise RuntimeError(
+                        f"{url}: still rate limited after {_RETRIES} attempts") from error
                 wait = _wait_named_by(error) + RETRY_GRACE_S
                 self._log.info("rate limited at %s: waiting %.0f s", url, wait)
-                self._sleep(wait)
-        raise RuntimeError(f"{url}: still rate limited after {_RETRIES} attempts")
+            except (OSError, http.client.HTTPException) as error:
+                if not waits_left:
+                    raise
+                wait = waits_left.pop(0)
+                self._log.info("no answer from %s (%s): waiting %.0f s", url, error, wait)
+            self._sleep(wait)
 
     def _wait_the_pace(self) -> None:
         now = self._clock()

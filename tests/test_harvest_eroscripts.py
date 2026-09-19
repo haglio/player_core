@@ -10,6 +10,8 @@ import json
 import logging
 import urllib.error
 
+import pytest
+
 from tools import harvest_eroscripts as harvest
 
 
@@ -124,6 +126,45 @@ class TestPacingTheForum:
         assert [record.getMessage() for record in caplog.records] == [
             f"rate limited at https://forum.invalid/a.json: waiting {3600 + harvest.RETRY_GRACE_S:.0f} s",
         ]
+
+
+    def test_a_request_the_network_drops_is_waited_out_and_asked_again(self, caplog):
+        clock = _FakeClock()
+        calls = 0
+
+        def opener(request, timeout):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise TimeoutError("The read operation timed out")
+            if calls == 2:
+                raise urllib.error.URLError("a connection attempt failed")
+            return _FakeResponse(b'{"ok": 1}')
+
+        forum = harvest.Forum("https://forum.invalid", {}, opener=opener,
+                              sleep=clock.sleep, clock=lambda: clock.now, pace_s=1.0,
+                              log=logging.getLogger("harvest-under-test"))
+
+        with caplog.at_level(logging.INFO, logger="harvest-under-test"):
+            assert forum.get_json("/a.json") == {"ok": 1}
+
+        assert calls == 3
+        assert [record.getMessage() for record in caplog.records] == [
+            f"no answer from https://forum.invalid/a.json (The read operation timed out): waiting {harvest.NETWORK_WAITS_S[0]:.0f} s",
+            f"no answer from https://forum.invalid/a.json (<urlopen error a connection attempt failed>): waiting {harvest.NETWORK_WAITS_S[1]:.0f} s",
+        ]
+
+    def test_a_network_that_stays_down_ends_the_run_with_its_error(self):
+        clock = _FakeClock()
+
+        def opener(request, timeout):
+            raise TimeoutError("The read operation timed out")
+
+        forum = harvest.Forum("https://forum.invalid", {}, opener=opener,
+                              sleep=clock.sleep, clock=lambda: clock.now, pace_s=1.0)
+
+        with pytest.raises(TimeoutError):
+            forum.get_json("/a.json")
 
 
 def _too_many_requests(url: str, *, retry_after: str):
