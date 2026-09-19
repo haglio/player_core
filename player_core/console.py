@@ -58,11 +58,6 @@ GAP = 4       # between buttons along a row
 ROW_GAP = 5   # between rows
 GROUP_GAP = 12  # between groups of buttons that mean different things
 
-# What ConsoleModel.osr2 says when the device is running its own firmware --
-# named here, beside the field, because the answer changes what two apps
-# outside this package draw (see ConsoleModel.device_drives_itself).
-OSR2_AUTO = Osr2State.AUTO
-
 _SHAPE_LABELS = {"rounded_square": "Square"}
 
 
@@ -250,7 +245,7 @@ class ConsoleModel:
         what both players hanging this console over a video ask before they
         let the gate fold a script in.
         """
-        return self.osr2 == OSR2_AUTO
+        return self.osr2 == Osr2State.AUTO
 
 
 def read_console(path: Path) -> ConsoleModel | None:

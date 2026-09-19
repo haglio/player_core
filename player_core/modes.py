@@ -15,7 +15,15 @@ from __future__ import annotations
 
 from enum import Enum, StrEnum
 
-__all__: list[str] = []
+__all__ = [
+    "LengthMode",
+    "LoopState",
+    "MainMode",
+    "NoticeLevel",
+    "Osr2State",
+    "SatellitesMode",
+    "read_mode",
+]
 
 
 class MainMode(StrEnum):

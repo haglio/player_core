@@ -38,7 +38,6 @@ from shared_ui.spacing import BUTTON_GAP
 from .console import (
     BUTTON,
     GAP,
-    OSR2_AUTO,
     OSR2_CONTROL_OFF,
     OSR2_PARKED,
     OSR2_RETRACTED,
@@ -92,7 +91,6 @@ from .hud_status import (
 from .modes import LengthMode, Osr2State
 
 __all__ = [
-    "OSR2_ROBOT_HAND",
     "ConsoleHud",
     "ConsolePainter",
     "ModeHud",
@@ -118,8 +116,6 @@ _REVISION = re.compile(r"\s*\(v\d+\)$")
 # What the OSR2 line says by what is driving the device, and the color it says
 # it in — green when a funscript is driving, blue when the Robot Hand is, muted
 # when nothing is, and the device's own magenta when it is running itself in auto.
-OSR2_ROBOT_HAND = Osr2State.ROBOT_HAND  # the one state in which the drive readout can be pressed
-OSR2_FUNSCRIPT = Osr2State.FUNSCRIPT
 # The pill's own word for a device that belongs to neither driver at the
 # playhead -- drawn, never published, so it is not one of the wire's states.
 OSR2_BUFFER = "buffer"
@@ -127,8 +123,8 @@ OSR2_BUFFER = "buffer"
 # under the dot are visibly the same state.
 _NEUTRAL_PILL = (168, 168, 174)
 _OSR2_LABELS = {
-    Osr2State.OFF: "Off", Osr2State.AUTO: "Auto", OSR2_FUNSCRIPT: "FunScript",
-    OSR2_ROBOT_HAND: "Robot Hand", OSR2_BUFFER: "Buffer",
+    Osr2State.OFF: "Off", Osr2State.AUTO: "Auto", Osr2State.FUNSCRIPT: "FunScript",
+    Osr2State.ROBOT_HAND: "Robot Hand", OSR2_BUFFER: "Buffer",
     # Said in three words because two of them would be read as the device: the
     # OSR2 is on and well, this app has simply stopped sending it anything.  In
     # the red its own button wears, so the lit control and the pill saying what
@@ -137,7 +133,7 @@ _OSR2_LABELS = {
     OSR2_PARKED: "Parked", OSR2_RETRACTED: "Retracted",
 }
 _OSR2_COLORS = {
-    OSR2_FUNSCRIPT: GREEN, OSR2_ROBOT_HAND: BLUE, Osr2State.AUTO: MAGENTA,
+    Osr2State.FUNSCRIPT: GREEN, Osr2State.ROBOT_HAND: BLUE, Osr2State.AUTO: MAGENTA,
     Osr2State.OFF: TEXT_MUTED, OSR2_BUFFER: _NEUTRAL_PILL,
     OSR2_CONTROL_OFF: RED,
     # The held device's line is the handoff's gray -- nobody is moving it -- and
@@ -154,9 +150,9 @@ _HELD_HEIGHT = {OSR2_PARKED: 0.0, OSR2_RETRACTED: 1.0}
 # anything here being sent, so there is no motion of ours to draw and the
 # readout goes gray.
 _DRIVEN_BY_OSR2 = {
-    OSR2_ROBOT_HAND: DRIVEN_BY_ROBOT_HAND,
-    OSR2_FUNSCRIPT: DRIVEN_BY_FUNSCRIPT,
-    OSR2_AUTO: DRIVEN_BY_AUTO,
+    Osr2State.ROBOT_HAND: DRIVEN_BY_ROBOT_HAND,
+    Osr2State.FUNSCRIPT: DRIVEN_BY_FUNSCRIPT,
+    Osr2State.AUTO: DRIVEN_BY_AUTO,
 }
 
 
@@ -643,8 +639,8 @@ class ConsolePainter:
         if drive is None:
             return model.osr2
         return {
-            DRIVEN_BY_ROBOT_HAND: OSR2_ROBOT_HAND,
-            DRIVEN_BY_FUNSCRIPT: OSR2_FUNSCRIPT,
+            DRIVEN_BY_ROBOT_HAND: Osr2State.ROBOT_HAND,
+            DRIVEN_BY_FUNSCRIPT: Osr2State.FUNSCRIPT,
             DRIVEN_BY_NEUTRAL: OSR2_BUFFER,
         }.get(drive.driven, model.osr2)
 
