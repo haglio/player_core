@@ -18,13 +18,15 @@ from .status import parse_status
 __all__: list[str] = []
 
 DEADBAND_MS = 15.0  # a position read is up to a frame old at either end
+IN_STEP_MS = 40.0  # a frame of the slowest video: a takeover inside it is not seen
 SEEK_MS = 400.0
 SEEK_LEAD_MS = 150.0  # a seek lands a moment after it is asked for
-WIDE_TURNS = 3
+WIDE_S = 0.25
+ELSEWHERE_S = 0.6  # three status writes: long enough for both rooms to roll over
 LEAN_OVER_MS = 2_000.0
 LEAN_LIMIT = 0.05
 SMOOTHING = 0.25
-STEADY_TURNS = 15  # half a second at the VR player's file-channel rate
+STEADY_S = 0.5
 
 _TAKE_THE_ROOM = "crossing_take_the_room.flag"
 _IN_STEP = "_in_step.flag"
@@ -55,16 +57,18 @@ class Step:
 
 
 class KeepingStep:
-    def __init__(self, *, steady_turns: int = STEADY_TURNS) -> None:
-        self._steady_turns = steady_turns
-        self._drift = 0.0
-        self._wide = 0
-        self._steady = 0
+    def __init__(self, *, steady_s: float = STEADY_S) -> None:
+        self._steady_s = steady_s
+        self._drift: float | None = None
+        self._wide_since: float | None = None
+        self._elsewhere_since: float | None = None
+        self._steady_since: float | None = None
+        self._in_step = False
         self._opening = False
 
     @property
     def in_step(self) -> bool:
-        return self._steady >= self._steady_turns
+        return self._in_step
 
     def turn(
         self,
@@ -79,35 +83,73 @@ class KeepingStep:
         if not room.video:
             return Step()
         if video != room.video:
-            self._start_again()
-            self._opening = True
-            return Step(open=room.video)
+            return self._somewhere_else(room, now)
+        self._elsewhere_since = None
         following = Step(locked=room.locked if room.locked != locked else None)
         target = room.position_at(now)
         if self._opening:
             self._opening = False
             return replace(following, seek_ms=target + SEEK_LEAD_MS)
         drift = position_ms - target
-        self._drift = (1 - SMOOTHING) * self._drift + SMOOTHING * drift
-        self._wide = self._wide + 1 if abs(drift) > SEEK_MS else 0
-        if self._wide >= WIDE_TURNS:
-            self._start_again()
-            return replace(following, seek_ms=target + SEEK_LEAD_MS)
-        if abs(self._drift) <= DEADBAND_MS and room.paused == paused:
-            self._steady += 1
-        else:
-            self._steady = 0
+        if abs(drift) > SEEK_MS:
+            return self._too_wide_to_walk(following, room, target, now)
+        self._wide_since = None
+        self._drift = drift if self._drift is None else (
+            (1 - SMOOTHING) * self._drift + SMOOTHING * drift)
+        self._hold(now, keeping=abs(self._drift) <= IN_STEP_MS and room.paused == paused)
         return replace(following, speed=room.speed * (1 - self._lean()))
 
+    def _somewhere_else(self, room: RoomClock, now: float) -> Step:
+        """The room names another video, which is where both are about to be:
+        the two roll onto the next clip a moment apart, and the one that rolls
+        first would otherwise reload the clip the other is finishing — then the
+        next one again the moment the room says so."""
+        self._out_of_step()
+        if self._elsewhere_since is None:
+            self._elsewhere_since = now
+        if now - self._elsewhere_since < ELSEWHERE_S:
+            return Step()
+        self._start_again()
+        self._opening = True
+        return Step(open=room.video)
+
+    def _too_wide_to_walk(
+        self, following: Step, room: RoomClock, target: float, now: float,
+    ) -> Step:
+        """A reading a seek away from the room — a jump, or a clip rolling over
+        under a player that has not noticed yet.  Either way it is left out of
+        the smoothing, which would take seconds to walk back off one of them,
+        and the seek waits for the gap to still be there a moment later."""
+        self._out_of_step()
+        if self._wide_since is None:
+            self._wide_since = now
+        if now - self._wide_since < WIDE_S:
+            return replace(following, speed=room.speed * (1 - self._lean()))
+        self._start_again()
+        return replace(following, seek_ms=target + SEEK_LEAD_MS)
+
+    def _hold(self, now: float, *, keeping: bool) -> None:
+        if not keeping:
+            self._out_of_step()
+            return
+        if self._steady_since is None:
+            self._steady_since = now
+        self._in_step = now - self._steady_since >= self._steady_s
+
+    def _out_of_step(self) -> None:
+        self._steady_since = None
+        self._in_step = False
+
     def _lean(self) -> float:
-        if abs(self._drift) <= DEADBAND_MS:
+        if self._drift is None or abs(self._drift) <= DEADBAND_MS:
             return 0.0
         return max(-LEAN_LIMIT, min(LEAN_LIMIT, self._drift / LEAN_OVER_MS))
 
     def _start_again(self) -> None:
-        self._drift = 0.0
-        self._wide = 0
-        self._steady = 0
+        self._drift = None
+        self._wide_since = None
+        self._elsewhere_since = None
+        self._out_of_step()
 
 
 def read_the_room(status_file: Path) -> tuple[RoomClock, dict[str, str]]:

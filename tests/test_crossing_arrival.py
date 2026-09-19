@@ -7,7 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from player_core.crossing import SEEK_LEAD_MS, STEADY_TURNS, Arrival, Crossing, follow_channel
+from player_core.crossing import (
+    ELSEWHERE_S,
+    SEEK_LEAD_MS,
+    STEADY_S,
+    Arrival,
+    Crossing,
+    follow_channel,
+)
 
 NOW = 1_000.0
 VIDEO = str(Path("C:/library/scene one.mp4"))
@@ -50,11 +57,22 @@ class _Follower:
         self.took.append(room)
 
 
+class _Clock:
+    """The player's own clock, which every rule here is written in seconds of."""
+
+    def __init__(self) -> None:
+        self.now = NOW
+
+    def __call__(self) -> float:
+        return self.now
+
+
 @dataclass
 class _Room:
     arrival: Arrival
     follower: _Follower
     state: Path
+    clock: _Clock
 
     def says(self, *, video: str = VIDEO, position_ms: int = 4_000, speed: float = 1.0,
              locked: bool = True, extra: str = "") -> None:
@@ -65,12 +83,23 @@ class _Room:
             encoding="utf-8")
         os.utime(status, (NOW, NOW))
 
+    def turns(self, *, seconds: float, offset_ms: float = 0.0, every: float = 0.05) -> None:
+        """Turn every *every* for *seconds*, the follower holding the room's
+        clock (*offset_ms* off it) wherever it is on the room's video."""
+        for _ in range(int(round(seconds / every)) + 1):
+            if self.follower.video == VIDEO:
+                self.follower.position_ms = self.room_is_at + offset_ms
+            self.arrival.turn()
+            self.clock.now += every
+
+    @property
+    def room_is_at(self) -> float:
+        return 4_000.0 + (self.clock.now - NOW) * 1_000.0
+
     def held_in_step(self) -> None:
         self.says()
         self.follower.video = VIDEO
-        self.follower.position_ms = 4_000.0
-        for _ in range(STEADY_TURNS):
-            self.arrival.turn()
+        self.turns(seconds=STEADY_S + 0.1)
 
     def told_to_take_it(self) -> None:
         Crossing(self.state, ["portrait"]).say_take_the_room()
@@ -79,14 +108,15 @@ class _Room:
 
 def _room(state: Path, *, arriving: bool = True) -> _Room:
     follower = _Follower()
+    clock = _Clock()
     arrival = Arrival(
         arriving=arriving,
         follower=follower,
         room_status=state / "portrait_status.txt",
         command_file=state / "portrait_cmd.txt",
-        clock=lambda: NOW,
+        clock=clock,
     )
-    return _Room(arrival, follower, state)
+    return _Room(arrival, follower, state, clock)
 
 
 @pytest.fixture
@@ -111,7 +141,7 @@ class TestWhatItDrains:
 class TestFollowingTheRoom:
     def test_it_opens_what_the_room_is_playing(self, room):
         room.says(extra="funscript=C:/library/scene one.funscript\n")
-        room.arrival.turn()
+        room.turns(seconds=ELSEWHERE_S + 0.05)
         video, said = room.follower.opened[0]
         assert video == VIDEO
         assert said["funscript"] == "C:/library/scene one.funscript"
@@ -119,18 +149,19 @@ class TestFollowingTheRoom:
     def test_it_opens_the_rooms_video_while_its_own_is_still_loading(self, room):
         room.says()
         room.follower.duration_ms = 0.0
-        room.arrival.turn()
+        room.turns(seconds=ELSEWHERE_S + 0.05)
         assert [video for video, _ in room.follower.opened] == [VIDEO]
 
     def test_it_goes_where_the_room_is_once_the_video_is_open(self, room):
         room.says()
+        room.turns(seconds=ELSEWHERE_S + 0.05)
+        landing_on = room.room_is_at
         room.arrival.turn()
-        room.arrival.turn()
-        assert room.follower.seeks == [pytest.approx(4_000 + SEEK_LEAD_MS)]
+        assert room.follower.seeks == [pytest.approx(landing_on + SEEK_LEAD_MS)]
 
     def test_no_seek_is_asked_of_a_video_that_has_not_opened(self, room):
         room.says()
-        room.arrival.turn()
+        room.turns(seconds=ELSEWHERE_S + 0.05)
         room.follower.duration_ms = 0.0
         room.arrival.turn()
         assert room.follower.seeks == []
@@ -138,9 +169,7 @@ class TestFollowingTheRoom:
     def test_it_leans_on_the_players_rate_and_leaves_the_rooms_rate_alone(self, room):
         room.says()
         room.follower.video = VIDEO
-        room.follower.position_ms = 3_800.0
-        for _ in range(10):
-            room.arrival.turn()
+        room.turns(seconds=0.5, offset_ms=-200.0)
         assert room.follower.leans[-1] > 1.0
         assert room.follower.speed == 1.0
 
@@ -203,14 +232,15 @@ def test_a_player_that_is_not_ready_is_never_in_step(tmp_path):
     """A headset player routes its sound only once it is worn, and until it has
     it has nothing to hand the room's sound to."""
     follower = _Follower()
+    clock = _Clock()
     arrival = Arrival(
         arriving=True,
         follower=follower,
         room_status=tmp_path / "portrait_status.txt",
         command_file=tmp_path / "portrait_cmd.txt",
         ready=lambda: False,
-        clock=lambda: NOW,
+        clock=clock,
     )
-    room = _Room(arrival, follower, tmp_path)
+    room = _Room(arrival, follower, tmp_path, clock)
     room.held_in_step()
     assert not Crossing(tmp_path, ["portrait"]).everyone_in_step
