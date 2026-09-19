@@ -4,55 +4,21 @@ A HUD is painted into the video frame with Pillow and there is no Qt in a player
 process, so for a long time every mark here was whatever a symbol font happened
 to carry, or something hand-drawn on the spot.  The bin on this console had
 nothing to do with the bin on Origenerator's toolbar.  Both sides now render one
-list of geometry out of shared_ui, and these hold the console to using it.
+list of geometry out of shared_ui, and these hold the painter to drawing it; the
+marks a source names for its buttons are held to it where they are named.
 """
 from __future__ import annotations
 
 import numpy as np
 from PIL import Image, ImageDraw
-from shared_ui.icon_geometry import glyph_names
 
-from player_core.console import _GLYPHS, WAVE_ICON, console_rows
-from player_core.hud_marks import SHARED_MARK, shared_mark, shared_mark_name
+from player_core.hud_marks import shared_mark, shared_mark_name
 from player_core.hud_panel import MARK_INSET, draw_mark
-from player_core.modes import MainMode
-
-
-def _named_marks() -> dict[str, str]:
-    """Every control face that names a shared mark, by the mark it names."""
-    faces = {key: value for key, value in _GLYPHS.items()} | {"wave": WAVE_ICON}
-    return {
-        key: shared_mark_name(face)
-        for key, face in faces.items()
-        if face.startswith(SHARED_MARK)
-    }
 
 
 class TestNamingTheMarks:
     def test_a_marker_round_trips_through_the_name_it_carries(self):
         assert shared_mark_name(shared_mark("trash")) == "trash"
-
-    def test_the_console_names_marks_rather_than_drawing_them(self):
-        # The console is a model the painter reads; it holds no colors and no
-        # Pillow, and it stayed that way by naming what it wants drawn.
-        assert _named_marks(), "no control names a shared mark any more"
-
-    def test_the_bin_and_the_reset_and_the_waveform_are_family_marks(self):
-        # The three the console used to spell for itself: two characters out of
-        # Segoe UI Symbol and one curve drawn by hand in the painter.
-        named = _named_marks()
-        assert named["trash"] == "trash"
-        assert named["reset"] == "reset"
-        assert named["wave"] == "wave"
-
-    def test_every_mark_a_control_names_actually_exists(self):
-        # A typo here would be a KeyError raised deep inside a video pipeline,
-        # while a player is on screen -- so it is caught in the suite instead.
-        missing = {
-            key: name for key, name in _named_marks().items()
-            if name not in glyph_names()
-        }
-        assert not missing, f"controls naming marks shared_ui does not have: {missing}"
 
 
 class TestDrawingThem:
@@ -91,20 +57,6 @@ class TestDrawingThem:
 
 
 class TestDangerIsRed:
-    def test_the_control_that_takes_something_away_is_marked_dangerous(self):
-        # Origenerator's Delete is red because it is the one control in its bank
-        # that removes something. The console's is the weird-clip bin, and it is
-        # the same act, so it wears the same warning.
-        from player_core.console import ConsoleModel
-
-        bin_button = next(
-            button
-            for row in console_rows(ConsoleModel(main_mode=MainMode.GENAU))
-            for button in row
-            if button.command == "genau_weird_clip"
-        )
-        assert bin_button.danger
-
     def test_a_dangerous_control_draws_its_mark_in_red(self):
         from shared_ui.palette import RED
 
@@ -114,7 +66,7 @@ class TestDangerIsRed:
         panel = Image.new("RGBA", (18, 18), (0, 0, 0, 255))
         draw = ImageDraw.Draw(panel)
         ConsolePainter()._button(panel, draw, (0, 0, 18, 18),
-                                 Button("x", _GLYPHS["trash"], "", danger=True))
+                                 Button("x", shared_mark("trash"), "", danger=True))
         pixels = np.asarray(panel)
 
         reddest = pixels[:, :, 0].astype(int) - pixels[:, :, 1].astype(int)
@@ -134,7 +86,7 @@ class TestButtonGrounds:
 
         panel = Image.new("RGBA", (18, 18), (0, 0, 0, 255))
         ConsolePainter()._button(panel, ImageDraw.Draw(panel), (0, 0, 18, 18),
-                                 Button("x", _GLYPHS["lock"], ""))
+                                 Button("x", "🔒", ""))
         middle = np.asarray(panel)[9, 3]
 
         assert tuple(middle[:3]) == BG_BUTTON
@@ -150,7 +102,7 @@ class TestButtonGrounds:
         def ground(lit: bool):
             panel = Image.new("RGBA", (18, 18), (0, 0, 0, 255))
             ConsolePainter()._button(panel, ImageDraw.Draw(panel), (0, 0, 18, 18),
-                                     Button("x", _GLYPHS["lock"], "", lit=lit))
+                                     Button("x", "🔒", "", lit=lit))
             return tuple(int(v) for v in np.asarray(panel)[9, 3][:3])
 
         assert ground(False) == BG_BUTTON

@@ -9,6 +9,35 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-09-19 — every source declares its own buttons, so the stock ones go
+
+Fun Time's players and Origenerator's shows and console now declare every
+button they draw, so the fixed rows a panel declaring none was drawn from are
+gone: `satellite_hud.standard_rows` with its tables (`CONTROL_GROUPS`,
+`MODE_BUTTONS`, `MODE_TOOLTIPS`, `CONTROL_TOOLTIPS`, the faces), and
+`console.console_rows` with `osr2_row`, `CONSOLE_VERBS`, the glyphs it typed
+and the marks it named. So are the panel fields only those rows read, which no
+source writes: `HudModel`'s `favorites_filter`, `enhanced_filter`, `latest` and
+`satellites_mode`; `ConsoleModel`'s `broker`, `loop_state`, `scripted_filter`,
+`cruise`, `learned`, `shape`, `plays_vr`, `plays_flat` and both filters;
+`ModeHud`'s `has_compilation`, `has_other_versions` and `jump_to`; and
+`ConsoleHud.modes_row`. A reader passes those keys over when a publisher on an
+older release still writes them, so a mixed-version room still reads its
+panels.
+
+What the stock rows said now lives beside what answers it — Fun Time's
+`fun_time.console_buttons` and `fun_time.satellite_buttons`, Origenerator's
+`origenerator.gui.console_buttons` and `origenerator.gui.show_buttons` — and
+the tests of what each button offers, lights and says moved with them when
+those sources started declaring; about a hundred here that held the stock rows
+go with the rows. What the painters do with a declared button is tested here as
+before, from a made-up band (`tests/satellite_rows.py`, `tests/console_rows.py`)
+in place of the stock one. `console.shape_label` is declared, Origenerator's
+console naming its waveform with it. The satellite's speed row, the one pair a
+player still draws for itself, builds its own buttons (`satellite_hud.speed_row`)
+rather than reading the deleted tooltip table. And the OSR2 line no longer
+holds a group gap open before its label when no source put a control on it.
+
 ## 2026-09-16 — a named output is the device, not a driver sharing its name
 
 New module `audio_outputs` (`Output`, `pick_output`, declared once Fun Time's

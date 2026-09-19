@@ -77,10 +77,8 @@ A player answers the verbs it can (`TRASH` is a satellite's, `TOGGLE_LOCK` the
 main slot's) and refuses the rest on its log. It draws the buttons its source
 declared and nothing else, and posts each one's verb verbatim; a read-out
 whose number only the drawing host knows (the video's rate, a clip's pace)
-names it in `host_value` and the painter fills it in. Until every source
-declares its own, a panel declaring none is drawn from the rows
-`satellite_hud.standard_rows` and `console.console_rows` still build off the
-panel's switches.
+names it in `host_value` and the painter fills it in. A panel declaring no
+buttons is drawn with none.
 
 A picture is shown by libmpv itself: it holds the frame for the pace and then
 ends the file the way a finished video ends, so a picture moves on, holds under

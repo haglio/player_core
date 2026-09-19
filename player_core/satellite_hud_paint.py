@@ -49,7 +49,6 @@ from .satellite_hud import (
     ACT_GAP,
     COL_LABEL_GAP,
     COL_LABEL_H,
-    CONTROL_TOOLTIPS,
     CTRL_BAND_H,
     CTRL_BTN,
     ELLIPSIS_ROOM,
@@ -95,8 +94,7 @@ from .satellite_hud import (
     panel_width,
     playing_rect,
     seed_column_label,
-    speed_row_rects,
-    standard_rows,
+    speed_row,
     thumbnail_rects,
     wrong_action_rect,
 )
@@ -281,7 +279,7 @@ class HudRenderer:
         # The bands' own demand: a row the panel cannot hold clips away in
         # silence — the buttons past the edge are simply not there, with nothing
         # raised — so the panel is measured around the widest row.
-        rows = [list(row) for row in (model.rows or standard_rows(model))]
+        rows = [list(row) for row in model.rows]
         widths = [[self._button_width(button) for button in row] for row in rows]
         band_width = max((
             button_row_rects(PAD, 0, row, row_widths)[-1][0][0] + row_widths[-1] + PAD
@@ -317,15 +315,9 @@ class HudRenderer:
         # the side's speed verb and a hover names it like any other.
         if model.playback_speed is not None:
             label_width = text_width(self._tiny, PLAYBACK_SPEED_LABEL) + BUTTON_GROUP_GAP
-            speed_rects, rate_rect = speed_row_rects(x, y, label_width=label_width)
+            speed_buttons, rate_rect = speed_row(model.player, x, y, label_width=label_width)
             draw.text((PAD, y + CTRL_BTN / 2), PLAYBACK_SPEED_LABEL,
                       font=self._tiny, anchor="lm", fill=(*TEXT_MUTED, 255))
-            speed_buttons = [
-                (rect, Button(f"{model.player}_{name}",
-                              "−" if name == "speed_down" else "+",
-                              CONTROL_TOOLTIPS[name]))
-                for rect, name in speed_rects
-            ]
             for rect, button in speed_buttons:
                 draw_button(image, draw, rect, button, hovered=self._pointer_is_on(rect),
                             glyph_font=self._glyph, word_font=self._tiny)

@@ -2,15 +2,12 @@
 from __future__ import annotations
 
 import json
-from itertools import pairwise
 
-from satellite_rows import band, player_rows, short_name
+from satellite_rows import band, player_rows
 from shared_ui.spacing import BUTTON_GAP, BUTTON_GROUP_GAP
 
 from player_core.hud_button import Button
-from player_core.modes import SatellitesMode
 from player_core.satellite_hud import (
-    CONTROL_TOOLTIPS,
     CTRL_BTN,
     DOUBLE_CLICK_S,
     ELLIPSIS,
@@ -19,7 +16,6 @@ from player_core.satellite_hud import (
     MAP_CELLS,
     MAP_GAP,
     MIN_GUTTER,
-    MODE_LABEL_PAD,
     PAD,
     ROW_GAP,
     STATUS_TEXT_X,
@@ -46,7 +42,7 @@ from player_core.satellite_hud import (
     map_window,
     panel_width,
     parse_hud,
-    speed_row_rects,
+    speed_row,
     thumbnail_rects,
 )
 
@@ -55,10 +51,6 @@ def _squares(x: int, y: int, buttons) -> list:
     """*buttons* laid out as a row of squares from ``(x, y)``."""
     return button_row_rects(x, y, buttons, [CTRL_BTN] * len(buttons))
 
-
-def _at(targets: HudTargets) -> dict[str, tuple[int, int]]:
-    """A point inside each declared button, by what it is for."""
-    return {short_name(button): (rect[0] + 5, rect[1] + 5) for rect, button in targets.buttons}
 
 # --- the status line ---------------------------------------------------------
 
@@ -462,7 +454,7 @@ def test_button_tooltip_names_each_button():
         loop=[((0, 0, 20, 20), "action"), ((30, 0, 20, 20), "seed")],
         filter=[((0, 100, FILTER_BTN, 54), "gamma")],
         expand=(30, 30, 18, 18),
-        buttons=_squares(0, 60, band(latest=False)),
+        buttons=_squares(0, 60, band(newest=False)),
         favorite=(300, 60, CTRL_BTN, CTRL_BTN),
     )
 
@@ -471,33 +463,11 @@ def test_button_tooltip_names_each_button():
     assert button_tooltip(targets, 5, 105) == "Filter to this action"
     assert button_tooltip(targets, 35, 35) == "More seeds — widen the net"
     # Probed off the rects the row was actually laid out at rather than off a
-    # fixed pitch: the band breaks into groups now, so a stride is not the answer.
-    at = _at(targets)
-    assert button_tooltip(targets, *at["prev"]) == "Previous clip"
-    assert button_tooltip(targets, *at["next"]) == "Next clip"
-    assert button_tooltip(targets, *at["reset"]) == (
-        "Reset — no filter, no lock, no loop, no F-Mode, shuffled from the top")
-    assert button_tooltip(targets, *at["shuffle"]).startswith("Shuffle")
-    assert button_tooltip(targets, *at["latest"]).startswith("Latest")
-    assert button_tooltip(targets, *at["minimize"]) == (
-        "Minimize this player — bring it back from the taskbar")
+    # fixed pitch: the band breaks into groups, so a stride is not the answer.
+    for (bx, by, _w, _h), button in targets.buttons:
+        assert button_tooltip(targets, bx + 5, by + 5) == button.tooltip
     assert button_tooltip(targets, 305, 65) == "In the favorites"
     assert button_tooltip(targets, 400, 400) == ""
-
-
-def test_the_standard_band_is_the_sides_own_controls_in_a_row():
-    """The browse pair, then the three about the clip on screen and the library it
-    came from, then the browse itself, then minimize — the buttons the dashboard
-    used to carry for this side, now in the side's own HUD, widening from the clip
-    on screen out to the whole side and ending with the one that acts on the
-    window rather than on anything in it."""
-    rects = _squares(10, 40, band(latest=False))
-
-    assert [short_name(button) for _rect, button in rects] == [
-        "prev", "next", "lock", "trash", "fmode", "reset", "shuffle", "latest",
-        "minimize",
-    ]
-    assert all(rect[1:] == (40, CTRL_BTN, CTRL_BTN) for rect, _button in rects)
 
 
 def test_a_declared_row_is_laid_out_as_wide_as_each_button_says():
@@ -517,72 +487,26 @@ def test_a_declared_row_is_laid_out_as_wide_as_each_button_says():
     ]
 
 
-def test_the_control_band_breaks_into_the_groups_the_console_breaks_into():
-    """A run of evenly spaced squares reads as one long undifferentiated strip,
-    and the main console already answers this by opening a wider gap where the
-    controls stop being about the same thing.  The bands do it the same way and
-    at the same four seams, so a reader glancing between the two screens is
-    reading one control panel in two places."""
-    rects = _squares(0, 0, band(latest=False))
-    gap_before = {
-        short_name(button): rect[0] - (previous[0] + previous[2])
-        for (previous, _p), (rect, button) in pairwise(rects)
-    }
-
-    assert gap_before["next"] == BUTTON_GAP          # stepping
-    assert gap_before["lock"] == BUTTON_GROUP_GAP   # …then the clip on screen
-    assert gap_before["trash"] == BUTTON_GAP
-    assert gap_before["fmode"] == BUTTON_GAP
-    assert gap_before["reset"] == BUTTON_GROUP_GAP  # …then the browse pool
-    assert gap_before["shuffle"] == BUTTON_GROUP_GAP  # …then the order it comes in
-    assert gap_before["latest"] == BUTTON_GAP
-    assert gap_before["minimize"] == BUTTON_GROUP_GAP  # …then the window
-
-
-def test_the_enhanced_switch_joins_the_browse_group_rather_than_the_switches():
-    """It narrows what there is to browse, which is what reset puts back and what
-    the order pair runs through — so it belongs in that group rather than beside
-    F-mode, where it read as a second switch on the clip."""
-    rects = _squares(0, 0, band(enhanced_filter=False, latest=False))
-    gap_before = {
-        short_name(button): rect[0] - (previous[0] + previous[2])
-        for (previous, _p), (rect, button) in pairwise(rects)
-    }
-
-    assert [short_name(button) for _rect, button in rects] == [
-        "prev", "next", "lock", "trash", "fmode", "enhanced", "reset",
-        "shuffle", "latest", "minimize"]
-    assert gap_before["enhanced"] == BUTTON_GROUP_GAP
-    assert gap_before["reset"] == BUTTON_GAP
-    assert gap_before["shuffle"] == BUTTON_GROUP_GAP
-
-
 def test_the_speed_row_puts_slower_the_rate_and_faster_after_its_name():
     from player_core.console import VALUE_W
 
-    buttons, rate = speed_row_rects(10, 40, label_width=70)
+    buttons, rate = speed_row("portrait", 10, 40, label_width=70)
 
-    assert [name for _rect, name in buttons] == ["speed_down", "speed_up"]
+    assert [button.command for _rect, button in buttons] == [
+        "portrait_speed_down", "portrait_speed_up"]
     (down, _), (up, _) = buttons
     assert down == (80, 40, CTRL_BTN, CTRL_BTN)
     assert rate == (80 + CTRL_BTN + MAP_GAP, 40, VALUE_W, CTRL_BTN)
     assert up == (rate[0] + VALUE_W + MAP_GAP, 40, CTRL_BTN, CTRL_BTN)
 
 
-def test_the_speed_buttons_name_themselves_in_the_consoles_words():
-    from player_core.console import ConsoleModel, console_rows
-    from player_core.modes import MainMode
+def test_the_speed_buttons_say_what_a_press_does_to_the_video():
+    """In the words the main console's own pair says it in."""
+    buttons, _rate = speed_row("landscape", 0, 0, label_width=70)
+    targets = _targets(buttons=buttons)
 
-    console = {button.command: button.tooltip
-               for row in console_rows(ConsoleModel(main_mode=MainMode.VIDEO)) for button in row}
-    rects, _rate = speed_row_rects(0, 0, label_width=70)
-    targets = _targets(buttons=[
-        (rect, Button(f"portrait_{name}", "", CONTROL_TOOLTIPS[name]))
-        for rect, name in rects])
-    at = {short_name(b): (rect[0] + 5, rect[1] + 5) for rect, b in targets.buttons}
-
-    assert button_tooltip(targets, *at["speed_down"]) == console["main_player_speed_down"]
-    assert button_tooltip(targets, *at["speed_up"]) == console["main_player_speed_up"]
+    assert [button_tooltip(targets, x + 5, y + 5) for (x, y, _w, _h), _b in buttons] == [
+        "Play the video slower", "Play the video faster"]
 
 
 def test_action_label_blocks_separate_comma_joined_acts():
@@ -671,13 +595,6 @@ def test_a_dimmed_button_posts_nothing_but_the_press_stays_on_the_panel():
     assert HudClicks("portrait").press(targets, 5, 5, now=0.0) == ""
 
 
-def test_parse_hud_reads_this_players_favorites_filter():
-    """Published per side, since each satellite has its own — and False when the
-    key is absent, so a panel from before this existed simply reads as not in it."""
-    assert parse_hud(json.dumps({"player": "portrait", "favorites_filter": True})).favorites_filter is True
-    assert parse_hud(json.dumps({"player": "portrait"})).favorites_filter is False
-
-
 def test_a_side_control_posts_at_once_rather_than_waiting_out_a_double_click():
     """Only a thumbnail press is ambiguous (single switches, double locks).  A
     button means one thing, so it fires on the press and leaves nothing pending."""
@@ -731,68 +648,13 @@ def test_pressing_the_filter_button_of_a_two_word_action_slugs_it():
     assert clicks.press(targets, 5, 5, now=0.0) == "filter_landscape_beta_gamma"
 
 
-class TestModePair:
-    def test_the_published_mode_parses(self):
-        model = parse_hud(json.dumps({"player": "portrait", "satellites_mode": "origenerator"}))
-        assert model.satellites_mode is SatellitesMode.ORIGENERATOR
-        assert parse_hud(json.dumps({"player": "portrait"})).satellites_mode is None
+def test_a_player_less_command_is_posted_verbatim():
+    """The mode pair's commands belong to the whole satellite side, so they
+    carry no player of their own and none is added."""
+    mode_pair = player_rows(mode="video")[0]
+    targets = _targets(buttons=button_row_rects(0, 0, mode_pair, [60, 90, CTRL_BTN]))
 
-    def test_mode_buttons_run_right_with_their_commands(self):
-        pair, minimize = player_rows(satellites_mode=SatellitesMode.VIDEO)[0][:2], player_rows(satellites_mode=SatellitesMode.VIDEO)[0][2]
-        rects = button_row_rects(100, 50, (*pair, minimize),
-                                 [40 + 2 * MODE_LABEL_PAD, 80 + 2 * MODE_LABEL_PAD, CTRL_BTN])
-        assert [button.command for _rect, button in rects] == [
-            "satellites_video_activate", "origenerator_activate", "portrait_minimize"]
-        (first, _), (second, _), (third, _) = rects
-        assert first == (100, 50, 40 + 2 * MODE_LABEL_PAD, CTRL_BTN)
-        assert second[0] == first[0] + first[2] + BUTTON_GAP
-        assert third[0] == second[0] + second[2] + BUTTON_GROUP_GAP  # minimize stands apart
-
-    def test_a_mode_press_posts_the_command_verbatim(self):
-        # Side-less on purpose: the mode belongs to the whole satellite side.
-        clicks = HudClicks("portrait")
-        targets = HudTargets(click=[], loop=[], filter=[], expand=None,
-                             buttons=[((0, 0, 60, 18), Button(
-                                 "origenerator_activate", "Origenerator", "", width=0))])
-        assert clicks.press(targets, 5, 5, now=0.0) == "origenerator_activate"
-
-    def test_the_pair_names_itself_on_hover(self):
-        targets = HudTargets(click=[], loop=[], filter=[], expand=None,
-                             buttons=[((0, 0, 60, 18), player_rows(satellites_mode=SatellitesMode.VIDEO)[0][0])])
-        assert "Video mode" in button_tooltip(targets, 5, 5)
-
-
-def test_parse_hud_reads_an_enhanced_filter_only_where_the_side_names_one():
-    """None is "this side has no such switch" — every one of fun_time's own
-    players, which publish nothing for it — and only a hosted Origenerator's
-    show says on or off.  The two must not collapse: a player HUD that read
-    "absent" as "off" would grow a button for a filter it does not have."""
-    assert parse_hud(json.dumps({"player": "portrait"})).enhanced_filter is None
-    assert parse_hud(json.dumps({"player": "portrait", "enhanced_filter": False})).enhanced_filter is False
-    assert parse_hud(json.dumps({"player": "portrait", "enhanced_filter": True})).enhanced_filter is True
-
-
-def test_the_enhanced_switch_names_itself_and_posts_its_sides_command():
-    """Slotted into the browse group, the switch is one more control on the band:
-    it carries a tooltip like every glyph here, and a press posts
-    "<side>_enhanced" — the verb falls out of the name, as every other
-    control's does."""
-    targets = _targets(buttons=_squares(0, 0, band(enhanced_filter=False, latest=False)))
-    at = _at(targets)
-
-    assert HudClicks("portrait").press(targets, *at["enhanced"], now=0.0) == "portrait_enhanced"
-    assert HudClicks("portrait").press(targets, *at["reset"], now=0.0) == "portrait_reset"
-    assert "enhanced" in button_tooltip(targets, *at["enhanced"]).lower()
-
-
-def test_parse_hud_reads_the_browse_order_only_where_the_side_names_one():
-    """None is "this side's order cannot be switched here" — a hosted
-    Origenerator's show, whose set is not a browse — and only a publisher that
-    says on or off gets the pair of buttons.  The two must not collapse: a HUD
-    that read "absent" as "shuffled" would grow two buttons nothing answers."""
-    assert parse_hud(json.dumps({"player": "portrait"})).latest is None
-    assert parse_hud(json.dumps({"player": "portrait", "latest": False})).latest is False
-    assert parse_hud(json.dumps({"player": "portrait", "latest": True})).latest is True
+    assert HudClicks("portrait").press(targets, 65, 5, now=0.0) == "origenerator_activate"
 
 
 class TestThePublishedPanelIsWrittenWhereItIsRead:
@@ -803,14 +665,13 @@ class TestThePublishedPanelIsWrittenWhereItIsRead:
     def test_every_field_survives_the_round_trip(self):
         model = HudModel(
             player="landscape", locked=True, lock_label="Looping seeds · Locked · Latest",
-            active=True, is_favorite=True, favorites_filter=True, enhanced_filter=True, latest=False,
+            active=True, is_favorite=True,
             corner=HudCell(path="C:/v/cur.mp4", thumb="C:/t/cur.jpg"),
             seeds=(HudCell(path="C:/v/s1.mp4", thumb="C:/t/s1.jpg"),
                    HudCell(path="C:/v/s2.mp4")),
             actions=(HudCell(path="C:/v/a1.mp4", thumb="C:/t/a1.jpg", label="gamma"),),
             current_action="alpha", filter_query="alpha", active_loop="seed",
             seed_count=7, action_count=3, playing=("seed", 1),
-            satellites_mode=SatellitesMode.VIDEO,
             rows=((Button("origenerator_activate", "Origenerator", "Shows", width=0),
                    Button("landscape_minimize", "\x00minimize", "Park", group_break=True)),
                   (Button("landscape_lock", "🔒", "Hold", lit=True, favorite=True),)),
@@ -818,16 +679,14 @@ class TestThePublishedPanelIsWrittenWhereItIsRead:
 
         assert parse_hud(hud_text(model)) == model
 
-    def test_a_switch_a_side_does_not_have_stays_absent(self):
-        """None is "no such switch", not "off": the player draws the button only
-        for a side that says it has the switch, so None has to come back None."""
-        model = HudModel(player="portrait", enhanced_filter=None, latest=None)
+    def test_a_key_the_panel_no_longer_carries_is_passed_over(self):
+        """The switches a player's band was once lit from still come from a
+        publisher on an older release; the panel reads the same without them."""
+        parsed = parse_hud(json.dumps({
+            "player": "portrait", "favorites_filter": True, "latest": False,
+            "enhanced_filter": True, "satellites_mode": "video"}))
 
-        parsed = parse_hud(hud_text(model))
-
-        assert parsed.enhanced_filter is None
-        assert parsed.latest is None
-        assert parse_hud(hud_text(HudModel(player="portrait", latest=False))).latest is False
+        assert parsed == HudModel(player="portrait")
 
     def test_a_panel_with_no_clip_yet_round_trips_empty(self):
         parsed = parse_hud(hud_text(HudModel(player="portrait")))
