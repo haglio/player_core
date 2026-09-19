@@ -29,7 +29,10 @@ PAST_THE_MOMENT = ELSEWHERE_S + 0.01  # a hair past, so the float arithmetic can
 
 def _elsewhere(keeping: KeepingStep, room: RoomClock, *, seconds: float, from_now: float = 10.0,
                video: str = "mine.mp4", every: float = 0.05):
-    """Turn for *seconds* with the room on a video this player is not on."""
+    """Turn for *seconds* with the room on a video this player is not on, having
+    followed it on the one before."""
+    keeping.turn(room, video=room.video, position_ms=room.position_at(from_now),
+                 paused=False, now=from_now)
     return _holding(keeping, room, seconds=seconds, from_now=from_now, video=video, every=every)
 
 
@@ -66,6 +69,16 @@ class TestWhereTheRoomIs:
 
 
 class TestOpeningWhatTheRoomIsPlaying:
+    def test_a_player_not_following_anything_yet_opens_the_rooms_video_at_once(self):
+        """The wait below is for a clip rolling over under a player already
+        following; one that has just launched has nothing to roll."""
+        keeping = KeepingStep()
+        room = RoomClock(video="theirs.mp4", position_ms=4_000, said_at=10.0)
+
+        step = keeping.turn(room, video="mine.mp4", position_ms=0, paused=False, now=10.0)
+
+        assert step.open == "theirs.mp4"
+
     def test_a_different_video_is_opened(self):
         keeping = KeepingStep()
         room = RoomClock(video="theirs.mp4", position_ms=4_000, said_at=10.0)

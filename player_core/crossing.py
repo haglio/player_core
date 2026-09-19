@@ -63,6 +63,7 @@ class KeepingStep:
         self._wide_since: float | None = None
         self._elsewhere_since: float | None = None
         self._steady_since: float | None = None
+        self._followed_something = False
         self._in_step = False
         self._opening = False
 
@@ -85,6 +86,7 @@ class KeepingStep:
         if video != room.video:
             return self._somewhere_else(room, now)
         self._elsewhere_since = None
+        self._followed_something = True
         following = Step(locked=room.locked if room.locked != locked else None)
         target = room.position_at(now)
         if self._opening:
@@ -103,11 +105,12 @@ class KeepingStep:
         """The room names another video, which is where both are about to be:
         the two roll onto the next clip a moment apart, and the one that rolls
         first would otherwise reload the clip the other is finishing — then the
-        next one again the moment the room says so."""
+        next one again the moment the room says so.  A player that has followed
+        nothing yet has no clip of its own to roll, so it opens at once."""
         self._out_of_step()
         if self._elsewhere_since is None:
             self._elsewhere_since = now
-        if now - self._elsewhere_since < ELSEWHERE_S:
+        if self._followed_something and now - self._elsewhere_since < ELSEWHERE_S:
             return Step()
         self._start_again()
         self._opening = True

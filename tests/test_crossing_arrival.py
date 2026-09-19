@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 
 from player_core.crossing import (
-    ELSEWHERE_S,
     SEEK_LEAD_MS,
     STEADY_S,
     Arrival,
@@ -141,7 +140,7 @@ class TestWhatItDrains:
 class TestFollowingTheRoom:
     def test_it_opens_what_the_room_is_playing(self, room):
         room.says(extra="funscript=C:/library/scene one.funscript\n")
-        room.turns(seconds=ELSEWHERE_S + 0.05)
+        room.arrival.turn()
         video, said = room.follower.opened[0]
         assert video == VIDEO
         assert said["funscript"] == "C:/library/scene one.funscript"
@@ -149,19 +148,19 @@ class TestFollowingTheRoom:
     def test_it_opens_the_rooms_video_while_its_own_is_still_loading(self, room):
         room.says()
         room.follower.duration_ms = 0.0
-        room.turns(seconds=ELSEWHERE_S + 0.05)
+        room.arrival.turn()
         assert [video for video, _ in room.follower.opened] == [VIDEO]
 
     def test_it_goes_where_the_room_is_once_the_video_is_open(self, room):
         room.says()
-        room.turns(seconds=ELSEWHERE_S + 0.05)
+        room.arrival.turn()  # opens what the room is playing
         landing_on = room.room_is_at
         room.arrival.turn()
         assert room.follower.seeks == [pytest.approx(landing_on + SEEK_LEAD_MS)]
 
     def test_no_seek_is_asked_of_a_video_that_has_not_opened(self, room):
         room.says()
-        room.turns(seconds=ELSEWHERE_S + 0.05)
+        room.arrival.turn()
         room.follower.duration_ms = 0.0
         room.arrival.turn()
         assert room.follower.seeks == []
