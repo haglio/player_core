@@ -57,3 +57,53 @@ def test_close_closes_socket():
     notifier.close()
 
     assert sock.closed is True
+
+
+class TestAGenauArrivingInARoom:
+    """The companion follows the Genau that has the room; an arriving one says
+    nothing until it takes the room, and then says what it is showing."""
+
+    def test_it_says_nothing_while_held(self):
+        sock = FakeSocket()
+        notifier = GenauNotifier("127.0.0.1", 9999, sock=sock, held=True)
+
+        notifier.notify_clip(Path("demo.mp4"))
+        notifier.notify_visible(True)
+
+        assert sock.sent == []
+
+    def test_letting_go_says_the_clip_and_whether_it_shows(self):
+        sock = FakeSocket()
+        notifier = GenauNotifier("127.0.0.1", 9999, sock=sock, held=True)
+        notifier.notify_clip(Path("one.mp4"))
+        notifier.notify_clip(Path("two.mp4"))
+        notifier.notify_visible(True)
+
+        notifier.let_go()
+
+        assert sock.sent == [
+            (b"CLIP two", ("127.0.0.1", 9999)),
+            (b"VISIBLE 1", ("127.0.0.1", 9999)),
+        ]
+
+    def test_after_letting_go_it_speaks_as_ever(self):
+        sock = FakeSocket()
+        notifier = GenauNotifier("127.0.0.1", 9999, sock=sock, held=True)
+        notifier.notify_visible(True)
+        notifier.let_go()
+
+        notifier.notify_visible(True)
+        notifier.notify_clip(Path("three.mp4"))
+
+        assert sock.sent == [
+            (b"VISIBLE 1", ("127.0.0.1", 9999)),
+            (b"CLIP three", ("127.0.0.1", 9999)),
+        ]
+
+    def test_a_held_notifier_that_heard_nothing_says_nothing_when_let_go(self):
+        sock = FakeSocket()
+        notifier = GenauNotifier("127.0.0.1", 9999, sock=sock, held=True)
+
+        notifier.let_go()
+
+        assert sock.sent == []

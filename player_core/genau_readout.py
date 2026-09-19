@@ -90,6 +90,7 @@ class GenauReadout:
         console_file: Path | None = None,
         set_console=None,
         current_clip=lambda: None,
+        publishing: bool = True,
     ):
         self.robot_hand = controls.robot_hand
         self.cruise_control = controls.cruise_control_state
@@ -101,6 +102,7 @@ class GenauReadout:
         self.console_file = console_file
         self.set_console = set_console or (lambda _console: None)
         self.current_clip = current_clip
+        self.publishing = publishing
         self._last_drive_publish = 0.0
         # The broker's beat, counted up across its wraps: the auto trace's
         # knots stay put only on a phase that never starts round again.
@@ -239,7 +241,7 @@ class GenauReadout:
         file does; it is throttled instead, well under the refresh rate and well
         over what the eye reads as smooth.
         """
-        if self.drive_file is None:
+        if self.drive_file is None or not self.publishing:
             return
         if now - self._last_drive_publish < _DRIVE_PUBLISH_INTERVAL_S:
             return

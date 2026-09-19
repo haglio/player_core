@@ -15,24 +15,40 @@ __all__ = [
 ]
 
 class GenauNotifier:
-    def __init__(self, host: str, port: int, *, sock=None):
+    def __init__(self, host: str, port: int, *, sock=None, held: bool = False):
         self.host = host
         self.port = port
         self.sock = sock if sock is not None else socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.last_visible_sent: int | None = None
+        self._held = held
+        self._clip_while_held: Path | None = None
+        self._visible_while_held: bool | None = None
 
     def _send(self, message: str) -> None:
         self.sock.sendto(message.encode("utf-8"), (self.host, self.port))
 
     def notify_clip(self, path: Path) -> None:
+        if self._held:
+            self._clip_while_held = path
+            return
         self._send(f"CLIP {path.stem}")
 
     def notify_visible(self, is_visible: bool) -> None:
+        if self._held:
+            self._visible_while_held = is_visible
+            return
         value = 1 if is_visible else 0
         if self.last_visible_sent == value:
             return
         self._send(f"VISIBLE {value}")
         self.last_visible_sent = value
+
+    def let_go(self) -> None:
+        self._held = False
+        if self._clip_while_held is not None:
+            self.notify_clip(self._clip_while_held)
+        if self._visible_while_held is not None:
+            self.notify_visible(self._visible_while_held)
 
     def close(self) -> None:
         self.sock.close()
