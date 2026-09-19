@@ -130,3 +130,26 @@ class TestDropCurrent:
 
         assert seq.remove_current() is None
         assert seq.count == 1
+
+
+class TestMovingToAClip:
+    """Where a Genau arriving in a room goes: the clip the one with the room is
+    showing, found in its own order so stepping on from it walks that order."""
+
+    def test_it_moves_to_the_clip_named(self):
+        controller = ClipSequenceController(_paths())
+
+        assert controller.move_to(Path("c.mp4")) is True
+        assert controller.current_path == Path("c.mp4")
+
+    def test_the_name_is_matched_whatever_its_case(self):
+        controller = ClipSequenceController(_paths())
+
+        assert controller.move_to(Path("B.MP4")) is True
+        assert controller.current_number == 2
+
+    def test_a_clip_it_does_not_hold_leaves_it_where_it_was(self):
+        controller = ClipSequenceController(_paths(), start_at=Path("b.mp4"))
+
+        assert controller.move_to(Path("elsewhere.mp4")) is False
+        assert controller.current_path == Path("b.mp4")
