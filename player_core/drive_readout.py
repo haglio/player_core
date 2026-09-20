@@ -33,6 +33,7 @@ from .drive_layout import (
 from .drive_layout import fraction as _fraction
 from .file_channel import publish_whole
 from .geometry import Rect, contains
+from .hud_button import Button
 from .hud_panel import (
     SYMBOL_FONT,
     draw_glyph,
@@ -241,6 +242,37 @@ def track_command(track: DriveTrack, px: int, py: int) -> str:
     """What a press at ``(px, py)`` on *track* posts — the numeric set command Fun
     Time already routes to the Robot Hand."""
     return f"robot_hand_{track.axis}_{track_value(track, px, py)}"
+
+
+# The readout draws its own marks, but a panel hosting it still has to know what
+# each posts and name it on hover.
+CONTROL_TIPS = {
+    "robot_hand_speed_down": "Motion slower", "robot_hand_speed_up": "Motion faster",
+    "robot_hand_amplitude_up": "Amplitude up", "robot_hand_amplitude_down": "Amplitude down",
+    "robot_hand_center_up": "Center up", "robot_hand_center_down": "Center down",
+}
+
+
+def readout_targets(x: int, y: int, hud: DriveHud,
+                    ) -> tuple[list[tuple[Rect, Button]], list[DriveTrack]]:
+    """What a readout at ``(x, y)`` leaves for a press to land on: its marks as
+    declared buttons, then its bands.
+
+    The marks come first because they sit on top of the bands, and whoever
+    routes a press takes the first rect that contains it.  A band joins the
+    buttons with no command to post, purely so it names what it sets on hover —
+    nothing else on a HUD in a video says a bar can be dragged — and comes back
+    beside them so the press can take hold of it (:class:`TrackGrip`).
+    """
+    bands = tracks(x, y, hud)
+    targets = [
+        (control.rect,
+         Button(control.command, "", CONTROL_TIPS.get(control.command, ""),
+                dim=control.dim))
+        for control in controls(x, y, hud)
+    ]
+    targets += [(band.rect, Button("", "", band.tooltip)) for band in bands]
+    return targets, bands
 
 
 class TrackGrip:

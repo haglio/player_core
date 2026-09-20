@@ -29,8 +29,10 @@ from shared_ui.spacing import (
 )
 
 from .console import VALUE_W
+from .drive_readout import DriveHud, DriveTrack, TrackGrip
 from .geometry import Rect, contains
 from .hud_button import Button, rows_from_raw, rows_raw
+from .hud_osr2 import HEIGHT as OSR2_H
 
 __all__ = [
     "MARGIN",
@@ -50,6 +52,10 @@ __all__ = [
 MARGIN = 12
 
 PAD = 10
+# The step each block down the panel opens above itself — the control bands
+# carry it (see CTRL_BAND_H), and the device's line and readout keep to it so
+# the panel reads at one rhythm rather than two.
+BLOCK_GAP = 6
 MAP_THUMB_H = 54
 MAP_GAP = 5
 ROW_GAP = 12        # vertical gap between action rows — roomier than the seed gap
@@ -153,6 +159,23 @@ class HudModel:
     # panel draws nothing it was not handed.
     rows: tuple[tuple[Button, ...], ...] = ()
 
+    # --- the device, for a host that drives it itself -----------------------
+    # Which driver has the OSR2, and the controls that aim it: the same line the
+    # main console draws (:mod:`player_core.hud_osr2`), grown here because a host
+    # can be both the thing browsing a set AND the thing driving the device.
+    # Origenerator's shows are: they floated this HUD for the set and the whole
+    # console underneath it for the device, which is two status lines that
+    # disagree and two copies of every transport button.  Empty for a satellite,
+    # which drives nothing and draws no line -- so nothing about fun_time's
+    # players moves.  Not published either: fun_time's panel file says what a
+    # side is browsing, and what a host is sending is that host's own.
+    osr2: str = ""
+    osr2_controls: tuple[Button, ...] = ()
+    # The motion being sent, drawn under that line — the main console's readout
+    # (:mod:`player_core.drive_readout`), hosted here rather than on a panel of
+    # its own.  None wherever there is nothing to report.
+    drive: DriveHud | None = None
+
 
 # --- map geometry ------------------------------------------------------------
 
@@ -199,7 +222,7 @@ def map_column_height(cells: int) -> int:
 
 
 def panel_width(gutter: int, row_width: int, status_width: int,
-                subtitle_width: int = 0, *, band_width: int = 0) -> int:
+                subtitle_width: int = 0, *, content_width: int = 0) -> int:
     """How wide the panel has to be: room for a map row *row_width* across — the
     row-label gutter, the map's left "…" slot, the row, its right "…" slot, and the
     seed-loop and expand buttons past that — or room for a status line
@@ -215,15 +238,26 @@ def panel_width(gutter: int, row_width: int, status_width: int,
     asks for.  It gives the same way the status does — a name cut off mid-word says
     nothing about which clip this is, which is the whole reason it is drawn.
 
-    *band_width* is the control band's own demand — nonzero only with the mode
-    pair drawn on it, whose labeled buttons can outrun a portrait map's width.
+    *content_width* is the widest demand of the blocks that are not the map,
+    already inset: the control band — whose labeled mode pair can outrun a
+    portrait map's width — and, on a host that drives the device, its OSR2 line
+    and drive readout.  Each of those clips away in silence rather than
+    wrapping, so the panel gives.
     """
     for_map = PAD + gutter + ELLIPSIS_ROOM + row_width + ELLIPSIS_ROOM + MAP_RIGHT_RESERVE + PAD
-    return max(for_map, STATUS_TEXT_X + max(status_width, subtitle_width) + PAD, band_width)
+    return max(for_map, STATUS_TEXT_X + max(status_width, subtitle_width) + PAD, content_width)
+
+
+def device_height(osr2: str, drive: DriveHud | None, drive_h: int) -> int:
+    """The room a host's own device block takes under the bands: the OSR2 line,
+    the readout under it, and the gap each opens above itself.  Nothing at all
+    for a satellite, which reports no device and grows no block."""
+    return ((OSR2_H + BLOCK_GAP if osr2 else 0)
+            + (drive_h + BLOCK_GAP if drive is not None else 0))
 
 
 def panel_height(column_height: int, subtitle_h: int = 0, bands_h: int = 0,
-                 speed_band_h: int = 0) -> int:
+                 speed_band_h: int = 0, device_h: int = 0) -> int:
     """How tall the panel has to be: the status band, the button bands and the
     speed row, then — around a map column *column_height* deep — the "Seed N"
     header strip, the column's own "…" slots, and the action-loop button below it.
@@ -237,12 +271,14 @@ def panel_height(column_height: int, subtitle_h: int = 0, bands_h: int = 0,
     first, so it grows the band rather than the width, and everything under it moves
     down by exactly the line it added.
 
-    *bands_h* is the room the declared rows of buttons take, a band each.
+    *bands_h* is the room the declared rows of buttons take, a band each, and
+    *device_h* what a host that drives the OSR2 itself adds under them (see
+    :func:`device_height`) — nought for a satellite, which drives nothing.
 
     *column_height* is 0 before the satellite's first clip, when the panel is the
     bands and nothing else: there is no map, so no room is kept for one.
     """
-    foot = PAD + STATUS_BAND_H + subtitle_h + bands_h + speed_band_h
+    foot = PAD + STATUS_BAND_H + subtitle_h + bands_h + speed_band_h + device_h
     if column_height:
         foot += (COL_LABEL_H + COL_LABEL_GAP + ELLIPSIS_ROOM
                  + column_height + ELLIPSIS_ROOM + MAP_LOWER_RESERVE)
@@ -442,7 +478,7 @@ def ellipsis_rects(
 # word button as wide as its word (the painter measures it), and the wider gap
 # before a button that starts a group -- the way the console's rows break.
 CTRL_BTN = BUTTON_SIZE_HUD
-CTRL_BAND_H = 24
+CTRL_BAND_H = CTRL_BTN + BLOCK_GAP
 # Inside a word button, the room either side of its word.
 MODE_LABEL_PAD = 6
 
@@ -563,6 +599,9 @@ class HudTargets:
     favorite: Rect | None = None
     # The strike under the current clip's act, or None where no act is named.
     wrong_action: Rect | None = None
+    # The drive readout's three bands, on a host that draws one: pressed to set
+    # a level outright, and held while the pointer drags along them.
+    tracks: list[DriveTrack] = field(default_factory=list)
 
 
 def build_click_targets(
@@ -726,6 +765,11 @@ class HudClicks:
     single switches to the clip, double locks it — so :meth:`press` defers it and
     :meth:`due` posts it once no second click has arrived.  Every other press
     (loop buttons, expand, filter buttons) is unambiguous and posts immediately.
+
+    A press inside one of the drive readout's bands, on a host that draws one,
+    takes hold of it as well as posting: :meth:`drag_to` then goes on setting
+    that level as the pointer moves, so a bar can be dragged and not only
+    clicked.
     """
 
     def __init__(self, player: str, *, double_click_s: float = DOUBLE_CLICK_S) -> None:
@@ -733,20 +777,44 @@ class HudClicks:
         self._double_click_s = double_click_s
         self._pending_path = ""
         self._pending_at = 0.0
+        self._grip = TrackGrip()
         # Which axis is looping, and which act the player is filtered to.  Both are
         # mirrored from the published panel on every refresh, and set optimistically
         # on a click so the control lights up before fun_time's answer comes back.
         self.active_loop = ""
         self.active_filter = ""
 
+    @property
+    def holding(self) -> bool:
+        """Whether a press took hold of a readout band and has not let go."""
+        return self._grip.holding
+
+    def drag_to(self, px: int, py: int) -> str:
+        """The command the pointer posts while a band is held; "" while none is."""
+        return self._grip.drag_to(px, py)
+
+    def release(self) -> None:
+        """Let go of whichever band a press took hold of."""
+        self._grip.release()
+
     def press(self, targets: HudTargets, px: int, py: int, *, now: float) -> str:
         """The command for a press at ``(px, py)``, or "" when it posts nothing
-        yet (a first thumbnail click, or empty space)."""
+        yet (a first thumbnail click, or empty space).
+
+        Anything already held is let go first, so a press on an ordinary button
+        never leaves a band still latched.
+        """
+        self.release()
         button = button_at(targets.buttons, px, py)
-        if button is not None:
+        if button is not None and button.command:
             # Verbatim: the source said what a press posts.  A dimmed one is at
             # the end of its range or has nothing to act on, and posts nothing.
             return "" if button.dim else button.command
+        # A target with nothing to post is a readout band, there only to name
+        # itself on hover; the press belongs to the band under it.
+        grabbed = self._grip.grab(targets.tracks, px, py)
+        if grabbed:
+            return grabbed
         loop = hit_test_targets(targets.loop, px, py)
         if loop:
             return self._toggle_loop(loop)
