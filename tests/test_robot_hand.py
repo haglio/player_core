@@ -28,7 +28,7 @@ from player_core.robot_hand import (
 
 
 class TestBpmForSpeed:
-    def test_min_speed_returns_minimum_bpm(self):
+    def test_the_slowest_dial_setting_moves_at_the_slowest_pace(self):
         assert bpm_for_speed(5) == pytest.approx(5.0)
 
     def test_speed_100_returns_maximum_bpm(self):
@@ -88,30 +88,30 @@ class TestSetSpeed:
 
 
 class TestTriangleWaveform:
-    def test_phase_0_returns_base(self):
+    def test_the_cycle_starts_at_the_base(self):
         assert phase_to_position(0.0, shape=WaveformShape.TRIANGLE) == 0
 
-    def test_phase_quarter_returns_midpoint(self):
+    def test_a_quarter_through_the_cycle_the_hand_is_halfway_up(self):
         assert phase_to_position(0.25, shape=WaveformShape.TRIANGLE) == pytest.approx(5000, abs=1)
 
-    def test_phase_half_returns_tip(self):
+    def test_halfway_through_the_cycle_the_hand_is_at_the_tip(self):
         assert phase_to_position(0.5, shape=WaveformShape.TRIANGLE) == 9999
 
-    def test_phase_three_quarter_returns_midpoint(self):
+    def test_three_quarters_through_the_cycle_the_hand_is_halfway_back_down(self):
         assert phase_to_position(0.75, shape=WaveformShape.TRIANGLE) == pytest.approx(5000, abs=1)
 
-    def test_phase_1_returns_base(self):
+    def test_the_cycle_ends_back_at_the_base(self):
         assert phase_to_position(1.0, shape=WaveformShape.TRIANGLE) == pytest.approx(0, abs=1)
 
 
 class TestRoundedSquareWaveform:
-    def test_phase_0_returns_base(self):
+    def test_the_cycle_starts_at_the_base(self):
         assert phase_to_position(0.0, shape=WaveformShape.ROUNDED_SQUARE) == 0
 
-    def test_phase_half_returns_tip(self):
+    def test_halfway_through_the_cycle_the_hand_is_at_the_tip(self):
         assert phase_to_position(0.5, shape=WaveformShape.ROUNDED_SQUARE) == 9999
 
-    def test_phase_1_returns_base(self):
+    def test_the_cycle_ends_back_at_the_base(self):
         assert phase_to_position(1.0, shape=WaveformShape.ROUNDED_SQUARE) == pytest.approx(0, abs=1)
 
     def test_flatter_near_tip_than_sine(self):
@@ -128,7 +128,7 @@ class TestRoundedSquareWaveform:
 
 
 class TestSawtoothWaveform:
-    def test_phase_0_returns_base(self):
+    def test_the_cycle_starts_at_the_base(self):
         assert phase_to_position(0.0, shape=WaveformShape.SAWTOOTH) == 0
 
     def test_phase_half_is_falling(self):
@@ -141,7 +141,7 @@ class TestSawtoothWaveform:
         # Peak should be at phase 0.3 (the rise fraction)
         assert phase_to_position(0.3, shape=WaveformShape.SAWTOOTH) == 9999
 
-    def test_phase_1_returns_base(self):
+    def test_the_cycle_ends_back_at_the_base(self):
         assert phase_to_position(1.0, shape=WaveformShape.SAWTOOTH) == pytest.approx(0, abs=1)
 
     def test_asymmetric_rise_is_faster(self):
@@ -213,19 +213,19 @@ class TestAmplitudeAndCenter:
 
 
 class TestPhaseToPosition:
-    def test_phase_0_returns_base(self):
+    def test_the_cycle_starts_at_the_base(self):
         assert phase_to_position(0.0) == 0
 
-    def test_phase_quarter_returns_midpoint(self):
+    def test_a_quarter_through_the_cycle_the_hand_is_halfway_up(self):
         assert phase_to_position(0.25) == pytest.approx(5000, abs=1)
 
-    def test_phase_half_returns_tip(self):
+    def test_halfway_through_the_cycle_the_hand_is_at_the_tip(self):
         assert phase_to_position(0.5) == 9999
 
-    def test_phase_three_quarter_returns_midpoint(self):
+    def test_three_quarters_through_the_cycle_the_hand_is_halfway_back_down(self):
         assert phase_to_position(0.75) == pytest.approx(5000, abs=1)
 
-    def test_phase_1_returns_base(self):
+    def test_the_cycle_ends_back_at_the_base(self):
         assert phase_to_position(1.0) == pytest.approx(0, abs=1)
 
     def test_continuous_phase_1_5_returns_tip(self):

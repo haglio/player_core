@@ -66,7 +66,7 @@ class TestScanClips:
         r2 = scan_clips(tmp_path, shuffle_on_load=False)
         assert r1 == r2
 
-    def test_shuffle_on_returns_all_files(self, tmp_path: Path):
+    def test_shuffling_leaves_out_none_of_the_clips(self, tmp_path: Path):
         for name in ["x.mp4", "y.mp4", "z.mp4"]:
             (tmp_path / name).touch()
         result = scan_clips(tmp_path, shuffle_on_load=True)

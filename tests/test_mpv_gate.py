@@ -152,7 +152,7 @@ class Guarded:
         self.calls.append("seek")
 
 
-def test_a_guarded_call_after_the_close_returns_its_default_untouched():
+def test_a_guarded_call_after_the_close_does_nothing_and_says_so():
     """Losing the shutdown race is the ordinary case, so it returns rather than
     raises: a worker thread raising on its last turn would bury the real reason
     the session ended under a traceback about a player nobody wants any more."""

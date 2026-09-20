@@ -54,7 +54,7 @@ def test_show_frame_at_skips_when_the_index_has_not_moved():
     assert display_calls == ["f0"]
 
 
-def test_show_frame_at_returns_false_when_no_active_clip_is_loaded():
+def test_nothing_is_drawn_when_no_clip_is_loaded():
     controller, _clip_store, display_calls = _make_controller()
 
     assert controller.show_frame_at(0) is False

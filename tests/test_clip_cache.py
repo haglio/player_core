@@ -31,7 +31,7 @@ class TestDecodeRequestState:
         assert state.load_error is None
         assert state.request_id_done is None
 
-    def test_take_completed_result_returns_current_result_and_clears_done_flag(self):
+    def test_taking_a_finished_decode_hands_it_over_and_leaves_the_slot_free(self):
         state = DecodeRequestState(request_id=4, loading=True)
         state.record_success(Path("clip.mp4"), ["frame"], 4)
 
@@ -93,7 +93,7 @@ class TestClipCacheStore:
         assert store.clip_cache[current]["frames"] == ["old"]
         assert store.clip_cache[next_path]["frames"] == ["f1", "f2"]
 
-    def test_adopt_decoded_frames_returns_false_when_missing(self):
+    def test_frames_that_were_never_decoded_are_not_adopted(self):
         store = ClipCacheStore(limit=1)
 
         assert store.adopt_decoded_frames(Path("missing.mp4")) is False
