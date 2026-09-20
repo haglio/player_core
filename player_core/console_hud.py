@@ -55,8 +55,8 @@ from .drive_readout import (
     DriveHud,
     DriveSection,
     DriveTrack,
+    TrackGrip,
     section_size,
-    track_command,
 )
 from .drive_readout import controls as drive_controls
 from .drive_readout import tracks as drive_tracks
@@ -271,10 +271,7 @@ class ConsolePainter:
         self._bgra: np.ndarray | None = None
         self.buttons: list[tuple[Rect, Button]] = []
         self.tracks: list[DriveTrack] = []
-        # Which band a press took hold of, and what it last asked for, so a drag
-        # keeps setting the one it started on and only speaks when the value moves.
-        self._held: DriveTrack | None = None
-        self._asked = ""
+        self._grip = TrackGrip()
         # The trace and the device's position, held still while nothing is being
         # sent — see :meth:`_resolve`.
         self._still: tuple[tuple[float, ...], int, float, float | None] | None = None
@@ -389,7 +386,7 @@ class ConsolePainter:
         """
         self.release()
         px, py = self._local(mx, my)
-        return hit_test(self.buttons, px, py) or self._grab(px, py)
+        return hit_test(self.buttons, px, py) or self._grip.grab(self.tracks, px, py)
 
     def covers(self, mx: int, my: int) -> bool:
         return self._image is not None and contains(
@@ -400,42 +397,15 @@ class ConsolePainter:
         """Whether a press took hold of one of the readout's bands and has not let
         go — so the player knows a drag belongs here rather than to whatever else
         it would have offered the pointer."""
-        return self._held is not None
+        return self._grip.holding
 
     def drag_to(self, mx: int, my: int) -> str:
-        """The command the pointer posts while a band is held.
-
-        "" while none is, and "" while the level under the pointer is the one
-        already asked for — a drag along a bar fires per mouse motion, and every
-        one of those that says nothing new is a line in the command file for Fun
-        Time to route to a value Genau is already on.
-        """
-        if self._held is None:
-            return ""
-        command = track_command(self._held, *self._local(mx, my))
-        if command == self._asked:
-            return ""
-        self._asked = command
-        return command
+        """The command the pointer posts while a band is held."""
+        return self._grip.drag_to(*self._local(mx, my))
 
     def release(self) -> None:
         """Let go of whichever band a press took hold of."""
-        self._held, self._asked = None, ""
-
-    def _grab(self, px: int, py: int) -> str:
-        """Take hold of the band under panel point ``(px, py)`` and say what that
-        press asks of it; "" over none, holding nothing.
-
-        A dimmed band is passed over the way a dimmed button is: the readout is
-        dimmed whole while a funscript has the device, and a press that could do
-        nothing is not offered.
-        """
-        for track in self.tracks:
-            if not track.dim and contains(track.rect, px, py):
-                self._held = track
-                self._asked = track_command(track, px, py)
-                return self._asked
-        return ""
+        self._grip.release()
 
     def hover_at(self, mx: int, my: int) -> tuple[int, int] | None:
         """Where to name the button under *window* point ``(mx, my)``, else None."""
