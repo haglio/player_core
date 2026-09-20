@@ -16,8 +16,10 @@ from player_core.hud_button import Button
 from player_core.hud_panel import ICON_GRIDS
 from player_core.modes import Osr2State
 from player_core.satellite_hud import (
+    BLOCK_GAP,
     COL_LABEL_H,
     CTRL_BAND_H,
+    DEVICE_GAP,
     ELLIPSIS_ROOM,
     FILTER_ROOM,
     MAP_CELLS,
@@ -1265,6 +1267,22 @@ class TestTheDeviceOnAHostThatDrivesItself:
         assert placed["robot_hand_park"][1] >= map_foot
         assert all(band.rect[1] > placed["robot_hand_park"][1]
                    for band in rendered.targets.tracks)
+
+    def test_the_device_is_set_off_from_the_map_by_a_family_break(self, thumb):
+        """The map ends in a loop button of its own, so with only the step two
+        rows of one group take, the first control that aims the device read as
+        one more of the map's."""
+        aim = (Button("robot_hand_toggle_cruise", "cc", "Cruise"),)
+        rendered = HudRenderer("portrait").render(_model(
+            lock_label="Unlocked", corner=HudCell(path="c.mp4", thumb=thumb),
+            seeds=(HudCell(path="s.mp4", thumb=thumb),), seed_count=2,
+            osr2=Osr2State.ROBOT_HAND, osr2_rows=(aim,),
+            drive=DriveHud(driven=DRIVEN_BY_ROBOT_HAND)))
+        map_foot = max(y + h for (_x, y, _w, h), _kind in rendered.targets.loop)
+        first_aim = min(y for (_x, y, _w, _h), button in rendered.targets.buttons
+                        if button.command == "robot_hand_toggle_cruise")
+
+        assert first_aim - map_foot >= DEVICE_GAP > BLOCK_GAP
 
     def test_a_press_in_a_band_takes_hold_of_it_and_sets_it(self):
         rendered = self._rendered(osr2=Osr2State.ROBOT_HAND,
