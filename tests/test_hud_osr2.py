@@ -10,6 +10,7 @@ from player_core.hud_osr2 import (
     LABELS,
     Osr2Line,
     Osr2Section,
+    state_for,
 )
 from player_core.hud_panel import HudPanel
 from player_core.modes import Osr2State
@@ -66,3 +67,22 @@ class TestTheControlsOnIt:
 
 def _park() -> Button:
     return Button("robot_hand_park", "P", "Parked")
+
+
+class TestWhoTheLineNames:
+    """One precedence, wherever the line is drawn: the device running itself
+    beats anything the room is doing to it, a hold or a let-go beats whoever
+    would otherwise be driving, and only then does the driver get named."""
+
+    def test_the_driver_is_named_when_nothing_is_holding_the_device(self):
+        assert state_for(Osr2State.ROBOT_HAND, "") == Osr2State.ROBOT_HAND
+
+    def test_a_hold_is_named_ahead_of_whoever_would_have_been_driving(self):
+        for control in ("control_off", "parked", "retracted"):
+            assert state_for(Osr2State.FUNSCRIPT, control) == control
+
+    def test_the_device_running_itself_beats_even_a_hold(self):
+        assert state_for(Osr2State.AUTO, "parked") == Osr2State.AUTO
+
+    def test_a_panel_that_knows_better_says_who_is_driving(self):
+        assert state_for(Osr2State.OFF, "", driving=Osr2State.FUNSCRIPT) == Osr2State.FUNSCRIPT

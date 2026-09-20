@@ -7,8 +7,9 @@ import numpy as np
 import pytest
 from PIL import Image
 from satellite_rows import player_rows, short_name
-from shared_ui.palette import BLUE, TEXT_MUTED, WHITE
+from shared_ui.palette import BLUE, GREEN, TEXT_MUTED, WHITE
 
+from player_core.console import OSR2_PARKED
 from player_core.drive_layout import SECTION_W
 from player_core.drive_readout import DRIVEN_BY_ROBOT_HAND, DriveHud
 from player_core.hud_button import Button
@@ -1207,6 +1208,17 @@ class TestTheDeviceOnAHostThatDrivesItself:
         park = Button("robot_hand_park", "P", "Parked")
         rendered = self._rendered(osr2=Osr2State.ROBOT_HAND, osr2_controls=(park,))
         assert park in [button for _rect, button in rendered.targets.buttons]
+
+    def test_a_hold_is_named_ahead_of_whoever_would_have_been_driving(self):
+        """The host says what the wire says AND what it is doing to the device,
+        the way the main console's source does, and the panel resolves the two
+        the same way the console resolves them."""
+        driving = _rgb(self._rendered(osr2=Osr2State.FUNSCRIPT).bgra)
+        parked = _rgb(self._rendered(osr2=Osr2State.FUNSCRIPT,
+                                     osr2_control=OSR2_PARKED).bgra)
+
+        assert (driving == np.array(GREEN)).all(axis=-1).any()
+        assert not (parked == np.array(GREEN)).all(axis=-1).any()
 
     def test_the_readout_is_drawn_under_the_line(self):
         with_readout = self._rendered(osr2=Osr2State.ROBOT_HAND, drive=DriveHud())

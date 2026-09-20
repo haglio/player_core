@@ -45,7 +45,7 @@ from player_core.hud_panel import (
 from .drive_readout import DriveSection, DriveTrack, readout_targets, section_size
 from .geometry import Rect, contains
 from .hud_osr2 import HEIGHT as OSR2_H
-from .hud_osr2 import Osr2Line, Osr2Section
+from .hud_osr2 import Osr2Line, Osr2Section, state_for
 from .hud_status import PLAYBACK_SPEED_LABEL
 from .playback_rate import format_rate
 from .satellite_hud import (
@@ -296,7 +296,9 @@ class HudRenderer:
         ), default=0)
         # The device's own blocks, on a host that drives it: the OSR2 line and
         # the readout ask for width the way the bands do, and for room under them.
-        osr2_line = Osr2Line(state=model.osr2, controls=model.osr2_controls)
+        osr2_line = Osr2Line(
+            state=state_for(model.osr2, model.osr2_control),
+            controls=model.osr2_controls)
         drive_w, drive_h = section_size() if model.drive is not None else (0, 0)
         device_w = max(self._osr2.width(osr2_line) if model.osr2 else 0, drive_w)
         width = panel_width(gutter_w, reach, text_width(self._body, model.lock_label),

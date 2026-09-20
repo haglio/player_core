@@ -75,6 +75,25 @@ COLORS = {
 }
 
 
+def state_for(osr2: str, control: str, *, driving: str = "") -> str:
+    """Who the pill names, given what the wire says has the device (*osr2*) and
+    what this app is doing to it (*control*).
+
+    One precedence wherever the line is drawn.  The device running its own
+    firmware wins over everything the room does to it: no hold, no let-go and no
+    handoff reaches it.  Then a hold or a let-go, because there is nobody
+    driving to name and what the reader needs is why.  Only then the driver —
+    *driving* where the panel has a better answer than the round-tripped one
+    (the main console reads it off the trace it actually drew), the wire's
+    otherwise.
+    """
+    if osr2 == Osr2State.AUTO:
+        return osr2
+    if control in (OSR2_CONTROL_OFF, OSR2_PARKED, OSR2_RETRACTED):
+        return control
+    return driving or osr2
+
+
 @dataclass(frozen=True)
 class Osr2Line:
     """What the line says: which driver has the device, and the controls a
