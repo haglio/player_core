@@ -13,7 +13,19 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 from player_core.hud_marks import shared_mark, shared_mark_name
-from player_core.hud_panel import MARK_INSET, draw_mark
+from player_core.hud_panel import (
+    MARK_INSET,
+    SYMBOL_FONT,
+    draw_button,
+    draw_mark,
+    load_font,
+)
+
+
+def _drawn(panel, draw, button) -> None:
+    """One declared control, drawn the way every HUD here draws one."""
+    draw_button(panel, draw, (0, 0, 18, 18), button, hovered=False,
+                glyph_font=load_font(11, SYMBOL_FONT), word_font=load_font(8))
 
 
 class TestNamingTheMarks:
@@ -60,13 +72,11 @@ class TestDangerIsRed:
     def test_a_dangerous_control_draws_its_mark_in_red(self):
         from shared_ui.palette import RED
 
-        from player_core.console_hud import ConsolePainter
         from player_core.hud_button import Button
 
         panel = Image.new("RGBA", (18, 18), (0, 0, 0, 255))
         draw = ImageDraw.Draw(panel)
-        ConsolePainter()._button(panel, draw, (0, 0, 18, 18),
-                                 Button("x", shared_mark("trash"), "", danger=True))
+        _drawn(panel, draw, Button("x", shared_mark("trash"), "", danger=True))
         pixels = np.asarray(panel)
 
         reddest = pixels[:, :, 0].astype(int) - pixels[:, :, 1].astype(int)
@@ -81,12 +91,10 @@ class TestButtonGrounds:
         # family offers for the same act.
         from shared_ui.palette import BG_BUTTON
 
-        from player_core.console_hud import ConsolePainter
         from player_core.hud_button import Button
 
         panel = Image.new("RGBA", (18, 18), (0, 0, 0, 255))
-        ConsolePainter()._button(panel, ImageDraw.Draw(panel), (0, 0, 18, 18),
-                                 Button("x", "🔒", ""))
+        _drawn(panel, ImageDraw.Draw(panel), Button("x", "🔒", ""))
         middle = np.asarray(panel)[9, 3]
 
         assert tuple(middle[:3]) == BG_BUTTON
@@ -96,13 +104,11 @@ class TestButtonGrounds:
         # white, and would say nothing if resting looked the same.
         from shared_ui.palette import BG_BUTTON
 
-        from player_core.console_hud import ConsolePainter
         from player_core.hud_button import Button
 
         def ground(lit: bool):
             panel = Image.new("RGBA", (18, 18), (0, 0, 0, 255))
-            ConsolePainter()._button(panel, ImageDraw.Draw(panel), (0, 0, 18, 18),
-                                     Button("x", "🔒", "", lit=lit))
+            _drawn(panel, ImageDraw.Draw(panel), Button("x", "🔒", "", lit=lit))
             return tuple(int(v) for v in np.asarray(panel)[9, 3][:3])
 
         assert ground(False) == BG_BUTTON

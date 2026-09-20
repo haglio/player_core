@@ -394,7 +394,8 @@ def draw_minimize_bar(draw: ImageDraw.ImageDraw, rect: tuple[int, int, int, int]
 def draw_button(image: Image.Image, draw: ImageDraw.ImageDraw,
                 rect: tuple[int, int, int, int], button, *, hovered: bool,
                 glyph_font: ImageFont.FreeTypeFont,
-                word_font: ImageFont.FreeTypeFont) -> None:
+                word_font: ImageFont.FreeTypeFont,
+                row_label: bool = False) -> None:
     """One declared control (:class:`player_core.hud_button.Button`), in the
     one shape every HUD here draws: on the family's button ground at rest,
     filled while lit -- green for a favorites control, amber for an enhanced
@@ -402,15 +403,34 @@ def draw_button(image: Image.Image, draw: ImageDraw.ImageDraw,
     loop it leaves running, the active gray for a choice held but not applied
     -- with its face drawn on top: an app mark, one of the family's marks, the
     minimize bar, a typed glyph out of *glyph_font*, or a word in *word_font*.
+
+    An item with nothing to post is a READ-OUT, not a control: bare text with no
+    button under it, in the readout's own key/value colors -- a muted word names
+    the value beside it, which is bright.  Drawn as a button it invites a press
+    that does nothing, which is what "Clip seconds" looked like on the one panel
+    a show wears.  *row_label* is a read-out at the panel's left edge, naming
+    its row: left aligned on the family's tight button pad, so it lines up with
+    the rows that open with a button whose mark is inset rather than sitting
+    hard against the edge beside them.
     """
     from .hud_marks import APP_MARK, MINIMIZE_ICON, SHARED_MARK, app_mark_letter, shared_mark_name
+
+    x, y, w, h = rect
+    if not button.command:
+        ink = TEXT_MUTED if button.glyph.replace(" ", "").isalpha() else TEXT_PRIMARY
+        if row_label:
+            draw.text((x, y + h / 2), button.glyph, font=word_font, anchor="lm",
+                      fill=(*ink, 255))
+        else:
+            draw.text((x + w / 2, y + h / 2), button.glyph, font=word_font,
+                      anchor="mm", fill=(*ink, 255))
+        return
 
     lit = GREEN if button.favorite else AMBER if button.enhanced else BLUE
     fill = (lit if button.lit else RED if button.warn else BLUE if button.hold
             else BG_BUTTON_ACTIVE if button.remembered else BG_BUTTON)
     ink = button_ground(draw, rect, fill, hovered=hovered, dim=button.dim,
                         rest_ink=RED if button.danger else AMBER if button.enhanced else None)
-    x, y, w, h = rect
     glyph = button.glyph
     if glyph.startswith(APP_MARK):
         draw_icon(draw, rect, app_mark_letter(glyph))
