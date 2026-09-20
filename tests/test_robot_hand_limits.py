@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import pytest
 
+from player_core.cruise_control import CruiseControlState
+from player_core.genau_status import build_status_text
 from player_core.robot_hand import MAX_SPEED, MIN_SPEED, RobotHandState, control_limits
 
 
@@ -103,8 +105,6 @@ class TestBothPublicationsReadTheSameSix:
 
     @pytest.mark.parametrize("hand", HANDS, ids=[str(sorted(h)) for h in HANDS])
     def test_the_status_file_says_what_the_readout_was_told(self, hand):
-        from player_core.cruise_control import CruiseControlState
-        from player_core.genau_status import build_status_text
 
         direct = RobotHandState(**hand)
         limits = control_limits(direct)

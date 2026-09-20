@@ -3,7 +3,11 @@ from __future__ import annotations
 from collections import OrderedDict
 from pathlib import Path
 
-from player_core.clip_cache import ClipCacheStore, DecodeRequestState, trim_path_lru_cache
+from player_core.clip_cache import (
+    ClipCacheStore,
+    DecodeRequestState,
+    trim_path_lru_cache,
+)
 
 
 class TestDecodeRequestState:

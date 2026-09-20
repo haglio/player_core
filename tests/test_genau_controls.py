@@ -1,6 +1,7 @@
 """The registry's own rules — the ones no single control's test would catch."""
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 import pytest
@@ -143,7 +144,6 @@ class TestAVerbIsSpelledInOneFile:
 
     @staticmethod
     def _files_naming(verb: str) -> set[str]:
-        import ast
 
         package = Path(__file__).resolve().parents[1] / "player_core"
         naming = set()

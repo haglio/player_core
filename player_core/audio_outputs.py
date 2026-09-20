@@ -41,7 +41,8 @@ class Endpoint(NamedTuple):
 
 
 def _windows_endpoints():
-    import winreg
+    # Local: `winreg` does not exist off Windows, and only this function needs it.
+    import winreg  # noqa: PLC0415
 
     def value(key, name):
         try:

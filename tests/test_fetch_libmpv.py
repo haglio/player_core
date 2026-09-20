@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from player_core.libmpv_loader import machine_libmpv_dir
 from tools import fetch_libmpv
 
 _ARCHIVE = b"not really a 7-zip archive"
@@ -124,7 +125,6 @@ class TestWhenThePinExpires:
 
 
 def test_the_dll_lands_where_the_loader_looks():
-    from player_core.libmpv_loader import machine_libmpv_dir
 
     assert fetch_libmpv.dll_path().parent == machine_libmpv_dir()
 

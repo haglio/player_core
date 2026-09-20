@@ -35,6 +35,8 @@ from shared_ui.palette import (
 )
 from shared_ui.spacing import BUTTON_MARK_INSET_HUD
 
+from .hud_marks import APP_MARK, MINIMIZE_ICON, SHARED_MARK, app_mark_letter, shared_mark_name
+
 __all__ = [
     "SYMBOL_FONT",
     "load_font",
@@ -413,8 +415,6 @@ def draw_button(image: Image.Image, draw: ImageDraw.ImageDraw,
     the rows that open with a button whose mark is inset rather than sitting
     hard against the edge beside them.
     """
-    from .hud_marks import APP_MARK, MINIMIZE_ICON, SHARED_MARK, app_mark_letter, shared_mark_name
-
     x, y, w, h = rect
     if not button.command:
         ink = TEXT_MUTED if button.glyph.replace(" ", "").isalpha() else TEXT_PRIMARY

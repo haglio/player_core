@@ -7,13 +7,14 @@ import numpy as np
 import pytest
 from PIL import Image
 from satellite_rows import player_rows, short_name
-from shared_ui.palette import BLUE, GREEN, TEXT_MUTED, WHITE
+from shared_ui import colors
+from shared_ui.palette import BLUE, GREEN, TEXT_MUTED, TEXT_PRIMARY, WHITE
 
 from player_core.console import OSR2_PARKED
 from player_core.drive_layout import SECTION_W
 from player_core.drive_readout import DRIVEN_BY_ROBOT_HAND, DriveHud
 from player_core.hud_button import Button
-from player_core.hud_panel import ICON_GRIDS
+from player_core.hud_panel import ACTIVE_DOT, ICON_GRIDS, SYMBOL_FONT, load_font
 from player_core.modes import Osr2State
 from player_core.satellite_hud import (
     BLOCK_GAP,
@@ -24,6 +25,7 @@ from player_core.satellite_hud import (
     FILTER_ROOM,
     MAP_CELLS,
     MAP_GAP,
+    MAX_GUTTER,
     PAD,
     STATUS_BAND_H,
     STATUS_DOT,
@@ -34,7 +36,12 @@ from player_core.satellite_hud import (
     ellipsis_rects,
     looped_group_rect,
 )
-from player_core.satellite_hud_paint import HudRenderer, gutter_width_for
+from player_core.satellite_hud_paint import (
+    _EXPAND_GLYPH,
+    _LOOP_GLYPH,
+    HudRenderer,
+    gutter_width_for,
+)
 
 
 def _names(rendered) -> list[str]:
@@ -233,7 +240,6 @@ def test_the_side_leaves_room_for_the_dot_the_chrome_actually_draws():
     """satellite_hud is kept free of Pillow, so it cannot read the chrome's own
     size for the dot it measures STATUS_TEXT_X against — it keeps its own copy of
     the number, and this is what holds the two together."""
-    from player_core.hud_panel import ACTIVE_DOT
 
     assert STATUS_DOT == ACTIVE_DOT
 
@@ -723,9 +729,8 @@ def _filter_button_fill(rendered, action: str) -> int:
     room: green across these HUDs means the favorites and the funscripts, and a
     filter is neither.  Only the lock keeps a color of its own.
     """
-    from shared_ui.colors import BLUE
 
-    want = (BLUE.red(), BLUE.green(), BLUE.blue())
+    want = (colors.BLUE.red(), colors.BLUE.green(), colors.BLUE.blue())
     x, y, w, h = dict((name, rect) for rect, name in rendered.targets.filter)[action]
     rgb = _rgb(rendered.bgra)[y:y + h, x:x + w].astype(int)
     return int((abs(rgb - want).max(axis=2) <= 2).sum())
@@ -885,8 +890,6 @@ def test_a_long_action_name_is_never_drawn_over_its_filter_button(thumb):
 def test_gutter_width_fits_the_acts_present():
     """The gutter is sized to the acts actually shown — narrow for short ones, no
     wider than the cap for a long one — so it isn't a big empty margin."""
-    from player_core.hud_panel import load_font
-    from player_core.satellite_hud import MAX_GUTTER
 
     font = load_font(7)
     short = gutter_width_for(font, "Iota", ("Iota",))
@@ -948,8 +951,6 @@ def test_the_button_glyphs_are_not_tofu():
     ".notdef" tofu.  Qt fell back to Segoe UI Symbol silently; Pillow does not, so
     the glyph font must cover the map's own two icons itself; the faces a source
     declares are held to it where they are declared."""
-    from player_core.hud_panel import SYMBOL_FONT, load_font
-    from player_core.satellite_hud_paint import _EXPAND_GLYPH, _LOOP_GLYPH
 
     glyph_font = load_font(11, SYMBOL_FONT)
     notdef = glyph_font.getmask("").getbbox()
@@ -1039,7 +1040,6 @@ def test_a_mode_label_stays_white_on_its_blue(thumb):
     blue turned those labels black while the main console's stayed white for
     the same state, which is the inconsistency the shared dressing exists to
     prevent."""
-    from shared_ui.palette import BLUE, WHITE
 
     renderer = HudRenderer("portrait")
     rendered = renderer.render(_model(
@@ -1055,7 +1055,6 @@ def test_a_mode_label_stays_white_on_its_blue(thumb):
 
 
 def test_the_unlit_mode_keeps_its_ordinary_ink(thumb):
-    from shared_ui.palette import TEXT_PRIMARY
 
     renderer = HudRenderer("portrait")
     rendered = renderer.render(_model(

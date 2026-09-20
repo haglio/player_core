@@ -1,6 +1,14 @@
 from __future__ import annotations
 
+import random
+
 from player_core.funscript import HANDOFF_RAMP_MS
+from player_core.learned_model import LearnedModel, Phrase, classify
+from player_core.learned_motion import (
+    LearnedMotionState,
+    enable_learned_motion,
+    tick_learned_motion,
+)
 from player_core.robot_hand import RobotHandState, WaveformShape, bpm_for_speed
 from player_core.robot_hand_driver import DeviceHandoff, RobotHandTCodeDriver
 from player_core.tcode import HANDOFF_MS
@@ -417,15 +425,6 @@ class TestLearnedMotionOnTheWire:
     rather than the waveform, and losing the device rests it at its floor."""
 
     def _learned(self, *, playing: bool = True):
-        import random
-
-        from player_core.learned_model import LearnedModel, Phrase, classify
-        from player_core.learned_motion import (
-            LearnedMotionState,
-            enable_learned_motion,
-            tick_learned_motion,
-        )
-
         phrase = Phrase(tuple((500, 80 if i % 2 == 0 else 20) for i in range(16)))
         # Scripts at the wave's own resting pace, so at the dial's 50 the
         # phrases play as written.

@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-from player_core.playback_rate import MAX_RATE, MIN_RATE, RATE_STEP, clamp_rate, parse_rate
+from player_core.playback_rate import (
+    MAX_RATE,
+    MIN_RATE,
+    RATE_STEP,
+    clamp_rate,
+    parse_rate,
+)
 
 
 def test_a_rate_moves_in_quarters_between_quarter_speed_and_double_speed():

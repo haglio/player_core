@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import random
 import tempfile
 from pathlib import Path
@@ -853,7 +854,6 @@ def test_the_controller_cannot_be_built_without_a_direct_state():
     that read it were decided at build time. The parameter is required so the
     second mode cannot come back by omitting an argument.
     """
-    import pytest
 
     with pytest.raises(TypeError):
         GenauRefreshController(
@@ -887,8 +887,6 @@ class TestTheOrderTheTickDoesThingsIn:
     @staticmethod
     def _steps() -> list[str]:
         """The calls `_refresh_once` makes, in source order."""
-        import ast
-        from pathlib import Path
 
         source = (Path(__file__).resolve().parents[1]
                   / "player_core" / "genau_refresh.py").read_text(encoding="utf-8")

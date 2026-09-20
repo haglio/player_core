@@ -27,6 +27,7 @@ from player_core.robot_hand import (
     RobotHandState,
     WaveformShape,
     bpm_for_speed,
+    position_fraction,
     set_amplitude,
 )
 
@@ -114,7 +115,6 @@ class TestTakingTheMotionOver:
 
 
 def _single_wave_fraction(phase, amplitude, center):
-    from player_core.robot_hand import position_fraction
     return position_fraction(phase, amplitude=amplitude, center=center)
 
 

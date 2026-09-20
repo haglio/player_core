@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import numpy as np
 from PIL import Image, ImageDraw
+from shared_ui.palette import BG_BUTTON, RED
 
+from player_core.hud_button import Button
 from player_core.hud_marks import shared_mark, shared_mark_name
 from player_core.hud_panel import (
     MARK_INSET,
@@ -70,10 +72,6 @@ class TestDrawingThem:
 
 class TestDangerIsRed:
     def test_a_dangerous_control_draws_its_mark_in_red(self):
-        from shared_ui.palette import RED
-
-        from player_core.hud_button import Button
-
         panel = Image.new("RGBA", (18, 18), (0, 0, 0, 255))
         draw = ImageDraw.Draw(panel)
         _drawn(panel, draw, Button("x", shared_mark("trash"), "", danger=True))
@@ -89,10 +87,6 @@ class TestButtonGrounds:
         # It was an outline over the slab and nothing else, which read as a gap
         # in the panel rather than as the raised button every window in this
         # family offers for the same act.
-        from shared_ui.palette import BG_BUTTON
-
-        from player_core.hud_button import Button
-
         panel = Image.new("RGBA", (18, 18), (0, 0, 0, 255))
         _drawn(panel, ImageDraw.Draw(panel), Button("x", "🔒", ""))
         middle = np.asarray(panel)[9, 3]
@@ -102,10 +96,6 @@ class TestButtonGrounds:
     def test_a_control_that_is_on_still_comes_forward(self):
         # The ground is the resting state, not the lit one: a lit control fills
         # white, and would say nothing if resting looked the same.
-        from shared_ui.palette import BG_BUTTON
-
-        from player_core.hud_button import Button
-
         def ground(lit: bool):
             panel = Image.new("RGBA", (18, 18), (0, 0, 0, 255))
             _drawn(panel, ImageDraw.Draw(panel), Button("x", "🔒", "", lit=lit))

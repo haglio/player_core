@@ -9,6 +9,7 @@ file read at it -- which is why neither shows up as a failure anywhere else.
 from __future__ import annotations
 
 import json
+import random
 from pathlib import Path
 
 import pytest
@@ -22,8 +23,14 @@ from player_core.cruise_control import (
 from player_core.flag import Flag
 from player_core.genau_controls import GenauControls
 from player_core.genau_readout import AutoMotion, GenauReadout
+from player_core.learned_model import LearnedModel, Phrase, classify
+from player_core.learned_motion import (
+    LearnedMotionState,
+    enable_learned_motion,
+    tick_learned_motion,
+)
 from player_core.modes import MainMode
-from player_core.robot_hand import RobotHandState, bpm_for_speed
+from player_core.robot_hand import MIN_BPM, RobotHandState, bpm_for_speed
 from player_core.robot_hand_beat import BeatEngine
 
 
@@ -217,7 +224,6 @@ class TestTheSpanTheTraceIsDrawnOver:
 
     @pytest.mark.parametrize("beats_per_loop", [2.0, 4.0, 8.0])
     def test_it_is_one_whole_cycle_at_the_slowest_speed(self, beats_per_loop):
-        from player_core.robot_hand import MIN_BPM
 
         shown = []
         _readout(beats_per_loop=beats_per_loop, set_console=shown.append).update(1.0)
@@ -247,7 +253,6 @@ class TestTheTraceHoldsStillAndSlides:
         assert shown[-1].drive.edge is not None
 
     def test_cruise_controls_sum_holds_its_picture_between_knots(self):
-        import random
 
         hand = RobotHandState(playing=True, speed=50, amplitude=60)
         cruise = CruiseControlState(rng=random.Random(2))
@@ -268,15 +273,6 @@ class TestTheTraceHoldsStillAndSlides:
 
 class TestTheTraceUnderTheLearnedMotion:
     def test_it_is_the_phrases_coming_up_rather_than_the_waveform(self):
-        import random
-
-        from player_core.learned_model import LearnedModel, Phrase, classify
-        from player_core.learned_motion import (
-            LearnedMotionState,
-            enable_learned_motion,
-            tick_learned_motion,
-        )
-
         phrase = Phrase(tuple((500, 80 if i % 2 == 0 else 20) for i in range(16)))
         model = LearnedModel(phrases={classify(phrase): [phrase]}, seen={classify(phrase): 1})
         hand = RobotHandState(playing=True, speed=50, amplitude=100)
@@ -297,15 +293,6 @@ class TestTheTraceUnderTheLearnedMotion:
         assert shown[-1].drive.edge is not None
 
     def test_it_holds_still_between_knots_and_slides(self):
-        import random
-
-        from player_core.learned_model import LearnedModel, Phrase, classify
-        from player_core.learned_motion import (
-            LearnedMotionState,
-            enable_learned_motion,
-            tick_learned_motion,
-        )
-
         phrase = Phrase(tuple((500, 80 if i % 2 == 0 else 20) for i in range(16)))
         model = LearnedModel(phrases={classify(phrase): [phrase]}, seen={classify(phrase): 1},
                              native_cycle_ms=60_000 / bpm_for_speed(50))

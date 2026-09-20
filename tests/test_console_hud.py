@@ -6,17 +6,19 @@ from dataclasses import replace
 import numpy as np
 import pytest
 from console_rows import console_rows, osr2_controls
-from shared_ui.palette import BG_PRIMARY, MAGENTA, TEXT_MUTED, WHITE
+from shared_ui import colors
+from shared_ui.palette import BG_PRIMARY, BLUE, GREEN, MAGENTA, TEXT_MUTED, WHITE
 
 from player_core.console import (
+    BUTTON,
     OSR2_CONTROL_OFF,
     OSR2_DRIVING,
     OSR2_PARKED,
     OSR2_RETRACTED,
     ConsoleModel,
 )
-from player_core.console_hud import _PAD as PAD
 from player_core.console_hud import (
+    _PAD,
     ConsoleHud,
     ConsolePainter,
     ModeHud,
@@ -24,6 +26,7 @@ from player_core.console_hud import (
     hud_xy,
     with_playback_speed,
 )
+from player_core.console_hud import _PAD as PAD
 from player_core.drive_layout import AMPLITUDE, CENTER, SPEED
 from player_core.drive_readout import (
     DRIVEN_BY_NEUTRAL,
@@ -360,7 +363,6 @@ class TestPainter:
 
         Not green: green means the favorites and the funscripts everywhere in
         this family, and the mode you are in is neither."""
-        from shared_ui.palette import BLUE
 
         shade, pixels = self._busiest_shade(
             "main_video_activate",
@@ -375,9 +377,8 @@ class TestPainter:
         active gray it used to take was a step up from the resting ground and
         little more — at a glance a lit control and a dark one were the same
         button."""
-        from shared_ui.colors import BLUE
 
-        blue = (BLUE.red(), BLUE.green(), BLUE.blue())
+        blue = BLUE
         shade, _pixels = self._busiest_shade(
             "robot_hand_toggle_cruise",
             ConsoleModel(main_mode=MainMode.GENAU, rows=console_rows("genau", cruise=True)))
@@ -389,9 +390,9 @@ class TestPainter:
         plays and gives them back on the way out, so those buttons say "set, not
         in force" — the family's active gray, which is neither the blue of
         something running nor the ground of something off."""
-        from shared_ui.colors import BG_BUTTON_ACTIVE
 
-        gray = (BG_BUTTON_ACTIVE.red(), BG_BUTTON_ACTIVE.green(), BG_BUTTON_ACTIVE.blue())
+        gray = (colors.BG_BUTTON_ACTIVE.red(), colors.BG_BUTTON_ACTIVE.green(),
+                colors.BG_BUTTON_ACTIVE.blue())
         shade, _pixels = self._busiest_shade(
             "main_shuffle",
             ConsoleModel(main_mode=MainMode.VIDEO, latest=False,
@@ -404,7 +405,6 @@ class TestPainter:
         """The edge used to be the resting fill's own color, which is no edge at
         all — the satellite HUDs beside this one draw theirs in the muted gray the
         rest of the chrome uses, and the console read as borderless slabs."""
-        from shared_ui.colors import TEXT_MUTED
 
         painter = ConsolePainter()
         rgb = _rgb(painter.bgra(ConsoleHud(
@@ -413,7 +413,7 @@ class TestPainter:
             (rect, b) for rect, b in painter.buttons
             if b.command and b.command != "main_video_activate")
         pixels = rgb[by:by + bh, bx:bx + bw].astype(int)
-        muted = (TEXT_MUTED.red(), TEXT_MUTED.green(), TEXT_MUTED.blue())
+        muted = TEXT_MUTED
 
         # Along the top edge, between the rounded corners.
         edge = pixels[0, 4:bw - 4]
@@ -509,7 +509,6 @@ class TestPainter:
         so it is the canvas colour. A host drawing it on its own chrome has no
         picture beneath it — on a window painted that very grey the slab is
         invisible and only its border shows — so it says which grey it wants."""
-        from shared_ui.palette import BG_PRIMARY
 
         default = _rgb(ConsolePainter().bgra(
             ConsoleHud(console=ConsoleModel(main_mode=MainMode.GENAU))))
@@ -760,7 +759,6 @@ class TestDeclaredRows:
 
     def test_with_no_controls_on_its_line_the_osr2_label_starts_the_line(self):
         """No gap is held open before the label for controls that are not there."""
-        from player_core.console import BUTTON
 
         rgb = _rgb(ConsolePainter().bgra(ConsoleHud(
             console=ConsoleModel(main_mode=MainMode.GENAU))))
@@ -1143,7 +1141,6 @@ class TestTheLockIsGreen:
     spends on them — the same green the satellite HUDs' lock has always lit."""
 
     def test_a_held_clip_lights_the_lock_green(self):
-        from shared_ui.palette import GREEN
 
         painter = ConsolePainter()
         rgb = _rgb(painter.bgra(ConsoleHud(
@@ -1155,7 +1152,6 @@ class TestTheLockIsGreen:
         assert tuple(shades[counts.argmax()]) == GREEN
 
     def test_an_unheld_lock_sits_on_the_resting_ground(self):
-        from shared_ui.colors import BG_BUTTON
 
         painter = ConsolePainter()
         rgb = _rgb(painter.bgra(ConsoleHud(
@@ -1165,7 +1161,7 @@ class TestTheLockIsGreen:
         shades, counts = np.unique(pixels.reshape(-1, 3), axis=0, return_counts=True)
 
         assert tuple(shades[counts.argmax()]) == (
-            BG_BUTTON.red(), BG_BUTTON.green(), BG_BUTTON.blue())
+            colors.BG_BUTTON.red(), colors.BG_BUTTON.green(), colors.BG_BUTTON.blue())
 
 
 class TestARowsNameLinesUpWithItsControls:
@@ -1188,7 +1184,6 @@ class TestARowsNameLinesUpWithItsControls:
         return painter, {y: sorted(items) for y, items in rows.items()}
 
     def test_the_name_starts_where_the_controls_start(self):
-        from player_core.console_hud import _PAD
 
         for mode in MainMode:
             _painter, rows = self._rows(mode)
@@ -1197,7 +1192,6 @@ class TestARowsNameLinesUpWithItsControls:
                 assert x == _PAD          # every row opens on the one column
 
     def test_the_name_does_not_run_under_the_button_beside_it(self):
-        from player_core.hud_panel import text_width
 
         for mode in MainMode:
             painter, rows = self._rows(mode)

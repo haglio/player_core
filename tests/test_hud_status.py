@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from player_core.hud_status import (
+    ENHANCED_LABEL,
     F_MODE_LABEL,
     LATEST_LABEL,
     LOCKED_LABEL,
@@ -56,7 +57,6 @@ def test_the_enhanced_narrowing_has_a_slot_of_its_own_after_f_mode():
     sentence — so the slot is a flag here, and the HUD carrying the switch never
     has to own the word for it.  Coarse before fine: F-mode, then this, then
     whatever act filter is left."""
-    from player_core.hud_status import ENHANCED_LABEL
 
     assert status_line(locked=False, order=SHUFFLE_LABEL, enhanced=True) == (
         f"{UNLOCKED_LABEL} · Shuffle · {ENHANCED_LABEL}")

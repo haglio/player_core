@@ -10,6 +10,7 @@ three IPC files live in.
 from __future__ import annotations
 
 import logging
+import logging as _logging
 
 import pytest
 
@@ -35,7 +36,6 @@ class TestWhatFailed:
     sync -- so each says which it is."""
 
     def test_the_name_it_was_given_is_in_every_line(self):
-        import logging as _logging
 
         records = []
 

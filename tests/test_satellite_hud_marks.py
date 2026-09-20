@@ -9,13 +9,16 @@ buttons are held to it where they are declared.
 """
 from __future__ import annotations
 
+from PIL import Image, ImageDraw
 from shared_ui.icon_geometry import glyph_names
+from shared_ui.palette import TEXT_PRIMARY
 
 from player_core.hud_marks import SHARED_MARK, shared_mark_name
 from player_core.satellite_hud_paint import (
     _EXPAND_GLYPH,
     _FAVORITE_GLYPH,
     _LOOP_GLYPH,
+    HudRenderer,
 )
 
 
@@ -59,11 +62,6 @@ def test_a_resting_button_draws_its_mark_full_strength():
     # The satellite panels read as dim and half-disabled beside the main
     # player's console, which draws its own resting marks at full strength.
     # Both had muted the mark AND the square; only the square should be muted.
-    from PIL import Image, ImageDraw
-    from shared_ui.palette import TEXT_PRIMARY
-
-    from player_core.satellite_hud_paint import HudRenderer
-
     ink = HudRenderer("portrait")._button_square(
         ImageDraw.Draw(Image.new("RGBA", (18, 18))), (0, 0, 18, 18), on=False)
     assert ink[:3] == TEXT_PRIMARY
