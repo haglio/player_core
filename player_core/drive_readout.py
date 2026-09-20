@@ -32,7 +32,7 @@ from .drive_layout import (
 )
 from .drive_layout import fraction as _fraction
 from .file_channel import publish_whole
-from .geometry import Rect
+from .geometry import Rect, contains
 from .hud_panel import (
     SYMBOL_FONT,
     draw_glyph,
@@ -241,6 +241,64 @@ def track_command(track: DriveTrack, px: int, py: int) -> str:
     """What a press at ``(px, py)`` on *track* posts — the numeric set command Fun
     Time already routes to the Robot Hand."""
     return f"robot_hand_{track.axis}_{track_value(track, px, py)}"
+
+
+class TrackGrip:
+    """A press that took hold of one of the readout's bands, and the drag that
+    goes on setting it.
+
+    Held by whichever panel routes presses — the main console and the lock HUD
+    both do — so a bar can be dragged and not only clicked, and so the two
+    cannot answer a drag differently.
+    """
+
+    def __init__(self) -> None:
+        # Which band a press took hold of, and what it last asked for, so a drag
+        # keeps setting the one it started on and only speaks when the value moves.
+        self._held: DriveTrack | None = None
+        self._asked = ""
+
+    @property
+    def holding(self) -> bool:
+        """Whether a press took hold of a band and has not let go — so the host
+        knows a drag belongs to the readout rather than to whatever else it
+        would have offered the pointer."""
+        return self._held is not None
+
+    def grab(self, bands: list[DriveTrack], px: int, py: int) -> str:
+        """Take hold of the band under ``(px, py)`` and say what that press asks
+        of it; "" over none, holding nothing.
+
+        A dimmed band is passed over the way a dimmed button is: the readout is
+        dimmed whole while a funscript has the device, and a press that could do
+        nothing is not offered.
+        """
+        for track in bands:
+            if not track.dim and contains(track.rect, px, py):
+                self._held = track
+                self._asked = track_command(track, px, py)
+                return self._asked
+        return ""
+
+    def drag_to(self, px: int, py: int) -> str:
+        """The command the pointer posts while a band is held.
+
+        "" while none is, and "" while the level under the pointer is the one
+        already asked for — a drag along a bar fires per mouse motion, and every
+        one of those that says nothing new is a line in the command file for Fun
+        Time to route to a value Genau is already on.
+        """
+        if self._held is None:
+            return ""
+        command = track_command(self._held, px, py)
+        if command == self._asked:
+            return ""
+        self._asked = command
+        return command
+
+    def release(self) -> None:
+        """Let go of whichever band a press took hold of."""
+        self._held, self._asked = None, ""
 
 
 class DriveSection:
