@@ -347,21 +347,14 @@ class HudRenderer:
             buttons.extend(speed_buttons)
             y += CTRL_BAND_H
 
-        # The device, where the host driving it is the host browsing the set --
-        # the same line and readout the main console carries, so a show wears one
-        # panel instead of this one with a whole console stacked under it.
-        bands: list[DriveTrack] = []
-        if model.osr2:
-            buttons.extend(self._osr2.draw(image, draw, x, y, osr2_line,
-                                           hover=self._pointer))
-            y += OSR2_H + BLOCK_GAP
-        if model.drive is not None:
-            # The panel's image rather than its pen: the readout supersamples its
-            # trace and composites it back, which a pen cannot carry.
-            self._drive.draw(image, x, y, model.drive)
-            drive_targets, bands = readout_targets(x, y, model.drive)
-            buttons.extend(drive_targets)
-            y += drive_h + BLOCK_GAP
+        # The device sits at the FOOT of the panel, under the map, where the main
+        # console puts the same two blocks -- the OSR2 line then the readout
+        # under it.  Drawn here before the map so the map can be laid out against
+        # the room left above them.
+        device_top = height - PAD - device_height(model.osr2, model.drive, drive_h)
+        device_buttons, bands = self._draw_device(image, draw, x, device_top,
+                                                  model, osr2_line, drive_h)
+        buttons.extend(device_buttons)
 
         if model.corner is None:
             return RenderedHud(panel.to_bgra(),
@@ -370,7 +363,7 @@ class HudRenderer:
                                           buttons=buttons, favorite=favorite))
 
         self._draw_counts(draw, x, y, counts)
-        right, lower = width - PAD, height - PAD
+        right, lower = width - PAD, device_top
         # Room for the "…" at each end whether or not there is more to show, so
         # nothing on the map moves when a window slides or a loop goes on.
         map_x = x + gutter_w + ELLIPSIS_ROOM
@@ -429,11 +422,40 @@ class HudRenderer:
                   if button is not None],
             filter=filter_rects,
             expand=expand_rect,
+            tracks=bands,
             buttons=buttons,
             favorite=favorite,
             wrong_action=wrong_rect,
         )
         return RenderedHud(panel.to_bgra(), targets)
+
+    def _draw_device(self, image, draw, x: int, y: int, model: HudModel,
+                     osr2_line: Osr2Line, drive_h: int,
+                     ) -> tuple[list[tuple[Rect, Button]], list[DriveTrack]]:
+        """The device's own foot of the panel, where the host driving the OSR2 is
+        the host browsing the set: the line naming whichever driver has it, then
+        the readout of what is being sent.
+
+        The same two blocks the main console carries, in the order it carries
+        them and at the foot the way it does -- a show wears ONE panel, and the
+        device block anywhere but its last rows is the thing a reader glancing
+        between this app and a player would have to relearn.
+        """
+        buttons: list[tuple[Rect, Button]] = []
+        bands: list[DriveTrack] = []
+        if model.osr2:
+            y += BLOCK_GAP
+            buttons.extend(self._osr2.draw(image, draw, x, y, osr2_line,
+                                           hover=self._pointer))
+            y += OSR2_H
+        if model.drive is not None:
+            y += BLOCK_GAP
+            # The panel's image rather than its pen: the readout supersamples its
+            # trace and composites it back, which a pen cannot carry.
+            self._drive.draw(image, x, y, model.drive)
+            drive_targets, bands = readout_targets(x, y, model.drive)
+            buttons.extend(drive_targets)
+        return buttons, bands
 
     def _button_width(self, button: Button) -> int:
         """A declared button's width: its own, or -- asking to fit its word --
