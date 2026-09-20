@@ -324,7 +324,8 @@ class HudRenderer:
             placed = button_row_rects(x, y, row, row_widths)
             for rect, button in placed:
                 draw_button(image, draw, rect, button, hovered=self._pointer_is_on(rect),
-                            glyph_font=self._glyph, word_font=self._tiny)
+                            glyph_font=self._glyph, word_font=self._tiny,
+                            row_label=rect[0] == PAD)
             buttons.extend(placed)
             y += CTRL_BAND_H
 

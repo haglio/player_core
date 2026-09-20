@@ -478,8 +478,10 @@ class ConsolePainter:
 
         self.buttons, self.tracks = place_rows(rows, x=_PAD, y=y), []
         for rect, button in self.buttons:
-            self._button(panel.image, draw, rect, button,
-                         hovered=hover is not None and contains(rect, *hover))
+            draw_button(panel.image, draw, rect, button,
+                        hovered=hover is not None and contains(rect, *hover),
+                        glyph_font=self._glyph, word_font=self._tiny,
+                        row_label=rect[0] == _PAD)
         y += rows_height(rows) + _ROW_GAP
 
         self.buttons.extend(self._osr2.draw(panel.image, draw, _PAD, y,
@@ -551,43 +553,6 @@ class ConsolePainter:
         if glyph.replace(" ", "").isalpha():
             width = max(width, text_width(self._tiny, glyph) + BUTTON_GAP)
         return replace(button, glyph=glyph, width=width)
-
-    def _button(self, image, draw, rect: Rect, button: Button, *,
-                hovered: bool = False) -> None:
-        """One control, in the one button shape this family's HUDs use: an outline
-        when off, filled when on, faded when it cannot be pressed.
-
-        On is white, except where a color already means something: green across
-        this family is kept for the favorites and the funscripts, so F-mode —
-        which narrows the playlist to what has a funscript — lights green and a
-        mode, cruise or auto advance does not; and yellow is what an enhanced
-        picture is marked with, so the switch that keeps only those wears its
-        mark in yellow at rest and fills with it when it is on.  Two controls wear an app mark instead of a glyph and
-        keep its magenta whatever the button is doing: F-mode's "F", and the broker's
-        "B" on blue or red, the face it wore on the dashboard — the broker being
-        the room's own service and not one of these controls at all.
-
-        A read-out — an item with nothing to post — is bare text with no button, in
-        the readout's own key/value colors: a muted word names the value beside
-        it, which is bright."""
-        x, y, w, h = rect
-        if not button.command:
-            ink = TEXT_MUTED if button.glyph.replace(" ", "").isalpha() else TEXT_PRIMARY
-            if x == _PAD:
-                # A word NAMING its row, at the panel's left edge.  Centered in
-                # its cell it started hard against that edge while every other
-                # row opens with a button whose mark is inset -- so the one row
-                # that leads with a word read as unindented beside them.  Left
-                # aligned on the family's tight button pad, it lines up with
-                # them instead.
-                draw.text((x, y + h / 2), button.glyph,
-                          font=self._tiny, anchor="lm", fill=(*ink, 255))
-                return
-            draw.text((x + w / 2, y + h / 2), button.glyph, font=self._tiny, anchor="mm",
-                      fill=(*ink, 255))
-            return
-        draw_button(image, draw, rect, button, hovered=hovered,
-                    glyph_font=self._glyph, word_font=self._tiny)
 
 
 def with_playback_speed(console: ConsoleModel, speed: float) -> ConsoleModel:
