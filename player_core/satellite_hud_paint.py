@@ -55,6 +55,7 @@ from .satellite_hud import (
     COL_LABEL_H,
     CTRL_BAND_H,
     CTRL_BTN,
+    DEVICE_GAP,
     ELLIPSIS_ROOM,
     FILTER_ROOM,
     MAP_CELLS,
@@ -452,6 +453,7 @@ class HudRenderer:
         """
         buttons: list[tuple[Rect, Button]] = []
         bands: list[DriveTrack] = []
+        y += DEVICE_GAP  # the break that sets this family off from the map
         for row, row_widths in zip(rows, widths):
             placed = button_row_rects(x, y, row, row_widths)
             for rect, button in placed:

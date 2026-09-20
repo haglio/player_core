@@ -56,6 +56,12 @@ PAD = 10
 # carry it (see CTRL_BAND_H), and the device's line and readout keep to it so
 # the panel reads at one rhythm rather than two.
 BLOCK_GAP = 6
+# And the break between two FAMILIES of control: the map, which is about the
+# set, and the device's block under it.  Twice the gap the family opens between
+# two groups of buttons in a row, because this one separates two whole blocks
+# and has a button at each end of it -- the map's loop control above, the first
+# control that aims the OSR2 below -- which at any smaller step read as one run.
+DEVICE_GAP = 2 * BUTTON_GROUP_GAP
 MAP_THUMB_H = 54
 MAP_GAP = 5
 ROW_GAP = 12        # vertical gap between action rows — roomier than the seed gap
@@ -262,13 +268,20 @@ def panel_width(gutter: int, row_width: int, status_width: int,
 
 def device_height(osr2: str, drive: DriveHud | None, drive_h: int,
                   osr2_rows: int = 0) -> int:
-    """The room a host's own device block takes under the bands: the rows that
-    aim the device, the line naming who has it, the readout under that, and the
-    gap each opens above itself.  Nothing at all for a satellite, which reports
-    no device and grows no block."""
-    return (osr2_rows * CTRL_BAND_H
+    """The room a host's own device block takes under the map: the gap that sets
+    it apart, then the rows that aim the device, the line naming who has it and
+    the readout under that.  Nothing at all for a satellite, which reports no
+    device and grows no block.
+
+    The leading gap is the family's own break between two GROUPS of buttons, not
+    the smaller step between two rows of one group: the map ends in a button of
+    its own, and with only a row's step under it the first control that aims the
+    device read as one more of the map's.
+    """
+    room = (osr2_rows * CTRL_BAND_H
             + (OSR2_H + BLOCK_GAP if osr2 else 0)
             + (drive_h + BLOCK_GAP if drive is not None else 0))
+    return room + DEVICE_GAP if room else 0
 
 
 def panel_height(column_height: int, subtitle_h: int = 0, bands_h: int = 0,
