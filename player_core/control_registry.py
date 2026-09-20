@@ -57,9 +57,9 @@ class Control:
 
     ``needs`` names fields of whatever controls object the player passes to
     :func:`act`.  A build that did not wire one of them refuses this control's
-    verbs and logs them, rather than acting on half of what was asked -- the
-    same rule an ``and X is not None`` guard on every branch used to spell out
-    one verb at a time.
+    verbs and logs them, rather than acting on half of what was asked -- one
+    rule for the control instead of an ``and X is not None`` guard spelled out
+    on every branch.
     """
 
     name: str

@@ -1,9 +1,9 @@
 """Something in a frame loop failing, said once rather than every frame.
 
 A player's loop runs at up to 120fps and calls the same work again immediately,
-so a persistent fault used to write thousands of identical tracebacks a second
-into the log -- which both buries the first occurrence and can fill the state
-directory the IPC files live in.
+so a persistent fault reported every time would write thousands of identical
+tracebacks a second into the log -- which both buries the first occurrence and
+can fill the state directory the IPC files live in.
 
 The first of each kind is a full traceback, because that is what a reader needs.
 Every repeat after it is one debug line with no traceback, and the run of them

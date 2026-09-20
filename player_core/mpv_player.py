@@ -465,9 +465,9 @@ class _MpvControl:
     def screenshot_bgra(self, height: int = 64):
         """Current displayed frame, resized to *height*, as a BGRA array.
 
-        Used to capture loop in/out thumbnails on demand (a few times per
-        loop) without disturbing playback — mpv renders the video itself.
-        Returns None if no frame is available yet.
+        Captures loop in/out thumbnails on demand (a few times per loop)
+        without disturbing playback — mpv renders the video itself.  None when
+        no frame is available yet.
         """
         img = self._mpv.screenshot_raw()  # PIL Image
         if img is None or img.height == 0:

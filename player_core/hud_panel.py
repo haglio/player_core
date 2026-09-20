@@ -46,7 +46,7 @@ UI_FONT = "segoeuib.ttf"
 
 # Segoe UI Symbol, for the marks these HUDs type rather than draw.  Segoe UI Bold
 # carries none of them, and Pillow draws a ".notdef" tofu for a codepoint a face
-# lacks where Qt used to fall back silently — so anything typed names this face.
+# lacks, where Qt falls back silently — so anything typed names this face.
 SYMBOL_FONT = "seguisym.ttf"
 
 # Translucent enough to read the video through, opaque enough to read the text.

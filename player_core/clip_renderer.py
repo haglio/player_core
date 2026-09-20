@@ -69,9 +69,8 @@ class ClipRenderController:
         """Put frame *index* of the clip on screen, or say there was none.
 
         Named for the choice rather than the drawing: the view's own
-        ``blit_frame`` takes an image, and one name for both used to mean the
-        loader wired "pick a frame" to "blit this picture" and a reader could
-        not tell which one a call site meant.
+        ``blit_frame`` takes an image, and one name for both would leave a call
+        site not saying which of the two it meant.
         """
         path = self.current_clip_path
         if path is None or path not in self.clip_store.clip_cache:

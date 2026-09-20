@@ -456,8 +456,8 @@ def load(path: Path) -> Funscript:
     """The script at *path*, as the pairs the timing questions are asked of.
 
     What a funscript is lives in :mod:`app_support.funscript`, which is where
-    the four repos that read one now agree -- this reader used to raise on a
-    document listing no actions where the others answered none.
+    the four repos that read one agree -- including what a document listing no
+    actions means, which is none rather than an error.
     """
     return Funscript(
         actions=sorted((a["at"], a["pos"]) for a in read_actions(path))
