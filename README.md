@@ -43,7 +43,10 @@ another application's internals to get it. By what it is:
 - **the chrome and what is drawn on it** — `hud_panel`, `hud_marks`,
   `geometry`, `timeline`, `volume`, `hud_status`, and then a model and a
   painter per HUD: `console` / `console_hud`, `drive_layout` / `drive_readout`,
-  `satellite_hud` / `satellite_hud_paint`.
+  `satellite_hud` / `satellite_hud_paint`.  Two of those are sections rather
+  than panels — the drive readout and `hud_osr2`'s device line — because a host
+  that both browses a set and drives the OSR2 (Origenerator's shows) says all of
+  it on ONE panel rather than stacking a console under a lock HUD.
 - **the window** — `sdl_hints`, the SDL facts every player here has to get
   right before it opens one (its taskbar identity it claims through
   `app_support.win32`, like every other process in the family).
