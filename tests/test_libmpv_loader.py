@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+import player_core
 from player_core import mpv_player
 from player_core.libmpv_loader import (
     add_libmpv_to_path,
@@ -18,7 +19,6 @@ windows_only = pytest.mark.skipif(sys.platform != "win32", reason="the known-fol
 
 
 def test_a_checkouts_own_vendor_dir_is_looked_in_first():
-    import player_core
 
     assert libmpv_dirs()[0] == Path(player_core.__file__).resolve().parent.parent / "vendor"
 

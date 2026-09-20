@@ -3,7 +3,9 @@ from __future__ import annotations
 import pytest
 
 from player_core.robot_hand import (
+    MAX_TICK_SECONDS,
     PARK_CENTER,
+    POSITION_MAX,
     RETRACT_CENTER,
     RobotHandState,
     WaveformShape,
@@ -13,6 +15,7 @@ from player_core.robot_hand import (
     bpm_for_speed,
     cycle_shape,
     pause_playing,
+    phase_advanced,
     phase_for_position_fraction,
     phase_to_position,
     position_fraction,
@@ -453,7 +456,6 @@ class TestAdjustSpeed:
 
 
 def test_position_fraction_and_phase_to_position_are_one_curve_at_two_scales():
-    from player_core.robot_hand import POSITION_MAX, position_fraction
 
     for phase in (0.0, 0.17, 0.5, 0.83):
         for amplitude, center in ((100, 50), (40, 70), (0, 50)):
@@ -464,7 +466,6 @@ def test_position_fraction_and_phase_to_position_are_one_curve_at_two_scales():
 
 
 def test_phase_advanced_moves_by_the_time_that_passed_and_wraps():
-    from player_core.robot_hand import phase_advanced
 
     assert phase_advanced(0.0, 60.0, 0.0) == 0.0
     assert phase_advanced(0.0, 60.0, 0.05) == pytest.approx(0.05)  # 60/min = 1/s
@@ -475,8 +476,6 @@ def test_phase_advanced_moves_by_the_time_that_passed_and_wraps():
 def test_a_stalled_clock_cannot_slingshot_the_phase():
     # The app blocked, or the machine suspended: the step owed is capped, so the
     # motion slows through the gap instead of flinging the device across it.
-    from player_core.robot_hand import MAX_TICK_SECONDS, phase_advanced
-
     capped = phase_advanced(0.0, 60.0, 5.0)
     assert capped == pytest.approx(phase_advanced(0.0, 60.0, MAX_TICK_SECONDS))
     assert phase_advanced(0.0, 60.0, -1.0) == 0.0  # a clock that went backwards
@@ -518,7 +517,6 @@ class TestThePhaseForAHeight:
 def test_the_two_held_ends_are_the_ends_of_the_travel():
     """A hold settles the motion at one end of the axis or the other, and the
     two apps that hold it have to mean the same end by the same word."""
-    from player_core.robot_hand import POSITION_MAX
 
     for center in (PARK_CENTER, RETRACT_CENTER):
         state = RobotHandState()

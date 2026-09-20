@@ -5,7 +5,11 @@ from unittest.mock import patch
 import numpy as np
 from rhcache_fixtures import write_rhcache
 
-from player_core.clip_decode import load_clip_frames, read_rhcache_all_frames, read_rhcache_meta
+from player_core.clip_decode import (
+    load_clip_frames,
+    read_rhcache_all_frames,
+    read_rhcache_meta,
+)
 
 
 def _make_frames(count: int, width: int = 8, height: int = 6) -> list[np.ndarray]:

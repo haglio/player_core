@@ -6,7 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from player_core.clip_folder import move_clip_to_weird, scan_clips, weird_dir_for_clips_folder
+from player_core.clip_folder import (
+    move_clip_to_weird,
+    scan_clips,
+    weird_dir_for_clips_folder,
+)
 
 # ---------------------------------------------------------------------------
 # scan_clips

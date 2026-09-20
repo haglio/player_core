@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import numpy as np
+from PIL import Image, ImageDraw
+from shared_ui import palette
 from shared_ui.palette import BG_PRIMARY, MAGENTA, TEXT_MUTED, WHITE
 
 from player_core import hud_panel
@@ -26,7 +28,6 @@ def test_the_palette_is_shared_uis_own_read_without_qt():
     numbers used to be typed out twice, here and in shared_ui, and only a test
     kept them from drifting apart.
     """
-    from shared_ui import palette
 
     assert hud_panel.WHITE is palette.WHITE
     assert hud_panel.BG_PRIMARY is palette.BG_PRIMARY
@@ -109,7 +110,6 @@ def test_a_tooltip_that_fits_stays_on_one_line_beside_the_cursor():
 
 def _ink_center(size: int, paint) -> tuple[float, float]:
     """Where the ink *paint* leaves on a blank square actually sits."""
-    from PIL import Image, ImageDraw
 
     image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     paint(ImageDraw.Draw(image))
@@ -136,7 +136,6 @@ def test_a_glyph_is_centered_on_its_ink_not_on_the_fonts_bounds():
 
 def _icon_cells(letter: str, size: int = 18) -> list[str]:
     """The mark *letter* draws, read back off the pixels as its own grid."""
-    from PIL import Image, ImageDraw
 
     image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw_icon(ImageDraw.Draw(image), (0, 0, size, size), letter)
@@ -164,7 +163,6 @@ def test_an_app_mark_draws_the_grid_its_icon_carries():
 def test_an_app_mark_leaves_its_counters_clear_for_the_fill_beneath_it():
     """The .ico's blank cells are transparent, so the panel color shows through
     the letter's counters; painting them would make the mark a solid block."""
-    from PIL import Image, ImageDraw
 
     image = Image.new("RGBA", (18, 18), (0, 0, 0, 255))
     draw_icon(ImageDraw.Draw(image), (0, 0, 18, 18), "B")
@@ -177,7 +175,6 @@ def test_an_app_mark_leaves_its_counters_clear_for_the_fill_beneath_it():
 def test_an_app_mark_fits_inside_the_button_it_is_centred_in():
     """It has to sit in the same 18px square every other control on these HUDs
     uses, with room left around it rather than running to the button's border."""
-    from PIL import Image, ImageDraw
 
     image = Image.new("RGBA", (18, 18), (0, 0, 0, 0))
     draw_icon(ImageDraw.Draw(image), (0, 0, 18, 18), "F")
@@ -190,7 +187,6 @@ def test_an_app_mark_fits_inside_the_button_it_is_centred_in():
 def test_a_glyph_with_no_ink_draws_nothing_rather_than_raising():
     """A space has no ink to centre on; the HUD repaints every frame, so this must
     be a no-op and not an exception out of the run loop."""
-    from PIL import Image, ImageDraw
 
     image = Image.new("RGBA", (10, 10), (0, 0, 0, 0))
     draw_glyph(ImageDraw.Draw(image), 5, 5, " ", load_font(11), (255, 255, 255, 255))

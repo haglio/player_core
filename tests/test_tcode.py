@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from player_core.tcode import (
+    PARK_COMMAND,
     POSITION_MAX,
     UdpTCodeSink,
     format_tcode_command,
@@ -104,6 +105,5 @@ class TestToTcodePosition:
 
 
 def test_the_park_command_rests_the_motion_axis_at_the_floor_over_half_a_second():
-    from player_core.tcode import PARK_COMMAND, format_tcode_command
 
     assert format_tcode_command("L0", 0, 500) == PARK_COMMAND

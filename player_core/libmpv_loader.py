@@ -26,9 +26,11 @@ _LOCAL_APP_DATA_ID = "{F1B32785-6FBA-4FCF-9D55-7B8E7F157091}"
 def local_app_data() -> Path:
     if sys.platform != "win32":
         return Path.home() / "AppData" / "Local"
-    import ctypes
-    import uuid
-    from ctypes import wintypes
+    # Local, and below the platform check: `ctypes.wintypes` raises on import
+    # off Windows, where this function never gets this far.
+    import ctypes  # noqa: PLC0415
+    import uuid  # noqa: PLC0415
+    from ctypes import wintypes  # noqa: PLC0415
 
     class _Guid(ctypes.Structure):
         _fields_ = [("data1", wintypes.DWORD), ("data2", wintypes.WORD),

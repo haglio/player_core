@@ -6,6 +6,7 @@ import json
 from satellite_rows import band, player_rows
 from shared_ui.spacing import BUTTON_GAP, BUTTON_GROUP_GAP
 
+from player_core.console import VALUE_W
 from player_core.hud_button import Button
 from player_core.satellite_hud import (
     CTRL_BTN,
@@ -488,7 +489,6 @@ def test_a_declared_row_is_laid_out_as_wide_as_each_button_says():
 
 
 def test_the_speed_row_puts_slower_the_rate_and_faster_after_its_name():
-    from player_core.console import VALUE_W
 
     buttons, rate = speed_row("portrait", 10, 40, label_width=70)
 

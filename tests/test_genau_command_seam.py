@@ -31,7 +31,7 @@ from player_core.broker_feed import BrokerFeed
 from player_core.clip_advance import ClipAdvanceState
 from player_core.cruise_control import CruiseControlState
 from player_core.flag import Flag
-from player_core.genau_controls import GenauControls
+from player_core.genau_controls import VERBS, GenauControls
 from player_core.genau_refresh import GenauRefreshController
 from player_core.learned_model import LearnedModel
 from player_core.learned_motion import LearnedMotionState
@@ -233,7 +233,6 @@ def test_every_verb_genau_answers_is_driven_here(tmp_path):
     A verb added to the dispatcher without a row here would cross the seam
     untested, which is the exact gap this module exists to close.
     """
-    from player_core.genau_controls import VERBS
 
     driven = {verb.split()[0] for verb, _start, _moves in SEAM}
     assert driven == set(VERBS)
