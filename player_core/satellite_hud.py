@@ -170,6 +170,13 @@ class HudModel:
     # players moves.  Not published either: fun_time's panel file says what a
     # side is browsing, and what a host is sending is that host's own.
     osr2: str = ""
+    # The rows that AIM the device -- the hands-free switches, the waveform, the
+    # four control states.  They sit in the device's own block rather than among
+    # the rows above, because they are the OSR2's and the reader looks for them
+    # beside the line naming who has it: on the main console those rows happen to
+    # be the last ones before that line, so nothing showed, and on a panel with a
+    # map between them they came out as one group of OSR2 controls split in two.
+    osr2_rows: tuple[tuple[Button, ...], ...] = ()
     # And what the host is doing to the device, which is a different question:
     # one of OSR2_CONTROL_BUTTONS' four states, or empty from a host with no
     # such switch.  The panel resolves the two into one word exactly as the
@@ -253,11 +260,14 @@ def panel_width(gutter: int, row_width: int, status_width: int,
     return max(for_map, STATUS_TEXT_X + max(status_width, subtitle_width) + PAD, content_width)
 
 
-def device_height(osr2: str, drive: DriveHud | None, drive_h: int) -> int:
-    """The room a host's own device block takes under the bands: the OSR2 line,
-    the readout under it, and the gap each opens above itself.  Nothing at all
-    for a satellite, which reports no device and grows no block."""
-    return ((OSR2_H + BLOCK_GAP if osr2 else 0)
+def device_height(osr2: str, drive: DriveHud | None, drive_h: int,
+                  osr2_rows: int = 0) -> int:
+    """The room a host's own device block takes under the bands: the rows that
+    aim the device, the line naming who has it, the readout under that, and the
+    gap each opens above itself.  Nothing at all for a satellite, which reports
+    no device and grows no block."""
+    return (osr2_rows * CTRL_BAND_H
+            + (OSR2_H + BLOCK_GAP if osr2 else 0)
             + (drive_h + BLOCK_GAP if drive is not None else 0))
 
 

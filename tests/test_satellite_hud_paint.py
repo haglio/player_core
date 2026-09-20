@@ -1246,6 +1246,26 @@ class TestTheDeviceOnAHostThatDrivesItself:
         assert rendered.targets.tracks  # the bands are pressable with a map up
         assert all(band.rect[1] >= map_foot for band in rendered.targets.tracks)
 
+    def test_the_rows_that_aim_the_device_stay_with_it(self, thumb):
+        """Cruise, human-inspired, the waveform, the quarter nudge and the four
+        control states act on the OSR2, so they belong beside the line naming
+        who has it and the readout they set -- not up among the rows that act on
+        the set, with a map between them."""
+        aim = (Button("robot_hand_toggle_cruise", "cc", "Cruise"),
+               Button("robot_hand_park", "P", "Parked"))
+        rendered = HudRenderer("portrait").render(_model(
+            lock_label="Unlocked", corner=HudCell(path="c.mp4", thumb=thumb),
+            seeds=(HudCell(path="s.mp4", thumb=thumb),), seed_count=2,
+            osr2=Osr2State.ROBOT_HAND, osr2_rows=(aim,),
+            drive=DriveHud(driven=DRIVEN_BY_ROBOT_HAND)))
+        placed = {button.command: rect for rect, button in rendered.targets.buttons}
+        map_foot = max(y + h for (_x, y, _w, h), _path in rendered.targets.click)
+
+        assert placed["robot_hand_toggle_cruise"][1] >= map_foot
+        assert placed["robot_hand_park"][1] >= map_foot
+        assert all(band.rect[1] > placed["robot_hand_park"][1]
+                   for band in rendered.targets.tracks)
+
     def test_a_press_in_a_band_takes_hold_of_it_and_sets_it(self):
         rendered = self._rendered(osr2=Osr2State.ROBOT_HAND,
                                   drive=DriveHud(driven=DRIVEN_BY_ROBOT_HAND))
