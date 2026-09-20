@@ -44,7 +44,7 @@ class TestReadPlaylist:
 
         assert len(result) == 1
 
-    def test_missing_file_returns_empty(self, tmp_path):
+    def test_a_playlist_that_is_not_there_plays_nothing(self, tmp_path):
         assert read_playlist(tmp_path / "nope.tsv") == []
 
 

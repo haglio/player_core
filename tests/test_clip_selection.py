@@ -160,7 +160,7 @@ def test_adopt_pending_clip_switches_when_loaded():
     assert controller.pending_clip_name is None
 
 
-def test_adopt_pending_clip_returns_false_when_not_ready():
+def test_a_clip_still_decoding_is_not_adopted():
     controller, _clip_store, loader, renderer, notifier = _build_controller("a.mp4", "b.mp4")
     renderer.current_clip_path = Path("a.mp4")
 
