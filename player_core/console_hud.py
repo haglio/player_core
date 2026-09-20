@@ -62,7 +62,7 @@ from .drive_readout import (
 from .geometry import Rect, contains
 from .hud_osr2 import BUFFER as OSR2_BUFFER
 from .hud_osr2 import HEIGHT as _OSR2_H
-from .hud_osr2 import Osr2Line, Osr2Section
+from .hud_osr2 import Osr2Line, Osr2Section, state_for
 from .hud_panel import (
     ACTIVE_DOT,
     SYMBOL_FONT,
@@ -510,22 +510,16 @@ class ConsolePainter:
         where the device belongs to neither driver.  The round-tripped osr2
         stands in everywhere else, and for its own device-level states.
 
-        Control off and the two holds answer ahead of all of it: then nobody is
-        driving to be named, and what the reader needs to know is why.  Auto
-        answers ahead of those in turn, because the device running itself wins
-        over anything the room is doing to it."""
-        if model.device_drives_itself:
-            return model.osr2
-        if model.osr2_control in (OSR2_CONTROL_OFF, *_HELD_HEIGHT):
-            return model.osr2_control
+        The precedence around it -- auto, then a hold or a let-go, then whoever
+        is driving -- is the shared line's (:func:`player_core.hud_osr2.state_for`),
+        since every panel that draws this line answers it the same way."""
         drive = self._composed_drive
-        if drive is None:
-            return model.osr2
-        return {
+        driving = "" if drive is None else {
             DRIVEN_BY_ROBOT_HAND: Osr2State.ROBOT_HAND,
             DRIVEN_BY_FUNSCRIPT: Osr2State.FUNSCRIPT,
             DRIVEN_BY_NEUTRAL: OSR2_BUFFER,
         }.get(drive.driven, model.osr2)
+        return state_for(model.osr2, model.osr2_control, driving=driving)
 
     def _osr2_line(self, model: ConsoleModel) -> Osr2Line:
         """The device's line as the shared section takes it — the controls the

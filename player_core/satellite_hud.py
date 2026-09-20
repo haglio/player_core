@@ -170,6 +170,11 @@ class HudModel:
     # players moves.  Not published either: fun_time's panel file says what a
     # side is browsing, and what a host is sending is that host's own.
     osr2: str = ""
+    # And what the host is doing to the device, which is a different question:
+    # one of OSR2_CONTROL_BUTTONS' four states, or empty from a host with no
+    # such switch.  The panel resolves the two into one word exactly as the
+    # console does (:func:`player_core.hud_osr2.state_for`).
+    osr2_control: str = ""
     osr2_controls: tuple[Button, ...] = ()
     # The motion being sent, drawn under that line — the main console's readout
     # (:mod:`player_core.drive_readout`), hosted here rather than on a panel of
