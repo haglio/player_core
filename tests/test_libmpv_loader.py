@@ -110,3 +110,19 @@ def test_an_engine_that_is_really_not_there_says_where_it_looked():
 
     for folder in libmpv_dirs():
         assert str(folder) in str(refused.value)
+    assert "PATH starts" in str(refused.value)
+
+
+def test_a_folder_that_cannot_be_looked_in_at_all_says_what_it_answered(monkeypatch):
+    """The other half of the same question: a folder that holds the DLL while
+    the import cannot find it means PATH was rewritten under us; one that
+    cannot be read at all names the error instead."""
+    class Refuses(type(Path("."))):
+        def is_file(self):
+            raise PermissionError("[WinError 5] Access is denied")
+
+    monkeypatch.setattr(mpv_player, "libmpv_dirs", lambda: [Refuses("C:/nowhere")])
+
+    said = mpv_player._where_it_looked()
+
+    assert "could not be looked in" in said and "Access is denied" in said
