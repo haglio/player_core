@@ -56,10 +56,9 @@ from .drive_readout import (
     DriveSection,
     DriveTrack,
     TrackGrip,
+    readout_targets,
     section_size,
 )
-from .drive_readout import controls as drive_controls
-from .drive_readout import tracks as drive_tracks
 from .geometry import Rect, contains
 from .hud_osr2 import BUFFER as OSR2_BUFFER
 from .hud_osr2 import HEIGHT as _OSR2_H
@@ -121,15 +120,6 @@ _DRIVEN_BY_OSR2 = {
 
 def _driven_by(osr2: Osr2State) -> str:
     return _DRIVEN_BY_OSR2.get(osr2, DRIVEN_BY_NOTHING)
-
-
-# The drive readout's own arrows are drawn by the readout, but the console still
-# has to know what each posts and name it on hover.
-_DRIVE_TIPS = {
-    "robot_hand_speed_down": "Motion slower", "robot_hand_speed_up": "Motion faster",
-    "robot_hand_amplitude_up": "Amplitude up", "robot_hand_amplitude_down": "Amplitude down",
-    "robot_hand_center_up": "Center up", "robot_hand_center_down": "Center down",
-}
 
 
 def _format_rate(rate: float) -> str:
@@ -501,21 +491,11 @@ class ConsolePainter:
             # The panel's image rather than its pen: the readout supersamples
             # its trace and composites it back, which a pen cannot carry.
             self._drive.draw(panel.image, _PAD, y, drive)
-            # The readout draws its own arrows; the console only needs them as hit
-            # targets, so they answer a press and name themselves on hover.
-            for control in drive_controls(_PAD, y, drive):
-                self.buttons.append((
-                    control.rect,
-                    Button(control.command, "", _DRIVE_TIPS.get(control.command, ""),
-                           dim=control.dim),
-                ))
-            # A band takes its value from where you press in it, so it is its own
-            # target (:meth:`_grab`) — and joins the buttons with no command to
-            # post, purely so it names what it sets on hover.  Nothing else on a
-            # HUD in a video says a bar can be dragged.
-            self.tracks = drive_tracks(_PAD, y, drive)
-            for track in self.tracks:
-                self.buttons.append((track.rect, Button("", "", track.tooltip)))
+            # The readout draws its own arrows and bands; the console only needs
+            # them as hit targets, so they answer a press and name themselves on
+            # hover.
+            targets, self.tracks = readout_targets(_PAD, y, drive)
+            self.buttons.extend(targets)
 
         if hover is not None:
             tip = tooltip_at(self.buttons, *hover)

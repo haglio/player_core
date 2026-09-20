@@ -42,11 +42,15 @@ from player_core.hud_panel import (
     text_width,
 )
 
+from .drive_readout import DriveSection, DriveTrack, readout_targets, section_size
 from .geometry import Rect, contains
+from .hud_osr2 import HEIGHT as OSR2_H
+from .hud_osr2 import Osr2Line, Osr2Section
 from .hud_status import PLAYBACK_SPEED_LABEL
 from .playback_rate import format_rate
 from .satellite_hud import (
     ACT_GAP,
+    BLOCK_GAP,
     COL_LABEL_GAP,
     COL_LABEL_H,
     CTRL_BAND_H,
@@ -78,6 +82,7 @@ from .satellite_hud import (
     button_row_rects,
     cell_width,
     column_anchor_rect,
+    device_height,
     ellipsis_rects,
     expand_button_rect,
     favorite_mark_rect,
@@ -192,6 +197,10 @@ class HudRenderer:
         self._pointer: tuple[int, int] | None = None
         self._glyph = load_font(_SIZE_BODY, SYMBOL_FONT)
         self._thumbs: dict[str, Image.Image] = {}
+        # The main console's own two blocks, hosted here for a source that
+        # drives the device itself -- see HudModel.osr2.
+        self._osr2 = Osr2Section()
+        self._drive = DriveSection()
 
     def _thumbnail(self, cell: HudCell) -> Image.Image:
         """*cell*'s thumbnail scaled to the map's row height, or a neutral
@@ -285,12 +294,20 @@ class HudRenderer:
             button_row_rects(PAD, 0, row, row_widths)[-1][0][0] + row_widths[-1] + PAD
             for row, row_widths in zip(rows, widths) if row
         ), default=0)
+        # The device's own blocks, on a host that drives it: the OSR2 line and
+        # the readout ask for width the way the bands do, and for room under them.
+        osr2_line = Osr2Line(state=model.osr2, controls=model.osr2_controls)
+        drive_w, drive_h = section_size() if model.drive is not None else (0, 0)
+        device_w = max(self._osr2.width(osr2_line) if model.osr2 else 0, drive_w)
         width = panel_width(gutter_w, reach, text_width(self._body, model.lock_label),
-                            text_width(self._tiny, video), band_width=band_width)
+                            text_width(self._tiny, video),
+                            content_width=max(band_width,
+                                              2 * PAD + device_w if device_w else 0))
         height = panel_height(
             map_column_height(1 + len(action_thumbs)) if corner_thumb is not None else 0,
             subtitle_h, bands_h=CTRL_BAND_H * len(rows),
-            speed_band_h=CTRL_BAND_H if model.playback_speed is not None else 0)
+            speed_band_h=CTRL_BAND_H if model.playback_speed is not None else 0,
+            device_h=device_height(model.osr2, model.drive, drive_h))
         panel = HudPanel(width, height)
         image, draw = panel.image, panel.draw
 
@@ -327,9 +344,26 @@ class HudRenderer:
             buttons.extend(speed_buttons)
             y += CTRL_BAND_H
 
+        # The device, where the host driving it is the host browsing the set --
+        # the same line and readout the main console carries, so a show wears one
+        # panel instead of this one with a whole console stacked under it.
+        bands: list[DriveTrack] = []
+        if model.osr2:
+            buttons.extend(self._osr2.draw(image, draw, x, y, osr2_line,
+                                           hover=self._pointer))
+            y += OSR2_H + BLOCK_GAP
+        if model.drive is not None:
+            # The panel's image rather than its pen: the readout supersamples its
+            # trace and composites it back, which a pen cannot carry.
+            self._drive.draw(image, x, y, model.drive)
+            drive_targets, bands = readout_targets(x, y, model.drive)
+            buttons.extend(drive_targets)
+            y += drive_h + BLOCK_GAP
+
         if model.corner is None:
             return RenderedHud(panel.to_bgra(),
                                HudTargets(click=[], loop=[], filter=[], expand=None,
+                                          tracks=bands,
                                           buttons=buttons, favorite=favorite))
 
         self._draw_counts(draw, x, y, counts)

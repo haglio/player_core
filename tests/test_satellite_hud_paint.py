@@ -7,9 +7,13 @@ import numpy as np
 import pytest
 from PIL import Image
 from satellite_rows import player_rows, short_name
-from shared_ui.palette import TEXT_MUTED, WHITE
+from shared_ui.palette import BLUE, TEXT_MUTED, WHITE
 
+from player_core.drive_layout import SECTION_W
+from player_core.drive_readout import DRIVEN_BY_ROBOT_HAND, DriveHud
+from player_core.hud_button import Button
 from player_core.hud_panel import ICON_GRIDS
+from player_core.modes import Osr2State
 from player_core.satellite_hud import (
     COL_LABEL_H,
     CTRL_BAND_H,
@@ -1171,3 +1175,61 @@ def test_the_enhanced_switch_keeps_its_place_under_a_mode_row(thumb):
     assert by_name["enhanced"][1] == by_name["fmode"][1] == by_name["reset"][1]
     assert by_name["fmode"][0] < by_name["enhanced"][0] < by_name["reset"][0]
     assert by_name["reset"][0] + by_name["reset"][2] + PAD <= width
+
+
+class TestTheDeviceOnAHostThatDrivesItself:
+    """A host that drives the OSR2 itself wears ONE panel, not two.
+
+    Origenerator's shows floated this HUD for the set and the main console
+    underneath it for the device, which put two status lines that disagreed
+    and two copies of prev/next/lock/trash on one screen.  So a source that
+    has a device to report says so on its own panel: the same line and the
+    same readout the main console draws, from the same code.
+    """
+
+    @staticmethod
+    def _rendered(**extra):
+        return HudRenderer("portrait").render(
+            _model(lock_label="Unlocked", **extra))
+
+    def test_a_source_that_names_no_driver_grows_no_device_line(self):
+        """Every satellite is one: fun_time's players report the set and
+        nothing about the OSR2, and their panel must not change shape."""
+        assert self._rendered().bgra.shape == self._rendered().bgra.shape
+        assert (self._rendered(osr2=Osr2State.ROBOT_HAND).bgra.shape[0]
+                > self._rendered().bgra.shape[0])
+
+    def test_the_line_says_which_driver_has_the_device(self):
+        rgb = _rgb(self._rendered(osr2=Osr2State.ROBOT_HAND).bgra)
+        assert (rgb == np.array(BLUE)).all(axis=-1).any()
+
+    def test_a_control_on_that_line_is_pressable(self):
+        park = Button("robot_hand_park", "P", "Parked")
+        rendered = self._rendered(osr2=Osr2State.ROBOT_HAND, osr2_controls=(park,))
+        assert park in [button for _rect, button in rendered.targets.buttons]
+
+    def test_the_readout_is_drawn_under_the_line(self):
+        with_readout = self._rendered(osr2=Osr2State.ROBOT_HAND, drive=DriveHud())
+        line_only = self._rendered(osr2=Osr2State.ROBOT_HAND)
+        assert with_readout.bgra.shape[0] > line_only.bgra.shape[0]
+        assert with_readout.bgra.shape[1] >= SECTION_W + 2 * PAD
+
+    def test_the_readouts_own_marks_post_what_they_are_pressed_for(self):
+        rendered = self._rendered(osr2=Osr2State.ROBOT_HAND,
+                                  drive=DriveHud(driven=DRIVEN_BY_ROBOT_HAND))
+        posted = [button.command for _rect, button in rendered.targets.buttons]
+        assert "robot_hand_speed_up" in posted
+
+    def test_a_press_in_a_band_takes_hold_of_it_and_sets_it(self):
+        rendered = self._rendered(osr2=Osr2State.ROBOT_HAND,
+                                  drive=DriveHud(driven=DRIVEN_BY_ROBOT_HAND))
+        clicks = HudClicks("portrait")
+        band = rendered.targets.tracks[0]
+        x, y, w, h = band.rect
+
+        posted = clicks.press(rendered.targets, x + w // 2, y + h // 2, now=0.0)
+
+        assert posted.startswith(f"robot_hand_{band.axis}_")
+        assert clicks.holding is True
+        clicks.release()
+        assert clicks.holding is False
