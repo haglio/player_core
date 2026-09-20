@@ -1232,6 +1232,20 @@ class TestTheDeviceOnAHostThatDrivesItself:
         posted = [button.command for _rect, button in rendered.targets.buttons]
         assert "robot_hand_speed_up" in posted
 
+    def test_the_device_sits_at_the_foot_of_the_panel_under_the_map(self, thumb):
+        """Where the main console puts it.  Drawn between the bands and the map
+        it landed in the middle of the panel, which is not where a reader
+        glancing between this app and a player looks for it."""
+        rendered = HudRenderer("portrait").render(_model(
+            lock_label="Unlocked", corner=HudCell(path="c.mp4", thumb=thumb),
+            seeds=(HudCell(path="s.mp4", thumb=thumb),), seed_count=2,
+            osr2=Osr2State.ROBOT_HAND,
+            drive=DriveHud(driven=DRIVEN_BY_ROBOT_HAND)))
+        map_foot = max(y + h for (_x, y, _w, h), _path in rendered.targets.click)
+
+        assert rendered.targets.tracks  # the bands are pressable with a map up
+        assert all(band.rect[1] >= map_foot for band in rendered.targets.tracks)
+
     def test_a_press_in_a_band_takes_hold_of_it_and_sets_it(self):
         rendered = self._rendered(osr2=Osr2State.ROBOT_HAND,
                                   drive=DriveHud(driven=DRIVEN_BY_ROBOT_HAND))
