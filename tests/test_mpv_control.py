@@ -51,6 +51,9 @@ class FakeMpv:
     def play(self, path: str) -> None:
         self.calls.append(("play", path))
 
+    def command(self, name: str, *args) -> None:
+        self.calls.append(("command", name, *args))
+
 
 class Control(_MpvControl):
     """A control surface whose clock a test moves by hand.
@@ -358,3 +361,47 @@ def test_a_frozen_room_holds_the_picture_where_the_creep_had_got_to():
     control.push_still()
 
     assert mpv.video_zoom == pytest.approx(math.log2(1.025))
+
+
+def test_a_file_that_would_not_open_leaves_the_player_with_nothing_up():
+    mpv = FakeMpv()
+    control = Control(mpv)
+    mpv.idle_active = True
+
+    assert control.idle is True
+
+
+def test_a_file_that_opened_is_not_nothing_up():
+    mpv = FakeMpv()
+    control = Control(mpv)
+    mpv.idle_active = False
+
+    assert control.idle is False
+
+
+def test_the_size_on_screen_is_the_one_mpv_scaled_the_file_to():
+    mpv = FakeMpv()
+    control = Control(mpv)
+
+    mpv.report("video-out-params", {"dw": 1920, "dh": 816})
+
+    assert control.video_dims == (1920, 816)
+
+
+def test_between_files_there_is_no_size():
+    mpv = FakeMpv()
+    control = Control(mpv)
+    mpv.report("video-out-params", {"dw": 1920, "dh": 816})
+
+    mpv.report("video-out-params", None)
+
+    assert control.video_dims == (0, 0)
+
+
+def test_letting_go_of_the_file_on_screen_unloads_it():
+    mpv = FakeMpv()
+    control = Control(mpv)
+
+    control.stop()
+
+    assert ("command", "stop") in mpv.calls
