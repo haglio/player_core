@@ -15,9 +15,8 @@ from player_core.console import (
     OSR2_RETRACTED,
     ConsoleModel,
 )
+from player_core.console_hud import _PAD as PAD
 from player_core.console_hud import (
-    _OSR2_COLORS,
-    _OSR2_LABELS,
     ConsoleHud,
     ConsolePainter,
     ModeHud,
@@ -25,7 +24,6 @@ from player_core.console_hud import (
     hud_xy,
     with_playback_speed,
 )
-from player_core.console_hud import _PAD as PAD
 from player_core.drive_layout import AMPLITUDE, CENTER, SPEED
 from player_core.drive_readout import (
     DRIVEN_BY_NEUTRAL,
@@ -36,6 +34,8 @@ from player_core.drive_readout import (
 from player_core.geometry import Rect
 from player_core.hud_button import Button
 from player_core.hud_marks import BROKER_ICON, shared_mark
+from player_core.hud_osr2 import COLORS as _OSR2_COLORS
+from player_core.hud_osr2 import LABELS as _OSR2_LABELS
 from player_core.hud_panel import (
     ICON_GRIDS,
     TOOLTIP_PAD,

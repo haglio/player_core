@@ -26,18 +26,12 @@ import numpy as np
 from PIL import Image
 from shared_ui.palette import (
     BG_PRIMARY,
-    BLUE,
-    GREEN,
-    MAGENTA,
-    RED,
     TEXT_MUTED,
     TEXT_PRIMARY,
 )
 from shared_ui.spacing import BUTTON_GAP
 
 from .console import (
-    BUTTON,
-    GAP,
     OSR2_CONTROL_OFF,
     OSR2_PARKED,
     OSR2_RETRACTED,
@@ -67,6 +61,9 @@ from .drive_readout import (
 from .drive_readout import controls as drive_controls
 from .drive_readout import tracks as drive_tracks
 from .geometry import Rect, contains
+from .hud_osr2 import BUFFER as OSR2_BUFFER
+from .hud_osr2 import HEIGHT as _OSR2_H
+from .hud_osr2 import Osr2Line, Osr2Section
 from .hud_panel import (
     ACTIVE_DOT,
     SYMBOL_FONT,
@@ -106,34 +103,6 @@ _LENGTH_LABELS = {LengthMode.FULL: "Full length", LengthMode.SHORTS: "Shorts"}
 # the trailing "(v1)" the archivist's revision, leaving the volume as the part
 # that says which one you are inside.
 _REVISION = re.compile(r"\s*\(v\d+\)$")
-
-# What the OSR2 line says by what is driving the device, and the color it says
-# it in — green when a funscript is driving, blue when the Robot Hand is, muted
-# when nothing is, and the device's own magenta when it is running itself in auto.
-# The pill's own word for a device that belongs to neither driver at the
-# playhead -- drawn, never published, so it is not one of the wire's states.
-OSR2_BUFFER = "buffer"
-# The buffer pill wears the trace's own neutral gray, so the word and the line
-# under the dot are visibly the same state.
-_NEUTRAL_PILL = (168, 168, 174)
-_OSR2_LABELS = {
-    Osr2State.OFF: "Off", Osr2State.AUTO: "Auto", Osr2State.FUNSCRIPT: "FunScript",
-    Osr2State.ROBOT_HAND: "Robot Hand", OSR2_BUFFER: "Buffer",
-    # Said in three words because two of them would be read as the device: the
-    # OSR2 is on and well, this app has simply stopped sending it anything.  In
-    # the red its own button wears, so the lit control and the pill saying what
-    # it did are visibly the one fact.
-    OSR2_CONTROL_OFF: "Control off",
-    OSR2_PARKED: "Parked", OSR2_RETRACTED: "Retracted",
-}
-_OSR2_COLORS = {
-    Osr2State.FUNSCRIPT: GREEN, Osr2State.ROBOT_HAND: BLUE, Osr2State.AUTO: MAGENTA,
-    Osr2State.OFF: TEXT_MUTED, OSR2_BUFFER: _NEUTRAL_PILL,
-    OSR2_CONTROL_OFF: RED,
-    # The held device's line is the handoff's gray -- nobody is moving it -- and
-    # the word beside it says so in the same ink.
-    OSR2_PARKED: _NEUTRAL_PILL, OSR2_RETRACTED: _NEUTRAL_PILL,
-}
 
 # Where each hold keeps the device, as a trace height: home, and the far end.
 _HELD_HEIGHT = {OSR2_PARKED: 0.0, OSR2_RETRACTED: 1.0}
@@ -183,9 +152,6 @@ DOT_GAP = 8  # the room between the active-player dot and the words beside it
 _MARGIN = 8    # inset from the window's top-left corner
 _ROW_GAP = 4   # between the top block, the buttons, the OSR2 row, the readout
 _SUBTITLE_GAP = 2  # between the status line and the file name under it
-_OSR2_H = BUTTON      # the OSR2 line, sized to the controls sharing it
-_OSR2_LABEL_GAP = 5   # "OSR2" sits right up against the pill it names …
-_OSR2_GROUP_GAP = 16  # … and well clear of the two controls beside them
 
 
 def hud_xy() -> tuple[int, int]:
@@ -298,6 +264,7 @@ class ConsolePainter:
         self._tiny = load_font(_SIZE_TINY)
         self._glyph = load_font(_SIZE_BODY, SYMBOL_FONT)
         self._drive = DriveSection()
+        self._osr2 = Osr2Section()
         self._painted: tuple[ConsoleHud, tuple[int, int] | None] | None = None
         self._composed_drive: DriveHud | None = None
         self._image: Image.Image | None = None
@@ -555,7 +522,8 @@ class ConsolePainter:
                          hovered=hover is not None and contains(rect, *hover))
         y += rows_height(rows) + _ROW_GAP
 
-        self._osr2(panel.image, draw, _PAD, y, console, hover)
+        self.buttons.extend(self._osr2.draw(panel.image, draw, _PAD, y,
+                                            self._osr2_line(console), hover=hover))
         y += _OSR2_H
 
         if drive is not None:
@@ -585,14 +553,6 @@ class ConsolePainter:
                 draw_tooltip(draw, self._tiny, tip, hover, (width, height))
         return panel.image
 
-    @staticmethod
-    def _osr2_controls_width(controls: tuple[Button, ...]) -> int:
-        """The controls' run and the gap after it -- nothing at all for a line
-        with no controls, whose label then starts where they would have."""
-        if not controls:
-            return 0
-        return sum(b.width for b in controls) + GAP * (len(controls) - 1) + _OSR2_GROUP_GAP
-
     def _osr2_state(self, model: ConsoleModel) -> str:
         """What the pill says has the device — the drawn line's own answer
         when a composed trace is on the panel, so the pill flips exactly when
@@ -617,48 +577,13 @@ class ConsolePainter:
             DRIVEN_BY_NEUTRAL: OSR2_BUFFER,
         }.get(drive.driven, model.osr2)
 
-    def _osr2_pill_width(self, model: ConsoleModel) -> int:
-        osr2 = self._osr2_state(model)
-        return text_width(self._tiny, _OSR2_LABELS.get(osr2, osr2)) + 10
+    def _osr2_line(self, model: ConsoleModel) -> Osr2Line:
+        """The device's line as the shared section takes it — the controls the
+        source put on it, and this console's own answer to who has the OSR2."""
+        return Osr2Line(state=self._osr2_state(model), controls=model.osr2_controls)
 
     def _osr2_width(self, model: ConsoleModel) -> int:
-        return (self._osr2_controls_width(model.osr2_controls)
-                + text_width(self._tiny, "OSR2") + _OSR2_LABEL_GAP
-                + self._osr2_pill_width(model))
-
-    def _osr2(self, image, draw, x: int, y: int, model: ConsoleModel,
-              hover: tuple[int, int] | None = None) -> None:
-        """The device's own line: the controls the source put on it, then what
-        has the device.
-
-        Those controls act on the OSR2 rather than on any player, so they share
-        its line and sit together at its head -- placed by hand rather than
-        through the row layout, which would read them as different families and
-        open a gap between them.  The label then hugs its pill, well clear of
-        the controls, so "OSR2 Robot Hand" reads as one read-out instead of as
-        another button.
-        """
-        controls = model.osr2_controls
-        run_x = x
-        for button in controls:
-            rect = (run_x, y, button.width, _OSR2_H)
-            self._button(image, draw, rect, button,
-                         hovered=hover is not None and contains(rect, *hover))
-            self.buttons.append((rect, button))
-            run_x += button.width + GAP
-
-        label_x = x + self._osr2_controls_width(controls)
-        draw.text((label_x, y + _OSR2_H / 2), "OSR2", font=self._tiny, anchor="lm",
-                  fill=(*TEXT_MUTED, 255))
-        osr2 = self._osr2_state(model)
-        state = _OSR2_LABELS.get(osr2, osr2)
-        color = _OSR2_COLORS.get(osr2, TEXT_PRIMARY)
-        pill_x = label_x + text_width(self._tiny, "OSR2") + _OSR2_LABEL_GAP
-        pill_w = self._osr2_pill_width(model)
-        # No frame around it: what has the device is a read-out, and an outlined
-        # word beside two real buttons reads as a third one you can press.
-        draw.text((pill_x + pill_w / 2, y + _OSR2_H / 2), state, font=self._tiny,
-                  anchor="mm", fill=(*color, 255))
+        return self._osr2.width(self._osr2_line(model))
 
     def _filled(self, button: Button, hud: ConsoleHud) -> Button:
         """A read-out as it is drawn: the host's own number written in where the
