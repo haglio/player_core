@@ -26,6 +26,7 @@ from __future__ import annotations
 import importlib
 import logging
 import math
+import os
 import time
 from pathlib import Path
 
@@ -115,10 +116,25 @@ def _import_the_engine(load, tries: int = _TRIES_AT_THE_ENGINE):
             last = refused
             if attempt == tries:
                 break
-    looked = ", ".join(
-        f"{folder} ({'holds libmpv-2.dll' if (folder / 'libmpv-2.dll').is_file() else 'empty'})"
-        for folder in libmpv_dirs())
-    raise OSError(f"The engine (libmpv) could not be loaded. Looked in: {looked}") from last
+    raise OSError(f"The engine (libmpv) could not be loaded. {_where_it_looked()}") from last
+
+
+def _where_it_looked() -> str:
+    """What each folder answered, and where PATH actually starts.
+
+    The two halves settle between the two ways this fails.  A folder that says
+    it holds the DLL while the import cannot find it means PATH is not what we
+    left it -- something rewrote it between the two lines.  A folder that
+    cannot answer at all names the error it got, which is the other half.
+    """
+    answers = []
+    for folder in libmpv_dirs():
+        try:
+            answers.append(f"{folder} ({'holds libmpv-2.dll' if (folder / 'libmpv-2.dll').is_file() else 'no libmpv-2.dll in it'})")
+        except OSError as refused:
+            answers.append(f"{folder} (could not be looked in: {refused})")
+    front = os.environ.get("PATH", "").split(os.pathsep)[:3]
+    return f"Looked in: {', '.join(answers)}. PATH starts: {front}"
 
 
 def _shared_options(*, muted: bool, loop_file: bool, prefetch: bool) -> dict:
