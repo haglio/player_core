@@ -23,6 +23,7 @@ hidden-desktop integration suite is what exercises that.
 """
 from __future__ import annotations
 
+import importlib
 import logging
 import math
 import time
@@ -31,7 +32,7 @@ from pathlib import Path
 import numpy as np
 
 from .audio_outputs import Output, pick_output
-from .libmpv_loader import add_libmpv_to_path
+from .libmpv_loader import add_libmpv_to_path, libmpv_dirs
 from .mpv_gate import CallGate, mpv_call
 from .still_push import StillPush
 
@@ -79,11 +80,45 @@ def _log_mpv(level: str, prefix: str, text: str) -> None:
     logger.log(_MPV_LEVELS.get(level, logging.WARNING), "mpv %s: %s", prefix, text.strip())
 
 
-def _import_mpv():
-    add_libmpv_to_path()
-    import mpv  # noqa: PLC0415 — must follow add_libmpv_to_path (DLL on %PATH%)
+# How many times the engine is asked for before the folder it lives in is
+# declared genuinely empty.  Each attempt puts the folder back on PATH first,
+# and the window another thread can take it out in is one import long.
+_TRIES_AT_THE_ENGINE = 5
 
-    return mpv
+
+def _import_mpv():
+    return _import_the_engine(importlib.import_module)
+
+
+def _import_the_engine(load, tries: int = _TRIES_AT_THE_ENGINE):
+    """Put the engine's folder on PATH and load python-mpv, more than once if
+    something takes the folder off again.
+
+    python-mpv finds libmpv by walking ``%PATH%``, and PATH is shared: other
+    libraries put themselves on it with a read and then a write, so a write
+    built from a read taken before ours lands afterwards and puts PATH back
+    without our folder in it.  vosk does exactly that, in its module body, on
+    the thread a voice application listens on -- and a host that opened a
+    player at that moment was told the engine could not be found while it sat
+    in the folder the line before had just named.
+
+    Asked again, the folder goes back and the import takes.  What survives all
+    of them is a folder that really is empty, and the refusal says which ones
+    were looked in rather than leaving that to the reader.
+    """
+    last = None
+    for attempt in range(1, tries + 1):
+        add_libmpv_to_path()
+        try:
+            return load("mpv")
+        except OSError as refused:
+            last = refused
+            if attempt == tries:
+                break
+    looked = ", ".join(
+        f"{folder} ({'holds libmpv-2.dll' if (folder / 'libmpv-2.dll').is_file() else 'empty'})"
+        for folder in libmpv_dirs())
+    raise OSError(f"The engine (libmpv) could not be loaded. Looked in: {looked}") from last
 
 
 def _shared_options(*, muted: bool, loop_file: bool, prefetch: bool) -> dict:
