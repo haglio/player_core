@@ -168,12 +168,19 @@ class _MpvControl:
         # runs out (verified against libmpv, 2026-09-19).
         self._push = StillPush()
         self._zoom_applied = 0.0
+        # Read off an observation rather than asked for: a property read takes
+        # the core's lock, which a file being opened holds for long stretches,
+        # and a frame loop asking mid-open measured hundreds of milliseconds
+        # blocked on it.  video-out-params (not dwidth/dheight) so both numbers
+        # land in one event and a reader can never see half a size.
+        self._video_dims = (0, 0)
 
     def _adopt(self, handle) -> None:
         self._mpv = handle
         handle.observe_property("container-fps", self._note_frame_rate)
         handle.observe_property("current-tracks/video/image", self._note_picture)
         handle.observe_property("path", self._note_file)
+        handle.observe_property("video-out-params", self._note_video_dims)
 
     def _note_frame_rate(self, _name: str, value) -> None:
         self._frame_rate = value or 0.0
@@ -183,6 +190,25 @@ class _MpvControl:
 
     def _note_file(self, _name: str, _value) -> None:
         self._push.restart(self._now())
+
+    def _note_video_dims(self, _name: str, value) -> None:
+        if isinstance(value, dict):
+            self._video_dims = (int(value.get("dw") or 0), int(value.get("dh") or 0))
+        else:
+            self._video_dims = (0, 0)
+
+    @property
+    def video_dims(self) -> tuple[int, int]:
+        """How big the picture on screen is once mpv has scaled the file --
+        (0, 0) until it knows, and between files.
+
+        What a host measures its own chrome against: where to float the stills
+        either side of the picture, where to seat a panel under it.  Callers
+        keep their last size through the gap between files, which is what keeps
+        the previous clip's final frame on screen during a transition instead
+        of a teardown flicker.
+        """
+        return self._video_dims
 
     def _now(self) -> float:
         """The clock the creep into a still is paced by, in one call a test can
@@ -217,6 +243,16 @@ class _MpvControl:
     # an empty playlist — a black window for the rest of the session, with a
     # healthy process, a running loop and nothing raised anywhere.  There is no
     # window to lose here: ``playlist-clear`` resolves "current" inside mpv.
+
+    @mpv_call()
+    def stop(self) -> None:
+        """Let go of the file on screen, playing nothing.
+
+        A host that is about to move or delete what it was showing has to: the
+        engine holds an open handle on it, and Windows refuses to move a file
+        out from under one.
+        """
+        self._mpv.command("stop")
 
     @mpv_call()
     def stage_next(self, path: Path) -> None:
@@ -254,6 +290,19 @@ class _MpvControl:
         uninterrupted), restoring the [current, next] window.
         """
         self._mpv.playlist_clear()
+
+    @property
+    @mpv_call(False)
+    def idle(self) -> bool:
+        """Whether the player has nothing up at all.
+
+        True between a file that would not open and the next one asked for:
+        mpv does not raise for a file it cannot demux, it simply ends up with
+        nothing playing (verified -- a text file named .mp4 leaves idle-active
+        true, path None and eof-reached unset).  A host that has asked for a
+        file and finds this reads it as the file's refusal.
+        """
+        return bool(self._mpv.idle_active)
 
     @property
     @mpv_call(0.0)
