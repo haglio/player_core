@@ -290,9 +290,15 @@ class HudRenderer:
         # raised — so the panel is measured around the widest row.
         rows = [list(row) for row in model.rows]
         widths = [[self._button_width(button) for button in row] for row in rows]
+        # The rows that aim the device are measured with the rest -- they are
+        # drawn in the device's own block, but a panel too narrow for them clips
+        # them away just as silently.
+        device_rows = [list(row) for row in model.osr2_rows]
+        device_row_widths = [[self._button_width(b) for b in row] for row in device_rows]
         band_width = max((
             button_row_rects(PAD, 0, row, row_widths)[-1][0][0] + row_widths[-1] + PAD
-            for row, row_widths in zip(rows, widths) if row
+            for row, row_widths in zip(rows + device_rows, widths + device_row_widths)
+            if row
         ), default=0)
         # The device's own blocks, on a host that drives it: the OSR2 line and
         # the readout ask for width the way the bands do, and for room under them.
@@ -309,7 +315,7 @@ class HudRenderer:
             map_column_height(1 + len(action_thumbs)) if corner_thumb is not None else 0,
             subtitle_h, bands_h=CTRL_BAND_H * len(rows),
             speed_band_h=CTRL_BAND_H if model.playback_speed is not None else 0,
-            device_h=device_height(model.osr2, model.drive, drive_h))
+            device_h=device_height(model.osr2, model.drive, drive_h, len(device_rows)))
         panel = HudPanel(width, height)
         image, draw = panel.image, panel.draw
 
@@ -351,9 +357,11 @@ class HudRenderer:
         # console puts the same two blocks -- the OSR2 line then the readout
         # under it.  Drawn here before the map so the map can be laid out against
         # the room left above them.
-        device_top = height - PAD - device_height(model.osr2, model.drive, drive_h)
-        device_buttons, bands = self._draw_device(image, draw, x, device_top,
-                                                  model, osr2_line, drive_h)
+        device_top = height - PAD - device_height(model.osr2, model.drive, drive_h,
+                                                  len(device_rows))
+        device_buttons, bands = self._draw_device(
+            image, draw, x, device_top, model, osr2_line, drive_h,
+            rows=device_rows, widths=device_row_widths)
         buttons.extend(device_buttons)
 
         if model.corner is None:
@@ -430,19 +438,28 @@ class HudRenderer:
         return RenderedHud(panel.to_bgra(), targets)
 
     def _draw_device(self, image, draw, x: int, y: int, model: HudModel,
-                     osr2_line: Osr2Line, drive_h: int,
+                     osr2_line: Osr2Line, drive_h: int, *, rows, widths,
                      ) -> tuple[list[tuple[Rect, Button]], list[DriveTrack]]:
         """The device's own foot of the panel, where the host driving the OSR2 is
-        the host browsing the set: the line naming whichever driver has it, then
-        the readout of what is being sent.
+        the host browsing the set: the rows that aim it, the line naming
+        whichever driver has it, then the readout of what is being sent.
 
-        The same two blocks the main console carries, in the order it carries
-        them and at the foot the way it does -- a show wears ONE panel, and the
-        device block anywhere but its last rows is the thing a reader glancing
-        between this app and a player would have to relearn.
+        All of it together and all of it last -- a show wears ONE panel, and
+        every control that acts on the device belongs beside the picture of what
+        the device is doing.  Split across the map, the hands-free switches and
+        the four control states read as a different family from the line and the
+        readout they set.
         """
         buttons: list[tuple[Rect, Button]] = []
         bands: list[DriveTrack] = []
+        for row, row_widths in zip(rows, widths):
+            placed = button_row_rects(x, y, row, row_widths)
+            for rect, button in placed:
+                draw_button(image, draw, rect, button, hovered=self._pointer_is_on(rect),
+                            glyph_font=self._glyph, word_font=self._tiny,
+                            row_label=rect[0] == PAD)
+            buttons.extend(placed)
+            y += CTRL_BAND_H
         if model.osr2:
             y += BLOCK_GAP
             buttons.extend(self._osr2.draw(image, draw, x, y, osr2_line,
