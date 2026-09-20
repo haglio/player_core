@@ -7,8 +7,11 @@ integration suite.
 """
 from __future__ import annotations
 
+import math
 import threading
 from pathlib import Path
+
+import pytest
 
 from player_core import audio_outputs
 from player_core.mpv_player import _MpvControl, _shared_options
@@ -50,9 +53,20 @@ class FakeMpv:
 
 
 class Control(_MpvControl):
-    def __init__(self, mpv) -> None:
+    """A control surface whose clock a test moves by hand.
+
+    The creep into a still is paced by a clock rather than by a playhead --
+    mpv leaves a picture's at nought -- so ``now`` is what a test winds on to
+    say how far into the hold the picture has got.
+    """
+
+    def __init__(self, mpv, now: float = 0.0) -> None:
         super().__init__()  # the call gate every method here runs under
+        self.now = now
         self._adopt(mpv)
+
+    def _now(self) -> float:
+        return self.now
 
 
 def test_the_frame_rate_is_the_one_mpv_reported_for_the_file_on_screen():
@@ -300,3 +314,47 @@ def test_an_output_no_device_is_named_by_leaves_the_sound_on_the_system_default(
 
     assert Control(mpv).set_audio_device_matching("Nowhere") is None
     assert mpv.audio_device == "auto"
+
+
+def test_a_picture_is_drawn_closer_as_its_hold_runs_out():
+    mpv = FakeMpv()
+    control = Control(mpv, now=100.0)
+    control.set_pace(4.0)
+    mpv.report("path", "made-up-scene.png")
+    mpv.report("current-tracks/video/image", True)
+
+    control.now = 102.0
+    control.push_still()
+
+    assert mpv.video_zoom == pytest.approx(math.log2(1.05))
+
+
+def test_a_clip_after_a_picture_is_drawn_as_it_comes():
+    mpv = FakeMpv()
+    control = Control(mpv, now=100.0)
+    control.set_pace(4.0)
+    mpv.report("path", "made-up-scene.png")
+    mpv.report("current-tracks/video/image", True)
+    control.now = 102.0
+    control.push_still()
+
+    mpv.report("path", "made-up-scene.mp4")
+    mpv.report("current-tracks/video/image", False)
+    control.push_still()
+
+    assert mpv.video_zoom == 0.0
+
+
+def test_a_frozen_room_holds_the_picture_where_the_creep_had_got_to():
+    mpv = FakeMpv()
+    control = Control(mpv, now=100.0)
+    control.set_pace(4.0)
+    mpv.report("path", "made-up-scene.png")
+    mpv.report("current-tracks/video/image", True)
+
+    control.now = 101.0
+    control.set_paused(True)
+    control.now = 103.0
+    control.push_still()
+
+    assert mpv.video_zoom == pytest.approx(math.log2(1.025))

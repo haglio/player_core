@@ -24,6 +24,7 @@ hidden-desktop integration suite is what exercises that.
 from __future__ import annotations
 
 import logging
+import math
 import time
 from pathlib import Path
 
@@ -32,6 +33,7 @@ import numpy as np
 from .audio_outputs import Output, pick_output
 from .libmpv_loader import add_libmpv_to_path
 from .mpv_gate import CallGate, mpv_call
+from .still_push import StillPush
 
 __all__ = [
     "MpvPlayer",
@@ -160,17 +162,32 @@ class _MpvControl:
         self._frame_rate = 0.0
         self._showing_picture = False
         self._overlays: dict[int, np.ndarray] = {}
+        # The creep into a still while it holds the screen, and the zoom last
+        # handed to mpv for it -- a picture's own clock, because mpv leaves a
+        # still's playhead at nought and simply ends the file when the pace
+        # runs out (verified against libmpv, 2026-09-19).
+        self._push = StillPush()
+        self._zoom_applied = 0.0
 
     def _adopt(self, handle) -> None:
         self._mpv = handle
         handle.observe_property("container-fps", self._note_frame_rate)
         handle.observe_property("current-tracks/video/image", self._note_picture)
+        handle.observe_property("path", self._note_file)
 
     def _note_frame_rate(self, _name: str, value) -> None:
         self._frame_rate = value or 0.0
 
     def _note_picture(self, _name: str, value) -> None:
         self._showing_picture = bool(value)
+
+    def _note_file(self, _name: str, _value) -> None:
+        self._push.restart(self._now())
+
+    def _now(self) -> float:
+        """The clock the creep into a still is paced by, in one call a test can
+        wind on by hand -- mpv leaves a picture's own playhead at nought."""
+        return time.monotonic()
 
     @property
     def frame_rate(self) -> float:
@@ -250,11 +267,27 @@ class _MpvControl:
 
     @mpv_call()
     def set_paused(self, paused: bool) -> None:
+        self._push.set_paused(paused, self._now())
         self._mpv.pause = paused
 
     @mpv_call()
     def set_pace(self, seconds: float) -> None:
+        self._push.set_pace(seconds or 0.0, self._now())
         self._mpv.image_display_duration = seconds or "inf"
+
+    @mpv_call()
+    def push_still(self) -> None:
+        """Creep a little further into the picture on screen.
+
+        A still ends a hair closer than it began, which is what makes a show of
+        pictures read as moving; a video is drawn as it comes.  Called once a
+        frame by whichever loop is driving this player.
+        """
+        scale = math.log2(self._push.zoom(self._now()) if self._showing_picture else 1.0)
+        if scale == self._zoom_applied:
+            return
+        self._mpv.video_zoom = scale
+        self._zoom_applied = scale
 
     @mpv_call()
     def set_loop_file(self, loop: bool) -> None:
