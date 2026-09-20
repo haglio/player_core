@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from player_core import mpv_player
 from player_core.libmpv_loader import (
     add_libmpv_to_path,
     libmpv_dirs,
@@ -68,3 +69,44 @@ def test_putting_them_on_path_twice_adds_nothing(monkeypatch):
 
     parts = os.environ["PATH"].split(os.pathsep)
     assert all(parts.count(str(d)) == 1 for d in libmpv_dirs())
+
+
+# --- the import, and the PATH another thread can take out from under it -----
+
+def test_the_engine_is_imported_once_the_folder_is_on_the_path():
+    asked = []
+
+    def load(name):
+        asked.append(name)
+        return "the engine"
+
+    assert mpv_player._import_the_engine(load) == "the engine"
+    assert asked == ["mpv"]
+
+
+def test_a_path_taken_out_from_under_it_is_put_back_and_the_import_retried():
+    """PATH is shared, and other libraries prepend themselves to it with a read
+    then a write -- vosk does exactly that, on the thread a voice app listens
+    on. A write built from a read taken before ours puts the folder back out,
+    and the engine is looked for by walking PATH."""
+    tries = []
+
+    def load(name):
+        tries.append(name)
+        if len(tries) < 3:
+            raise OSError("Cannot find mpv-1.dll, mpv-2.dll or libmpv-2.dll")
+        return "the engine"
+
+    assert mpv_player._import_the_engine(load) == "the engine"
+    assert len(tries) == 3
+
+
+def test_an_engine_that_is_really_not_there_says_where_it_looked():
+    def load(name):
+        raise OSError("Cannot find mpv-1.dll, mpv-2.dll or libmpv-2.dll")
+
+    with pytest.raises(OSError) as refused:
+        mpv_player._import_the_engine(load, tries=2)
+
+    for folder in libmpv_dirs():
+        assert str(folder) in str(refused.value)
