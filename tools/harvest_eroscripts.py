@@ -35,9 +35,17 @@ _RETRIES = 6
 NETWORK_WAITS_S = (30.0, 60.0, 120.0, 300.0, 600.0, 900.0, 900.0)
 _DEFAULT_WAIT_S = 60.0
 _REDIRECTS = (301, 302, 303, 307, 308)
+_MISSING = (403, 404)
 # A topic or upload the forum will not hand over is skipped, not retried.
 _GONE = (403, 404, 410, 422)
 FORUM = "https://discuss.eroscripts.com"
+# Where the forum keeps the files themselves.  A file is named by its SHA-1,
+# which its short link spells in base 62, and filed under the first one to
+# three characters of that name; which depth is not in the link, so a file is
+# looked for at each, deepest first, since that is where most of them are.
+FILE_HOST = "https://eroscripts-discourse.eroscripts.com"
+_BASE62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+_FILE_DEPTHS = (4, 3, 2, 1)
 FREE_SCRIPTS = "scripts/free-scripts/14"
 
 _ATTACHMENT = re.compile(r'<a class="attachment" href="([^"]+)">([^<]*)</a>')
@@ -68,6 +76,18 @@ def is_main_axis_script(name: str) -> bool:
     return not any(stem.endswith("." + axis) for axis in _OTHER_AXES)
 
 
+def file_addresses(short_url: str) -> list[str]:
+    stem, _dot, extension = short_url.rsplit("/", 1)[-1].partition(".")
+    number = 0
+    for digit in stem:
+        number = number * 62 + _BASE62.index(digit)
+    name = f"{number:040x}.{extension}"
+    return [
+        f"{FILE_HOST}/original/{depth}X/" + "".join(f"{char}/" for char in name[:depth - 1]) + name
+        for depth in _FILE_DEPTHS
+    ]
+
+
 class Forum:
     """The forum's JSON, one request at a time and never faster than *pace_s*."""
 
@@ -92,17 +112,24 @@ class Forum:
     def download(self, short_url: str) -> tuple[bytes, str]:
         """The attachment the forum's short link leads to, and where it really was.
 
-        The forum answers the link with a redirect to its static host; the key
-        is the forum's business, so the file itself is fetched without it.
+        The file host is tried first at each address the link can mean, and
+        the forum is asked for the redirect only when none of them has it; the
+        key is the forum's business, so a file is always fetched without it.
         """
+        plain = {"User-Agent": self._headers.get("User-Agent", "")}
+        for where in file_addresses(short_url):
+            try:
+                return self._read(where, plain, paced=False), where
+            except urllib.error.HTTPError as error:
+                if error.code not in _MISSING:
+                    raise
         try:
             return self._read(self._base_url + short_url, self._headers), self._base_url + short_url
         except urllib.error.HTTPError as error:
             if error.code not in _REDIRECTS:
                 raise
             where = error.headers.get("Location")
-        return self._read(where, {"User-Agent": self._headers.get("User-Agent", "")},
-                          paced=False), where
+        return self._read(where, plain, paced=False), where
 
     def _read(self, url: str, headers: dict[str, str], *, paced: bool = True) -> bytes:
         request = urllib.request.Request(url, headers=headers)

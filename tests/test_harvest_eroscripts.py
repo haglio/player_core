@@ -179,15 +179,69 @@ def _redirect(url: str, *, to: str):
     return urllib.error.HTTPError(url, 302, "Found", headers, io.BytesIO(b""))
 
 
+_SHA = "0123456789abcdef0123456789abcdef01234567"
+_BASE62 = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def _short_link(sha: str = _SHA) -> str:
+    number, digits = int(sha, 16), ""
+    while number:
+        number, digit = divmod(number, 62)
+        digits = _BASE62[digit] + digits
+    return f"/uploads/short-url/{digits}.funscript"
+
+
+class TestWorkingOutWhereAFileIs:
+    def test_a_short_link_names_the_file_so_its_address_needs_no_asking(self):
+        host = harvest.FILE_HOST
+
+        assert harvest.file_addresses(_short_link()) == [
+            f"{host}/original/4X/0/1/2/{_SHA}.funscript",
+            f"{host}/original/3X/0/1/{_SHA}.funscript",
+            f"{host}/original/2X/0/{_SHA}.funscript",
+            f"{host}/original/1X/{_SHA}.funscript",
+        ]
+
+    def test_a_name_that_begins_with_zeros_keeps_them(self):
+        sha = "000000" + _SHA[6:]
+
+        assert harvest.file_addresses(_short_link(sha))[0].endswith(f"/0/0/0/{sha}.funscript")
+
+
 class TestDownloadingAScript:
-    def test_the_file_is_fetched_from_where_the_forum_points_without_the_key(self):
-        # The forum resolves its short link to a static host; the key is the
+    def test_the_file_is_fetched_from_where_its_link_says_without_asking_the_forum(self):
+        # Each ask of the forum comes off the day's allowance and a file host
+        # asks nothing, so the file is fetched by the address its link spells
+        # out, and the forum is not asked for it at all.
+        clock = _FakeClock()
+        seen: list[tuple[str, str | None]] = []
+        found = harvest.file_addresses(_short_link())[1]
+
+        def opener(request, timeout):
+            seen.append((request.full_url, request.get_header("User-api-key")))
+            if request.full_url != found:
+                raise urllib.error.HTTPError(request.full_url, 404, "Not Found", email.message.Message(), io.BytesIO(b""))
+            return _FakeResponse(b'{"actions": []}')
+
+        forum = harvest.Forum("https://forum.invalid", {"User-Api-Key": "k"}, opener=opener,
+                              sleep=clock.sleep, clock=lambda: clock.now, pace_s=1.0)
+
+        body, where = forum.download(_short_link())
+
+        assert (body, where) == (b'{"actions": []}', found)
+        assert seen == [(harvest.file_addresses(_short_link())[0], None), (found, None)]
+        assert clock.slept == []
+
+    def test_a_file_the_host_has_at_no_address_is_asked_of_the_forum(self):
+        # The forum resolves its short link to the file host; the key is the
         # forum's business and goes nowhere else.
         clock = _FakeClock()
         seen: list[tuple[str, str | None]] = []
 
         def opener(request, timeout):
             seen.append((request.full_url, request.get_header("User-api-key")))
+            if request.full_url.startswith(harvest.FILE_HOST):
+                raise urllib.error.HTTPError(request.full_url, 403, "Forbidden", email.message.Message(), io.BytesIO(b""))
             if "/uploads/short-url/" in request.full_url:
                 raise _redirect(request.full_url,
                                 to="https://files.invalid/original/1/2/abc123.funscript")
@@ -201,6 +255,7 @@ class TestDownloadingAScript:
         assert body == b'{"actions": []}'
         assert where == "https://files.invalid/original/1/2/abc123.funscript"
         assert seen == [
+            *((address, None) for address in harvest.file_addresses("/uploads/short-url/aaa.funscript")),
             ("https://forum.invalid/uploads/short-url/aaa.funscript", "k"),
             ("https://files.invalid/original/1/2/abc123.funscript", None),
         ]
