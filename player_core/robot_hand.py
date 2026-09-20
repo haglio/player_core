@@ -283,9 +283,8 @@ class ControlLimits:
     Six booleans, published twice: the status file an orchestrator reads has
     them so its dashboard can dim a button, and the drive readout the console
     draws has them so it can dim an arrow.  They are two publications of one
-    fact, and they used to be worked out separately, including the center clamp
-    -- so a change to the clamp had to be made in both places or the console
-    dimmed an arrow the status file called live.
+    fact, worked out once here -- the center clamp included, so a change to it
+    cannot leave the console dimming an arrow the status file calls live.
     """
 
     amp_at_max: bool

@@ -14,7 +14,7 @@ That is not a theory.  Closing a player from one thread while a worker read
 faulting thread being the worker at ``mpv_get_property`` (reading 0x48 — NULL
 plus a field offset) with the closer inside ``terminate()``.
 
-Shutdown used to rest on ``pump_thread.join(timeout=...)``: a join that times
+Joining the pump thread is not enough to rest shutdown on: a join that times
 out returns anyway, and even one that returns cleanly says nothing about the
 *other* threads a player is reachable from.  A lease needs no such guess.
 Every call into mpv takes one; :meth:`CallGate.close` bars new leases — so a

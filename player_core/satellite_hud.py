@@ -550,11 +550,10 @@ def speed_row(player: str, x: int, y: int, *,
 def favorite_mark_rect(y: int, line_h: int) -> Rect:
     """The favorite mark: at the head of the file-name line, under the dot.
 
-    A readout, not a button.  It used to keep the far end of the control band,
-    where it was a small green star adrift in a row of squares and easy to miss
-    entirely.  Here it is in the one column this panel already uses for "what is
-    true of this player" — the active dot is directly above it — and immediately
-    left of the name of the very clip it is answering about.
+    A readout, not a button, so it belongs where the panel keeps readouts and
+    not in the control band: the one column already used for "what is true of
+    this player" — the active dot is directly above it — and immediately left of
+    the name of the very clip it is answering about.
 
     *y* is the file-name line's top and *line_h* its height, and the mark is as
     tall as that line: a mark beside words wants to be the size of the words,

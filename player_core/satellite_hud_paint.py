@@ -494,12 +494,9 @@ class HudRenderer:
         line's descender, muted: the status is what the side is doing, and the
         name only says which clip it is doing it to.
 
-        The star sits in the column the dot heads, immediately left of that name.
-        It used to keep the far end of the control band, where a small green mark
-        adrift in a row of squares was easy to miss altogether; here it is beside
-        the very clip it is answering about, in the column this panel already
-        uses for what is true of the side.  No name, no line, and so no star —
-        there is nothing for it to be beside.
+        The star sits in the column the dot heads, immediately left of that
+        name (:func:`satellite_hud.favorite_mark_rect` says why).  No name, no
+        line, and so no star — there is nothing for it to be beside.
         """
         draw_active_dot(draw, PAD, y + 2, model.active)
         draw.text((STATUS_TEXT_X, y + STATUS_BASELINE), model.lock_label,
