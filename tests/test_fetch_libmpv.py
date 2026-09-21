@@ -134,3 +134,20 @@ def test_a_wrong_local_app_data_variable_moves_neither(monkeypatch, tmp_path):
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
 
     assert fetch_libmpv.dll_path() == before
+
+
+def test_this_repo_s_gate_fetches_the_pin_rather_than_leaving_it_to_a_consumer():
+    """A digest that matches nothing is caught here, not in somebody else's gate.
+
+    Everything above tests the mechanism with an invented archive, so the one
+    thing never exercised was the pin itself: `--require` finds the DLL already
+    on a developer's machine and returns without a download, and no gate fetched
+    it.  The recorded sha256 therefore matched no file for a fortnight -- not the
+    asset it names, and not the DLL every player here runs -- and the first run
+    to download anything was a consumer's, in a repo whose own history held
+    nothing to explain it.
+    """
+    gate = (Path(__file__).resolve().parent.parent
+            / ".github" / "workflows" / "merge-gate.yml").read_text(encoding="utf-8")
+
+    assert "tools/fetch_libmpv.py" in gate
