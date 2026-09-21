@@ -21,7 +21,10 @@ jobs:
       # tags this repo was built against.
       siblings: ""
       python-version: "3.14"
-      timeout-minutes: 6
+      # Six for the suite; the rest is the libmpv fetch below -- a 32 MB download
+      # and an extraction, and a job that runs past its clock is cancelled and
+      # reports nothing at all.
+      timeout-minutes: 8
       # tests/test_consumer_imports.py is this repo's dead-code gate, and it
       # asks the consumers: every caller of this package lives in another repo,
       # so it holds what each module declares against what genau, fun_time and
@@ -29,11 +32,17 @@ jobs:
       # which is what it did on every run here until now. Cloned and not
       # installed -- the scan reads their source, and installing three
       # applications to read it would cost more than the whole suite.
+      #
+      # Then the engine itself, at the pin: `tools/libmpv.lock` is the digest every
+      # app in the family stands on, and until this line nothing ever downloaded it
+      # -- `--require` finds the DLL already there on a developer's machine, and no
+      # gate fetched it. The recorded digest matched no file at all for a fortnight.
       prepare: |
         set -euo pipefail
         for repo in genau fun_time origenerator; do
           git clone --quiet --depth 1 "https://github.com/haglio/$repo.git" "../$repo"
         done
+        python tools/fetch_libmpv.py --require
 
   # A consumer built against the candidate. Every caller of this package lives in
   # another repo and nothing pins a version, so a change here merges green
