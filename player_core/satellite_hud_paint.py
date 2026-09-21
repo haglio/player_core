@@ -140,7 +140,8 @@ _FUNNEL_NECK = 3  # width of the stem the mouth narrows to
 
 
 def gutter_width_for(font: ImageFont.FreeTypeFont, current_action: str,
-                     action_labels: tuple[str, ...], *, min_width: int = 0) -> int:
+                     action_labels: tuple[str, ...], camera_words: tuple[str, ...], *,
+                     min_width: int = 0) -> int:
     """Size the row-label gutter to the actions actually present — wide enough for
     the widest word and the row's filter button, no wider — so a map of short acts
     doesn't carry a big empty gutter, and a long one ("Delta") still fits without
@@ -152,7 +153,7 @@ def gutter_width_for(font: ImageFont.FreeTypeFont, current_action: str,
     words = [
         word
         for label in (current_action, *action_labels)
-        for word in friendly_action_label(label).split("\n")
+        for word in friendly_action_label(label, camera_words).split("\n")
     ]
     widest = max((text_width(font, word) for word in words), default=0)
     label_w = max(widest + 2 * MAP_GAP, MIN_GUTTER)
@@ -273,6 +274,7 @@ class HudRenderer:
         counts = self._count_lines(model)
         gutter_w = gutter_width_for(
             self._row, model.current_action, tuple(cell.label for cell in model.actions),
+            model.camera_words,
             min_width=max((text_width(self._tiny, line) for line in counts), default=0) + MAP_GAP,
         )
         # Windowed before the panel is measured, so the panel is measured around
@@ -405,7 +407,7 @@ class HudRenderer:
         filter_rects = filter_button_rects(corner_rect, action_rects, x,
                                            model.current_action,
                                            [cell.label for cell in model.actions])
-        self._draw_filter_buttons(draw, filter_rects, model.filter_query)
+        self._draw_filter_buttons(draw, filter_rects, model)
 
         loop_action_rect, loop_seed_rect = loop_button_rects(
             corner_rect, seed_rects, action_rects, right, lower,
@@ -645,10 +647,10 @@ class HudRenderer:
             # the row says whether the clip is here at all, the act says which of
             # its acts is why.  Lighting a matching act inside a row the filter
             # drops would mark a clip that is not in the playlist.
-            row_lit = label_is_filtered(text, model.filter_query)
+            row_lit = label_is_filtered(text, model.filter_query, model.camera_words)
             ascent, descent = self._row.getmetrics()
             line_h = ascent + descent - 4
-            blocks = action_label_blocks(text)
+            blocks = action_label_blocks(text, model.camera_words)
             total = sum(len(block) for block in blocks) * line_h + (len(blocks) - 1) * ACT_GAP
             # *extra* is room kept under the words — the corner row's strike.  The
             # words and it are centered in the row together, so a two-act label
@@ -656,7 +658,8 @@ class HudRenderer:
             ty = label_stack_top(row_y, row_h, total, extra)
             words_end = ty + total
             for block in blocks:
-                lit = row_lit and act_is_filtered(" ".join(block), model.filter_query)
+                lit = row_lit and act_is_filtered(
+                    " ".join(block), model.filter_query, model.camera_words)
                 color = TEXT_PRIMARY if lit else TEXT_MUTED
                 for line in block:
                     draw.text((x + gutter_w - MAP_GAP, ty + line_h / 2), line,
@@ -762,7 +765,7 @@ class HudRenderer:
         draw_mark(image, "cross", rect, (*RED, 255))
 
     def _draw_filter_buttons(self, draw, rects: list[tuple[Rect, str]],
-                             filter_query: str) -> None:
+                             model: HudModel) -> None:
         """The filter button at the head of each row, lit on every row the filter
         keeps — which is more than the row that names it exactly, since fun_time
         matches a query as a substring (see :func:`label_is_filtered`).
@@ -772,7 +775,8 @@ class HudRenderer:
         other side's map) shows here too, and pressing a lit one lifts it.
         """
         for rect, name in rects:
-            self._filter_button(draw, rect, on=label_is_filtered(name, filter_query))
+            self._filter_button(draw, rect, on=label_is_filtered(
+                name, model.filter_query, model.camera_words))
 
     def _draw_loop_controls(self, image, draw, corner_rect, column_rect, loop_action_rect,
                             loop_seed_rect, seed_rects, action_rects, active_loop,
