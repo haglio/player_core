@@ -75,6 +75,7 @@ from .hud_panel import (
     text_width,
     to_bgra,
 )
+from .hud_row import RowHud, RowSection
 from .hud_status import (
     LATEST_LABEL,
     SEPARATOR,
@@ -255,29 +256,34 @@ class ConsolePainter:
         self._glyph = load_font(_SIZE_BODY, SYMBOL_FONT)
         self._drive = DriveSection()
         self._osr2 = Osr2Section()
+        self._clip_row = RowSection()
         self._painted: tuple[ConsoleHud, tuple[int, int] | None] | None = None
         self._composed_drive: DriveHud | None = None
         self._image: Image.Image | None = None
         self._bgra: np.ndarray | None = None
         self.buttons: list[tuple[Rect, Button]] = []
         self.tracks: list[DriveTrack] = []
+        # Where the clip's row landed, for a press to be placed in its own
+        # coordinates (:func:`player_core.hud_row.row_part`).
+        self.row_rect: Rect | None = None
         self._grip = TrackGrip()
         # The trace and the device's position, held still while nothing is being
         # sent — see :meth:`_resolve`.
         self._still: tuple[tuple[float, ...], int, float, float | None] | None = None
 
-    def bgra(self, hud: ConsoleHud, *, hover: tuple[int, int] | None = None) -> np.ndarray:
+    def bgra(self, hud: ConsoleHud, *, hover: tuple[int, int] | None = None,
+             clip_row: RowHud | None = None) -> np.ndarray:
         """*hud* as an mpv overlay bitmap — what the main player composites into its video."""
-        if self._ensure(self._resolve(hud), hover) or self._bgra is None:
+        if self._ensure(self._resolve(hud), hover, clip_row) or self._bgra is None:
             self._bgra = to_bgra(self._image)
         return self._bgra
 
     def rgba(self, hud: ConsoleHud, *, hover: tuple[int, int] | None = None,
-             ) -> tuple[bytes, tuple[int, int]]:
+             clip_row: RowHud | None = None) -> tuple[bytes, tuple[int, int]]:
         """*hud* as ``(rgba_bytes, size)`` — what pygame takes, for Genau to blit
         into its own window in genau mode.  The size varies with the contents, so
         the caller sizes its blit from what comes back."""
-        self._ensure(self._resolve(hud), hover)
+        self._ensure(self._resolve(hud), hover, clip_row)
         return self._image.tobytes(), self._image.size
 
     def _resolve(self, hud: ConsoleHud) -> ConsoleHud:
@@ -355,14 +361,17 @@ class ConsolePainter:
             self._still = None
         return replace(hud, drive=drive)
 
-    def _ensure(self, hud: ConsoleHud, hover: tuple[int, int] | None) -> bool:
-        """Repaint if *hud*/*hover* moved; report whether it did (so a cached
-        bitmap can be reused).  The panel is redrawn a few times a minute at most
-        — Pillow is too slow to run every frame — so the image is kept until it
-        changes."""
-        if (hud, hover) == self._painted and self._image is not None:
+    def _ensure(self, hud: ConsoleHud, hover: tuple[int, int] | None,
+                clip_row: RowHud | None = None) -> bool:
+        """Repaint if *hud*/*hover*/the clip's row moved; report whether it did
+        (so a cached bitmap can be reused).  The panel is redrawn a few times a
+        minute at most — Pillow is too slow to run every frame — so the image is
+        kept until it changes.  The row is the one part that moves with playback,
+        which is why a player redrawing on its beat gets a fresh panel."""
+        if (hud, hover, clip_row) == self._painted and self._image is not None:
             return False
-        self._painted, self._image = (hud, hover), self._paint(hud, hover)
+        self._painted = (hud, hover, clip_row)
+        self._image = self._paint(hud, hover, clip_row)
         return True
 
     def press_at(self, mx: int, my: int) -> str:
@@ -433,7 +442,8 @@ class ConsolePainter:
             y += sum(self._tiny.getmetrics())
         return y
 
-    def _paint(self, hud: ConsoleHud, hover: tuple[int, int] | None = None) -> Image.Image:
+    def _paint(self, hud: ConsoleHud, hover: tuple[int, int] | None = None,
+               clip_row: RowHud | None = None) -> Image.Image:
         console, drive = hud.console, hud.drive
         # Held for the OSR2 pill: with a composed trace on the panel the pill
         # reads the trace's own answer to who has the device (see _osr2_state),
@@ -451,7 +461,8 @@ class ConsolePainter:
         filename_h = (_SUBTITLE_GAP + tiny_h) if filename else 0
 
         text_x = ACTIVE_DOT + DOT_GAP
-        parts_w = max(_row_width(rows), drive_w, self._osr2_width(console))
+        parts_w = max(_row_width(rows), drive_w, self._osr2_width(console),
+                      self._clip_row.least_width() if clip_row is not None else 0)
         if self._width is None:
             width = 2 * _PAD + max(
                 parts_w,
@@ -469,6 +480,12 @@ class ConsolePainter:
         )
         if drive is not None:
             height += _ROW_GAP + drive_h
+        # The clip's own row, under everything the console says about the room:
+        # where the video is and how loud it is, drawn here rather than along
+        # the lower edge of the picture (:mod:`player_core.hud_row`).
+        row_h = self._clip_row.size(width - 2 * _PAD)[1] if clip_row is not None else 0
+        if clip_row is not None:
+            height += _ROW_GAP + row_h
 
         panel = HudPanel(width, height, ground=hud.ground or BG_PRIMARY)
         draw = panel.draw
@@ -498,6 +515,12 @@ class ConsolePainter:
             # hover.
             targets, self.tracks = readout_targets(_PAD, y, drive)
             self.buttons.extend(targets)
+
+        self.row_rect = None
+        if clip_row is not None:
+            self.row_rect = (_PAD, height - _PAD - row_h, width - 2 * _PAD, row_h)
+            self._clip_row.draw(panel.image, _PAD, self.row_rect[1], self.row_rect[2],
+                                clip_row)
 
         if hover is not None:
             tip = tooltip_at(self.buttons, *hover)
