@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from PIL import Image
+from PIL import Image, ImageDraw
 from satellite_rows import player_rows, short_name
 from shared_ui import colors
 from shared_ui.palette import BLUE, GREEN, TEXT_MUTED, TEXT_PRIMARY, WHITE
@@ -33,6 +33,7 @@ from player_core.satellite_hud import (
     HudCell,
     HudClicks,
     HudModel,
+    button_tooltip,
     ellipsis_rects,
     looped_group_rect,
 )
@@ -1307,3 +1308,109 @@ class TestTheDeviceOnAHostThatDrivesItself:
         assert clicks.holding is True
         clicks.release()
         assert clicks.holding is False
+
+
+class _Block:
+    """A source's own block: a slab of a fixed size in a color nothing else on
+    the panel wears, with one control."""
+
+    MARK = (3, 250, 7)
+
+    def __init__(self, size: tuple[int, int] = (120, 30)) -> None:
+        self._size = size
+        self.button = Button("cancel|j1", "Cancel", "Cancel this run")
+        self.painted_at: tuple[int, int, int] | None = None
+        self.pointer: tuple[int, int] | None = None
+
+    def size(self) -> tuple[int, int]:
+        return self._size
+
+    def paint(self, image, x, y, width, pointer):
+        self.painted_at, self.pointer = (x, y, width), pointer
+        ImageDraw.Draw(image).rectangle(
+            [x, y, x + self._size[0] - 1, y + self._size[1] - 1], fill=(*self.MARK, 255))
+        return [((x, y, 40, 18), self.button)]
+
+
+class TestTheBlockASourcePaintsAtTheFoot:
+    """A host that is more than a player says the rest of it here.
+
+    Everything above is the panel's own — the set, and the device on a host
+    that drives one — and a host with work of its own to report would need a
+    second panel for it, which is the two-panels-on-one-screen this HUD grew
+    the device block to end.  So the panel leaves room at its foot and the
+    source paints there, in the panel's own look, with its controls pressed
+    and named like the panel's own.
+    """
+
+    @staticmethod
+    def _rendered(block=None, **extra):
+        return HudRenderer("portrait").render(
+            _model(lock_label="Unlocked", foot=block, **extra))
+
+    def test_a_source_with_no_block_of_its_own_grows_none(self):
+        """Every satellite is one, and their panels must not change shape."""
+        block = _Block()
+        assert (self._rendered(block).bgra.shape[0]
+                > self._rendered().bgra.shape[0])
+
+    def test_it_is_painted_at_the_very_foot_under_the_device(self, thumb):
+        block = _Block()
+        rendered = self._rendered(
+            block, corner=HudCell(path="c.mp4", thumb=thumb),
+            seeds=(HudCell(path="s.mp4", thumb=thumb),), seed_count=2,
+            osr2=Osr2State.ROBOT_HAND, drive=DriveHud(driven=DRIVEN_BY_ROBOT_HAND))
+        painted = np.argwhere((_rgb(rendered.bgra) == np.array(_Block.MARK)).all(axis=-1))
+
+        assert painted.size  # the source's own pixels are on the panel
+        assert painted[:, 0].min() > max(band.rect[1] + band.rect[3]
+                                         for band in rendered.targets.tracks)
+
+    def test_it_is_set_off_from_what_the_panel_draws_by_a_family_break(self, thumb):
+        block = _Block()
+        rendered = self._rendered(
+            block, corner=HudCell(path="c.mp4", thumb=thumb),
+            seeds=(HudCell(path="s.mp4", thumb=thumb),), seed_count=2)
+        painted = np.argwhere((_rgb(rendered.bgra) == np.array(_Block.MARK)).all(axis=-1))
+        map_foot = max(y + h for (_x, y, _w, h), _kind in rendered.targets.loop)
+
+        assert painted[:, 0].min() - map_foot >= DEVICE_GAP > BLOCK_GAP
+
+    def test_the_panel_widens_to_hold_it(self):
+        wide = _Block(size=(600, 30))
+        assert self._rendered(wide).bgra.shape[1] >= 600 + 2 * PAD
+
+    def test_it_is_painted_across_the_panels_own_width(self):
+        block = _Block()
+        width = self._rendered(block).bgra.shape[1]
+
+        assert block.painted_at == (PAD, block.painted_at[1], width - 2 * PAD)
+
+    def test_its_controls_are_pressed_and_named_like_the_panels_own(self):
+        block = _Block()
+        rendered = self._rendered(block)
+        x, y, w, h = next(rect for rect, button in rendered.targets.buttons
+                          if button is block.button)
+
+        posted = HudClicks("portrait").press(rendered.targets, x + w // 2, y + h // 2,
+                                             now=0.0)
+
+        assert posted == "cancel|j1"
+        assert button_tooltip(rendered.targets, x + w // 2, y + h // 2) == block.button.tooltip
+
+    def test_a_hovered_control_of_its_own_is_told_where_the_pointer_is(self):
+        block = _Block()
+        self._rendered(block)  # no hover: the block is told there is none
+        assert block.pointer is None
+
+        HudRenderer("portrait").render(_model(lock_label="Unlocked", foot=block),
+                                       hover_tip="Cancel this run", hover_pos=(40, 300))
+        assert block.pointer == (40, 300)
+
+    def test_a_panel_with_no_map_at_all_still_paints_it(self):
+        """A source can have work to report before it has anything to browse."""
+        block = _Block()
+        rendered = self._rendered(block, corner=None)
+
+        assert block.painted_at is not None
+        assert block.button in [button for _rect, button in rendered.targets.buttons]

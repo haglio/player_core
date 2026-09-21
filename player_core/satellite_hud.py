@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Protocol
 
 from shared_ui.spacing import (
     BUTTON_GAP,
@@ -33,6 +34,9 @@ from .drive_readout import DriveHud, DriveTrack, TrackGrip
 from .geometry import Rect, contains
 from .hud_button import Button, rows_from_raw, rows_raw
 from .hud_osr2 import HEIGHT as OSR2_H
+
+if TYPE_CHECKING:
+    from PIL import Image
 
 __all__ = [
     "MARGIN",
@@ -122,6 +126,15 @@ class HudCell:
     label: str = ""
 
 
+class HudSection(Protocol):
+    """A block the source paints into the panel itself, at its very foot."""
+
+    def size(self) -> tuple[int, int]: ...
+
+    def paint(self, image: Image.Image, x: int, y: int, width: int,
+              pointer: tuple[int, int] | None) -> list[tuple[Rect, Button]]: ...
+
+
 @dataclass(frozen=True)
 class HudModel:
     """One satellite's HUD contents, exactly as fun_time published them."""
@@ -197,6 +210,10 @@ class HudModel:
     # (:mod:`player_core.drive_readout`), hosted here rather than on a panel of
     # its own.  None wherever there is nothing to report.
     drive: DriveHud | None = None
+
+    # What a host has to report that no player does, under everything the panel
+    # draws of its own.  Never published: it is the drawing host's own.
+    foot: HudSection | None = None
 
 
 # --- map geometry ------------------------------------------------------------
@@ -289,7 +306,7 @@ def device_height(osr2: str, drive: DriveHud | None, drive_h: int,
 
 
 def panel_height(column_height: int, subtitle_h: int = 0, bands_h: int = 0,
-                 speed_band_h: int = 0, device_h: int = 0) -> int:
+                 speed_band_h: int = 0, device_h: int = 0, foot_h: int = 0) -> int:
     """How tall the panel has to be: the status band, the button bands and the
     speed row, then — around a map column *column_height* deep — the "Seed N"
     header strip, the column's own "…" slots, and the action-loop button below it.
@@ -305,16 +322,17 @@ def panel_height(column_height: int, subtitle_h: int = 0, bands_h: int = 0,
 
     *bands_h* is the room the declared rows of buttons take, a band each, and
     *device_h* what a host that drives the OSR2 itself adds under them (see
-    :func:`device_height`) — nought for a satellite, which drives nothing.
+    :func:`device_height`) — nought for a satellite, which drives nothing — and
+    *foot_h* the room a source's own block takes under all of it.
 
     *column_height* is 0 before the satellite's first clip, when the panel is the
     bands and nothing else: there is no map, so no room is kept for one.
     """
-    foot = PAD + STATUS_BAND_H + subtitle_h + bands_h + speed_band_h + device_h
+    height = PAD + STATUS_BAND_H + subtitle_h + bands_h + speed_band_h + device_h + foot_h
     if column_height:
-        foot += (COL_LABEL_H + COL_LABEL_GAP + ELLIPSIS_ROOM
-                 + column_height + ELLIPSIS_ROOM + MAP_LOWER_RESERVE)
-    return foot + PAD
+        height += (COL_LABEL_H + COL_LABEL_GAP + ELLIPSIS_ROOM
+                   + column_height + ELLIPSIS_ROOM + MAP_LOWER_RESERVE)
+    return height + PAD
 
 
 @dataclass(frozen=True)
