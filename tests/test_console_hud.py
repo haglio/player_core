@@ -45,7 +45,10 @@ from player_core.hud_panel import (
     load_font,
     text_width,
 )
+from player_core.hud_row import SCRUBBER, RowHud, row_part
 from player_core.modes import LengthMode, MainMode, Osr2State
+from player_core.timeline import bar_track_x
+from player_core.volume import VolumeHud
 
 MIXED, FULL, SHORTS = LengthMode.MIXED, LengthMode.FULL, LengthMode.SHORTS
 
@@ -1220,3 +1223,35 @@ class TestARowsNameLinesUpWithItsControls:
 
         assert _rect_of(video, "main_player_speed_down")[0] == _rect_of(
             genau, "genau_clip_seconds_down")[0]
+
+
+class TestTheRowTheConsoleCarriesForItsVideo:
+    """Where the video is and how loud it is, on the console rather than along
+    the lower edge of the picture — the row the headset already draws here for a
+    wrapped video, drawn here for every video."""
+
+    @staticmethod
+    def _hud() -> ConsoleHud:
+        return ConsoleHud(modes=ModeHud(video="scene one"),
+                          console=ConsoleModel(main_mode=MainMode.VIDEO, locked=False))
+
+    def test_a_player_that_hands_over_no_row_grows_none(self):
+        painter = ConsolePainter()
+        row = RowHud(position_ms=30_000, duration_ms=60_000, volume=VolumeHud(volume=40))
+
+        with_row = painter.rgba(self._hud(), clip_row=row)[1][1]
+        without = ConsolePainter().rgba(self._hud())[1][1]
+
+        assert with_row > without
+
+    def test_it_lands_at_the_foot_of_the_panel(self):
+        painter = ConsolePainter()
+        row = RowHud(position_ms=30_000, duration_ms=60_000, volume=VolumeHud(volume=40))
+
+        _rgba, (_width, height) = painter.rgba(self._hud(), clip_row=row)
+        x, y, width, row_h = painter.row_rect
+
+        assert y + row_h <= height
+        assert all(rect[1] + rect[3] <= y for rect, _button in painter.buttons)
+        x0, x1 = bar_track_x(width)
+        assert row_part((x0 + x1) // 2, row_h - 2, width=width) == SCRUBBER

@@ -324,9 +324,12 @@ class HudRenderer:
         foot_w, foot_h = model.foot.size() if model.foot is not None else (0, 0)
         width = panel_width(gutter_w, reach, text_width(self._body, model.lock_label),
                             text_width(self._tiny, video),
-                            content_width=max(band_width,
-                                              2 * PAD + device_w if device_w else 0,
-                                              2 * PAD + foot_w if foot_w else 0))
+                            content_width=max(
+                                band_width,
+                                2 * PAD + device_w if device_w else 0,
+                                2 * PAD + foot_w if foot_w else 0,
+                                2 * PAD + self._clip_row.least_width()
+                                if clip_row is not None else 0))
         # Measured against the width that won: the row stacks its readout above
         # the track on a panel too narrow to carry both on one line.
         row_h = self._clip_row.size(width - 2 * PAD)[1] if clip_row is not None else 0

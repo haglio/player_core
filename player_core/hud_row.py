@@ -25,8 +25,9 @@ from .playhead import (
     on_readout,
     readout_xy,
 )
-from .timeline import TIMELINE_HEIGHT, bar_track_x, progress_bar_bgra
+from .timeline import BAR_INSET_X, TIMELINE_HEIGHT, bar_track_x, progress_bar_bgra
 from .volume import (
+    SLOT_W,
     VolumeHud,
     VolumeHudPainter,
     chip_local,
@@ -47,6 +48,11 @@ VOLUME = "volume"
 
 _CHIP_PARTS = {"mute": MUTE, "track": VOLUME}
 
+# The least track worth pressing.  Narrower than this the chip is pushed over
+# the track and the row is one control on top of another, so the panel widens
+# for the row the way it widens for its own rows.
+_LEAST_TRACK = 60
+
 
 @dataclass(frozen=True)
 class RowHud:
@@ -64,6 +70,10 @@ class RowSection:
     def __init__(self) -> None:
         self._volume = VolumeHudPainter()
         self._readout = PlayheadHudPainter()
+
+    def least_width(self) -> int:
+        """The narrowest panel the row can be laid out in."""
+        return BAR_INSET_X + _LEAST_TRACK + SLOT_W
 
     def size(self, width: int) -> tuple[int, int]:
         """The room the row takes at *width* — one line where the readout fits
