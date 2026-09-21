@@ -9,6 +9,33 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-09-20 — a source names the camera words its rows carry
+
+The words the library writes in front of an act to say how a clip was shot
+were two literals in `satellite_hud` (`_ACT_MODIFIERS`, `_ACTION_ACRONYMS`),
+which is this package knowing one app's library. They are library vocabulary,
+the same as the acts they prefix, so they arrive the way everything else the
+panel draws arrives: in the model its source publishes. `HudModel` carries
+`camera_words`, written as the library writes them; `hud_text` and `parse_hud`
+carry the key, and a panel from a publisher that never wrote it reads as naming
+none. Fun Time fills it from its content overlay. A hosted Origenerator names
+none, because its rows are folders the user named rather than the library's
+acts, so a row's first word is never set apart there.
+
+The functions that read a row's label take the words from their caller:
+`label_is_filtered(label, filter_query, camera_words)` is the one the siblings
+reach, and `act_is_filtered`, `split_acts`, `action_label_blocks`,
+`friendly_action_label` and `satellite_hud_paint.gutter_width_for` inside the
+package. None has a default, so a painter that forgets to pass them fails
+rather than quietly lighting a camera word with its act. The gutter is
+measured with a camera word written as it will be drawn, since an initialism
+is wider in capitals than in title case.
+
+Nothing a player draws changes: 112 made-up panels, both orientations, every
+pairing of eight row labels with seven filters, come out byte for byte the
+same from v0.1.288 with its literals and from this version handed the same
+two words.
+
 ## 2026-09-19 — every source declares its own buttons, so the stock ones go
 
 Fun Time's players and Origenerator's shows and console now declare every

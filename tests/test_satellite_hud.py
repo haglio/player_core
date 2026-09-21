@@ -47,6 +47,9 @@ from player_core.satellite_hud import (
     thumbnail_rects,
 )
 
+# Fabricated: the words a source says the library writes in front of an act.
+CAMERA_WORDS = ("Side", "XYZ")
+
 
 def _squares(x: int, y: int, buttons) -> list:
     """*buttons* laid out as a row of squares from ``(x, y)``."""
@@ -220,16 +223,16 @@ def test_pressing_another_rows_filter_button_while_filtered_moves_the_filter():
 
 
 def test_pressing_a_partly_matching_button_narrows_the_filter_before_lifting_it():
-    """A row the filter keeps without being exactly it ("POV Gamma" under "gamma") is
+    """A row the filter keeps without being exactly it ("Side Gamma" under "gamma") is
     the act you reached for, so the first press moves the filter onto that whole row
     and only a press on the row the filter already is turns it off.  Lifting on the
     first press left no way to tighten a broad filter from the map."""
     clicks = HudClicks("portrait")
     clicks.active_filter = "gamma"
 
-    assert clicks.press(_filter_targets("POV Gamma"), 5, 5, now=0.0) == "filter_portrait_pov_gamma"
-    assert clicks.active_filter == "pov gamma"
-    assert clicks.press(_filter_targets("POV Gamma"), 5, 5, now=1.0) == "portrait_no_filter"
+    assert clicks.press(_filter_targets("Side Gamma"), 5, 5, now=0.0) == "filter_portrait_side_gamma"
+    assert clicks.active_filter == "side gamma"
+    assert clicks.press(_filter_targets("Side Gamma"), 5, 5, now=1.0) == "portrait_no_filter"
 
 
 def test_pressing_a_two_act_rows_button_filters_to_both_of_its_acts():
@@ -406,7 +409,7 @@ def test_filter_button_rects_puts_one_at_the_head_of_each_row():
 
 def test_label_is_filtered_reads_a_filter_the_way_fun_time_applies_it():
     """fun_time keeps a clip when the query is a substring of its metadata, so a row
-    it keeps has to light even when its label is not the query exactly — "POV Gamma"
+    it keeps has to light even when its label is not the query exactly — "Side Gamma"
     and "Gamma, Theta" are both clips a "gamma" filter holds you to.
 
     The cases below are the rule as this repo owns it.  That it still agrees with
@@ -418,7 +421,8 @@ def test_label_is_filtered_reads_a_filter_the_way_fun_time_applies_it():
     """
     cases = [
         ("Gamma", "gamma", True),               # the row that names it
-        ("POV Gamma", "gamma", True),           # the query is one act of the row
+        ("Side Gamma", "gamma", True),          # the query is one act of the row
+        ("Side Gamma", "side gamma", True),     # the filter set from that very row
         ("Gamma, Theta", "gamma", True),        # one of two acts on the clip
         ("Gamma   Theta", "gamma theta", True),  # whitespace collapsed on both sides
         ("Gamma, Theta", "gamma, theta", True),  # the filter set from that very clip
@@ -427,23 +431,29 @@ def test_label_is_filtered_reads_a_filter_the_way_fun_time_applies_it():
         ("Gam", "gamma", False),                # the label is not the longer query
     ]
     for label, query, expected in cases:
-        assert label_is_filtered(label, query) is expected, (label, query)
+        assert label_is_filtered(label, query, CAMERA_WORDS) is expected, (label, query)
 
-    assert label_is_filtered("Gamma", "") is False
+    assert label_is_filtered("Gamma", "", CAMERA_WORDS) is False
 
 
 def test_act_is_filtered_picks_out_which_of_a_rows_acts_the_filter_named():
     """The row says whether the clip is here; this says which of its acts is why —
     the rule that whitens one line of a label and leaves its neighbours gray."""
-    assert act_is_filtered("Gamma", "gamma") is True
-    assert act_is_filtered("POV", "gamma") is False        # a camera word is not the act
-    assert act_is_filtered("Side", "gamma") is False
-    assert act_is_filtered("Theta Gamma", "gamma") is True  # an act the query is part of
+    def lit(act: str, filter_query: str) -> bool:
+        return act_is_filtered(act, filter_query, CAMERA_WORDS)
+
+    assert lit("Gamma", "gamma") is True
+    assert lit("XYZ", "gamma") is False        # a camera word is not the act
+    assert lit("Side", "gamma") is False
+    assert lit("Theta Gamma", "gamma") is True  # an act the query is part of
     # A filter set from a two-act clip names both, so both of that row's acts light.
-    assert act_is_filtered("Gamma", "gamma, theta") is True
-    assert act_is_filtered("Theta", "gamma, theta") is True
-    assert act_is_filtered("Alpha", "gamma, theta") is False
-    assert act_is_filtered("Gamma", "") is False
+    assert lit("Gamma", "gamma, theta") is True
+    assert lit("Theta", "gamma, theta") is True
+    assert lit("Alpha", "gamma, theta") is False
+    # And one set from a camera-scoped row names the camera word and the act apart.
+    assert lit("Gamma", "xyz gamma") is True
+    assert lit("XYZ", "xyz gamma") is True
+    assert lit("Gamma", "") is False
 
 
 def test_button_tooltip_names_each_button():
@@ -512,8 +522,15 @@ def test_the_speed_buttons_say_what_a_press_does_to_the_video():
 def test_action_label_blocks_separate_comma_joined_acts():
     """Several acts on one clip ("Alpha, Theta Motion") become one block each
     (drawn with a gap between), commas dropped; one act is a single block."""
-    assert action_label_blocks("alpha, theta motion") == [["Alpha"], ["Theta", "Motion"]]
-    assert action_label_blocks("") == [["(unknown)"]]
+    assert action_label_blocks("alpha, theta motion", CAMERA_WORDS) == [["Alpha"], ["Theta", "Motion"]]
+    assert action_label_blocks("", CAMERA_WORDS) == [["(unknown)"]]
+
+
+def test_a_source_that_names_no_camera_words_has_a_rows_first_word_read_as_the_act():
+    """A hosted Origenerator's rows are folders the user named, not the library's
+    acts, so it names none and a row's first word is never set apart."""
+    assert action_label_blocks("side gamma", ()) == [["Side", "Gamma"]]
+    assert action_label_blocks("xyz gamma", ()) == [["Xyz", "Gamma"]]
 
 
 def test_action_label_blocks_split_a_leading_camera_word_into_its_own_act():
@@ -521,22 +538,22 @@ def test_action_label_blocks_split_a_leading_camera_word_into_its_own_act():
     block — which is what lets a "gamma" filter light "Gamma" and leave the camera
     word gray instead of whitening both.
 
-    Both camera words, since Evolver's backfill scopes every act it writes by one of
-    them and never writes a bare act.
+    Every camera word the source names, since Evolver's backfill scopes every act it
+    writes by one of them and never writes a bare act.
     """
-    assert action_label_blocks("pov gamma") == [["POV"], ["Gamma"]]
-    assert action_label_blocks("side gamma") == [["Side"], ["Gamma"]]
-    assert action_label_blocks("side theta motion") == [["Side"], ["Theta", "Motion"]]
-    assert action_label_blocks("pov") == [["POV"]]  # nothing to qualify: one act
-    assert action_label_blocks("theta motion") == [["Theta", "Motion"]]  # not a camera word
+    assert action_label_blocks("xyz gamma", CAMERA_WORDS) == [["XYZ"], ["Gamma"]]
+    assert action_label_blocks("side gamma", CAMERA_WORDS) == [["Side"], ["Gamma"]]
+    assert action_label_blocks("side theta motion", CAMERA_WORDS) == [["Side"], ["Theta", "Motion"]]
+    assert action_label_blocks("xyz", CAMERA_WORDS) == [["XYZ"]]  # nothing to qualify: one act
+    assert action_label_blocks("theta motion", CAMERA_WORDS) == [["Theta", "Motion"]]  # not a camera word
 
 
-def test_friendly_action_label_titlecases_and_keeps_acronyms_upper():
-    assert friendly_action_label("epsilon") == "Epsilon"
-    assert friendly_action_label("pov gamma") == "POV\nGamma"
+def test_friendly_action_label_titlecases_and_writes_a_camera_word_as_the_source_does():
+    assert friendly_action_label("epsilon", CAMERA_WORDS) == "Epsilon"
+    assert friendly_action_label("xyz gamma", CAMERA_WORDS) == "XYZ\nGamma"
     # A long single word stays whole (the gutter is sized to fit it).
-    assert friendly_action_label("delta") == "Delta"
-    assert friendly_action_label("   ") == "(unknown)"
+    assert friendly_action_label("delta", CAMERA_WORDS) == "Delta"
+    assert friendly_action_label("   ", CAMERA_WORDS) == "(unknown)"
 
 
 def _targets(**overrides) -> HudTargets:
@@ -671,6 +688,7 @@ class TestThePublishedPanelIsWrittenWhereItIsRead:
                    HudCell(path="C:/v/s2.mp4")),
             actions=(HudCell(path="C:/v/a1.mp4", thumb="C:/t/a1.jpg", label="gamma"),),
             current_action="alpha", filter_query="alpha", active_loop="seed",
+            camera_words=CAMERA_WORDS,
             seed_count=7, action_count=3, playing=("seed", 1),
             rows=((Button("origenerator_activate", "Origenerator", "Shows", width=0),
                    Button("landscape_minimize", "\x00minimize", "Park", group_break=True)),

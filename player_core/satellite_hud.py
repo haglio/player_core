@@ -147,6 +147,10 @@ class HudModel:
     # a row's button moves the filter onto that row, or lifts it when the filter is
     # already exactly that row.
     filter_query: str = ""
+    # The words the library writes in front of an act to say how the clip was
+    # shot, as it writes them.  The source names them because they are library
+    # vocabulary; a row sets a leading one apart as an act of its own.
+    camera_words: tuple[str, ...] = ()
     active_loop: str = ""
     # How many clips each axis stands for, the clip on screen included.  The map
     # draws only MAP_CELLS of them, so it prints these in its top-left corner —
@@ -701,30 +705,30 @@ def _norm_act(text: str) -> str:
     return " ".join(str(text or "").split()).lower()
 
 
-def _acts(text: str) -> list[str]:
+def _acts(text: str, camera_words: Sequence[str]) -> list[str]:
     """*text* as its separate acts, normalized — for a row label or for a filter
     query, which is set from one and so is shaped like one."""
-    return [act for act in (_norm_act(part) for part in split_acts(text)) if act]
+    return [act for act in (_norm_act(part) for part in split_acts(text, camera_words)) if act]
 
 
-def act_is_filtered(act: str, filter_query: str) -> bool:
+def act_is_filtered(act: str, filter_query: str, camera_words: Sequence[str]) -> bool:
     """Whether *act* is one of the acts the filter names — what decides which of a
     row's acts is drawn lit.
 
-    A filter for one act lights that act alone: on a "POV / Gamma" row a "gamma"
-    filter whitens "Gamma" and leaves "POV" gray, which is what says *why* the clip
+    A filter for one act lights that act alone: on a "Side / Gamma" row a "gamma"
+    filter whitens "Gamma" and leaves "Side" gray, which is what says *why* the clip
     is here.  A filter set from a clip carrying two acts names both, so both light.
     """
-    return any(query in _norm_act(act) for query in _acts(filter_query))
+    return any(query in _norm_act(act) for query in _acts(filter_query, camera_words))
 
 
-def label_is_filtered(label: str, filter_query: str) -> bool:
+def label_is_filtered(label: str, filter_query: str, camera_words: Sequence[str]) -> bool:
     """Whether the filter keeps a row labeled *label* — its button's lit state, and
     what the press reads to decide between narrowing and lifting.
 
     fun_time keeps a clip when the query appears as a *contiguous substring* of its
     recorded act (``media_metadata.matches_query``), so every act the query names has
-    to be one of the row's: filtered to "gamma", both a "POV Gamma" row and a "Gamma,
+    to be one of the row's: filtered to "gamma", both a "Side Gamma" row and a "Gamma,
     Theta" row are clips it keeps, while a plain "Alpha" row is *not* kept by an
     "alpha, beta" filter and must not read as though it were.
     Within a row an act still matches on a substring ("gamma" catching "theta
@@ -734,7 +738,7 @@ def label_is_filtered(label: str, filter_query: str) -> bool:
     to know whether it is already exactly this row, so what looks on and what turns
     off cannot disagree.
     """
-    acts, query = _acts(label), _acts(filter_query)
+    acts, query = _acts(label, camera_words), _acts(filter_query, camera_words)
     return bool(acts) and bool(query) and all(
         any(part in act for act in acts) for part in query)
 
@@ -854,7 +858,7 @@ class HudClicks:
         action = hit_test_targets(targets.filter, px, py)
         if action:
             # Narrow before you lift: a press on a row the filter only partly keeps
-            # ("POV Gamma" under "gamma") moves the filter onto that whole row, and
+            # ("Side Gamma" under "gamma") moves the filter onto that whole row, and
             # only a press on the row the filter already *is* turns it off, so a
             # broad filter can be tightened from the map.
             query = _norm_act(action)
@@ -893,37 +897,22 @@ class HudClicks:
 
 # --- action labels -----------------------------------------------------------
 
-# Action words that read wrong in plain title case — kept upper.
-_ACTION_ACRONYMS = {"pov": "POV"}
-
-# The camera words the metadata writes in front of an act: they say how the clip was
-# shot, not what happens in it.  Split off as an act of their own, so a filter for
-# the act lights the act and leaves the camera word gray — on one line "POV Alpha"
-# both words went white under an "alpha" filter, saying the camera angle was part
-# of what you had asked for.
-#
-# Both of them, because Evolver's backfill tool scopes *every* act it records by one
-# ("Side Alpha", "POV Alpha" — `backfill/vocabulary.py`, `_CAMERAS`), and it never
-# writes a bare act.  So every clip labeled from here on carries one of these, and a
-# list holding only "pov" would leave every "Side …" row lighting both words.
-_ACT_MODIFIERS = ("pov", "side")
-
-
 def _titlecase_word(word: str) -> str:
-    return _ACTION_ACRONYMS.get(word.lower(), word[:1].upper() + word[1:].lower())
+    return word[:1].upper() + word[1:].lower()
 
 
-def split_acts(name: str) -> list[str]:
+def split_acts(name: str, camera_words: Sequence[str]) -> list[str]:
     """*name* as the separate acts it carries, in order and unnormalized.
 
-    Commas separate acts ("Alpha, Theta Motion"), and a leading modifier is an act
-    of its own.  The single split backing both the drawing and the filter comparisons,
+    Commas separate acts ("Alpha, Theta Motion"), and a leading camera word is an
+    act of its own.  The single split backing both the drawing and the filter comparisons,
     so a row cannot be lit act by act along one seam and drawn along another.
     """
+    cameras = {word.lower() for word in camera_words}
     acts: list[str] = []
     for part in str(name or "").split(","):
         words = part.split()
-        if len(words) > 1 and words[0].lower() in _ACT_MODIFIERS:
+        if len(words) > 1 and words[0].lower() in cameras:
             acts.append(words[0])
             words = words[1:]
         if words:
@@ -931,22 +920,26 @@ def split_acts(name: str) -> list[str]:
     return acts
 
 
-def action_label_blocks(name: str) -> list[list[str]]:
+def action_label_blocks(name: str, camera_words: Sequence[str]) -> list[list[str]]:
     """A clip's action(s) drawn nicely, as one block of word-lines per action.
 
-    A clip can carry several acts ("Alpha, Theta Motion", "POV Gamma") — each becomes
+    A clip can carry several acts ("Alpha, Theta Motion", "Side Gamma") — each becomes
     its own block, so they can be drawn with a gap between the acts but tight
-    wrapping within one, and each can be lit on its own.  "(unknown)" when there is
-    no action metadata.
+    wrapping within one, and each can be lit on its own.  A camera word is drawn as
+    the source writes it, which plain title case would get wrong for an initialism.
+    "(unknown)" when there is no action metadata.
     """
-    blocks = [[_titlecase_word(word) for word in act.split()] for act in split_acts(name)]
+    as_written = {word.lower(): word for word in camera_words}
+    blocks = [[as_written.get(word.lower()) or _titlecase_word(word) for word in act.split()]
+              for act in split_acts(name, camera_words)]
     return blocks or [["(unknown)"]]
 
 
-def friendly_action_label(name: str) -> str:
+def friendly_action_label(name: str, camera_words: Sequence[str]) -> str:
     """The flat, newline-per-word form of an action label — used for measuring the
     gutter.  :func:`action_label_blocks` is what the row is actually drawn from."""
-    return "\n".join(word for block in action_label_blocks(name) for word in block)
+    return "\n".join(
+        word for block in action_label_blocks(name, camera_words) for word in block)
 
 
 def _cell(raw: object) -> HudCell | None:
@@ -981,6 +974,7 @@ def hud_text(model: HudModel) -> str:
         "active": model.active,
         "is_favorite": model.is_favorite,
         "filter_query": model.filter_query,
+        "camera_words": list(model.camera_words),
         "seed_count": model.seed_count,
         "action_count": model.action_count,
         "active_loop": model.active_loop,
@@ -1019,6 +1013,7 @@ def parse_hud(text: str) -> HudModel | None:
         actions=tuple(cell for cell in actions if cell is not None),
         current_action=str(raw.get("current_action", "") or ""),
         filter_query=str(raw.get("filter_query", "") or ""),
+        camera_words=tuple(str(word) for word in raw.get("camera_words") or ()),
         active_loop=str(raw.get("active_loop", "") or ""),
         seed_count=int(raw.get("seed_count", 0) or 0),
         action_count=int(raw.get("action_count", 0) or 0),

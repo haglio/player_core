@@ -755,7 +755,7 @@ def test_the_filter_button_lights_on_the_act_the_side_is_filtered_to(thumb):
 
 
 def test_a_row_the_filter_only_partly_matches_still_lights(thumb):
-    """fun_time keeps a "POV Gamma" clip under a "gamma" filter, so its row stays
+    """fun_time keeps a "Side Gamma" clip under a "gamma" filter, so its row stays
     lit while it is on screen.  Lighting only an exact "gamma" put the mark out the
     moment such a clip came up and back on at the next exact one — the panel saying
     the filter had dropped while the playlist under it had not changed at all."""
@@ -768,7 +768,7 @@ def test_a_row_the_filter_only_partly_matches_still_lights(thumb):
         )), current_action)
 
     assert lit_ink("gamma") > 0
-    assert lit_ink("pov gamma") > 0       # the query is one word of the act
+    assert lit_ink("side gamma") > 0      # the query is one word of the act
     assert lit_ink("gamma, theta") > 0    # one of the clip's two acts
     assert lit_ink("alpha") == 0
 
@@ -834,21 +834,21 @@ def test_a_filter_set_from_a_two_act_clip_lights_both_of_its_acts(thumb):
     assert upper > 0 and lower > 0
 
 
-@pytest.mark.parametrize("camera", ["pov", "side"])
+@pytest.mark.parametrize("camera", ["xyz", "side"])
 def test_a_leading_camera_word_stays_gray_when_its_act_is_filtered(camera, thumb):
     """A camera word in front of an act is drawn as an act of its own: under a
     "gamma" filter only "Gamma" is why the clip is here, so the camera word stays
     gray rather than reading as part of what was asked for.
 
-    Both words, because Evolver's backfill scopes every act it records by one of
-    them — so a list holding only "POV" would leave every "Side …" clip lighting
-    both of its words.
+    Every word the source names, because Evolver's backfill scopes every act it
+    records by one of them — so reading only the first would leave every clip
+    scoped by another lighting both of its words.
     """
     renderer = HudRenderer("portrait")
 
     def halves(filter_query: str) -> tuple[int, int]:
         return _white_halves(renderer.render(_model(
-            corner=HudCell(path="c.mp4", thumb=thumb),
+            corner=HudCell(path="c.mp4", thumb=thumb), camera_words=("Side", "XYZ"),
             current_action=f"{camera} gamma", filter_query=filter_query,
         )))
 
@@ -892,10 +892,21 @@ def test_gutter_width_fits_the_acts_present():
     wider than the cap for a long one — so it isn't a big empty margin."""
 
     font = load_font(7)
-    short = gutter_width_for(font, "Iota", ("Iota",))
-    long = gutter_width_for(font, "Delta", ("Delta",))
+    short = gutter_width_for(font, "Iota", ("Iota",), ())
+    long = gutter_width_for(font, "Delta", ("Delta",), ())
 
     assert short < long <= MAX_GUTTER
+
+
+def test_the_gutter_is_measured_with_a_camera_word_written_as_it_will_be_drawn():
+    """An initialism is wider in capitals than in title case, so a gutter measured
+    from the title-cased word would be too narrow for the row drawn in it."""
+    font = load_font(7)
+
+    as_an_initialism = gutter_width_for(font, "wmw iota", (), ("WMW",))
+    as_a_plain_word = gutter_width_for(font, "wmw iota", (), ())
+
+    assert as_a_plain_word < as_an_initialism <= MAX_GUTTER
 
 
 def test_a_missing_thumbnail_still_draws_the_map():
