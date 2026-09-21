@@ -43,6 +43,7 @@ from .hud_panel import (
 from .robot_hand import POSITION_MAX
 
 __all__ = [
+    "CONTROL_TIPS",
     "DRIVEN_BY_FUNSCRIPT",
     "DRIVEN_BY_NOTHING",
     "DRIVEN_BY_ROBOT_HAND",
@@ -50,6 +51,8 @@ __all__ = [
     "drive_text",
     "publish_drive",
     "read_drive",
+    "track_command",
+    "tracks",
 ]
 
 # What has the device, which is what the trace is a picture of.  The Robot
