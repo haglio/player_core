@@ -166,11 +166,59 @@ class TestPacingTheForum:
         with pytest.raises(TimeoutError):
             forum.get_json("/a.json")
 
+    def test_a_forum_too_busy_to_answer_is_waited_out_and_asked_again(self, caplog):
+        clock = _FakeClock()
+        calls = 0
+
+        def opener(request, timeout):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise _too_busy(request.full_url)
+            return _FakeResponse(b'{"ok": 1}')
+
+        forum = harvest.Forum("https://forum.invalid", {}, opener=opener,
+                              sleep=clock.sleep, clock=lambda: clock.now, pace_s=1.0,
+                              log=logging.getLogger("harvest-under-test"))
+
+        with caplog.at_level(logging.INFO, logger="harvest-under-test"):
+            assert forum.get_json("/a.json") == {"ok": 1}
+
+        assert calls == 2
+        assert [record.getMessage() for record in caplog.records] == [
+            ("no answer from https://forum.invalid/a.json (HTTP Error 503: Service Unavailable):"
+             f" waiting {harvest.NETWORK_WAITS_S[0]:.0f} s"),
+        ]
+
+    def test_a_file_that_is_simply_not_there_is_not_waited_out(self):
+        clock = _FakeClock()
+
+        def opener(request, timeout):
+            raise _not_found(request.full_url)
+
+        forum = harvest.Forum("https://forum.invalid", {}, opener=opener,
+                              sleep=clock.sleep, clock=lambda: clock.now, pace_s=1.0)
+
+        with pytest.raises(urllib.error.HTTPError):
+            forum.get_json("/a.json")
+
+        assert clock.slept == []
+
 
 def _too_many_requests(url: str, *, retry_after: str):
     headers = email.message.Message()
     headers["Retry-After"] = retry_after
     return urllib.error.HTTPError(url, 429, "Too Many Requests", headers, io.BytesIO(b"{}"))
+
+
+def _too_busy(url: str):
+    return urllib.error.HTTPError(
+        url, 503, "Service Unavailable", email.message.Message(), io.BytesIO(b""))
+
+
+def _not_found(url: str):
+    return urllib.error.HTTPError(
+        url, 404, "Not Found", email.message.Message(), io.BytesIO(b""))
 
 
 def _redirect(url: str, *, to: str):
