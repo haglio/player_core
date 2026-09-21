@@ -141,20 +141,19 @@ class Forum:
             try:
                 with self._opener(request, timeout=_TIMEOUT_S) as response:
                     return response.read()
-            except urllib.error.HTTPError as error:
-                if error.code != 429:
-                    raise
-                limited += 1
-                if limited == _RETRIES:
-                    raise RuntimeError(
-                        f"{url}: still rate limited after {_RETRIES} attempts") from error
-                wait = _wait_named_by(error) + RETRY_GRACE_S
-                self._log.info("rate limited at %s: waiting %.0f s", url, wait)
             except (OSError, http.client.HTTPException) as error:
-                if not waits_left:
+                if _rate_limited(error):
+                    limited += 1
+                    if limited == _RETRIES:
+                        raise RuntimeError(
+                            f"{url}: still rate limited after {_RETRIES} attempts") from error
+                    wait = _wait_named_by(error) + RETRY_GRACE_S
+                    self._log.info("rate limited at %s: waiting %.0f s", url, wait)
+                elif _may_be_asked_again(error) and waits_left:
+                    wait = waits_left.pop(0)
+                    self._log.info("no answer from %s (%s): waiting %.0f s", url, error, wait)
+                else:
                     raise
-                wait = waits_left.pop(0)
-                self._log.info("no answer from %s (%s): waiting %.0f s", url, error, wait)
             self._sleep(wait)
 
     def _wait_the_pace(self) -> None:
@@ -164,6 +163,16 @@ class Forum:
             if owed > 0:
                 self._sleep(owed)
         self._last_request = self._clock()
+
+
+def _rate_limited(error: Exception) -> bool:
+    return isinstance(error, urllib.error.HTTPError) and error.code == 429
+
+
+def _may_be_asked_again(error: Exception) -> bool:
+    if isinstance(error, urllib.error.HTTPError):
+        return error.code >= 500
+    return True
 
 
 def _wait_named_by(error: urllib.error.HTTPError) -> float:
