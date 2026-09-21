@@ -9,6 +9,27 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-09-21 — the clip's row is a block a panel hosts
+
+`hud_row` draws the scrubber, the volume chip and the playhead readout into a
+panel at its own width — the same track, chip and pill this package already
+paints — and `row_part` / `scrub_to` / `volume_to` say what a press on it is on
+and what it asks for. Both panels host it: `satellite_hud_paint.render` takes
+`clip_row=` (with a `heatmap` for a host that has a funscript) and reports
+`HudTargets.row`; `ConsolePainter.bgra` / `.rgba` take the same and report
+`row_rect`. A panel narrower than the row is widened for it, the way it is
+widened for its own rows, rather than letting the chip sit over the track.
+
+Both take it from the PLAYER rather than from the published model, the way the
+file name is taken: what is decoding is the player's own, not what the source
+published.
+
+What it is for: every player here laid that row along the last rows of its own
+video, which on a screen that already carries a HUD is a second panel — and on a
+wrapped video it is smeared round the nadir, which is why the headset already
+draws it on the console. Nothing a panel already draws moves: 864 made-up panels
+are byte for byte identical with `clip_row` unset.
+
 ## 2026-09-21 — a source may hang a block of its own at the panel's foot
 
 `HudModel.foot` is anything with `size()` and `paint(image, x, y, width,
