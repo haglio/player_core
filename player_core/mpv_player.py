@@ -2,10 +2,11 @@
 
 mpv hardware-decodes on the GPU end to end (d3d11va), owns audio and so gets A/V
 sync for free, seeks precisely enough to click on a timeline, and loops A-B
-natively.  ``MpvPlayer`` renders into a pygame window the caller owns (via
-``wid``); its offscreen twin (:mod:`player_core.render_player`) renders into a
-framebuffer the caller supplies.  Both drive the ``_MpvControl`` surface below,
-and both put overlays on top through ``overlay_add``.
+natively.  ``MpvPlayer`` renders into a window the caller owns (via ``wid``) --
+a pygame window, or a Qt widget's native one; its offscreen twin
+(:mod:`player_core.render_player`) renders into a framebuffer the caller
+supplies.  Both drive the ``_MpvControl`` surface below, and both put overlays
+on top through ``overlay_add``.
 
 The interface is a superset of what any one player needs, because the two use it
 differently: the main player opens one file at a time (``loop_file="inf"``) and navigates
@@ -23,10 +24,12 @@ hidden-desktop integration suite is what exercises that.
 """
 from __future__ import annotations
 
+import ctypes
 import importlib
 import logging
 import math
 import os
+import threading
 import time
 from pathlib import Path
 
@@ -190,6 +193,34 @@ def _shared_options(*, muted: bool, loop_file: bool, prefetch: bool) -> dict:
 # measured 72-492ms in the shutdown probe, and a cold clip off the network
 # drive is slower again.
 CLOSE_DRAIN_TIMEOUT_S = 10.0
+
+
+_APTTYPEQUALIFIER_IMPLICIT_MTA = 1
+
+
+def _holds_a_com_apartment() -> bool:
+    kind, qualifier = ctypes.c_int(), ctypes.c_int()
+    hr = ctypes.windll.ole32.CoGetApartmentType(ctypes.byref(kind), ctypes.byref(qualifier))
+    return hr == 0 and qualifier.value != _APTTYPEQUALIFIER_IMPLICIT_MTA
+
+
+def _terminate_outside_the_callers_apartment(handle) -> None:
+    # libmpv destroys its core on the thread that terminates it, and its WASAPI
+    # output ends with a CoUninitialize it never paired with an init there --
+    # which takes the calling thread's apartment, and a Qt GUI thread's drag
+    # and drop with it.
+    def terminate() -> None:
+        try:
+            handle.terminate()
+        except Exception:
+            pass
+
+    if not _holds_a_com_apartment():
+        terminate()
+        return
+    teardown = threading.Thread(target=terminate, name="mpv-teardown")
+    teardown.start()
+    teardown.join()
 
 
 class _MpvControl:
@@ -522,10 +553,7 @@ class _MpvControl:
         Reached only through :meth:`close`, and only once, so an override needs
         no guard of its own.
         """
-        try:
-            self._mpv.terminate()
-        except Exception:
-            pass
+        _terminate_outside_the_callers_apartment(self._mpv)
 
 
 class MpvPlayer(_MpvControl):

@@ -7,8 +7,10 @@ integration suite.
 """
 from __future__ import annotations
 
+import ctypes
 import math
 import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -289,6 +291,98 @@ def test_closing_twice_frees_once():
     control.close()
     control.close()
     assert mpv.terminated == 1
+
+
+_COINIT_APARTMENTTHREADED = 0x2
+_APTTYPE_STA = 0
+_APTTYPE_MAINSTA = 3
+
+
+class AudioOutputTeardown(FakeMpv):
+    """A handle whose teardown ends the way libmpv's does once a file with
+    sound has played: its WASAPI output calls ``CoUninitialize`` on whichever
+    thread destroys the core, having initialized COM on a thread of its own."""
+
+    def terminate(self) -> None:
+        ctypes.windll.ole32.CoUninitialize()
+
+
+def _on_a_thread_holding_an_sta(work) -> None:
+    """Run *work* on a thread holding a single-threaded apartment, as a Qt
+    app's GUI thread does."""
+    def run() -> None:
+        ole32 = ctypes.windll.ole32
+        ole32.CoInitializeEx(None, _COINIT_APARTMENTTHREADED)
+        try:
+            work()
+        finally:
+            ole32.CoUninitialize()
+
+    gui_thread = threading.Thread(target=run)
+    gui_thread.start()
+    gui_thread.join(timeout=10.0)
+
+
+def _apartment_type() -> int | None:
+    kind, qualifier = ctypes.c_int(), ctypes.c_int()
+    hr = ctypes.windll.ole32.CoGetApartmentType(ctypes.byref(kind), ctypes.byref(qualifier))
+    return kind.value if hr == 0 else None
+
+
+def test_closing_on_a_thread_that_holds_a_com_apartment_leaves_it_standing():
+    left: list[int | None] = []
+
+    def close_then_ask() -> None:
+        Control(AudioOutputTeardown()).close()
+        left.append(_apartment_type())
+
+    _on_a_thread_holding_an_sta(close_then_ask)
+    assert left in ([_APTTYPE_STA], [_APTTYPE_MAINSTA])
+
+
+class SlowTeardown(FakeMpv):
+    def __init__(self) -> None:
+        super().__init__()
+        self.torn_down = threading.Event()
+
+    def terminate(self) -> None:
+        time.sleep(0.2)
+        self.torn_down.set()
+
+
+def test_a_close_on_a_thread_holding_an_apartment_returns_once_mpv_is_torn_down():
+    """A host takes the window mpv draws into down straight after the close."""
+    mpv = SlowTeardown()
+    torn_down_at_return: list[bool] = []
+
+    def close_then_look() -> None:
+        Control(mpv).close()
+        torn_down_at_return.append(mpv.torn_down.is_set())
+
+    _on_a_thread_holding_an_sta(close_then_look)
+    assert torn_down_at_return == [True]
+
+
+class EventThreadTeardown(FakeMpv):
+    """python-mpv's terminate(): destroy the core, then join the thread that
+    delivers mpv's events -- which is a wait on itself if that thread asked."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.event_thread: threading.Thread | None = None
+
+    def terminate(self) -> None:
+        if threading.current_thread() is not self.event_thread:
+            self.event_thread.join()
+
+
+def test_a_close_from_mpvs_own_event_thread_does_not_wait_on_itself():
+    mpv = EventThreadTeardown()
+    control = Control(mpv)
+    mpv.event_thread = threading.Thread(target=control.close, daemon=True)
+    mpv.event_thread.start()
+    mpv.event_thread.join(timeout=2.0)
+    assert not mpv.event_thread.is_alive()
 
 
 STREAMING = {"name": "wasapi/{stream-id}", "description": "Speakers (Example AirLink)"}
