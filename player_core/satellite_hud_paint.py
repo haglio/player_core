@@ -46,6 +46,7 @@ from .drive_readout import DriveSection, DriveTrack, readout_targets, section_si
 from .geometry import Rect, contains
 from .hud_osr2 import HEIGHT as OSR2_H
 from .hud_osr2 import Osr2Line, Osr2Section, state_for
+from .hud_row import RowHud, RowSection
 from .hud_status import PLAYBACK_SPEED_LABEL
 from .playback_rate import format_rate
 from .satellite_hud import (
@@ -203,6 +204,7 @@ class HudRenderer:
         # drives the device itself -- see HudModel.osr2.
         self._osr2 = Osr2Section()
         self._drive = DriveSection()
+        self._clip_row = RowSection()
 
     def _thumbnail(self, cell: HudCell) -> Image.Image:
         """*cell*'s thumbnail scaled to the map's row height, or a neutral
@@ -244,6 +246,8 @@ class HudRenderer:
         model: HudModel,
         *,
         video: str = "",
+        clip_row: RowHud | None = None,
+        heatmap: np.ndarray | None = None,
         hover_loop: str = "",
         hover_tip: str = "",
         hover_pos: tuple[int, int] = (0, 0),
@@ -257,6 +261,13 @@ class HudRenderer:
         own acts), the corner when the corner is.  A lock rings the cell being
         held in white: the corner normally, or the clip a loop had reached when
         the lock was taken.
+
+        *clip_row* is where the clip on screen has got to and how loud it is, with
+        *heatmap* its funscript's colors for a host that has one: the row every
+        player used to lay along the lower edge of its own picture, drawn here
+        instead (:mod:`player_core.hud_row`).  Like *video* it comes from the
+        player rather than from *model*, being what is decoding rather than what
+        the source published.
 
         *video* is the file on screen, named under the status line.  It comes from
         the player rather than from *model*: the published panel is fun_time's answer
@@ -316,6 +327,9 @@ class HudRenderer:
                             content_width=max(band_width,
                                               2 * PAD + device_w if device_w else 0,
                                               2 * PAD + foot_w if foot_w else 0))
+        # Measured against the width that won: the row stacks its readout above
+        # the track on a panel too narrow to carry both on one line.
+        row_h = self._clip_row.size(width - 2 * PAD)[1] if clip_row is not None else 0
         # Set off from whatever the panel drew last by the break between two
         # families of control, the way the device is set off from the map.
         foot_room = foot_h + DEVICE_GAP if model.foot is not None else 0
@@ -324,7 +338,7 @@ class HudRenderer:
             subtitle_h, bands_h=CTRL_BAND_H * len(rows),
             speed_band_h=CTRL_BAND_H if model.playback_speed is not None else 0,
             device_h=device_height(model.osr2, model.drive, drive_h, len(device_rows)),
-            foot_h=foot_room)
+            foot_h=foot_room, row_h=row_h + BLOCK_GAP if clip_row is not None else 0)
         panel = HudPanel(width, height)
         image, draw = panel.image, panel.draw
 
@@ -369,6 +383,11 @@ class HudRenderer:
         foot_top = height - PAD - foot_h
         device_top = height - PAD - foot_room - device_height(
             model.osr2, model.drive, drive_h, len(device_rows))
+        row_rect = None
+        if clip_row is not None:
+            row_rect = (x, device_top - row_h, width - 2 * PAD, row_h)
+            self._clip_row.draw(image, x, row_rect[1], row_rect[2], clip_row,
+                                heatmap=heatmap)
         device_buttons, bands = self._draw_device(
             image, draw, x, device_top, model, osr2_line, drive_h,
             rows=device_rows, widths=device_row_widths)
@@ -380,11 +399,12 @@ class HudRenderer:
         if model.corner is None:
             return RenderedHud(panel.to_bgra(),
                                HudTargets(click=[], loop=[], filter=[], expand=None,
-                                          tracks=bands,
+                                          tracks=bands, row=row_rect,
                                           buttons=buttons, favorite=favorite))
 
         self._draw_counts(draw, x, y, counts)
-        right, lower = width - PAD, device_top
+        right, lower = width - PAD, (device_top - row_h - BLOCK_GAP
+                                     if clip_row is not None else device_top)
         # Room for the "…" at each end whether or not there is more to show, so
         # nothing on the map moves when a window slides or a loop goes on.
         map_x = x + gutter_w + ELLIPSIS_ROOM
@@ -444,6 +464,7 @@ class HudRenderer:
             filter=filter_rects,
             expand=expand_rect,
             tracks=bands,
+            row=row_rect,
             buttons=buttons,
             favorite=favorite,
             wrong_action=wrong_rect,

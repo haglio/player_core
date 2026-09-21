@@ -306,7 +306,8 @@ def device_height(osr2: str, drive: DriveHud | None, drive_h: int,
 
 
 def panel_height(column_height: int, subtitle_h: int = 0, bands_h: int = 0,
-                 speed_band_h: int = 0, device_h: int = 0, foot_h: int = 0) -> int:
+                 speed_band_h: int = 0, device_h: int = 0, foot_h: int = 0,
+                 row_h: int = 0) -> int:
     """How tall the panel has to be: the status band, the button bands and the
     speed row, then — around a map column *column_height* deep — the "Seed N"
     header strip, the column's own "…" slots, and the action-loop button below it.
@@ -323,12 +324,15 @@ def panel_height(column_height: int, subtitle_h: int = 0, bands_h: int = 0,
     *bands_h* is the room the declared rows of buttons take, a band each, and
     *device_h* what a host that drives the OSR2 itself adds under them (see
     :func:`device_height`) — nought for a satellite, which drives nothing — and
-    *foot_h* the room a source's own block takes under all of it.
+    *foot_h* the room a source's own block takes under all of it.  *row_h* is the
+    clip's own row -- where the video is and how loud it is -- which the player
+    drawing the panel hands over rather than the source publishing it.
 
     *column_height* is 0 before the satellite's first clip, when the panel is the
     bands and nothing else: there is no map, so no room is kept for one.
     """
-    height = PAD + STATUS_BAND_H + subtitle_h + bands_h + speed_band_h + device_h + foot_h
+    height = (PAD + STATUS_BAND_H + subtitle_h + bands_h + speed_band_h + row_h
+              + device_h + foot_h)
     if column_height:
         height += (COL_LABEL_H + COL_LABEL_GAP + ELLIPSIS_ROOM
                    + column_height + ELLIPSIS_ROOM + MAP_LOWER_RESERVE)
@@ -651,6 +655,9 @@ class HudTargets:
     # The drive readout's three bands, on a host that draws one: pressed to set
     # a level outright, and held while the pointer drags along them.
     tracks: list[DriveTrack] = field(default_factory=list)
+    # Where the clip's own row landed, for a press to be placed in its
+    # coordinates (:func:`player_core.hud_row.row_part`).
+    row: Rect | None = None
 
 
 def build_click_targets(

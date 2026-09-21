@@ -15,6 +15,7 @@ from player_core.drive_layout import SECTION_W
 from player_core.drive_readout import DRIVEN_BY_ROBOT_HAND, DriveHud
 from player_core.hud_button import Button
 from player_core.hud_panel import ACTIVE_DOT, ICON_GRIDS, SYMBOL_FONT, load_font
+from player_core.hud_row import SCRUBBER, RowHud, row_part
 from player_core.modes import Osr2State
 from player_core.satellite_hud import (
     BLOCK_GAP,
@@ -43,6 +44,7 @@ from player_core.satellite_hud_paint import (
     HudRenderer,
     gutter_width_for,
 )
+from player_core.volume import VolumeHud
 
 
 def _names(rendered) -> list[str]:
@@ -1414,3 +1416,43 @@ class TestTheBlockASourcePaintsAtTheFoot:
 
         assert block.painted_at is not None
         assert block.button in [button for _rect, button in rendered.targets.buttons]
+
+
+class TestTheRowThePanelCarriesForItsClip:
+    """Where in the video you are, and how loud it is, on the panel rather than
+    along the lower edge of the picture.
+
+    A row over the picture is a second panel on a screen that already carries
+    one -- and on a wrapped video it is smeared round the nadir, which is why
+    the headset put it on the console first.
+    """
+
+    @staticmethod
+    def _rendered(row=None, **extra):
+        return HudRenderer("portrait").render(
+            _model(lock_label="Unlocked", **extra), clip_row=row)
+
+    def test_a_player_that_hands_over_no_row_grows_none(self):
+        row = RowHud(position_ms=1_000, duration_ms=60_000, volume=VolumeHud(volume=40))
+        assert (self._rendered(row).bgra.shape[0]
+                > self._rendered().bgra.shape[0])
+
+    def test_it_sits_under_the_map_and_over_the_device(self, thumb):
+        row = RowHud(position_ms=1_000, duration_ms=60_000, volume=VolumeHud(volume=40))
+        rendered = self._rendered(
+            row, corner=HudCell(path="c.mp4", thumb=thumb),
+            seeds=(HudCell(path="s.mp4", thumb=thumb),), seed_count=2,
+            osr2=Osr2State.ROBOT_HAND, drive=DriveHud(driven=DRIVEN_BY_ROBOT_HAND))
+        map_foot = max(y + h for (_x, y, _w, h), _path in rendered.targets.click)
+        placed = rendered.targets.row
+
+        assert placed is not None
+        assert placed[1] >= map_foot
+        assert all(band.rect[1] >= placed[1] + placed[3] for band in rendered.targets.tracks)
+
+    def test_a_press_on_it_is_placed_in_the_rows_own_coordinates(self):
+        row = RowHud(position_ms=0, duration_ms=60_000, volume=VolumeHud(volume=40))
+        rendered = self._rendered(row)
+        x, y, width, height = rendered.targets.row
+
+        assert row_part(width // 2, height - 2, width=width) == SCRUBBER
