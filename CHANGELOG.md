@@ -9,6 +9,25 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-09-21 — a source may hang a block of its own at the panel's foot
+
+`HudModel.foot` is anything with `size()` and `paint(image, x, y, width,
+pointer)`: the satellite panel measures it, widens to hold it, sets it off from
+its own blocks with the break the device block already takes, and paints it
+under everything it draws itself, taking back the `(rect, Button)` targets its
+controls occupy so a press posts that button's verb and a hover names it. It is
+never published — like the device half, it is the drawing host's own, and a
+panel parsed out of a file has none.
+
+What it is for: a host that is more than a player has things to report that no
+satellite does, and the only place for them was a second panel over the same
+video. Origenerator's shows floated their generation queue that way.
+
+Nothing a player draws moves: 864 made-up panels — both orientations, three clip
+shapes, with and without a map, a device line, a readout, a file name, a rate
+and a hover — come out byte for byte identical from v0.1.296 and from this
+version with `foot` unset, targets included.
+
 ## 2026-09-20 — a source names the camera words its rows carry
 
 The words the library writes in front of an act to say how a clip was shot

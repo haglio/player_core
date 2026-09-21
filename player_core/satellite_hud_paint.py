@@ -310,15 +310,21 @@ class HudRenderer:
             controls=model.osr2_controls)
         drive_w, drive_h = section_size() if model.drive is not None else (0, 0)
         device_w = max(self._osr2.width(osr2_line) if model.osr2 else 0, drive_w)
+        foot_w, foot_h = model.foot.size() if model.foot is not None else (0, 0)
         width = panel_width(gutter_w, reach, text_width(self._body, model.lock_label),
                             text_width(self._tiny, video),
                             content_width=max(band_width,
-                                              2 * PAD + device_w if device_w else 0))
+                                              2 * PAD + device_w if device_w else 0,
+                                              2 * PAD + foot_w if foot_w else 0))
+        # Set off from whatever the panel drew last by the break between two
+        # families of control, the way the device is set off from the map.
+        foot_room = foot_h + DEVICE_GAP if model.foot is not None else 0
         height = panel_height(
             map_column_height(1 + len(action_thumbs)) if corner_thumb is not None else 0,
             subtitle_h, bands_h=CTRL_BAND_H * len(rows),
             speed_band_h=CTRL_BAND_H if model.playback_speed is not None else 0,
-            device_h=device_height(model.osr2, model.drive, drive_h, len(device_rows)))
+            device_h=device_height(model.osr2, model.drive, drive_h, len(device_rows)),
+            foot_h=foot_room)
         panel = HudPanel(width, height)
         image, draw = panel.image, panel.draw
 
@@ -356,16 +362,20 @@ class HudRenderer:
             buttons.extend(speed_buttons)
             y += CTRL_BAND_H
 
-        # The device sits at the FOOT of the panel, under the map, where the main
-        # console puts the same two blocks -- the OSR2 line then the readout
+        # The device sits under the map, the last of the panel's own blocks, where
+        # the main console puts the same two blocks -- the OSR2 line then the readout
         # under it.  Drawn here before the map so the map can be laid out against
         # the room left above them.
-        device_top = height - PAD - device_height(model.osr2, model.drive, drive_h,
-                                                  len(device_rows))
+        foot_top = height - PAD - foot_h
+        device_top = height - PAD - foot_room - device_height(
+            model.osr2, model.drive, drive_h, len(device_rows))
         device_buttons, bands = self._draw_device(
             image, draw, x, device_top, model, osr2_line, drive_h,
             rows=device_rows, widths=device_row_widths)
         buttons.extend(device_buttons)
+        if model.foot is not None:
+            buttons.extend(model.foot.paint(image, x, foot_top, width - 2 * PAD,
+                                            self._pointer))
 
         if model.corner is None:
             return RenderedHud(panel.to_bgra(),
@@ -447,7 +457,7 @@ class HudRenderer:
         the host browsing the set: the rows that aim it, the line naming
         whichever driver has it, then the readout of what is being sent.
 
-        All of it together and all of it last -- a show wears ONE panel, and
+        All of it together and last of the panel's own -- a show wears ONE panel, and
         every control that acts on the device belongs beside the picture of what
         the device is doing.  Split across the map, the hands-free switches and
         the four control states read as a different family from the line and the
