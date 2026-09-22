@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import ast
 import random
-import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -124,6 +123,17 @@ class FakeTCodeSender:
         self.closed = True
 
 
+# Where a controller built without a command file keeps one: each test's own
+# tmp_path, which pytest takes away again.  A mkdtemp dir used to be made for
+# every controller built, and nothing removed any of them.
+_COMMAND_DIR: Path | None = None
+
+
+@pytest.fixture(autouse=True)
+def _commands_in_the_tests_own_scratch(tmp_path, monkeypatch):
+    monkeypatch.setitem(globals(), "_COMMAND_DIR", tmp_path)
+
+
 def _build_controller(
     *,
     broker: BrokerFeed | None = None,
@@ -190,8 +200,7 @@ def _build_controller(
         selection=selection,
         # Absolute scratch paths: the controller writes genau_status.txt next
         # to the command file, so a relative path would pollute pytest's CWD.
-        command_file=command_file or (
-            Path(tempfile.mkdtemp(prefix="genau-refresh-")) / "command.txt"),
+        command_file=command_file or _COMMAND_DIR / "command.txt",
         status_file=status_file,
         paused_file=Path("paused.txt"),
         beats_per_loop=4.0,
