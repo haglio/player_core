@@ -183,3 +183,16 @@ def test_build_status_text_says_whether_the_learned_motion_has_the_hand():
         RobotHandState(), CruiseControlState(), learned=LearnedMotionState(active=False))
     assert "learned=1" in build_status_text(
         RobotHandState(), CruiseControlState(), learned=LearnedMotionState(active=True))
+
+
+def test_whether_the_hand_is_moving_is_said_for_a_genau_taking_its_place():
+    """A Genau arriving beside this one has to know whether to be moving when
+    it takes the room, and nothing else it can read says so."""
+    assert "playing=1" in build_status_text(RobotHandState(playing=True), CruiseControlState())
+    assert "playing=0" in build_status_text(RobotHandState(playing=False), CruiseControlState())
+
+
+def test_the_seconds_a_clip_holds_the_screen_are_said_too():
+    advance = ClipAdvanceState(interval=25)
+    assert "interval=25" in build_status_text(
+        RobotHandState(), CruiseControlState(), clip_advance=advance)

@@ -12,19 +12,19 @@ __all__ = [
     "ClipSequenceController",
 ]
 
-def _index_of(clips: list[Path], wanted: Path | None) -> int:
-    """Where *wanted* sits in *clips*, or 0 for "not among them".
+def _index_of(clips: list[Path], wanted: Path | None) -> int | None:
+    """Where *wanted* sits in *clips*, or None for "not among them".
 
     Compared case-insensitively: the path comes back through a status file
     another process wrote, and Windows hands the same file back in either case.
     """
     if wanted is None:
-        return 0
+        return None
     key = str(wanted).lower()
     for index, clip in enumerate(clips):
         if str(clip).lower() == key:
             return index
-    return 0
+    return None
 
 
 class ClipSequenceController:
@@ -39,7 +39,7 @@ class ClipSequenceController:
         if not clips:
             raise ValueError("ClipSequenceController requires at least one clip")
         self._clips = list(clips)
-        self._index = _index_of(self._clips, start_at)
+        self._index = _index_of(self._clips, start_at) or 0
 
     @property
     def count(self) -> int:
@@ -69,6 +69,13 @@ class ClipSequenceController:
         self._clips = list(clips)
         self._index = 0
         return self.current_path
+
+    def move_to(self, clip: Path) -> bool:
+        index = _index_of(self._clips, clip)
+        if index is None:
+            return False
+        self._index = index
+        return True
 
     def step(self, delta: int) -> Path:
         self._index = (self._index + delta) % len(self._clips)

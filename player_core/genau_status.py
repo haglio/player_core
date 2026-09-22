@@ -50,6 +50,8 @@ def build_status_text(
         f"spd_at_max={'1' if limits.spd_at_max else '0'}\n"
         f"spd_at_min={'1' if limits.spd_at_min else '0'}\n"
         f"hud={'1' if hud_active else '0'}\n"
+        f"playing={'1' if hand.playing else '0'}\n"
+        f"interval={advance.interval}\n"
     )
 
 

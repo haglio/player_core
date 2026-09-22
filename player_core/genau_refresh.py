@@ -14,8 +14,10 @@ from .broker_feed import snapshot
 from .clip_advance import tick_clip_advance
 from .clip_renderer import display_index_for_phase
 from .clip_scrub import ClipScrub, scrub_clip
+from .crossing import follow_channel
 from .cruise_control import tick_cruise_control
 from .file_channel import consume_command_file
+from .genau_arrival import GenauArrival
 from .genau_controls import GenauControls, apply_runtime_command
 from .genau_readout import AutoMotion, GenauReadout
 from .genau_status import GENAU_STATUS_FILENAME, write_status_file
@@ -56,6 +58,8 @@ class GenauRefreshController:
         set_console=None,
         present_scene=None,
         set_hud_mode=None,
+        arriving: bool = False,
+        let_go=lambda: None,
     ):
         self.controls = controls
         # The seven the tick itself reads, named here rather than reached for
@@ -100,7 +104,13 @@ class GenauRefreshController:
             console_file=console_file,
             set_console=set_console,
             current_clip=lambda: renderer.current_clip_path,
+            publishing=not arriving,
         )
+        self._arrival = GenauArrival(
+            controls=controls, selection=selection, renderer=renderer,
+            tcode_sender=tcode_sender, drive_file=drive_file, status_file=self.status_file,
+        ) if arriving else None
+        self._let_go = let_go
         self.present_scene = present_scene or (lambda: None)
         self.set_hud_mode = set_hud_mode or (lambda _active: None)
         # Which half of the clip is showing, and what is known about the end
@@ -130,6 +140,8 @@ class GenauRefreshController:
         now = self.now_source()
         self._adopt_whatever_finished_decoding()
         self._drain_commands()
+        if self._arrival is not None:
+            self._arrival.follow()
 
         beat = self._who_is_driving(now)
 
@@ -175,7 +187,10 @@ class GenauRefreshController:
 
         self.selection.request_nearby_prefetch()
         self.present_scene()
-        self._publish_status()
+        if self._arrival is not None and self._arrival.told_to_take_the_room:
+            self._take_the_room()
+        if self._arrival is None:
+            self._publish_status()
 
     def _adopt_whatever_finished_decoding(self) -> None:
         self.loader.adopt_loaded_clip_if_ready()
@@ -183,8 +198,15 @@ class GenauRefreshController:
         self.selection.adopt_pending_clip()
 
     def _drain_commands(self) -> None:
-        for cmd in self.consume_command(self.command_file, logger=self.logger):
+        channel = (self.command_file if self._arrival is None
+                   else follow_channel(self.command_file))
+        for cmd in self.consume_command(channel, logger=self.logger):
             apply_runtime_command(cmd, self.controls)
+
+    def _take_the_room(self) -> None:
+        arrival, self._arrival = self._arrival, None
+        self.readout.publishing = True
+        arrival.take_the_room(self._let_go)
 
     def _who_is_driving(self, now: float) -> Beat:
         """Genau's own hand, or the broker — and what the engine is told either way."""
