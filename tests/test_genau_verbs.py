@@ -8,6 +8,7 @@ from contextlib import contextmanager
 import pytest
 
 from player_core.clip_advance import MAX_INTERVAL_S, MIN_INTERVAL_S, ClipAdvanceState
+from player_core.clip_flip import ClipFlip
 from player_core.cruise_control import CruiseControlState
 from player_core.flag import Flag
 from player_core.genau_controls import (
@@ -705,6 +706,25 @@ class TestWeirdCommand:
         )
 
         assert handled is False
+
+
+class TestFlipEndsCommand:
+    def test_flip_ends_turns_the_clip_on_screen_over(self, tmp_path):
+        clip = tmp_path / "clips" / "scene one.mp4"
+        clip.parent.mkdir()
+        clip.touch()
+        flip = ClipFlip()
+        flip.follow(clip)
+
+        handled = _answered(
+            "FLIP_ENDS",
+            engine=BeatEngine(phase=0.0, last_tick=0.0),
+            paused=Flag(),
+            step_clip=lambda _step: None,
+            clip_flip=flip,
+        )
+
+        assert (handled, flip.on) == (True, True)
 
 
 class TestBrowseOrderCommands:

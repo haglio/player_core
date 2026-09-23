@@ -183,3 +183,8 @@ def test_build_status_text_says_whether_the_learned_motion_has_the_hand():
         RobotHandState(), CruiseControlState(), learned=LearnedMotionState(active=False))
     assert "learned=1" in build_status_text(
         RobotHandState(), CruiseControlState(), learned=LearnedMotionState(active=True))
+
+
+def test_build_status_text_says_whether_the_clip_on_screen_is_flipped():
+    assert "flipped=0" in build_status_text(RobotHandState(), CruiseControlState())
+    assert "flipped=1" in build_status_text(RobotHandState(), CruiseControlState(), flipped=True)

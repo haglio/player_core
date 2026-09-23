@@ -926,6 +926,10 @@ class TestTheOrderTheTickDoesThingsIn:
         loads, and the advance times its interval against the old one."""
         self._before("self._adopt_whatever_finished_decoding", "self._show_the_frame")
 
+    def test_the_flip_knows_the_clip_on_screen_before_a_command_can_flip_it(self):
+        self._before("self._adopt_whatever_finished_decoding", "self.flip.follow")
+        self._before("self.flip.follow", "self._drain_commands")
+
     def test_who_is_driving_is_settled_before_the_engine_is_told_anything(self):
         self._before("self._who_is_driving", "advance_beat")
 
@@ -1053,3 +1057,85 @@ def test_the_learned_motion_ticks_during_refresh(tmp_path):
     assert learned.times, "no phrases laid out"
     assert learned.times[-1] >= learned.clock + 30.0
     assert "learned=1" in (tmp_path / "status.txt").read_text(encoding="utf-8")
+
+
+class TestAFlippedClip:
+    @staticmethod
+    def _clip(tmp_path, *, flipped: bool = True) -> Path:
+        clip = tmp_path / "clips" / "scene one.mp4"
+        clip.parent.mkdir()
+        clip.touch()
+        if flipped:
+            (tmp_path / "flipped.txt").write_text("scene one.mp4\n", encoding="utf-8")
+        return clip
+
+    def test_the_frame_shown_is_half_a_loop_over_from_where_the_device_is(self, tmp_path):
+        tcode = FakeTCodeSender()
+        tcode._position = 5000
+        built = _build_controller(
+            path=str(self._clip(tmp_path)),
+            entry={"frames": [object() for _ in range(8)]},
+            robot_hand=RobotHandState(playing=True, bpm=120.0), tcode_sender=tcode,
+        )
+
+        built["controller"].refresh()
+
+        assert built["renderer"].display_calls[-1] == 1
+
+    def test_under_the_broker_it_is_half_a_loop_over_from_the_beat(self, tmp_path):
+        built = _build_controller(
+            path=str(self._clip(tmp_path)),
+            broker=BrokerFeed(auto_active=True, raw_bpm=120.0),
+            entry={"frames": [object() for _ in range(8)]},
+            robot_hand=RobotHandState(playing=False, bpm=60.0),
+        )
+
+        built["controller"].refresh()
+
+        assert built["renderer"].display_calls == [1]
+
+    def test_flip_ends_turns_over_the_clip_up_when_it_arrives(self, tmp_path):
+        clip = self._clip(tmp_path, flipped=False)
+        tcode = FakeTCodeSender()
+        tcode._position = 5000
+        built = _build_controller(
+            path=str(clip), command="FLIP_ENDS",
+            entry={"frames": [object() for _ in range(8)]},
+            robot_hand=RobotHandState(playing=True, bpm=120.0), tcode_sender=tcode,
+        )
+
+        built["controller"].refresh()
+
+        assert built["renderer"].display_calls == [1]
+        assert (tmp_path / "flipped.txt").read_text(encoding="utf-8") == "scene one.mp4\n"
+
+    def test_its_bar_starts_where_its_own_first_frame_puts_the_device(self, tmp_path):
+        built = _build_controller(
+            path=str(self._clip(tmp_path)),
+            entry={"frames": [object()] * 20},
+            robot_hand=RobotHandState(playing=True, speed=50, bpm=60.0),
+            tcode_sender=FakeTCodeSender(),
+        )
+        controller = built["controller"]
+        controller.refresh()
+
+        controller.seek_the_clip(0.0)
+        at_the_start = TestSeekingTheClip._height(controller)
+        controller.seek_the_clip(0.25)
+
+        assert at_the_start == pytest.approx(1.0, abs=0.01)
+        assert (controller._scrub.back_half, TestSeekingTheClip._height(controller)) == (
+            True, pytest.approx(0.5, abs=0.01))
+
+    def test_the_status_says_the_clip_up_is_flipped(self, tmp_path):
+        built = _build_controller(
+            path=str(self._clip(tmp_path)),
+            entry={"frames": [object() for _ in range(8)]},
+            robot_hand=RobotHandState(playing=True, bpm=120.0),
+            tcode_sender=FakeTCodeSender(), cruise_control=CruiseControlState(),
+            status_file=tmp_path / "genau_status.txt",
+        )
+
+        built["controller"].refresh()
+
+        assert "flipped=1" in (tmp_path / "genau_status.txt").read_text(encoding="utf-8")

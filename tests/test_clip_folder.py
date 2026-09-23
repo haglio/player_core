@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from player_core.clip_folder import (
+    flipped_record_for_clips_folder,
     move_clip_to_weird,
     scan_clips,
     weird_dir_for_clips_folder,
@@ -160,6 +161,12 @@ class TestLatestOrder:
 def test_weird_dir_sits_beside_the_clips_folder():
     assert weird_dir_for_clips_folder(Path("C:/videos/genau/clips")) == Path(
         "C:/videos/genau/weird"
+    )
+
+
+def test_the_flipped_record_sits_beside_the_clips_folder():
+    assert flipped_record_for_clips_folder(Path("C:/videos/genau/clips")) == Path(
+        "C:/videos/genau/flipped.txt"
     )
 
 

@@ -9,6 +9,15 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-09-22 — a Genau clip can be flipped half a loop, for good
+
+`FLIP_ENDS` turns the clip on screen over: its frames are shown half a loop on
+from where the device is (or from the broker's beat), the bar's seek goes back
+through the same half loop, and `genau_status.txt` says `flipped=1` while it is.
+The flip is remembered in `flipped.txt` beside the clips folder, one clip name a
+line, so the next session and the headset show that clip the same way.
+`GenauControls.clip_flip` is built by default; no shell wires anything.
+
 ## 2026-09-21 — the clip's row is a block a panel hosts
 
 `hud_row` draws the scrubber, the volume chip and the playhead readout into a
