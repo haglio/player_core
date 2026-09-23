@@ -1,7 +1,8 @@
 """The clips folder, and what sits beside it.
 
-A clips folder has two siblings: ``frames/``, where the decoded frame caches
-live, and ``weird/``, the pile a condemned clip is moved to.  Condemning does the
+A clips folder has three siblings: ``frames/``, where the decoded frame caches
+live, ``weird/``, the pile a condemned clip is moved to, and ``flipped.txt``, the
+clips shown half a loop over (:mod:`player_core.clip_flip`).  Condemning does the
 least it can — one file move.  A clip's other traces (its ``.rhcache``, the
 clipper session it was cut from, the source video's metadata) stay where they
 are, for Evolver to reconcile against the pile later.  Which clip was condemned
@@ -69,6 +70,10 @@ def cache_dir_for_clips_folder(folder: Path) -> Path:
 def weird_dir_for_clips_folder(folder: Path) -> Path:
     """The condemned pile beside a clips folder, as ``frames/`` sits beside it."""
     return folder.parent / "weird"
+
+
+def flipped_record_for_clips_folder(folder: Path) -> Path:
+    return folder.parent / "flipped.txt"
 
 
 def move_clip_to_weird(clip_path: Path, weird_dir: Path) -> Path | None:

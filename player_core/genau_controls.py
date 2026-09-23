@@ -30,6 +30,7 @@ from .clip_advance import (
     set_locked,
     toggle_lock,
 )
+from .clip_flip import ClipFlip
 from .control_registry import Control, Verb, bind, bind_keys, look_up
 from .cruise_control import (
     CruiseControlState,
@@ -94,6 +95,7 @@ class GenauControls:
     tcode_enabled: Flag = field(default_factory=lambda: Flag(on=True))
     set_volume: Callable[[int, bool], None] | None = None
     reorder_clips: Callable[[bool], None] | None = None
+    clip_flip: ClipFlip = field(default_factory=ClipFlip)
 
 
 # The acts below all take these controls and the rest of the line, and say
@@ -245,6 +247,11 @@ def _step_clip(step: int) -> Act:
 
 def _condemn(controls: GenauControls, _value: str) -> bool:
     controls.condemn_clip()
+    return True
+
+
+def _flip_ends(controls: GenauControls, _value: str) -> bool:
+    controls.clip_flip.toggle()
     return True
 
 
@@ -405,6 +412,10 @@ CONTROLS: tuple[Control, ...] = (
         name="condemn",
         needs=("condemn_clip",),
         verbs=(Verb("WEIRD", _condemn, key="K_k"),),
+    ),
+    Control(
+        name="flip_ends",
+        verbs=(Verb("FLIP_ENDS", _flip_ends),),
     ),
     # The two browse orders every player in the room has, said to the one player
     # with no playlist file to hand it: Genau owns its own sequence, so the order

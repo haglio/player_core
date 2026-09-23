@@ -68,6 +68,7 @@ class GenauRefreshController:
         self.clip_advance = controls.clip_advance_state
         self.hud = controls.hud
         self.tcode_enabled = controls.tcode_enabled
+        self.flip = controls.clip_flip
         self.broker = broker
         self.loader = loader
         self.notifier = notifier
@@ -119,16 +120,9 @@ class GenauRefreshController:
         self.failures.worked()
 
     def _refresh_once(self) -> None:
-        """One turn of the loop, in the order the order matters.
-
-        The drain runs first, before anything below reads the state a command
-        moves and before this tick's motion goes out; the arbitration decides who
-        is driving before the engine is told anything; the frame is chosen after
-        the engine has moved and shown before the scene is presented; and the
-        status file goes out last, saying what the tick just did.
-        """
         now = self.now_source()
         self._adopt_whatever_finished_decoding()
+        self.flip.follow(self.renderer.current_clip_path)
         self._drain_commands()
 
         beat = self._who_is_driving(now)
@@ -272,7 +266,7 @@ class GenauRefreshController:
         if not (active_entry and active_entry["frames"]):
             return
         frame_count = len(active_entry["frames"])
-        display_phase = (
+        display_phase = self.flip.applied_to(
             self._scrub_the_clip(frame_count) if beat.robot_hand_active
             else self.engine.phase
         )
@@ -298,6 +292,7 @@ class GenauRefreshController:
             clip_advance=self.clip_advance,
             hud_active=self._over_a_video,
             clip=self.renderer.current_clip_path,
+            flipped=self.flip.on,
         )
 
     def seek_the_clip(self, fraction: float) -> None:
@@ -315,7 +310,7 @@ class GenauRefreshController:
         entry = self.renderer.current_clip_entry()
         if self.tcode_sender is None or not (entry and entry["frames"]):
             return
-        fraction = min(1.0, max(0.0, fraction))
+        fraction = self.flip.applied_to(min(1.0, max(0.0, fraction)))
         back_half = fraction > 0.5
         height = 2 * (1 - fraction) if back_half else 2 * fraction
         self._scrub.back_half = back_half

@@ -33,6 +33,7 @@ def build_status_text(
     clip_advance: ClipAdvanceState | None = None,
     hud_active: bool = False,
     clip: Path | None = None,
+    flipped: bool = False,
 ) -> str:
     limits = control_limits(hand)
     advance = clip_advance or ClipAdvanceState()
@@ -42,6 +43,7 @@ def build_status_text(
         f"locked={'1' if advance.locked else '0'}\n"
         # Which clip is up.  Empty until the first clip is on screen.
         f"clip={clip if clip is not None else ''}\n"
+        f"flipped={'1' if flipped else '0'}\n"
         f"shape={hand.shape.value}\n"
         f"amp_at_max={'1' if limits.amp_at_max else '0'}\n"
         f"amp_at_min={'1' if limits.amp_at_min else '0'}\n"
@@ -62,10 +64,11 @@ def write_status_file(
     clip_advance: ClipAdvanceState | None = None,
     hud_active: bool = False,
     clip: Path | None = None,
+    flipped: bool = False,
 ) -> bool:
     text = build_status_text(
         hand, cruise, learned=learned, clip_advance=clip_advance, hud_active=hud_active,
-        clip=clip,
+        clip=clip, flipped=flipped,
     )
     try:
         if path.read_text(encoding="utf-8") == text:

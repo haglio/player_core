@@ -89,7 +89,7 @@ class TestHalfACommandIsNotACommand:
 # spellings are a contract with the orchestrator that sends them, kept from its
 # own side in genau's tests/test_genau_vocabulary.py.
 WRITTEN_DOWN_VERBS = frozenset({
-    "QUIT", "PREV", "NEXT", "WEIRD", "LATEST", "SHUFFLE", "OFFSET_QUARTER_CYCLE",
+    "QUIT", "PREV", "NEXT", "WEIRD", "FLIP_ENDS", "LATEST", "SHUFFLE", "OFFSET_QUARTER_CYCLE",
     "PAUSE", "RESUME", "SPEED_DOWN", "SPEED_UP", "AMPLITUDE_DOWN", "AMPLITUDE_UP",
     "CENTER_DOWN", "CENTER_UP", "CYCLE_SHAPE", "CYCLE_SHAPE_PREV", "TOGGLE_CRUISE",
     "CRUISE_ON", "CRUISE_OFF", "TOGGLE_LEARNED", "LEARNED_ON", "LEARNED_OFF",
