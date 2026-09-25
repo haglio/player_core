@@ -56,8 +56,8 @@ from .satellite_hud import (
     COL_LABEL_H,
     CTRL_BAND_H,
     CTRL_BTN,
-    DEVICE_GAP,
     ELLIPSIS_ROOM,
+    FAMILY_GAP,
     FILTER_ROOM,
     MAP_CELLS,
     MAP_GAP,
@@ -68,7 +68,6 @@ from .satellite_hud import (
     MIN_GUTTER,
     MODE_LABEL_PAD,
     PAD,
-    STATUS_BAND_H,
     STATUS_BASELINE,
     STATUS_TEXT_X,
     SUBTITLE_GAP,
@@ -95,9 +94,10 @@ from .satellite_hud import (
     loop_button_rects,
     looped_group_rect,
     map_column_height,
+    map_height,
     map_reach,
     map_window,
-    panel_height,
+    panel_layout,
     panel_width,
     playing_rect,
     seed_column_label,
@@ -334,21 +334,20 @@ class HudRenderer:
         # Measured against the width that won: the row stacks its readout above
         # the track on a panel too narrow to carry both on one line.
         row_h = self._clip_row.size(width - 2 * PAD)[1] if clip_row is not None else 0
-        # Set off from whatever the panel drew last by the break between two
-        # families of control, the way the device is set off from the map.
-        foot_room = foot_h + DEVICE_GAP if model.foot is not None else 0
-        height = panel_height(
-            map_column_height(1 + len(action_thumbs)) if corner_thumb is not None else 0,
-            subtitle_h, bands_h=CTRL_BAND_H * len(rows),
-            speed_band_h=CTRL_BAND_H if model.playback_speed is not None else 0,
+        layout = panel_layout(
+            subtitle_h=subtitle_h, bands=len(rows), speed=model.playback_speed is not None,
+            row_h=row_h,
             device_h=device_height(model.osr2, model.drive, drive_h, len(device_rows)),
-            foot_h=foot_room, row_h=row_h + BLOCK_GAP if clip_row is not None else 0)
+            foot_h=foot_h if model.foot is not None else None,
+            map_h=(map_height(map_column_height(1 + len(action_thumbs)))
+                   if corner_thumb is not None else 0))
+        height = layout.height
         panel = HudPanel(width, height)
         image, draw = panel.image, panel.draw
 
-        x, y = PAD, PAD
-        favorite = self._draw_status_band(image, draw, y, model, name_line)
-        y += STATUS_BAND_H + subtitle_h
+        x = PAD
+        favorite = self._draw_status_band(image, draw, PAD, model, name_line)
+        y = layout.bands
 
         # Laid out against the panel rather than against the map: they act on the
         # side and the clip on screen, and are there whether or not there is a map.
@@ -380,24 +379,17 @@ class HudRenderer:
             buttons.extend(speed_buttons)
             y += CTRL_BAND_H
 
-        # The device sits under the map, the last of the panel's own blocks, where
-        # the main console puts the same two blocks -- the OSR2 line then the readout
-        # under it.  Drawn here before the map so the map can be laid out against
-        # the room left above them.
-        foot_top = height - PAD - foot_h
-        device_top = height - PAD - foot_room - device_height(
-            model.osr2, model.drive, drive_h, len(device_rows))
         row_rect = None
         if clip_row is not None:
-            row_rect = (x, device_top - row_h, width - 2 * PAD, row_h)
+            row_rect = (x, layout.row, width - 2 * PAD, row_h)
             self._clip_row.draw(image, x, row_rect[1], row_rect[2], clip_row,
                                 heatmap=heatmap)
         device_buttons, bands = self._draw_device(
-            image, draw, x, device_top, model, osr2_line, drive_h,
+            image, draw, x, layout.device, model, osr2_line, drive_h,
             rows=device_rows, widths=device_row_widths)
         buttons.extend(device_buttons)
         if model.foot is not None:
-            buttons.extend(model.foot.paint(image, x, foot_top, width - 2 * PAD,
+            buttons.extend(model.foot.paint(image, x, layout.foot, width - 2 * PAD,
                                             self._pointer))
 
         if model.corner is None:
@@ -406,9 +398,9 @@ class HudRenderer:
                                           tracks=bands, row=row_rect,
                                           buttons=buttons, favorite=favorite))
 
+        y = layout.map
         self._draw_counts(draw, x, y, counts)
-        right, lower = width - PAD, (device_top - row_h - BLOCK_GAP
-                                     if clip_row is not None else device_top)
+        right, lower = width - PAD, height - PAD
         # Room for the "…" at each end whether or not there is more to show, so
         # nothing on the map moves when a window slides or a loop goes on.
         map_x = x + gutter_w + ELLIPSIS_ROOM
@@ -478,19 +470,9 @@ class HudRenderer:
     def _draw_device(self, image, draw, x: int, y: int, model: HudModel,
                      osr2_line: Osr2Line, drive_h: int, *, rows, widths,
                      ) -> tuple[list[tuple[Rect, Button]], list[DriveTrack]]:
-        """The device's own foot of the panel, where the host driving the OSR2 is
-        the host browsing the set: the rows that aim it, the line naming
-        whichever driver has it, then the readout of what is being sent.
-
-        All of it together and last of the panel's own -- a show wears ONE panel, and
-        every control that acts on the device belongs beside the picture of what
-        the device is doing.  Split across the map, the hands-free switches and
-        the four control states read as a different family from the line and the
-        readout they set.
-        """
         buttons: list[tuple[Rect, Button]] = []
         bands: list[DriveTrack] = []
-        y += DEVICE_GAP  # the break that sets this family off from the map
+        y += FAMILY_GAP
         for row, row_widths in zip(rows, widths):
             placed = button_row_rects(x, y, row, row_widths)
             for rect, button in placed:

@@ -12,17 +12,18 @@ from shared_ui.palette import BLUE, GREEN, TEXT_MUTED, TEXT_PRIMARY, WHITE
 
 from player_core.console import OSR2_PARKED
 from player_core.drive_layout import SECTION_W
-from player_core.drive_readout import DRIVEN_BY_ROBOT_HAND, DriveHud
+from player_core.drive_readout import DRIVEN_BY_ROBOT_HAND, DriveHud, section_size, tracks
 from player_core.hud_button import Button
 from player_core.hud_panel import ACTIVE_DOT, ICON_GRIDS, SYMBOL_FONT, load_font
 from player_core.hud_row import SCRUBBER, RowHud, row_part
 from player_core.modes import Osr2State
 from player_core.satellite_hud import (
     BLOCK_GAP,
+    COL_LABEL_GAP,
     COL_LABEL_H,
     CTRL_BAND_H,
-    DEVICE_GAP,
     ELLIPSIS_ROOM,
+    FAMILY_GAP,
     FILTER_ROOM,
     MAP_CELLS,
     MAP_GAP,
@@ -102,6 +103,11 @@ def _model(**overrides) -> HudModel:
 def _rgb(bgra: np.ndarray) -> np.ndarray:
     """(H, W, 3) RGB view of an mpv BGRA buffer, for pixel assertions."""
     return bgra[:, :, [2, 1, 0]]
+
+
+def _map_top(rendered) -> int:
+    corner_y = rendered.targets.click[0][0][1]
+    return corner_y - ELLIPSIS_ROOM - COL_LABEL_GAP - COL_LABEL_H
 
 
 def test_render_fills_the_panel_and_draws_the_map(thumb):
@@ -1271,25 +1277,19 @@ class TestTheDeviceOnAHostThatDrivesItself:
         posted = [button.command for _rect, button in rendered.targets.buttons]
         assert "robot_hand_speed_up" in posted
 
-    def test_the_device_sits_at_the_foot_of_the_panel_under_the_map(self, thumb):
-        """Where the main console puts it.  Drawn between the bands and the map
-        it landed in the middle of the panel, which is not where a reader
-        glancing between this app and a player looks for it."""
+    def test_the_map_hangs_under_the_device_at_the_outside_of_the_panel(self, thumb):
         rendered = HudRenderer("portrait").render(_model(
             lock_label="Unlocked", corner=HudCell(path="c.mp4", thumb=thumb),
             seeds=(HudCell(path="s.mp4", thumb=thumb),), seed_count=2,
             osr2=Osr2State.ROBOT_HAND,
             drive=DriveHud(driven=DRIVEN_BY_ROBOT_HAND)))
-        map_foot = max(y + h for (_x, y, _w, h), _path in rendered.targets.click)
+        map_top = min(y for (_x, y, _w, _h), _path in rendered.targets.click)
 
-        assert rendered.targets.tracks  # the bands are pressable with a map up
-        assert all(band.rect[1] >= map_foot for band in rendered.targets.tracks)
+        assert rendered.targets.tracks
+        assert all(band.rect[1] + band.rect[3] <= map_top for band in rendered.targets.tracks)
 
-    def test_the_rows_that_aim_the_device_stay_with_it(self, thumb):
-        """Cruise, human-inspired, the waveform, the quarter nudge and the four
-        control states act on the OSR2, so they belong beside the line naming
-        who has it and the readout they set -- not up among the rows that act on
-        the set, with a map between them."""
+    def test_the_rows_that_aim_the_device_stay_between_the_sets_bands_and_the_readout(
+            self, thumb):
         aim = (Button("robot_hand_toggle_cruise", "cc", "Cruise"),
                Button("robot_hand_park", "P", "Parked"))
         rendered = HudRenderer("portrait").render(_model(
@@ -1298,28 +1298,21 @@ class TestTheDeviceOnAHostThatDrivesItself:
             osr2=Osr2State.ROBOT_HAND, osr2_rows=(aim,),
             drive=DriveHud(driven=DRIVEN_BY_ROBOT_HAND)))
         placed = {button.command: rect for rect, button in rendered.targets.buttons}
-        map_foot = max(y + h for (_x, y, _w, h), _path in rendered.targets.click)
 
-        assert placed["robot_hand_toggle_cruise"][1] >= map_foot
-        assert placed["robot_hand_park"][1] >= map_foot
+        assert placed["robot_hand_toggle_cruise"][1] > placed["portrait_prev"][1]
         assert all(band.rect[1] > placed["robot_hand_park"][1]
                    for band in rendered.targets.tracks)
 
-    def test_the_device_is_set_off_from_the_map_by_a_family_break(self, thumb):
-        """The map ends in a loop button of its own, so with only the step two
-        rows of one group take, the first control that aims the device read as
-        one more of the map's."""
-        aim = (Button("robot_hand_toggle_cruise", "cc", "Cruise"),)
+    def test_the_map_is_set_off_from_the_device_by_a_family_break(self, thumb):
+        drive = DriveHud(driven=DRIVEN_BY_ROBOT_HAND)
         rendered = HudRenderer("portrait").render(_model(
             lock_label="Unlocked", corner=HudCell(path="c.mp4", thumb=thumb),
             seeds=(HudCell(path="s.mp4", thumb=thumb),), seed_count=2,
-            osr2=Osr2State.ROBOT_HAND, osr2_rows=(aim,),
-            drive=DriveHud(driven=DRIVEN_BY_ROBOT_HAND)))
-        map_foot = max(y + h for (_x, y, _w, h), _kind in rendered.targets.loop)
-        first_aim = min(y for (_x, y, _w, _h), button in rendered.targets.buttons
-                        if button.command == "robot_hand_toggle_cruise")
+            osr2=Osr2State.ROBOT_HAND, drive=drive))
+        readout_top = rendered.targets.tracks[0].rect[1] - tracks(0, 0, drive)[0].rect[1]
+        readout_end = readout_top + section_size()[1]
 
-        assert first_aim - map_foot >= DEVICE_GAP > BLOCK_GAP
+        assert _map_top(rendered) - readout_end >= FAMILY_GAP > BLOCK_GAP
 
     def test_a_press_in_a_band_takes_hold_of_it_and_sets_it(self):
         rendered = self._rendered(osr2=Osr2State.ROBOT_HAND,
@@ -1380,7 +1373,7 @@ class TestTheBlockASourcePaintsAtTheFoot:
         assert (self._rendered(block).bgra.shape[0]
                 > self._rendered().bgra.shape[0])
 
-    def test_it_is_painted_at_the_very_foot_under_the_device(self, thumb):
+    def test_it_is_painted_under_the_device_and_over_the_map(self, thumb):
         block = _Block()
         rendered = self._rendered(
             block, corner=HudCell(path="c.mp4", thumb=thumb),
@@ -1388,19 +1381,28 @@ class TestTheBlockASourcePaintsAtTheFoot:
             osr2=Osr2State.ROBOT_HAND, drive=DriveHud(driven=DRIVEN_BY_ROBOT_HAND))
         painted = np.argwhere((_rgb(rendered.bgra) == np.array(_Block.MARK)).all(axis=-1))
 
-        assert painted.size  # the source's own pixels are on the panel
+        assert painted.size
         assert painted[:, 0].min() > max(band.rect[1] + band.rect[3]
                                          for band in rendered.targets.tracks)
+        assert painted[:, 0].max() < _map_top(rendered)
 
-    def test_it_is_set_off_from_what_the_panel_draws_by_a_family_break(self, thumb):
+    def test_the_map_is_set_off_from_it_by_a_family_break(self, thumb):
         block = _Block()
         rendered = self._rendered(
             block, corner=HudCell(path="c.mp4", thumb=thumb),
             seeds=(HudCell(path="s.mp4", thumb=thumb),), seed_count=2)
         painted = np.argwhere((_rgb(rendered.bgra) == np.array(_Block.MARK)).all(axis=-1))
-        map_foot = max(y + h for (_x, y, _w, h), _kind in rendered.targets.loop)
 
-        assert painted[:, 0].min() - map_foot >= DEVICE_GAP > BLOCK_GAP
+        assert _map_top(rendered) - (painted[:, 0].max() + 1) >= FAMILY_GAP > BLOCK_GAP
+
+    def test_it_is_set_off_from_the_sets_own_bands_by_a_family_break(self):
+        block = _Block()
+        rendered = self._rendered(block)
+        painted = np.argwhere((_rgb(rendered.bgra) == np.array(_Block.MARK)).all(axis=-1))
+        bands_end = max(y + h for (_x, y, _w, h), button in rendered.targets.buttons
+                        if button is not block.button)
+
+        assert painted[:, 0].min() - bands_end >= FAMILY_GAP
 
     def test_the_panel_widens_to_hold_it(self):
         wide = _Block(size=(600, 30))
@@ -1461,18 +1463,18 @@ class TestTheRowThePanelCarriesForItsClip:
         assert (self._rendered(row).bgra.shape[0]
                 > self._rendered().bgra.shape[0])
 
-    def test_it_sits_under_the_map_and_over_the_device(self, thumb):
+    def test_it_sits_over_the_device_with_the_map_hanging_under_both(self, thumb):
         row = RowHud(position_ms=1_000, duration_ms=60_000, volume=VolumeHud(volume=40))
         rendered = self._rendered(
             row, corner=HudCell(path="c.mp4", thumb=thumb),
             seeds=(HudCell(path="s.mp4", thumb=thumb),), seed_count=2,
             osr2=Osr2State.ROBOT_HAND, drive=DriveHud(driven=DRIVEN_BY_ROBOT_HAND))
-        map_foot = max(y + h for (_x, y, _w, h), _path in rendered.targets.click)
         placed = rendered.targets.row
 
         assert placed is not None
-        assert placed[1] >= map_foot
         assert all(band.rect[1] >= placed[1] + placed[3] for band in rendered.targets.tracks)
+        assert all(band.rect[1] + band.rect[3] < _map_top(rendered)
+                   for band in rendered.targets.tracks)
 
     def test_a_press_on_it_is_placed_in_the_rows_own_coordinates(self):
         row = RowHud(position_ms=0, duration_ms=60_000, volume=VolumeHud(volume=40))
