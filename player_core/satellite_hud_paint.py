@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 from shared_ui.palette import (
     BG_BUTTON,
     BLUE,
@@ -58,16 +58,13 @@ from .satellite_hud import (
     CTRL_BTN,
     ELLIPSIS_ROOM,
     FAMILY_GAP,
-    FILTER_ROOM,
-    MAP_CELLS,
+    MAP_COLUMN_H,
     MAP_GAP,
-    MAP_LOWER_RESERVE,
-    MAP_RIGHT_RESERVE,
+    MAP_H,
     MAP_THUMB_H,
-    MAX_GUTTER,
-    MIN_GUTTER,
     MODE_LABEL_PAD,
     PAD,
+    ROW_LABEL_GUTTER,
     STATUS_BASELINE,
     STATUS_TEXT_X,
     SUBTITLE_GAP,
@@ -81,28 +78,26 @@ from .satellite_hud import (
     action_label_blocks,
     build_click_targets,
     button_row_rects,
-    cell_width,
     column_anchor_rect,
     device_height,
     ellipsis_rects,
     expand_button_rect,
     favorite_mark_rect,
     filter_button_rects,
-    friendly_action_label,
     label_is_filtered,
     label_stack_top,
     loop_button_rects,
     looped_group_rect,
-    map_column_height,
-    map_height,
-    map_reach,
+    map_row_width,
     map_window,
     panel_layout,
     panel_width,
+    picture_rect,
     playing_rect,
     seed_column_label,
+    slot_rects,
+    slot_width,
     speed_row,
-    thumbnail_rects,
     wrong_action_rect,
 )
 
@@ -138,27 +133,6 @@ _FAVORITE_GLYPH = shared_mark("star")
 _FUNNEL_W = 9
 _FUNNEL_H = 9
 _FUNNEL_NECK = 3  # width of the stem the mouth narrows to
-
-
-def gutter_width_for(font: ImageFont.FreeTypeFont, current_action: str,
-                     action_labels: tuple[str, ...], camera_words: tuple[str, ...], *,
-                     min_width: int = 0) -> int:
-    """Size the row-label gutter to the actions actually present — wide enough for
-    the widest word and the row's filter button, no wider — so a map of short acts
-    doesn't carry a big empty gutter, and a long one ("Delta") still fits without
-    splitting.
-
-    *min_width* is a floor the caller needs regardless of the acts: the axis counts
-    printed in the corner above the gutter have to fit in it too.
-    """
-    words = [
-        word
-        for label in (current_action, *action_labels)
-        for word in friendly_action_label(label, camera_words).split("\n")
-    ]
-    widest = max((text_width(font, word) for word in words), default=0)
-    label_w = max(widest + 2 * MAP_GAP, MIN_GUTTER)
-    return min(max(label_w + FILTER_ROOM, min_width), MAX_GUTTER)
 
 
 @dataclass(frozen=True)
@@ -207,8 +181,7 @@ class HudRenderer:
         self._clip_row = RowSection()
 
     def _thumbnail(self, cell: HudCell) -> Image.Image:
-        """*cell*'s thumbnail scaled to the map's row height, or a neutral
-        placeholder shaped like this player's clips while it is still being made."""
+        slot_w = slot_width(self._player)
         if cell.thumb:
             cached = self._thumbs.get(cell.thumb)
             if cached is None:
@@ -217,24 +190,17 @@ class HudRenderer:
                 except OSError:
                     image = None
                 if image is not None:
-                    width = max(1, round(image.width * MAP_THUMB_H / max(1, image.height)))
-                    cached = image.resize((width, MAP_THUMB_H))
+                    scale = min(slot_w / max(1, image.width), MAP_THUMB_H / max(1, image.height))
+                    cached = image.resize((max(1, round(image.width * scale)),
+                                           max(1, round(image.height * scale))))
                     self._thumbs[cell.thumb] = cached
             if cached is not None:
                 return cached
-        return Image.new("RGBA", (cell_width(self._player), MAP_THUMB_H),
-                         (*_PLACEHOLDER, 255))
+        return Image.new("RGBA", (slot_w, MAP_THUMB_H), (*_PLACEHOLDER, 255))
 
     def _map_thumbnails(
         self, model: HudModel
     ) -> tuple[Image.Image | None, list[Image.Image], list[Image.Image]]:
-        """The images for every cell of the windowed map — corner, seed row, action
-        column — decoded once and used both to measure the panel and to paste into
-        it, so what the panel was sized for is what goes in it.
-
-        The corner is None when there is no clip yet, which is also when there is no
-        row and no column.
-        """
         if model.corner is None:
             return None, [], []
         return (self._thumbnail(model.corner),
@@ -280,26 +246,10 @@ class HudRenderer:
         # every control here has one — so an empty tip means "not on a button".
         self._pointer = hover_pos if hover_tip else None
         name_line = SEPARATOR.join(part for part in (video, model.item_note) if part)
-        # The gutter is sized from the WHOLE model, before any windowing, so it does
-        # not change width as a loop's window slides along — and never narrower than
-        # the axis counts printed above it.
         counts = self._count_lines(model)
-        gutter_w = gutter_width_for(
-            self._row, model.current_action, tuple(cell.label for cell in model.actions),
-            model.camera_words,
-            min_width=max((text_width(self._tiny, line) for line in counts), default=0) + MAP_GAP,
-        )
-        # Windowed before the panel is measured, so the panel is measured around
-        # the cells that won rather than the cells fitting what was left.
         model, seed_win, action_win = self._window(model)
         corner_thumb, seed_thumbs, action_thumbs = self._map_thumbnails(model)
-        row = ([corner_thumb.width] + [thumb.width for thumb in seed_thumbs]
-               if corner_thumb is not None
-               else [cell_width(model.player)] * MAP_CELLS)
         subtitle_h = (SUBTITLE_GAP + sum(self._tiny.getmetrics())) if name_line else 0
-        # The row's reach covers the action column too: it hangs under the cell
-        # ``playing`` lights, which can be partway along the row.
-        reach = map_reach(row, [thumb.width for thumb in action_thumbs], model.playing)
         # The bands' own demand: a row the panel cannot hold clips away in
         # silence — the buttons past the edge are simply not there, with nothing
         # raised — so the panel is measured around the widest row.
@@ -323,7 +273,7 @@ class HudRenderer:
         drive_w, drive_h = section_size() if model.drive is not None else (0, 0)
         device_w = max(self._osr2.width(osr2_line) if model.osr2 else 0, drive_w)
         foot_w, foot_h = model.foot.size() if model.foot is not None else (0, 0)
-        width = panel_width(gutter_w, reach, text_width(self._body, model.lock_label),
+        width = panel_width(model.player, text_width(self._body, model.lock_label),
                             text_width(self._tiny, name_line),
                             content_width=max(
                                 band_width,
@@ -339,8 +289,7 @@ class HudRenderer:
             row_h=row_h,
             device_h=device_height(model.osr2, model.drive, drive_h, len(device_rows)),
             foot_h=foot_h if model.foot is not None else None,
-            map_h=(map_height(map_column_height(1 + len(action_thumbs)))
-                   if corner_thumb is not None else 0))
+            map_h=MAP_H if corner_thumb is not None else 0)
         height = layout.height
         panel = HudPanel(width, height)
         image, draw = panel.image, panel.draw
@@ -400,34 +349,21 @@ class HudRenderer:
 
         y = layout.map
         self._draw_counts(draw, x, y, counts)
-        right, lower = width - PAD, height - PAD
-        # Room for the "…" at each end whether or not there is more to show, so
-        # nothing on the map moves when a window slides or a loop goes on.
-        map_x = x + gutter_w + ELLIPSIS_ROOM
+        map_x = x + ROW_LABEL_GUTTER + ELLIPSIS_ROOM
         map_y = y + COL_LABEL_H + COL_LABEL_GAP + ELLIPSIS_ROOM
-        # Where the panel's own measurement already put the map's far edges — read
-        # back rather than answered again, so painting and hit-testing cannot drift.
-        map_right = right - MAP_RIGHT_RESERVE - ELLIPSIS_ROOM
-        map_lower = lower - MAP_LOWER_RESERVE - ELLIPSIS_ROOM
-        corner_rect, seed_rects, action_rects = thumbnail_rects(
-            map_x=map_x, map_y=map_y, right=map_right, lower=map_lower,
-            corner_size=corner_thumb.size,
-            seed_sizes=[thumb.size for thumb in seed_thumbs],
-            action_sizes=[thumb.size for thumb in action_thumbs],
-            playing=model.playing,
-        )
-        # The row cell the column and its own chrome hang under: the playing one
-        # while it is out along the row.
+        corner_rect, seed_rects, action_rects = slot_rects(
+            map_x=map_x, map_y=map_y, slot_w=slot_width(model.player),
+            seeds=len(seed_thumbs), actions=len(action_thumbs), playing=model.playing)
         column_rect = column_anchor_rect(model.playing, corner_rect, seed_rects)
 
-        self._draw_thumbnails(image, model, corner_rect, seed_rects, action_rects,
-                              corner_thumb, seed_thumbs, action_thumbs)
+        pictures = self._draw_thumbnails(image, model, corner_rect, seed_rects, action_rects,
+                                         corner_thumb, seed_thumbs, action_thumbs)
         held = playing_rect(model.playing, corner_rect, seed_rects, action_rects)
         if model.locked and held is not None:
-            hx, hy, hw, hh = held
+            hx, hy, hw, hh = pictures[held]
             draw.rectangle([hx, hy, hx + hw - 1, hy + hh - 1],
                            outline=(*WHITE, 255), width=_BORDER_W)
-        wrong_rect = self._draw_labels(image, draw, model, x, y, gutter_w,
+        wrong_rect = self._draw_labels(image, draw, model, x, y,
                                        corner_rect, seed_rects, action_rects,
                                        seed_offset=seed_win.start if seed_win else 0)
         filter_rects = filter_button_rects(corner_rect, action_rects, x,
@@ -436,9 +372,9 @@ class HudRenderer:
         self._draw_filter_buttons(draw, filter_rects, model)
 
         loop_action_rect, loop_seed_rect = loop_button_rects(
-            corner_rect, seed_rects, action_rects, right, lower,
-            reserve_row=ELLIPSIS_ROOM, reserve_col=ELLIPSIS_ROOM, column_rect=column_rect)
-        expand_rect = expand_button_rect(loop_seed_rect, right)
+            corner_rect, row_end=map_x + map_row_width(model.player),
+            column_end=map_y + MAP_COLUMN_H, reserve=ELLIPSIS_ROOM, column_rect=column_rect)
+        expand_rect = expand_button_rect(loop_seed_rect)
         self._draw_loop_controls(image, draw, corner_rect, column_rect, loop_action_rect,
                                  loop_seed_rect, seed_rects, action_rects,
                                  model.active_loop, hover_loop)
@@ -541,8 +477,7 @@ class HudRenderer:
         the playing cell near the middle, rather than drawing the first few and
         leaving the clip on screen off the map once playback moves past them.
         Narrowing the model here means everything downstream — rects, labels, hit
-        targets, the bright cell, and the panel measured around them — works off the
-        drawn cells alone.
+        targets and the bright cell — works off the drawn cells alone.
         """
         if model.corner is None:
             return model, None, None
@@ -620,26 +555,23 @@ class HudRenderer:
                              fill=(*TEXT_PRIMARY, 255))
 
     def _draw_thumbnails(self, image, model, corner_rect, seed_rects, action_rects,
-                         corner_thumb, seed_thumbs, action_thumbs) -> None:
-        """Paste the map, with only the clip actually on screen at full opacity.
-
-        Usually that is the corner, but while a loop plays a non-anchor clip the
-        bright cell moves to it (the map itself stays put), so the bright one always
-        reads as "this is what's on".
-        """
+                         corner_thumb, seed_thumbs, action_thumbs) -> dict[Rect, Rect]:
         bucket, index = model.playing
         drawn = [(corner_rect, corner_thumb, bucket == "corner")]
-        drawn += [(rect, thumb, bucket == "seed" and index == i)
-                  for i, (rect, thumb) in enumerate(zip(seed_rects, seed_thumbs))]
-        drawn += [(rect, thumb, bucket == "action" and index == i)
-                  for i, (rect, thumb) in enumerate(zip(action_rects, action_thumbs))]
-        for (rx, ry, _rw, _rh), thumb, bright in drawn:
+        drawn += [(slot, thumb, bucket == "seed" and index == i)
+                  for i, (slot, thumb) in enumerate(zip(seed_rects, seed_thumbs))]
+        drawn += [(slot, thumb, bucket == "action" and index == i)
+                  for i, (slot, thumb) in enumerate(zip(action_rects, action_thumbs))]
+        pictures: dict[Rect, Rect] = {}
+        for slot, thumb, bright in drawn:
+            pictures[slot] = picture_rect(slot, thumb.size)
             if not bright:
                 thumb = thumb.copy()
                 thumb.putalpha(thumb.getchannel("A").point(lambda a: int(a * _DIM)))
-            image.alpha_composite(thumb, (rx, ry))
+            image.alpha_composite(thumb, pictures[slot][:2])
+        return pictures
 
-    def _draw_labels(self, image, draw, model, x, y, gutter_w, corner_rect, seed_rects,
+    def _draw_labels(self, image, draw, model, x, y, corner_rect, seed_rects,
                      action_rects, *, seed_offset: int = 0) -> Rect | None:
         """Column labels ("Seed N") in the header strip and action names down the
         left gutter, drawn over the (possibly dimmed) thumbnails at full opacity.
@@ -679,7 +611,7 @@ class HudRenderer:
                     " ".join(block), model.filter_query, model.camera_words)
                 color = TEXT_PRIMARY if lit else TEXT_MUTED
                 for line in block:
-                    draw.text((x + gutter_w - MAP_GAP, ty + line_h / 2), line,
+                    draw.text((x + ROW_LABEL_GUTTER - MAP_GAP, ty + line_h / 2), line,
                               font=self._row, anchor="rm", fill=(*color, 255))
                     ty += line_h
                 ty += ACT_GAP
@@ -693,7 +625,7 @@ class HudRenderer:
         # whose act would be wrong, and the rows under it are other clips'.
         strike = WRONG_BTN + WRONG_GAP if model.current_action else 0
         words_end = row(cy, ch, model.current_action, extra=strike)
-        wrong = (wrong_action_rect(x + gutter_w - MAP_GAP, words_end)
+        wrong = (wrong_action_rect(x + ROW_LABEL_GUTTER - MAP_GAP, words_end)
                  if model.current_action else None)
         if wrong is not None:
             self._strike_button(image, draw, wrong)
