@@ -195,14 +195,13 @@ def test_the_column_loop_button_stays_at_the_foot_of_the_map_however_long_the_co
     assert column_loop(one)[1] + column_loop(one)[3] == one.bgra.shape[0] - PAD
 
 
-def test_a_satellite_with_no_clip_yet_gets_a_panel_only_as_tall_as_its_bands(thumb):
-    """Before the first clip there is no map, so the panel is the status and control
-    bands and nothing else — it grows to the map when there is one to draw."""
+def test_a_satellite_with_no_clip_yet_keeps_the_room_its_map_will_take(thumb):
     renderer = HudRenderer("portrait")
     shell = renderer.render(_model(lock_label="Unlocked"))
-    mapped = renderer.render(_model(corner=HudCell(path="c.mp4", thumb=thumb)))
+    mapped = renderer.render(_model(lock_label="Unlocked",
+                                    corner=HudCell(path="c.mp4", thumb=thumb)))
 
-    assert shell.bgra.shape[0] < mapped.bgra.shape[0]
+    assert shell.bgra.shape == mapped.bgra.shape
 
 
 def test_render_rings_the_locked_clip_in_white(thumb):
@@ -314,25 +313,24 @@ def _control_band_top(rendered) -> int:
     return min(y for (_x, y, _w, _h), _button in rendered.targets.buttons)
 
 
-def test_the_file_on_screen_is_named_under_the_status_line(thumb):
-    """The main player names its file in a muted line under its status, and the
-    satellites lead with the same block — so "what is this clip?" is answered in the
-    same corner of every player rather than only on the main one."""
+def test_the_file_on_screen_is_named_in_muted_gray_under_the_status_line(thumb):
+    renderer = HudRenderer("portrait")
+    model = _model(lock_label="Unlocked", corner=HudCell(path="c.mp4", thumb=thumb))
+    named = renderer.render(model, video="example clip one")
+
+    strip = _rgb(named.bgra)[PAD + STATUS_BAND_H:_control_band_top(named), STATUS_TEXT_X:-PAD]
+    assert (strip > 80).any(axis=2).sum() > 0
+    assert (strip > 200).all(axis=2).sum() == 0
+
+
+def test_the_line_the_file_name_takes_is_kept_while_there_is_no_name(thumb):
     renderer = HudRenderer("portrait")
     model = _model(lock_label="Unlocked", corner=HudCell(path="c.mp4", thumb=thumb))
     bare = renderer.render(model)
     named = renderer.render(model, video="example clip one")
 
-    added = named.bgra.shape[0] - bare.bgra.shape[0]
-    # A second line, not more of the first: the panel gains exactly the line it drew
-    # and everything under it moves down by that much.
-    assert added > 0
-    assert _control_band_top(named) - _control_band_top(bare) == added
-    # …and the name is in the room it added, in the muted gray, not the status line's
-    # full-strength white.
-    strip = _rgb(named.bgra)[_control_band_top(bare):_control_band_top(named)]
-    assert (strip > 80).any(axis=2).sum() > 0
-    assert (strip > 200).all(axis=2).sum() == 0
+    assert bare.bgra.shape == named.bgra.shape
+    assert _control_band_top(bare) == _control_band_top(named)
 
 
 def test_a_file_name_too_wide_for_the_map_widens_the_panel(thumb):
@@ -365,14 +363,19 @@ def test_a_note_about_the_clip_runs_on_after_its_name(thumb):
     assert noted.bgra.shape[0] == named.bgra.shape[0]
 
 
-def test_a_note_about_a_clip_with_no_name_still_gets_the_line(thumb):
+def test_a_note_about_a_clip_with_no_name_is_drawn_on_the_kept_name_line(thumb):
     renderer = HudRenderer("portrait")
     corner = HudCell(path="c.mp4", thumb=thumb)
 
     bare = renderer.render(_model(lock_label="Unlocked", corner=corner))
     noted = renderer.render(_model(lock_label="Unlocked", corner=corner, item_note="Enhancing…"))
 
-    assert _control_band_top(noted) > _control_band_top(bare)
+    def name_line_ink(rendered) -> int:
+        line = _rgb(rendered.bgra)[PAD + STATUS_BAND_H:_control_band_top(rendered), PAD:-PAD]
+        return int((line > 80).any(axis=2).sum())
+
+    assert name_line_ink(noted) > name_line_ink(bare) == 0
+    assert noted.bgra.shape == bare.bgra.shape
 
 
 def test_the_map_sits_where_it_sits_however_long_the_status_is(thumb):
@@ -405,15 +408,14 @@ def test_render_exposes_the_controls_it_drew(thumb):
     assert rendered.targets.expand is not None
 
 
-def test_a_panel_that_declares_no_buttons_draws_none():
-    """The buttons are the source's to declare; a panel that names none gets
-    the status line alone, with no band held open for buttons nobody asked
-    for."""
-    rendered = HudRenderer("landscape").render(
-        HudModel(player="landscape", lock_label="Unlocked"))
+def test_a_panel_that_declares_no_buttons_holds_no_band_open_for_them():
+    renderer = HudRenderer("landscape")
+    bare = renderer.render(HudModel(player="landscape", lock_label="Unlocked"))
+    one_row = renderer.render(HudModel(player="landscape", lock_label="Unlocked",
+                                       rows=(player_rows("landscape")[-1],)))
 
-    assert rendered.targets.buttons == []
-    assert rendered.bgra.shape[0] == 2 * PAD + STATUS_BAND_H
+    assert bare.targets.buttons == []
+    assert one_row.bgra.shape[0] - bare.bgra.shape[0] == CTRL_BAND_H
 
 
 def test_render_draws_the_sides_own_controls_even_with_no_clip():
@@ -743,10 +745,7 @@ def test_the_map_prints_how_big_each_axis_is(thumb):
     def corner_ink(**counts) -> int:
         rendered = renderer.render(_model(corner=HudCell(path="c.mp4", thumb=thumb), **counts))
         (cx, cy, _cw, _ch), _path = rendered.targets.click[0]
-        # The block left of the map and above its first row, below the status and
-        # control bands: the "Seed N" column headers live to the right of it, over
-        # the thumbnails.
-        block = _rgb(rendered.bgra)[PAD + STATUS_BAND_H + CTRL_BAND_H:cy, PAD:cx - MAP_GAP]
+        block = _rgb(rendered.bgra)[_map_top(rendered):cy, PAD:cx - MAP_GAP]
         return int((block > 80).sum())
 
     assert corner_ink(seed_count=12, action_count=4) > 0
@@ -981,6 +980,17 @@ def test_hovering_a_button_draws_its_tooltip(thumb):
     assert not np.array_equal(plain.bgra, tipped.bgra)
 
 
+def test_a_panel_with_no_clip_yet_still_names_the_button_under_the_pointer():
+    renderer = HudRenderer("landscape")
+    model = _model(player="landscape", lock_label="Unlocked")
+    x, y, _w, _h = _rects(renderer.render(model))["lock"]
+
+    short_tip = renderer.render(model, hover_tip="Lock", hover_pos=(x + 2, y + 2))
+    long_tip = renderer.render(model, hover_tip="Lock this clip", hover_pos=(x + 2, y + 2))
+
+    assert not np.array_equal(short_tip.bgra, long_tip.bgra)
+
+
 def test_a_tooltip_longer_than_the_panel_is_wide_stays_on_the_panel(thumb):
     """The reported bug: the trash button's tooltip wants more width than a
     portrait panel has, so it was drawn straight off the right edge and read
@@ -1038,8 +1048,6 @@ def test_the_reset_button_is_never_lit():
 
 
 def test_column_labels_are_clipped_to_their_column(thumb):
-    """A portrait map's columns are barely wider than "Seed N", so a label must be
-    cut at its column rather than run into the next one."""
     renderer = HudRenderer("portrait")
     rendered = renderer.render(
         _model(corner=HudCell(path="c.mp4", thumb=thumb),
@@ -1048,10 +1056,7 @@ def test_column_labels_are_clipped_to_their_column(thumb):
 
     (cx, _cy, cw, _ch), _path = rendered.targets.click[0]
     (sx, _sy, _sw, _sh), _seed = rendered.targets.click[1]
-    # The header strip sits above the thumbnails — under the status and control
-    # bands, which is what the two band heights step past.  Nothing may be drawn in
-    # the gap between the corner column and the next one.
-    strip_y = PAD + STATUS_BAND_H + CTRL_BAND_H
+    strip_y = _map_top(rendered)
     header = _rgb(rendered.bgra)[strip_y:strip_y + COL_LABEL_H, cx + cw:sx]
     assert (header > 60).sum() == 0
 
