@@ -9,6 +9,17 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-09-25 — a source can put the newest frame of a picture being made over the one on screen
+
+`SHOW_FRAME <path to an image>` asks a player to draw that picture over what it
+is showing, and `CLEAR_FRAME` to take it off; a player drops it by itself when
+its list moves on. Origenerator sends them for a picture ComfyUI is still making
+-- a generation, or an enhancement of the picture on screen -- so a show on a
+satellite shows the work as it comes in, the way its own window does. Neither
+name is in `__all__` yet: the consumer gate calls a declared name no sibling
+imports a name published for nobody, so they are declared once Fun Time's
+players answer them.
+
 ## 2026-09-25 — a source can say something about the clip on screen, after its name
 
 `HudModel.item_note` is published and parsed with the rest of the panel, and the

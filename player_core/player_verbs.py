@@ -83,6 +83,9 @@ DISPLAY_OFF = "DISPLAY_OFF"
 # <seconds>, 0 holding it until something else moves it).
 SET_PACE = "SET_PACE"
 
+SHOW_FRAME = "SHOW_FRAME"
+CLEAR_FRAME = "CLEAR_FRAME"
+
 QUIT = "QUIT"
 
 
