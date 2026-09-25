@@ -60,7 +60,6 @@ from .satellite_hud import (
     FAMILY_GAP,
     MAP_COLUMN_H,
     MAP_GAP,
-    MAP_H,
     MAP_THUMB_H,
     MODE_LABEL_PAD,
     PAD,
@@ -249,7 +248,7 @@ class HudRenderer:
         counts = self._count_lines(model)
         model, seed_win, action_win = self._window(model)
         corner_thumb, seed_thumbs, action_thumbs = self._map_thumbnails(model)
-        subtitle_h = (SUBTITLE_GAP + sum(self._tiny.getmetrics())) if name_line else 0
+        subtitle_h = SUBTITLE_GAP + sum(self._tiny.getmetrics())
         # The bands' own demand: a row the panel cannot hold clips away in
         # silence — the buttons past the edge are simply not there, with nothing
         # raised — so the panel is measured around the widest row.
@@ -288,8 +287,7 @@ class HudRenderer:
             subtitle_h=subtitle_h, bands=len(rows), speed=model.playback_speed is not None,
             row_h=row_h,
             device_h=device_height(model.osr2, model.drive, drive_h, len(device_rows)),
-            foot_h=foot_h if model.foot is not None else None,
-            map_h=MAP_H if corner_thumb is not None else 0)
+            foot_h=foot_h if model.foot is not None else None)
         height = layout.height
         panel = HudPanel(width, height)
         image, draw = panel.image, panel.draw
@@ -316,8 +314,9 @@ class HudRenderer:
         # the side's speed verb and a hover names it like any other.
         if model.playback_speed is not None:
             label_width = text_width(self._tiny, PLAYBACK_SPEED_LABEL) + BUTTON_GROUP_GAP
-            speed_buttons, rate_rect = speed_row(model.player, x, y, label_width=label_width)
-            draw.text((PAD, y + CTRL_BTN / 2), PLAYBACK_SPEED_LABEL,
+            speed_buttons, rate_rect = speed_row(model.player, x, layout.speed,
+                                                 label_width=label_width)
+            draw.text((PAD, layout.speed + CTRL_BTN / 2), PLAYBACK_SPEED_LABEL,
                       font=self._tiny, anchor="lm", fill=(*TEXT_MUTED, 255))
             for rect, button in speed_buttons:
                 draw_button(image, draw, rect, button, hovered=self._pointer_is_on(rect),
@@ -326,7 +325,6 @@ class HudRenderer:
             draw.text((rx + rw / 2, ry + rh / 2), format_rate(model.playback_speed),
                       font=self._tiny, anchor="mm", fill=(*TEXT_PRIMARY, 255))
             buttons.extend(speed_buttons)
-            y += CTRL_BAND_H
 
         row_rect = None
         if clip_row is not None:
@@ -341,16 +339,23 @@ class HudRenderer:
             buttons.extend(model.foot.paint(image, x, layout.foot, width - 2 * PAD,
                                             self._pointer))
 
-        if model.corner is None:
-            return RenderedHud(panel.to_bgra(),
-                               HudTargets(click=[], loop=[], filter=[], expand=None,
-                                          tracks=bands, row=row_rect,
-                                          buttons=buttons, favorite=favorite))
+        map_targets = (self._draw_map(image, draw, model, layout.map, counts,
+                                      (corner_thumb, seed_thumbs, action_thumbs),
+                                      (seed_win, action_win), hover_loop)
+                       if corner_thumb is not None
+                       else HudTargets(click=[], loop=[], filter=[], expand=None))
+        if hover_tip:
+            draw_tooltip(draw, self._tiny, hover_tip, hover_pos, (width, height))
+        return RenderedHud(panel.to_bgra(), replace(
+            map_targets, tracks=bands, row=row_rect, buttons=buttons, favorite=favorite))
 
-        y = layout.map
-        self._draw_counts(draw, x, y, counts)
-        map_x = x + ROW_LABEL_GUTTER + ELLIPSIS_ROOM
-        map_y = y + COL_LABEL_H + COL_LABEL_GAP + ELLIPSIS_ROOM
+    def _draw_map(self, image, draw, model: HudModel, top: int, counts: tuple[str, ...],
+                  thumbs, windows, hover_loop: str) -> HudTargets:
+        corner_thumb, seed_thumbs, action_thumbs = thumbs
+        seed_win, action_win = windows
+        self._draw_counts(draw, PAD, top, counts)
+        map_x = PAD + ROW_LABEL_GUTTER + ELLIPSIS_ROOM
+        map_y = top + COL_LABEL_H + COL_LABEL_GAP + ELLIPSIS_ROOM
         corner_rect, seed_rects, action_rects = slot_rects(
             map_x=map_x, map_y=map_y, slot_w=slot_width(model.player),
             seeds=len(seed_thumbs), actions=len(action_thumbs), playing=model.playing)
@@ -363,10 +368,10 @@ class HudRenderer:
             hx, hy, hw, hh = pictures[held]
             draw.rectangle([hx, hy, hx + hw - 1, hy + hh - 1],
                            outline=(*WHITE, 255), width=_BORDER_W)
-        wrong_rect = self._draw_labels(image, draw, model, x, y,
+        wrong_rect = self._draw_labels(image, draw, model, PAD, top,
                                        corner_rect, seed_rects, action_rects,
                                        seed_offset=seed_win.start if seed_win else 0)
-        filter_rects = filter_button_rects(corner_rect, action_rects, x,
+        filter_rects = filter_button_rects(corner_rect, action_rects, PAD,
                                            model.current_action,
                                            [cell.label for cell in model.actions])
         self._draw_filter_buttons(draw, filter_rects, model)
@@ -384,10 +389,7 @@ class HudRenderer:
                                     action_rects, axis, window)
         if expand_rect is not None:
             self._glyph_button(image, draw, expand_rect, _EXPAND_GLYPH)
-        if hover_tip:
-            draw_tooltip(draw, self._tiny, hover_tip, hover_pos, (width, height))
-
-        targets = HudTargets(
+        return HudTargets(
             click=build_click_targets(corner_rect, seed_rects, action_rects,
                                       model.corner, model.seeds, model.actions),
             loop=[(button, kind)
@@ -395,13 +397,8 @@ class HudRenderer:
                   if button is not None],
             filter=filter_rects,
             expand=expand_rect,
-            tracks=bands,
-            row=row_rect,
-            buttons=buttons,
-            favorite=favorite,
             wrong_action=wrong_rect,
         )
-        return RenderedHud(panel.to_bgra(), targets)
 
     def _draw_device(self, image, draw, x: int, y: int, model: HudModel,
                      osr2_line: Osr2Line, drive_h: int, *, rows, widths,

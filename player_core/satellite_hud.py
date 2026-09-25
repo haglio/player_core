@@ -237,17 +237,17 @@ class PanelLayout:
 
 
 def panel_layout(*, subtitle_h: int = 0, bands: int = 0, speed: bool = False,
-                 row_h: int = 0, device_h: int = 0, foot_h: int | None = None,
-                 map_h: int = 0) -> PanelLayout:
+                 row_h: int = 0, device_h: int = 0,
+                 foot_h: int | None = None) -> PanelLayout:
     bands_top = PAD + STATUS_BAND_H + subtitle_h
     speed_top = bands_top + bands * CTRL_BAND_H
     row_top = speed_top + (CTRL_BAND_H if speed else 0)
     device_top = row_top + row_h
     foot_top = device_top + device_h + (FAMILY_GAP if foot_h is not None else 0)
     blocks_end = foot_top + (foot_h or 0)
-    map_top = blocks_end + (FAMILY_GAP if map_h and blocks_end > row_top else 0)
+    map_top = blocks_end + (FAMILY_GAP if blocks_end > row_top else 0)
     return PanelLayout(bands_top, speed_top, row_top, device_top, foot_top, map_top,
-                       map_top + map_h + PAD)
+                       map_top + MAP_H + PAD)
 
 
 @dataclass(frozen=True)
