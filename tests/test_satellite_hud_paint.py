@@ -321,6 +321,30 @@ def test_a_file_name_too_wide_for_the_map_widens_the_panel(thumb):
     assert long.bgra.shape[0] == short.bgra.shape[0]
 
 
+def test_a_note_about_the_clip_runs_on_after_its_name(thumb):
+    renderer = HudRenderer("portrait")
+    corner = HudCell(path="c.mp4", thumb=thumb)
+
+    named = renderer.render(_model(lock_label="Unlocked", corner=corner), video="clip")
+    noted = renderer.render(
+        _model(lock_label="Unlocked", corner=corner,
+               item_note="a considerably longer note about the clip than the map is wide"),
+        video="clip")
+
+    assert noted.bgra.shape[1] > named.bgra.shape[1]
+    assert noted.bgra.shape[0] == named.bgra.shape[0]
+
+
+def test_a_note_about_a_clip_with_no_name_still_gets_the_line(thumb):
+    renderer = HudRenderer("portrait")
+    corner = HudCell(path="c.mp4", thumb=thumb)
+
+    bare = renderer.render(_model(lock_label="Unlocked", corner=corner))
+    noted = renderer.render(_model(lock_label="Unlocked", corner=corner, item_note="Enhancing…"))
+
+    assert _control_band_top(noted) > _control_band_top(bare)
+
+
 def test_the_map_sits_where_it_sits_however_long_the_status_is(thumb):
     """The status band is one line deep and stays one line deep, so the map is
     anchored at the same place on every panel — a side that has picked up a filter
