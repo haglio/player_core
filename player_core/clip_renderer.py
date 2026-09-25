@@ -12,26 +12,9 @@ __all__ = [
     "ClipRenderController",
 ]
 
-def display_index_for_phase(
-    *,
-    phase: float,
-    frame_count: int,
-    auto_active: bool,
-    current_frame_index: int | None,
-) -> int:
-    """The frame a loop *phase* names, counting back from the clip's last frame.
-
-    With nothing driving -- neither the hand nor the broker -- the frame that is
-    up stays up rather than snapping to wherever a frozen phase points.
-    """
-    logical_index = int(phase * frame_count)
-    if logical_index >= frame_count:
-        logical_index = frame_count - 1
-
-    display_index = (frame_count - 1) - logical_index
-    if not auto_active and current_frame_index is not None:
-        return current_frame_index
-    return display_index
+def display_index_for_phase(phase: float, frame_count: int) -> int:
+    logical_index = min(int(phase * frame_count), frame_count - 1)
+    return (frame_count - 1) - logical_index
 
 
 class ClipRenderController:

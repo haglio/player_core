@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 
 from .broker_feed import snapshot
+from .broker_park import BrokerPark
 from .clip_advance import tick_clip_advance
 from .clip_renderer import display_index_for_phase
 from .clip_scrub import ClipScrub, scrub_clip
@@ -69,6 +70,7 @@ class GenauRefreshController:
         self.hud = controls.hud
         self.tcode_enabled = controls.tcode_enabled
         self.flip = controls.clip_flip
+        self.parked = controls.parked
         self.broker = broker
         self.loader = loader
         self.notifier = notifier
@@ -107,6 +109,7 @@ class GenauRefreshController:
         # Which half of the clip is showing, and what is known about the end
         # the motion is at — see :meth:`_scrub_the_clip`.
         self._scrub = ClipScrub()
+        self._broker_park: BrokerPark | None = None
 
     def refresh(self) -> None:
         try:
@@ -162,7 +165,8 @@ class GenauRefreshController:
                 phase=self.engine.phase, bpm=self.engine.estimated_bpm or 0.0))
 
         self._follow_the_window_flags()
-        self._show_the_frame(beat)
+        self._follow_the_room_park(now)
+        self._show_the_frame(beat, now)
 
         pending = self.selection.pending_clip_name
         self.set_loading_text(f"Loading {pending}" if pending else None)
@@ -256,7 +260,14 @@ class GenauRefreshController:
         if self.hud is not None and self.hud.moved():
             self.set_hud_mode(self.hud.on)
 
-    def _show_the_frame(self, beat: Beat) -> None:
+    def _follow_the_room_park(self, now: float) -> None:
+        if self.robot_hand.playing:
+            self.parked.on = False
+            self._broker_park = None
+        elif self.parked.on and self._broker_park is None:
+            self._broker_park = BrokerPark(self._scrub.height, now)
+
+    def _show_the_frame(self, beat: Beat, now: float) -> None:
         """Which frame of the decoded clip to put up.
 
         Driving its own hand, the frame is the picture of where the device is;
@@ -265,17 +276,19 @@ class GenauRefreshController:
         active_entry = self.renderer.current_clip_entry()
         if not (active_entry and active_entry["frames"]):
             return
+        if beat.robot_hand_active and self._the_picture_holds_still:
+            return
         frame_count = len(active_entry["frames"])
         display_phase = self.flip.applied_to(
-            self._scrub_the_clip(frame_count) if beat.robot_hand_active
+            self._scrub_the_clip(frame_count, now) if beat.robot_hand_active
             else self.engine.phase
         )
-        self.renderer.show_frame_at(display_index_for_phase(
-            phase=display_phase,
-            frame_count=frame_count,
-            auto_active=beat.auto_active,
-            current_frame_index=self.renderer.current_frame_index,
-        ))
+        self.renderer.show_frame_at(display_index_for_phase(display_phase, frame_count))
+
+    @property
+    def _the_picture_holds_still(self) -> bool:
+        return (not self.robot_hand.playing and self._broker_park is None
+                and self.renderer.current_frame_index is not None)
 
     @property
     def _over_a_video(self) -> bool:
@@ -325,7 +338,7 @@ class GenauRefreshController:
             rising=not back_half,
         ))
 
-    def _scrub_the_clip(self, frame_count: int) -> float:
+    def _scrub_the_clip(self, frame_count: int, now: float) -> float:
         """How far through the clip to be: exactly as far as the device is up
         its own axis.
 
@@ -337,8 +350,9 @@ class GenauRefreshController:
         """
         if self.tcode_sender is None:
             return self.engine.phase
-        return scrub_clip(
-            self._scrub,
-            self.tcode_sender.current_position() / POSITION_MAX,
-            frame_count,
-        )
+        return scrub_clip(self._scrub, self._height_of_the_device(now), frame_count)
+
+    def _height_of_the_device(self, now: float) -> float:
+        if self._broker_park is not None:
+            return self._broker_park.height_at(now)
+        return self.tcode_sender.current_position() / POSITION_MAX
