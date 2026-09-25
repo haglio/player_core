@@ -11,11 +11,11 @@ import time
 from pathlib import Path
 
 from .broker_feed import snapshot
-from .broker_park import BrokerPark
 from .clip_advance import tick_clip_advance
 from .clip_renderer import display_index_for_phase
 from .clip_scrub import ClipScrub, scrub_clip
 from .cruise_control import tick_cruise_control
+from .device_walk import Walk, the_broker_holding, the_hand_taking_back
 from .file_channel import consume_command_file
 from .genau_controls import GenauControls, apply_runtime_command
 from .genau_readout import AutoMotion, GenauReadout
@@ -70,7 +70,7 @@ class GenauRefreshController:
         self.hud = controls.hud
         self.tcode_enabled = controls.tcode_enabled
         self.flip = controls.clip_flip
-        self.parked = controls.parked
+        self.room_hold = controls.room_hold
         self.broker = broker
         self.loader = loader
         self.notifier = notifier
@@ -109,7 +109,9 @@ class GenauRefreshController:
         # Which half of the clip is showing, and what is known about the end
         # the motion is at — see :meth:`_scrub_the_clip`.
         self._scrub = ClipScrub()
-        self._broker_park: BrokerPark | None = None
+        self._walk: Walk | None = None
+        self._held: float | None = None
+        self._following = self.robot_hand.playing
 
     def refresh(self) -> None:
         try:
@@ -165,7 +167,7 @@ class GenauRefreshController:
                 phase=self.engine.phase, bpm=self.engine.estimated_bpm or 0.0))
 
         self._follow_the_window_flags()
-        self._follow_the_room_park(now)
+        self._follow_the_room_hold(now)
         self._show_the_frame(beat, now)
 
         pending = self.selection.pending_clip_name
@@ -260,12 +262,16 @@ class GenauRefreshController:
         if self.hud is not None and self.hud.moved():
             self.set_hud_mode(self.hud.on)
 
-    def _follow_the_room_park(self, now: float) -> None:
-        if self.robot_hand.playing:
-            self.parked.on = False
-            self._broker_park = None
-        elif self.parked.on and self._broker_park is None:
-            self._broker_park = BrokerPark(self._scrub.height, now)
+    def _follow_the_room_hold(self, now: float) -> None:
+        if self.robot_hand.playing and self.tcode_enabled.on:
+            self.room_hold.height = None
+        held = self.room_hold.height
+        if held is not None and held != self._held:
+            self._walk = the_broker_holding(self._scrub.height, now)
+        following = held is None and self.robot_hand.playing
+        if following and not self._following:
+            self._walk = the_hand_taking_back(self._scrub.height, now)
+        self._held, self._following = held, following
 
     def _show_the_frame(self, beat: Beat, now: float) -> None:
         """Which frame of the decoded clip to put up.
@@ -287,7 +293,7 @@ class GenauRefreshController:
 
     @property
     def _the_picture_holds_still(self) -> bool:
-        return (not self.robot_hand.playing and self._broker_park is None
+        return (not self.robot_hand.playing and self._held is None
                 and self.renderer.current_frame_index is not None)
 
     @property
@@ -344,6 +350,7 @@ class GenauRefreshController:
         return scrub_clip(self._scrub, self._height_of_the_device(now), frame_count)
 
     def _height_of_the_device(self, now: float) -> float:
-        if self._broker_park is not None:
-            return self._broker_park.height_at(now)
-        return self.tcode_sender.current_position() / POSITION_MAX
+        live = self.tcode_sender.current_position() / POSITION_MAX
+        if self._walk is None:
+            return live
+        return self._walk.height_at(now, live if self._held is None else self._held)

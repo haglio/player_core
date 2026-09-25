@@ -32,9 +32,8 @@ from shared_ui.palette import (
 from shared_ui.spacing import BUTTON_GAP
 
 from .console import (
+    HELD_HEIGHT,
     OSR2_CONTROL_OFF,
-    OSR2_PARKED,
-    OSR2_RETRACTED,
     Button,
     ConsoleModel,
     ModeHud,
@@ -103,9 +102,6 @@ _LENGTH_LABELS = {LengthMode.FULL: "Full length", LengthMode.SHORTS: "Shorts"}
 # the trailing "(v1)" the archivist's revision, leaving the volume as the part
 # that says which one you are inside.
 _REVISION = re.compile(r"\s*\(v\d+\)$")
-
-# Where each hold keeps the device, as a trace height: home, and the far end.
-_HELD_HEIGHT = {OSR2_PARKED: 0.0, OSR2_RETRACTED: 1.0}
 
 # What the OSR2 state means for the trace.  Auto is the device running itself,
 # which is a motion of its own to draw in a color of its own.  Off is nothing
@@ -308,7 +304,7 @@ class ConsolePainter:
         # playhead — set by the same function that drew the line under the dot —
         # since the round trip lags the arbiter, and the arbiter itself decides
         # seconds before the device is done riding the blue.
-        held = _HELD_HEIGHT.get(hud.console.osr2_control)
+        held = HELD_HEIGHT.get(hud.console.osr2_control)
         if hud.console.device_drives_itself:
             # The device is running its own firmware, and that wins over
             # everything the room does to it: a hold, a let-go, a handoff
