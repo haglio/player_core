@@ -47,7 +47,7 @@ from .geometry import Rect, contains
 from .hud_osr2 import HEIGHT as OSR2_H
 from .hud_osr2 import Osr2Line, Osr2Section, state_for
 from .hud_row import RowHud, RowSection
-from .hud_status import PLAYBACK_SPEED_LABEL
+from .hud_status import PLAYBACK_SPEED_LABEL, SEPARATOR
 from .playback_rate import format_rate
 from .satellite_hud import (
     ACT_GAP,
@@ -279,6 +279,7 @@ class HudRenderer:
         # position is only current while something under it has a tooltip —
         # every control here has one — so an empty tip means "not on a button".
         self._pointer = hover_pos if hover_tip else None
+        name_line = SEPARATOR.join(part for part in (video, model.item_note) if part)
         # The gutter is sized from the WHOLE model, before any windowing, so it does
         # not change width as a loop's window slides along — and never narrower than
         # the axis counts printed above it.
@@ -295,7 +296,7 @@ class HudRenderer:
         row = ([corner_thumb.width] + [thumb.width for thumb in seed_thumbs]
                if corner_thumb is not None
                else [cell_width(model.player)] * MAP_CELLS)
-        subtitle_h = (SUBTITLE_GAP + sum(self._tiny.getmetrics())) if video else 0
+        subtitle_h = (SUBTITLE_GAP + sum(self._tiny.getmetrics())) if name_line else 0
         # The row's reach covers the action column too: it hangs under the cell
         # ``playing`` lights, which can be partway along the row.
         reach = map_reach(row, [thumb.width for thumb in action_thumbs], model.playing)
@@ -323,7 +324,7 @@ class HudRenderer:
         device_w = max(self._osr2.width(osr2_line) if model.osr2 else 0, drive_w)
         foot_w, foot_h = model.foot.size() if model.foot is not None else (0, 0)
         width = panel_width(gutter_w, reach, text_width(self._body, model.lock_label),
-                            text_width(self._tiny, video),
+                            text_width(self._tiny, name_line),
                             content_width=max(
                                 band_width,
                                 2 * PAD + device_w if device_w else 0,
@@ -346,7 +347,7 @@ class HudRenderer:
         image, draw = panel.image, panel.draw
 
         x, y = PAD, PAD
-        favorite = self._draw_status_band(image, draw, y, model, video)
+        favorite = self._draw_status_band(image, draw, y, model, name_line)
         y += STATUS_BAND_H + subtitle_h
 
         # Laid out against the panel rather than against the map: they act on the
@@ -518,7 +519,7 @@ class HudRenderer:
         return button.width or text_width(self._tiny, button.glyph) + 2 * MODE_LABEL_PAD
 
     def _draw_status_band(self, image, draw, y: int, model: HudModel,
-                          video: str) -> Rect | None:
+                          name_line: str) -> Rect | None:
         """The active-side dot, the status line, the file on screen under it, and
         the favorite mark at the head of that line.  Returns the mark's rect.
 
@@ -537,11 +538,11 @@ class HudRenderer:
         draw_active_dot(draw, PAD, y + 2, model.active)
         draw.text((STATUS_TEXT_X, y + STATUS_BASELINE), model.lock_label,
                   font=self._body, anchor="ls", fill=(*TEXT_PRIMARY, 255))
-        if not video:
+        if not name_line:
             return None
         _ascent, descent = self._body.getmetrics()
         line_y = y + STATUS_BASELINE + descent + SUBTITLE_GAP
-        draw.text((STATUS_TEXT_X, line_y), video,
+        draw.text((STATUS_TEXT_X, line_y), name_line,
                   font=self._tiny, anchor="la", fill=(*TEXT_MUTED, 255))
         favorite = favorite_mark_rect(line_y, sum(self._tiny.getmetrics()))
         draw_mark(image, shared_mark_name(_FAVORITE_GLYPH), favorite,

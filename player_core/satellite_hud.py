@@ -151,6 +151,7 @@ class HudModel:
     # Whether the clip on screen is one of the favorites — marked in the control
     # band, beside the buttons that act on that clip.
     is_favorite: bool = False
+    item_note: str = ""
     corner: HudCell | None = None
     seeds: tuple[HudCell, ...] = ()
     actions: tuple[HudCell, ...] = ()
@@ -998,6 +999,7 @@ def hud_text(model: HudModel) -> str:
         "lock_label": model.lock_label,
         "active": model.active,
         "is_favorite": model.is_favorite,
+        "item_note": model.item_note,
         "filter_query": model.filter_query,
         "camera_words": list(model.camera_words),
         "seed_count": model.seed_count,
@@ -1033,6 +1035,7 @@ def parse_hud(text: str) -> HudModel | None:
         lock_label=str(raw.get("lock_label", "") or ""),
         active=bool(raw.get("active", False)),
         is_favorite=bool(raw.get("is_favorite", False)),
+        item_note=str(raw.get("item_note", "") or ""),
         corner=_cell(raw.get("corner")),
         seeds=tuple(cell for cell in seeds if cell is not None),
         actions=tuple(cell for cell in actions if cell is not None),

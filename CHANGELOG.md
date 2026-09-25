@@ -9,6 +9,16 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-09-25 — a source can say something about the clip on screen, after its name
+
+`HudModel.item_note` is published and parsed with the rest of the panel, and the
+renderer draws it on the line under the status, after the file name and the same
+` · ` the status line joins its slots with -- alone on that line where the player
+names no file. What it is for: Origenerator's shows say there which version of a
+picture is on screen and whether a better one is being made or waiting to be,
+which a satellite playing one of its shows had no way to show. Unset, nothing any
+panel draws moves.
+
 ## 2026-09-22 — a Genau clip can be flipped half a loop, for good
 
 `FLIP_ENDS` turns the clip on screen over: its frames are shown half a loop on
