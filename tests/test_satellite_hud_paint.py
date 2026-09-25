@@ -24,10 +24,10 @@ from player_core.satellite_hud import (
     CTRL_BAND_H,
     ELLIPSIS_ROOM,
     FAMILY_GAP,
-    FILTER_ROOM,
+    FILTER_BTN,
     MAP_CELLS,
     MAP_GAP,
-    MAX_GUTTER,
+    MAP_THUMB_H,
     PAD,
     STATUS_BAND_H,
     STATUS_DOT,
@@ -38,12 +38,12 @@ from player_core.satellite_hud import (
     button_tooltip,
     ellipsis_rects,
     looped_group_rect,
+    slot_width,
 )
 from player_core.satellite_hud_paint import (
     _EXPAND_GLYPH,
     _LOOP_GLYPH,
     HudRenderer,
-    gutter_width_for,
 )
 from player_core.volume import VolumeHud
 
@@ -65,14 +65,9 @@ def thumb(tmp_path: Path) -> str:
     return str(path)
 
 
-# A side's clips are NOT all one shape, which is the whole reason the panel is
-# measured around the map instead of the map fitted into the panel.  fun_time
-# caches thumbnails at a 160px longest edge, so these are the shapes the map scales
-# down: each side's nominal one (9:16, 16:9) and a squarer one, which is the case
-# that used to lose a cell.
 CLIP_SHAPES = {
-    "portrait": [(90, 160), (132, 160)],
-    "landscape": [(160, 90), (160, 125)],
+    "portrait": [(90, 160), (132, 160), (160, 90)],
+    "landscape": [(160, 90), (160, 125), (160, 69)],
 }
 
 
@@ -133,14 +128,6 @@ def _crowded(player: str, thumb: str) -> HudModel:
 
 @pytest.mark.parametrize("player,shape", _sides_and_shapes())
 def test_the_map_is_three_cells_a_side_whatever_shape_its_clips_are(player, shape, clip_thumb):
-    """The reported bug: the portrait map drew two cells across where the landscape
-    one drew three.
-
-    The panel used to be measured against one assumed cell width per side — the
-    narrowest a portrait clip gets — and the map then windowed into whatever room
-    that left, so a row of the wider portrait clips ran out of panel after the second
-    one.  The count is fixed now and the panel gives, so every shape gets three.
-    """
     rendered = HudRenderer(player).render(_crowded(player, clip_thumb(player, shape)))
 
     rects = [rect for rect, _path in rendered.targets.click]
@@ -164,6 +151,48 @@ def test_the_panel_stops_where_its_last_controls_do(player, shape, clip_thumb):
     _lx, ly, _lw, lh = loop["action"]
     assert ex + ew == width - PAD
     assert ly + lh == height - PAD
+
+
+@pytest.mark.parametrize("player", CLIP_SHAPES)
+def test_the_map_holds_its_cells_and_buttons_in_place_whatever_shape_its_clips_are(
+        player, clip_thumb):
+    renderer = HudRenderer(player)
+    lone = renderer.render(_model(player=player, corner=HudCell(
+        path="c.mp4", thumb=clip_thumb(player, CLIP_SHAPES[player][0]))))
+    crowded = [renderer.render(_crowded(player, clip_thumb(player, shape)))
+               for shape in CLIP_SHAPES[player]]
+
+    assert len({rendered.bgra.shape for rendered in [lone, *crowded]}) == 1
+    assert len({tuple(rect for rect, _path in rendered.targets.click)
+                for rendered in crowded}) == 1
+    assert len({(rendered.targets.expand, tuple(rendered.targets.loop))
+                for rendered in [lone, *crowded]}) == 1
+
+
+def test_the_panel_is_as_tall_with_one_act_on_its_map_as_with_three(thumb):
+    renderer = HudRenderer("portrait")
+    corner = HudCell(path="c.mp4", thumb=thumb)
+    one = renderer.render(_model(corner=corner))
+    three = renderer.render(_model(corner=corner, actions=(
+        HudCell(path="a1.mp4", thumb=thumb, label="beta"),
+        HudCell(path="a2.mp4", thumb=thumb, label="gamma"))))
+
+    assert one.bgra.shape[0] == three.bgra.shape[0]
+
+
+def test_the_column_loop_button_stays_at_the_foot_of_the_map_however_long_the_column(thumb):
+    renderer = HudRenderer("portrait")
+    corner = HudCell(path="c.mp4", thumb=thumb)
+    one = renderer.render(_model(corner=corner))
+    three = renderer.render(_model(corner=corner, actions=(
+        HudCell(path="a1.mp4", thumb=thumb, label="beta"),
+        HudCell(path="a2.mp4", thumb=thumb, label="gamma"))))
+
+    def column_loop(rendered):
+        return dict((kind, rect) for rect, kind in rendered.targets.loop)["action"]
+
+    assert column_loop(one) == column_loop(three)
+    assert column_loop(one)[1] + column_loop(one)[3] == one.bgra.shape[0] - PAD
 
 
 def test_a_satellite_with_no_clip_yet_gets_a_panel_only_as_tall_as_its_bands(thumb):
@@ -268,18 +297,12 @@ def test_the_status_text_starts_clear_of_the_dot(thumb):
 
 
 def test_a_status_too_wide_for_the_map_widens_the_panel_rather_than_wrapping(thumb):
-    """The real worst case on the narrow portrait panel: lock/loop, order, F-mode
-    and a filter.  The panel is measured around the map, and three of those parts
-    already outrun what a column of portrait clips is wide — so the width the map
-    asks for is a floor, not the answer, and the status takes whatever more it
-    needs.  A second line would be the alternative, and the line reads as one
-    state of one side; split across two it reads as two."""
     def rendered(label: str):
         return HudRenderer("portrait").render(
             _model(lock_label=label, corner=HudCell(path="c.mp4", thumb=thumb)))
 
     short = rendered("Locked")
-    long = rendered("Looping actions · Latest · F-Mode · beta gamma")
+    long = rendered("Looping actions · Locked · Latest · F-Mode · Enhanceds · beta gamma")
 
     assert long.bgra.shape[1] > short.bgra.shape[1]
     assert long.bgra.shape[0] == short.bgra.shape[0]
@@ -321,7 +344,8 @@ def test_a_file_name_too_wide_for_the_map_widens_the_panel(thumb):
 
     short = renderer.render(model, video="clip")
     long = renderer.render(
-        model, video="a considerably longer example clip name than the map is wide")
+        model, video="a considerably longer example clip name than the map is wide,"
+                     " made longer still so that no map could ever be as wide")
 
     assert long.bgra.shape[1] > short.bgra.shape[1]
     assert long.bgra.shape[0] == short.bgra.shape[0]
@@ -817,7 +841,7 @@ def _label_band(rendered):
     """
     (cx, cy, _cw, ch), _path = rendered.targets.click[0]
     lower = rendered.targets.wrong_action[1] if rendered.targets.wrong_action else cy + ch
-    return (_rgb(rendered.bgra)[cy:lower, PAD + FILTER_ROOM:cx - MAP_GAP] > 200).all(axis=2)
+    return (_rgb(rendered.bgra)[cy:lower, PAD + FILTER_BTN + MAP_GAP:cx - MAP_GAP] > 200).all(axis=2)
 
 
 def _white_halves(rendered) -> tuple[int, int]:
@@ -920,26 +944,18 @@ def test_a_long_action_name_is_never_drawn_over_its_filter_button(thumb):
     assert np.array_equal(button_pixels("motion"), button_pixels("iota"))
 
 
-def test_gutter_width_fits_the_acts_present():
-    """The gutter is sized to the acts actually shown — narrow for short ones, no
-    wider than the cap for a long one — so it isn't a big empty margin."""
+def test_the_map_stands_in_the_same_place_whatever_its_acts_are_called(thumb):
+    renderer = HudRenderer("portrait")
 
-    font = load_font(7)
-    short = gutter_width_for(font, "Iota", ("Iota",), ())
-    long = gutter_width_for(font, "Delta", ("Delta",), ())
+    def rendered(act: str):
+        return renderer.render(_model(
+            corner=HudCell(path="c.mp4", thumb=thumb), current_action=act,
+            actions=(HudCell(path="a1.mp4", thumb=thumb, label=act),)))
 
-    assert short < long <= MAX_GUTTER
+    short, long = rendered("iota"), rendered("wmw longestword")
 
-
-def test_the_gutter_is_measured_with_a_camera_word_written_as_it_will_be_drawn():
-    """An initialism is wider in capitals than in title case, so a gutter measured
-    from the title-cased word would be too narrow for the row drawn in it."""
-    font = load_font(7)
-
-    as_an_initialism = gutter_width_for(font, "wmw iota", (), ("WMW",))
-    as_a_plain_word = gutter_width_for(font, "wmw iota", (), ())
-
-    assert as_a_plain_word < as_an_initialism <= MAX_GUTTER
+    assert short.bgra.shape == long.bgra.shape
+    assert short.targets.click == long.targets.click
 
 
 def test_a_missing_thumbnail_still_draws_the_map():
@@ -949,7 +965,7 @@ def test_a_missing_thumbnail_still_draws_the_map():
 
     assert rendered.targets.click == [(rendered.targets.click[0][0], "c.mp4")]
     x, y, w, h = rendered.targets.click[0][0]
-    assert (w, h) == (30, 54)
+    assert (w, h) == (slot_width("portrait"), MAP_THUMB_H)
 
 
 def test_hovering_a_button_draws_its_tooltip(thumb):
@@ -983,7 +999,8 @@ def test_a_tooltip_longer_than_the_panel_is_wide_stays_on_the_panel(thumb):
         return rows.min(), rows.max(), cols.max()
 
     upper, lower, right = tooltip_bounds(
-        "Unfavorite it — or mark weird when it is not a favorite")
+        "Unfavorite it — or mark weird when it is not a favorite, and it is asked"
+        " about again the next time it comes round")
     short_upper, short_lower, _ = tooltip_bounds("Bin")
 
     assert right < plain.shape[1] - 1  # it stopped short of the far edge

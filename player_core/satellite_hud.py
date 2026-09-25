@@ -67,33 +67,15 @@ ROW_GAP = 12        # vertical gap between action rows — roomier than the seed
 ACT_GAP = 6         # gap between two acts stacked in one row label
 COL_LABEL_H = 13    # header strip above the map for the "Seed N" column labels
 COL_LABEL_GAP = 4   # breathing room between a column label and its thumbnail
-MIN_GUTTER = 30     # row-label gutter: never narrower than this
-MAX_GUTTER = 100    # …and never wider, so a stray long act can't eat the map
+ROW_LABEL_GUTTER = 100
 LOOP_BTN = 18       # loop-button thickness: below the action column, right of the row
 FILTER_BTN = 18     # act-filter button: at the head of each row, in the gutter
-FILTER_ROOM = FILTER_BTN + MAP_GAP  # what it takes out of the row-label gutter
 
-# What the map keeps clear past the end of each axis for that axis's own buttons:
-# the seed-loop and expand buttons right of the row, the action-loop button below
-# the column.  The panel is measured with these and the map laid out against them,
-# so a widened row can never push a button off the panel.
 MAP_RIGHT_RESERVE = 2 * (LOOP_BTN + MAP_GAP)
 MAP_LOWER_RESERVE = LOOP_BTN + MAP_GAP
 
-# The map is three cells on a side — the clip on screen in the corner, two of its
-# seeds along the row, two of its other acts down the column.  Each axis is
-# windowed to this many cells and the panel is then measured around the cells that
-# won, so the count is what is fixed and the panel is what gives.  Sizing it the
-# other way round — a panel of some chosen width, and as many cells as happened to
-# fit — is what made the portrait map two cells wide: its clips are not all 9:16,
-# and a row of the wider ones ran out of panel after the second one.
 MAP_CELLS = 3
-# The nominal width of one of a player's cells: a clip of that player's usual shape
-# scaled to MAP_THUMB_H (fun_time caches thumbnails at a 160px longest edge, so a
-# 9:16 lands on 30 and a 16:9 on 96).  Only for the two cases with no thumbnail to
-# measure — the placeholder drawn while fun_time is still producing a frame, and
-# the panel before the first clip arrives.  A real cell is always measured.
-CELL_W = {"portrait": 30, "landscape": 96}
+WIDEST_FULL_HEIGHT_SHAPE = {"portrait": (4, 5), "landscape": (16, 9)}
 
 STATUS_BAND_H = 24        # the band the line sits in — one line deep, always
 STATUS_DOT = 10           # the active-player dot at the head of the band
@@ -212,72 +194,26 @@ class HudModel:
 
 # --- map geometry ------------------------------------------------------------
 
-# The slot at each end of an axis for the "…" that says the map runs on past what
-# is drawn, and the room it takes with a gap either side of it.  That room is kept
-# unconditionally — loop or no loop, more to show or not — so nothing on the map
-# ever shifts: not when a window slides, not when a mark appears, and not when a
-# loop is switched on or off.
 ELLIPSIS = 12
 ELLIPSIS_ROOM = ELLIPSIS + 2 * MAP_GAP
+MAP_COLUMN_H = MAP_CELLS * MAP_THUMB_H + (MAP_CELLS - 1) * ROW_GAP
+MAP_H = (COL_LABEL_H + COL_LABEL_GAP + ELLIPSIS_ROOM + MAP_COLUMN_H
+         + ELLIPSIS_ROOM + MAP_LOWER_RESERVE)
 
 
-def cell_width(player: str) -> int:
-    """The nominal width of one of *player*'s cells — see :data:`CELL_W`.  Used only
-    where there is no thumbnail to measure."""
-    return CELL_W.get(player, CELL_W["portrait"])
+def slot_width(player: str) -> int:
+    across, down = WIDEST_FULL_HEIGHT_SHAPE.get(player, WIDEST_FULL_HEIGHT_SHAPE["portrait"])
+    return round(MAP_THUMB_H * across / down)
 
 
-def map_row_width(widths: list[int]) -> int:
-    """The room a map row of cells *widths* across takes, its gaps included."""
-    return sum(widths) + max(0, len(widths) - 1) * MAP_GAP
+def map_row_width(player: str) -> int:
+    return MAP_CELLS * slot_width(player) + (MAP_CELLS - 1) * MAP_GAP
 
 
-def map_reach(row_widths: list[int], action_widths: list[int], playing: Cell) -> int:
-    """How far right the map runs: the seed row itself, or — when the action
-    column hangs under a cell partway along it — that cell's offset plus the
-    widest action cell, whichever reaches further.
-
-    *row_widths* is the whole drawn row, corner first.  The panel is measured
-    with this rather than with the row alone, so a column hanging under the row's
-    last cell cannot poke out of the panel when one of its clips is wider than
-    the cell above it.
-    """
-    bucket, index = playing
-    cell = index + 1 if bucket == "seed" and 0 <= index < len(row_widths) - 1 else 0
-    offset = sum(row_widths[:cell]) + cell * MAP_GAP
-    return max(map_row_width(row_widths), offset + max(action_widths, default=0))
-
-
-def map_column_height(cells: int) -> int:
-    """The room a map column of *cells* rows takes, its gaps included.  Every row
-    is scaled to one height, so a count is all this needs."""
-    return cells * MAP_THUMB_H + max(0, cells - 1) * ROW_GAP
-
-
-def panel_width(gutter: int, row_width: int, status_width: int,
-                subtitle_width: int = 0, *, content_width: int = 0) -> int:
-    """How wide the panel has to be: room for a map row *row_width* across — the
-    row-label gutter, the map's left "…" slot, the row, its right "…" slot, and the
-    seed-loop and expand buttons past that — or room for a status line
-    *status_width* across beside its dot, whichever asks for more.
-
-    The map's demand is a floor, not the answer.  The line carries everything one
-    player is doing at once, and three of those parts already outrun a row of portrait
-    clips; the panel gives rather than the line, because a status broken over two
-    lines reads as two states instead of one.
-
-    *subtitle_width* is the file on screen, named under the status line and starting
-    in the same column, so whichever of the two lines is longer is what the top block
-    asks for.  It gives the same way the status does — a name cut off mid-word says
-    nothing about which clip this is, which is the whole reason it is drawn.
-
-    *content_width* is the widest demand of the blocks that are not the map,
-    already inset: the control band — whose labeled mode pair can outrun a
-    portrait map's width — and, on a host that drives the device, its OSR2 line
-    and drive readout.  Each of those clips away in silence rather than
-    wrapping, so the panel gives.
-    """
-    for_map = PAD + gutter + ELLIPSIS_ROOM + row_width + ELLIPSIS_ROOM + MAP_RIGHT_RESERVE + PAD
+def panel_width(player: str, status_width: int, subtitle_width: int = 0, *,
+                content_width: int = 0) -> int:
+    for_map = (PAD + ROW_LABEL_GUTTER + ELLIPSIS_ROOM + map_row_width(player) + ELLIPSIS_ROOM
+               + MAP_RIGHT_RESERVE + PAD)
     return max(for_map, STATUS_TEXT_X + max(status_width, subtitle_width) + PAD, content_width)
 
 
@@ -287,11 +223,6 @@ def device_height(osr2: str, drive: DriveHud | None, drive_h: int,
             + (OSR2_H + BLOCK_GAP if osr2 else 0)
             + (drive_h + BLOCK_GAP if drive is not None else 0))
     return room + FAMILY_GAP if room else 0
-
-
-def map_height(column_height: int) -> int:
-    return (COL_LABEL_H + COL_LABEL_GAP + ELLIPSIS_ROOM
-            + column_height + ELLIPSIS_ROOM + MAP_LOWER_RESERVE)
 
 
 @dataclass(frozen=True)
@@ -338,9 +269,6 @@ def map_window(total: int, playing: int, limit: int = MAP_CELLS) -> MapWindow:
     from the corner, while one whose playing cell has moved along keeps that cell in
     the middle — which is what stops the lit cell walking off the end of the map and
     leaving nothing highlighted at all.
-
-    A count, not a measurement: the panel is measured around the run that wins, so
-    what the map shows never depends on the shape of the clips in it.
     """
     if total <= 0 or limit <= 0:
         return MapWindow(0, 0, False, False)
@@ -371,45 +299,28 @@ def column_anchor_rect(playing: Cell, corner_rect: Rect, seed_rects: list[Rect])
     return corner_rect
 
 
-def thumbnail_rects(
+def slot_rects(
     *,
     map_x: int,
     map_y: int,
-    right: int,
-    lower: int,
-    corner_size: tuple[int, int],
-    seed_sizes: list[tuple[int, int]],
-    action_sizes: list[tuple[int, int]],
+    slot_w: int,
+    seeds: int,
+    actions: int,
     playing: Cell = ("corner", 0),
 ) -> tuple[Rect, list[Rect], list[Rect]]:
-    """Positioned ``(x, y, w, h)`` rects for the map's thumbnails.
+    corner = (map_x, map_y, slot_w, MAP_THUMB_H)
+    seed_rects = [(map_x + step * (slot_w + MAP_GAP), map_y, slot_w, MAP_THUMB_H)
+                  for step in range(1, min(seeds + 1, MAP_CELLS))]
+    column_x = column_anchor_rect(playing, corner, seed_rects)[0]
+    action_rects = [(column_x, map_y + step * (MAP_THUMB_H + ROW_GAP), slot_w, MAP_THUMB_H)
+                    for step in range(1, min(actions + 1, MAP_CELLS))]
+    return corner, seed_rects, action_rects
 
-    The corner sits at the origin, seeds walk right until one would cross
-    *right*, actions walk down until one would cross *lower* — each dropped
-    rather than clipped, exactly as the map is drawn.  The column starts under
-    whichever row cell *playing* lights (:func:`column_anchor_rect`), since the
-    acts in it are that seed's.  Sizes are the thumbnails' already-scaled
-    dimensions.  This is the single source of the map geometry, so painting and
-    click hit-testing cannot drift apart.
-    """
-    cw, ch = corner_size
-    corner = (map_x, map_y, cw, ch)
-    seeds: list[Rect] = []
-    seed_x = map_x + cw + MAP_GAP
-    for w, h in seed_sizes:
-        if seed_x + w > right:
-            break
-        seeds.append((seed_x, map_y, w, h))
-        seed_x += w + MAP_GAP
-    actions: list[Rect] = []
-    column_x = column_anchor_rect(playing, corner, seeds)[0]
-    action_y = map_y + ch + ROW_GAP
-    for w, h in action_sizes:
-        if action_y + h > lower:
-            break
-        actions.append((column_x, action_y, w, h))
-        action_y += h + ROW_GAP
-    return corner, seeds, actions
+
+def picture_rect(slot: Rect, size: tuple[int, int]) -> Rect:
+    x, y, w, h = slot
+    width, height = size
+    return (x + (w - width) // 2, y + (h - height) // 2, width, height)
 
 
 def playing_rect(
@@ -441,32 +352,18 @@ def _col_lower(corner_rect: Rect, action_rects: list[Rect]) -> int:
 
 def loop_button_rects(
     corner_rect: Rect | None,
-    seed_rects: list[Rect],
-    action_rects: list[Rect],
-    right: int,
-    lower: int,
     *,
-    reserve_row: int = 0,
-    reserve_col: int = 0,
+    row_end: int,
+    column_end: int,
+    reserve: int = 0,
     column_rect: Rect | None = None,
 ) -> tuple[Rect | None, Rect | None]:
-    """``(loop_action_rect, loop_seed_rect)``: a button below the action column
-    and one right of the seed row — or None for either that would overflow the
-    panel.  The action button loops the column, the seed button the row.
-
-    *reserve_row* / *reserve_col* are the room each axis keeps past its end for the
-    "…" mark, so the buttons clear it.  *column_rect* is the row cell the column
-    hangs under (:func:`column_anchor_rect`), so the action button follows the
-    column; it defaults to the corner.
-    """
     if corner_rect is None:
         return None, None
-    cx, cy, cw, ch = corner_rect
+    _cx, cy, _cw, ch = corner_rect
     col_x, _col_y, col_w, _col_h = corner_rect if column_rect is None else column_rect
-    loop_action_y = _col_lower(corner_rect, action_rects) + reserve_col + MAP_GAP
-    loop_action = (col_x, loop_action_y, col_w, LOOP_BTN) if loop_action_y + LOOP_BTN <= lower else None
-    loop_seed_x = _row_right(corner_rect, seed_rects) + reserve_row + MAP_GAP
-    loop_seed = (loop_seed_x, cy, LOOP_BTN, ch) if loop_seed_x + LOOP_BTN <= right else None
+    loop_action = (col_x, column_end + reserve + MAP_GAP, col_w, LOOP_BTN)
+    loop_seed = (row_end + reserve + MAP_GAP, cy, LOOP_BTN, ch)
     return loop_action, loop_seed
 
 
@@ -602,17 +499,11 @@ def seed_column_label(index: int) -> str:
     return f"Seed {index + 1}"
 
 
-def expand_button_rect(loop_seed_rect: Rect | None, right: int) -> Rect | None:
-    """The "more seeds" expand button, in the seed row just right of the seed-loop
-    button — widening is the row's effect, so it lives in the row.  None when there
-    is no seed-loop button or it would overflow the panel's right edge."""
+def expand_button_rect(loop_seed_rect: Rect | None) -> Rect | None:
     if loop_seed_rect is None:
         return None
     sx, sy, sw, sh = loop_seed_rect
-    ex = sx + sw + MAP_GAP
-    if ex + LOOP_BTN > right:
-        return None
-    return (ex, sy, LOOP_BTN, sh)
+    return (sx + sw + MAP_GAP, sy, LOOP_BTN, sh)
 
 
 # --- hit-testing -------------------------------------------------------------
@@ -938,13 +829,6 @@ def action_label_blocks(name: str, camera_words: Sequence[str]) -> list[list[str
     blocks = [[as_written.get(word.lower()) or _titlecase_word(word) for word in act.split()]
               for act in split_acts(name, camera_words)]
     return blocks or [["(unknown)"]]
-
-
-def friendly_action_label(name: str, camera_words: Sequence[str]) -> str:
-    """The flat, newline-per-word form of an action label — used for measuring the
-    gutter.  :func:`action_label_blocks` is what the row is actually drawn from."""
-    return "\n".join(
-        word for block in action_label_blocks(name, camera_words) for word in block)
 
 
 def _cell(raw: object) -> HudCell | None:

@@ -16,7 +16,6 @@ from player_core.satellite_hud import (
     LOOP_BTN,
     MAP_CELLS,
     MAP_GAP,
-    MIN_GUTTER,
     PAD,
     ROW_GAP,
     STATUS_TEXT_X,
@@ -32,19 +31,19 @@ from player_core.satellite_hud import (
     ellipsis_rects,
     expand_button_rect,
     filter_button_rects,
-    friendly_action_label,
     hit_test_targets,
     hud_text,
     label_is_filtered,
     loop_button_rects,
     looped_group_rect,
-    map_reach,
     map_row_width,
     map_window,
     panel_width,
     parse_hud,
+    picture_rect,
+    slot_rects,
+    slot_width,
     speed_row,
-    thumbnail_rects,
 )
 
 # Fabricated: the words a source says the library writes in front of an act.
@@ -60,15 +59,11 @@ def _squares(x: int, y: int, buttons) -> list:
 
 
 def test_the_panel_is_as_wide_as_its_map_or_its_status_whichever_asks_for_more():
-    """A portrait row is barely wider than its three clips, while the status carries
-    everything the side is doing at once, so on that side the line is regularly the
-    wider of the two — and the panel is what gives, since a status split over two
-    lines reads as two states rather than one side's."""
-    for_map = panel_width(MIN_GUTTER, 90, 0)
-    room = for_map - STATUS_TEXT_X - PAD  # what the map's own width leaves the status
+    for_map = panel_width("portrait", 0)
+    room = for_map - STATUS_TEXT_X - PAD
 
-    assert panel_width(MIN_GUTTER, 90, room) == for_map
-    assert panel_width(MIN_GUTTER, 90, room + 20) == for_map + 20
+    assert panel_width("portrait", room) == for_map
+    assert panel_width("portrait", room + 20) == for_map + 20
 
 
 def test_parse_hud_reads_whether_this_side_has_the_floor():
@@ -176,8 +171,6 @@ def test_a_loop_near_its_end_clamps_rather_than_running_off():
 
 
 def test_an_axis_shorter_than_the_window_gives_only_what_it_has():
-    """Two seeds is a two-cell row, not a three-cell row with a gap in it — and the
-    panel is then measured around the two."""
     window = map_window(2, playing=0)
 
     assert (window.start, window.count) == (0, 2)
@@ -247,76 +240,63 @@ def test_pressing_a_two_act_rows_button_filters_to_both_of_its_acts():
     assert clicks.press(_filter_targets("Gamma, Theta Motion"), 5, 5, now=1.0) == "portrait_no_filter"
 
 
-def test_thumbnail_rects_positions_the_map_and_drops_overflow():
-    """The corner anchors the map; seeds walk right and actions walk down, each
-    dropped (not clipped) when it would cross the panel edge."""
-    corner, seeds, actions = thumbnail_rects(
-        map_x=100, map_y=50, right=300, lower=280,
-        corner_size=(30, 54),
-        seed_sizes=[(30, 54), (30, 54), (200, 54)],   # the third would cross right=300
-        action_sizes=[(30, 54), (30, 200)],           # the second would cross lower=280
-    )
+def test_slot_rects_lays_the_row_and_the_column_out_in_fixed_slots_three_to_a_side():
+    corner, seeds, actions = slot_rects(map_x=100, map_y=50, slot_w=30, seeds=5, actions=5)
 
     assert corner == (100, 50, 30, 54)
-    s1 = 100 + 30 + MAP_GAP
-    s2 = s1 + 30 + MAP_GAP
-    assert seeds == [(s1, 50, 30, 54), (s2, 50, 30, 54)]   # third dropped
-    assert actions == [(100, 50 + 54 + ROW_GAP, 30, 54)]   # second dropped
+    assert seeds == [(100 + 30 + MAP_GAP, 50, 30, 54), (100 + 2 * (30 + MAP_GAP), 50, 30, 54)]
+    assert actions == [(100, 50 + 54 + ROW_GAP, 30, 54), (100, 50 + 2 * (54 + ROW_GAP), 30, 54)]
+
+
+def test_slot_rects_draws_only_the_slots_an_axis_has_clips_for():
+    _corner, seeds, actions = slot_rects(map_x=0, map_y=0, slot_w=30, seeds=1, actions=0)
+
+    assert len(seeds) == 1
+    assert actions == []
 
 
 def test_the_action_column_hangs_under_the_playing_seed():
-    """Mid-loop the column is the playing seed's own acts, so its cells sit under
-    the lit cell — under the corner they would read as the corner seed's."""
-    corner, seeds, actions = thumbnail_rects(
-        map_x=100, map_y=50, right=400, lower=400,
-        corner_size=(30, 54),
-        seed_sizes=[(40, 54), (30, 54)],
-        action_sizes=[(30, 54), (30, 54)],
-        playing=("seed", 0),
-    )
+    _corner, seeds, actions = slot_rects(map_x=100, map_y=50, slot_w=30, seeds=2, actions=2,
+                                         playing=("seed", 0))
 
-    s1 = 100 + 30 + MAP_GAP
-    assert corner == (100, 50, 30, 54)
-    assert seeds[0] == (s1, 50, 40, 54)
-    assert actions == [
-        (s1, 50 + 54 + ROW_GAP, 30, 54),
-        (s1, 50 + 54 + ROW_GAP + 54 + ROW_GAP, 30, 54),
-    ]
+    assert [x for x, _y, _w, _h in actions] == [seeds[0][0]] * 2
 
 
 def test_the_column_stays_under_the_corner_off_the_seed_row():
-    """While the corner is playing — or a cell down the column is — the column
-    keeps its usual place under the corner."""
     for playing in (("corner", 0), ("action", 0)):
-        _corner, _seeds, actions = thumbnail_rects(
-            map_x=100, map_y=50, right=400, lower=400,
-            corner_size=(30, 54), seed_sizes=[(30, 54)], action_sizes=[(30, 54)],
-            playing=playing,
-        )
+        _corner, _seeds, actions = slot_rects(map_x=100, map_y=50, slot_w=30, seeds=1,
+                                              actions=1, playing=playing)
         assert actions[0][0] == 100
 
 
 def test_a_playing_seed_that_was_not_drawn_leaves_the_column_on_the_corner():
-    _corner, _seeds, actions = thumbnail_rects(
-        map_x=100, map_y=50, right=400, lower=400,
-        corner_size=(30, 54), seed_sizes=[(30, 54)], action_sizes=[(30, 54)],
-        playing=("seed", 5),
-    )
+    _corner, _seeds, actions = slot_rects(map_x=100, map_y=50, slot_w=30, seeds=1, actions=1,
+                                          playing=("seed", 5))
 
     assert actions[0][0] == 100
 
 
+def test_a_column_under_the_rows_last_seed_ends_where_the_row_does():
+    _corner, seeds, actions = slot_rects(map_x=0, map_y=0, slot_w=slot_width("portrait"),
+                                         seeds=2, actions=1, playing=("seed", 1))
+    ax, _ay, aw, _ah = actions[0]
+
+    assert ax + aw == seeds[-1][0] + seeds[-1][2] == map_row_width("portrait")
+
+
+def test_a_picture_stands_in_the_middle_of_its_slot():
+    assert picture_rect((100, 50, 44, 54), (30, 54)) == (107, 50, 30, 54)
+    assert picture_rect((100, 50, 44, 54), (44, 24)) == (100, 65, 44, 24)
+
+
 def test_the_columns_chrome_follows_it_under_the_playing_seed():
-    """The loop button below the column, the loop border around it and its "…" slots
-    all stand on the cell the column hangs under, so the column's chrome cannot
-    stay put on an empty corner while the column sits mid-row."""
     corner = (10, 10, 20, 20)
     column = (40, 10, 24, 20)
     actions = [(40, 42, 24, 20)]
 
     loop_action, _loop_seed = loop_button_rects(
-        corner, [column], actions, right=300, lower=300, column_rect=column)
-    assert loop_action == (40, 42 + 20 + MAP_GAP, 24, LOOP_BTN)
+        corner, row_end=300, column_end=250, column_rect=column)
+    assert loop_action == (40, 250 + MAP_GAP, 24, LOOP_BTN)
 
     rect = looped_group_rect(corner, [column], actions, "action", column_rect=column)
     assert rect == (40, 10, 24, (42 + 20) - 10)
@@ -326,42 +306,20 @@ def test_the_columns_chrome_follows_it_under_the_playing_seed():
     assert after == (40, 42 + 20 + MAP_GAP, 24, ELLIPSIS)
 
 
-def test_map_reach_covers_a_column_hanging_past_the_rows_end():
-    """The panel is measured on the map's reach, so a column under the row's last
-    cell asks for its own room rather than poking out of the panel."""
-    row = [30, 40, 30]
-
-    assert map_reach(row, [50], ("corner", 0)) == max(map_row_width(row), 50)
-    offset = 30 + MAP_GAP + 40 + MAP_GAP
-    assert map_reach(row, [50], ("seed", 1)) == offset + 50
-    assert map_reach(row, [], ("seed", 1)) == map_row_width(row)
-    assert map_reach(row, [50], ("seed", 9)) == map_row_width(row)  # off-map: corner
-
-
-def test_loop_button_rects_places_below_the_column_and_right_of_the_row():
+def test_the_loop_buttons_stand_past_the_rows_and_the_columns_fixed_ends():
     corner = (10, 10, 20, 20)
-    loop_action, loop_seed = loop_button_rects(
-        corner, [(35, 10, 20, 20)], [(10, 35, 20, 20)], right=200, lower=200,
-    )
+    loop_action, loop_seed = loop_button_rects(corner, row_end=150, column_end=180, reserve=7)
 
-    assert loop_action == (10, 35 + 20 + MAP_GAP, 20, LOOP_BTN)   # below the lowest action
-    assert loop_seed == (35 + 20 + MAP_GAP, 10, LOOP_BTN, 20)     # right of the rightmost seed
-
-    # A panel too small for either drops it rather than overflowing.
-    assert loop_button_rects(
-        corner, [(35, 10, 20, 20)], [(10, 35, 20, 20)], right=70, lower=70,
-    ) == (None, None)
-    assert loop_button_rects(None, [], [], right=200, lower=200) == (None, None)
+    assert loop_action == (10, 180 + 7 + MAP_GAP, 20, LOOP_BTN)
+    assert loop_seed == (150 + 7 + MAP_GAP, 10, LOOP_BTN, 20)
+    assert loop_button_rects(None, row_end=150, column_end=180) == (None, None)
 
 
 def test_expand_button_sits_in_the_row_right_of_the_seed_loop_button():
-    """The expand ("more seeds") button lives in the seed row, just right of the
-    seed-loop button, and hides rather than overflow the panel's right edge."""
     loop_seed = (60, 10, 18, 30)
 
-    assert expand_button_rect(loop_seed, right=200) == (60 + 18 + MAP_GAP, 10, LOOP_BTN, 30)
-    assert expand_button_rect(None, right=200) is None
-    assert expand_button_rect(loop_seed, right=90) is None  # no room -> dropped
+    assert expand_button_rect(loop_seed) == (60 + 18 + MAP_GAP, 10, LOOP_BTN, 30)
+    assert expand_button_rect(None) is None
 
 
 def test_build_and_hit_test_click_targets():
@@ -524,6 +482,8 @@ def test_action_label_blocks_separate_comma_joined_acts():
     (drawn with a gap between), commas dropped; one act is a single block."""
     assert action_label_blocks("alpha, theta motion", CAMERA_WORDS) == [["Alpha"], ["Theta", "Motion"]]
     assert action_label_blocks("", CAMERA_WORDS) == [["(unknown)"]]
+    assert action_label_blocks("   ", CAMERA_WORDS) == [["(unknown)"]]
+    assert action_label_blocks("epsilon", CAMERA_WORDS) == [["Epsilon"]]
 
 
 def test_a_source_that_names_no_camera_words_has_a_rows_first_word_read_as_the_act():
@@ -546,14 +506,6 @@ def test_action_label_blocks_split_a_leading_camera_word_into_its_own_act():
     assert action_label_blocks("side theta motion", CAMERA_WORDS) == [["Side"], ["Theta", "Motion"]]
     assert action_label_blocks("xyz", CAMERA_WORDS) == [["XYZ"]]  # nothing to qualify: one act
     assert action_label_blocks("theta motion", CAMERA_WORDS) == [["Theta", "Motion"]]  # not a camera word
-
-
-def test_friendly_action_label_titlecases_and_writes_a_camera_word_as_the_source_does():
-    assert friendly_action_label("epsilon", CAMERA_WORDS) == "Epsilon"
-    assert friendly_action_label("xyz gamma", CAMERA_WORDS) == "XYZ\nGamma"
-    # A long single word stays whole (the gutter is sized to fit it).
-    assert friendly_action_label("delta", CAMERA_WORDS) == "Delta"
-    assert friendly_action_label("   ", CAMERA_WORDS) == "(unknown)"
 
 
 def _targets(**overrides) -> HudTargets:
