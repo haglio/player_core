@@ -8,14 +8,16 @@ from unittest.mock import MagicMock
 import pytest
 
 from player_core.broker_feed import BrokerFeed
+from player_core.broker_park import BROKER_PARK_DELAY_MS
 from player_core.clip_advance import ClipAdvanceState
 from player_core.cruise_control import CruiseControlState
 from player_core.flag import Flag
+from player_core.funscript import PARK_SETTLE_MS
 from player_core.genau_controls import GenauControls
 from player_core.genau_refresh import GenauRefreshController
 from player_core.learned_model import LearnedModel, Phrase, classify
 from player_core.learned_motion import LearnedMotionState
-from player_core.robot_hand import RobotHandState, position_fraction
+from player_core.robot_hand import RobotHandState, position_fraction, toggle_playing
 from player_core.robot_hand_beat import BeatEngine
 from player_core.robot_hand_driver import RobotHandTCodeDriver
 
@@ -53,6 +55,7 @@ class FakeRenderer:
 
     def show_frame_at(self, index: int) -> None:
         self.display_calls.append(index)
+        self.current_frame_index = index
 
 
 class FakeSelection:
@@ -854,6 +857,98 @@ def test_a_motion_that_never_reaches_an_end_keeps_the_half_it_is_in():
 
     assert built["controller"]._scrub.back_half is False
     assert built["renderer"].display_calls[-1] == 5
+
+
+def _resumed_by_the_room(tick, _hand, at):
+    return tick(at, "RESUME")
+
+
+def _resumed_by_the_windows_own_key(tick, hand, at):
+    toggle_playing(hand)
+    return tick(at)
+
+
+class TestTheRoomParkingTheDevice:
+    ASKED = 5.1
+    WAITS = BROKER_PARK_DELAY_MS / 1000
+    GLIDES = PARK_SETTLE_MS / 1000
+    HOME = ASKED + WAITS + GLIDES
+
+    @staticmethod
+    def _room(position: int = 5000):
+        tcode = FakeTCodeSender()
+        tcode._position = position
+        hand = RobotHandState(playing=True, bpm=120.0)
+        clock = [5.0]
+        commands: list[str] = []
+        built = _build_controller(
+            entry={"frames": [object() for _ in range(8)]}, robot_hand=hand,
+            tcode_sender=tcode, commands=commands, now_source=lambda: clock[0])
+
+        def tick(at: float, *said: str) -> int:
+            clock[0], commands[:] = at, list(said)
+            built["controller"].refresh()
+            return built["renderer"].current_frame_index
+
+        return tick, hand, tcode
+
+    def test_the_picture_goes_home_with_the_device(self):
+        tick, _hand, _tcode = self._room(position=5000)
+
+        shown = [tick(5.0), tick(self.ASKED, "PAUSE", "PARK"),
+                 tick(self.ASKED + self.WAITS - 0.1),
+                 tick(self.ASKED + self.WAITS + self.GLIDES / 2), tick(self.HOME)]
+
+        assert shown == [5, 5, 5, 6, 7]
+
+    @pytest.mark.parametrize("takes_it_back",
+                             [_resumed_by_the_room, _resumed_by_the_windows_own_key])
+    def test_the_picture_follows_the_hand_again_once_it_takes_the_device_back(
+            self, takes_it_back):
+        tick, hand, _tcode = self._room(position=5000)
+        tick(5.0)
+        tick(self.ASKED, "PAUSE", "PARK")
+        tick(self.HOME)
+
+        assert takes_it_back(tick, hand, self.HOME + 0.1) == 5
+
+    def test_a_park_asked_again_on_the_way_home_keeps_its_own_schedule(self):
+        tick, _hand, _tcode = self._room(position=5000)
+        tick(5.0)
+        tick(self.ASKED, "PAUSE", "PARK")
+        tick(self.ASKED + self.WAITS - 0.1, "PAUSE", "PARK")
+
+        assert tick(self.HOME) == 7
+
+    def test_a_pause_after_the_hand_took_the_device_back_is_not_a_park(self):
+        tick, _hand, _tcode = self._room(position=5000)
+        tick(5.0)
+        tick(self.ASKED, "PAUSE", "PARK")
+        tick(self.HOME)
+        tick(self.HOME + 0.1, "RESUME")
+        tick(self.HOME + 0.2, "PAUSE")
+
+        assert tick(self.HOME + 5.0) == 5
+
+    def test_a_pause_without_a_park_leaves_the_picture_where_the_hand_let_go(self):
+        tick, _hand, tcode = self._room(position=5000)
+        tick(5.0)
+        tick(5.05, "PAUSE")
+        tcode._position = 2000
+
+        assert tick(self.HOME) == 5
+
+    def test_a_park_asked_after_the_picture_stopped_starts_where_the_picture_stopped(self):
+        tick, _hand, tcode = self._room(position=5000)
+        tick(5.0)
+        tick(5.05, "PAUSE")
+        tcode._position = 2000
+        tick(self.ASKED - 0.01)
+
+        shown = [tick(self.ASKED, "PARK"), tick(self.ASKED + self.WAITS + self.GLIDES / 2),
+                 tick(self.HOME)]
+
+        assert shown == [5, 6, 7]
 
 
 def test_the_controller_cannot_be_built_without_a_direct_state():

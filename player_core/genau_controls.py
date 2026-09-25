@@ -96,6 +96,7 @@ class GenauControls:
     set_volume: Callable[[int, bool], None] | None = None
     reorder_clips: Callable[[bool], None] | None = None
     clip_flip: ClipFlip = field(default_factory=ClipFlip)
+    parked: Flag = field(default_factory=Flag)
 
 
 # The acts below all take these controls and the rest of the line, and say
@@ -282,6 +283,11 @@ def _playing(playing: bool) -> Act:
     return act
 
 
+def _parked(controls: GenauControls, value: str) -> bool:
+    controls.parked.on = True
+    return _playing(False)(controls, value)
+
+
 def _tcode_enabled(controls: GenauControls, value: str) -> bool:
     controls.tcode_enabled.on = value.strip() != "0"
     return True
@@ -433,7 +439,8 @@ CONTROLS: tuple[Control, ...] = (
     ),
     Control(
         name="pause",
-        verbs=(Verb("PAUSE", _playing(False)), Verb("RESUME", _playing(True))),
+        verbs=(Verb("PAUSE", _playing(False)), Verb("RESUME", _playing(True)),
+               Verb("PARK", _parked)),
     ),
     Control(
         name="tcode",

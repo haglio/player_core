@@ -62,27 +62,8 @@ def test_nothing_is_drawn_when_no_clip_is_loaded():
 
 
 def test_display_index_for_phase_reverses_phase_position():
-    assert display_index_for_phase(
-        phase=0.25,
-        frame_count=8,
-        auto_active=True,
-        current_frame_index=None,
-    ) == 5
+    assert display_index_for_phase(0.25, 8) == 5
 
 
 def test_display_index_for_phase_clamps_past_end():
-    assert display_index_for_phase(
-        phase=1.0,
-        frame_count=8,
-        auto_active=True,
-        current_frame_index=None,
-    ) == 0
-
-
-def test_display_index_for_phase_uses_current_frame_when_not_auto_active():
-    assert display_index_for_phase(
-        phase=0.25,
-        frame_count=8,
-        auto_active=False,
-        current_frame_index=3,
-    ) == 3
+    assert display_index_for_phase(1.0, 8) == 0

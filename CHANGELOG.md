@@ -1,13 +1,28 @@
 # Changelog
 
 Dated notes on work that changes what is in this package rather than what it
-does. Behaviour-preserving changes are recorded here when they remove a public
+does. Behavior-preserving changes are recorded here when they remove a public
 name, when they move a number the family is measured by, and when they turn up a
 defect that is being left alone rather than fixed.
 
 The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
+
+## 2026-09-25 — Genau's picture goes home with the device when the room parks it
+
+`PARK` is a new verb on `genau_cmd.txt`. It pauses Genau exactly as `PAUSE`
+does, and says the room is parking the OSR2 as well. From then until the hand
+takes the device back, the frame shown is the device on the broker's own
+schedule: held where the hand let go for `broker_park.BROKER_PARK_DELAY_MS`
+(the broker's `HoldScheduler.DELAY_SECONDS`), then walked down onto the park
+over `PARK_SETTLE_MS`. `PAUSE` alone still leaves the picture where the hand let
+go: a pause that retracts the device, or that nothing parks, is not a walk
+home. `GenauControls.parked` is built by default, so no shell wires anything.
+
+`clip_renderer.display_index_for_phase` is now only the phase-to-frame
+arithmetic. Whether the picture holds still is the tick's to decide, since only
+the tick knows the room is parking the device.
 
 ## 2026-09-25 — every player's scrubber can carry its funscript's colors
 
