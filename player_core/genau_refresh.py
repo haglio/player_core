@@ -339,15 +339,6 @@ class GenauRefreshController:
         ))
 
     def _scrub_the_clip(self, frame_count: int, now: float) -> float:
-        """How far through the clip to be: exactly as far as the device is up
-        its own axis.
-
-        The frame is the picture of where the device is, which is the same
-        number the readout's dot draws — so the two cannot drift apart, and a
-        motion that only works part of the axis only ever shows that part of the
-        clip. :mod:`player_core.clip_scrub` is the whole rule, including which
-        half is showing and when that may change.
-        """
         if self.tcode_sender is None:
             return self.engine.phase
         return scrub_clip(self._scrub, self._height_of_the_device(now), frame_count)

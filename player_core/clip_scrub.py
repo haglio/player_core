@@ -70,8 +70,7 @@ def scrub_clip(state: ClipScrub, height: float, frame_count: int) -> float:
     """The clip's display phase for a device sitting at *height*.
 
     *height* is 0 at the park and 1 fully retracted — the device's own position
-    on its axis, which is the number the readout's dot draws, so the picture and
-    the dot cannot disagree.
+    on its axis.
 
     The returned phase is a place around the loop: 0 and 1 are its A end, 0.5 the
     B end, and the halves are the two ways between. Whoever is showing the clip
