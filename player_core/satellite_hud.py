@@ -60,12 +60,7 @@ PAD = 10
 # carry it (see CTRL_BAND_H), and the device's line and readout keep to it so
 # the panel reads at one rhythm rather than two.
 BLOCK_GAP = 6
-# And the break between two FAMILIES of control: the map, which is about the
-# set, and the device's block under it.  Twice the gap the family opens between
-# two groups of buttons in a row, because this one separates two whole blocks
-# and has a button at each end of it -- the map's loop control above, the first
-# control that aims the OSR2 below -- which at any smaller step read as one run.
-DEVICE_GAP = 2 * BUTTON_GROUP_GAP
+FAMILY_GAP = 2 * BUTTON_GROUP_GAP
 MAP_THUMB_H = 54
 MAP_GAP = 5
 ROW_GAP = 12        # vertical gap between action rows — roomier than the seed gap
@@ -212,8 +207,6 @@ class HudModel:
     # its own.  None wherever there is nothing to report.
     drive: DriveHud | None = None
 
-    # What a host has to report that no player does, under everything the panel
-    # draws of its own.  Never published: it is the drawing host's own.
     foot: HudSection | None = None
 
 
@@ -290,54 +283,40 @@ def panel_width(gutter: int, row_width: int, status_width: int,
 
 def device_height(osr2: str, drive: DriveHud | None, drive_h: int,
                   osr2_rows: int = 0) -> int:
-    """The room a host's own device block takes under the map: the gap that sets
-    it apart, then the rows that aim the device, the line naming who has it and
-    the readout under that.  Nothing at all for a satellite, which reports no
-    device and grows no block.
-
-    The leading gap is the family's own break between two GROUPS of buttons, not
-    the smaller step between two rows of one group: the map ends in a button of
-    its own, and with only a row's step under it the first control that aims the
-    device read as one more of the map's.
-    """
     room = (osr2_rows * CTRL_BAND_H
             + (OSR2_H + BLOCK_GAP if osr2 else 0)
             + (drive_h + BLOCK_GAP if drive is not None else 0))
-    return room + DEVICE_GAP if room else 0
+    return room + FAMILY_GAP if room else 0
 
 
-def panel_height(column_height: int, subtitle_h: int = 0, bands_h: int = 0,
-                 speed_band_h: int = 0, device_h: int = 0, foot_h: int = 0,
-                 row_h: int = 0) -> int:
-    """How tall the panel has to be: the status band, the button bands and the
-    speed row, then — around a map column *column_height* deep — the "Seed N"
-    header strip, the column's own "…" slots, and the action-loop button below it.
+def map_height(column_height: int) -> int:
+    return (COL_LABEL_H + COL_LABEL_GAP + ELLIPSIS_ROOM
+            + column_height + ELLIPSIS_ROOM + MAP_LOWER_RESERVE)
 
-    Nothing here depends on what the status *says*: the band is one line whatever the
-    line carries, because the panel widens to hold it rather than wrapping it.  So
-    the map is anchored in the same place on every panel.
 
-    *subtitle_h* is the room the file name takes under that line, its gap included —
-    0 when there is no name to draw.  A name is a second line rather than more of the
-    first, so it grows the band rather than the width, and everything under it moves
-    down by exactly the line it added.
+@dataclass(frozen=True)
+class PanelLayout:
+    bands: int
+    speed: int
+    row: int
+    device: int
+    foot: int
+    map: int
+    height: int
 
-    *bands_h* is the room the declared rows of buttons take, a band each, and
-    *device_h* what a host that drives the OSR2 itself adds under them (see
-    :func:`device_height`) — nought for a satellite, which drives nothing — and
-    *foot_h* the room a source's own block takes under all of it.  *row_h* is the
-    clip's own row -- where the video is and how loud it is -- which the player
-    drawing the panel hands over rather than the source publishing it.
 
-    *column_height* is 0 before the satellite's first clip, when the panel is the
-    bands and nothing else: there is no map, so no room is kept for one.
-    """
-    height = (PAD + STATUS_BAND_H + subtitle_h + bands_h + speed_band_h + row_h
-              + device_h + foot_h)
-    if column_height:
-        height += (COL_LABEL_H + COL_LABEL_GAP + ELLIPSIS_ROOM
-                   + column_height + ELLIPSIS_ROOM + MAP_LOWER_RESERVE)
-    return height + PAD
+def panel_layout(*, subtitle_h: int = 0, bands: int = 0, speed: bool = False,
+                 row_h: int = 0, device_h: int = 0, foot_h: int | None = None,
+                 map_h: int = 0) -> PanelLayout:
+    bands_top = PAD + STATUS_BAND_H + subtitle_h
+    speed_top = bands_top + bands * CTRL_BAND_H
+    row_top = speed_top + (CTRL_BAND_H if speed else 0)
+    device_top = row_top + row_h
+    foot_top = device_top + device_h + (FAMILY_GAP if foot_h is not None else 0)
+    blocks_end = foot_top + (foot_h or 0)
+    map_top = blocks_end + (FAMILY_GAP if map_h and blocks_end > row_top else 0)
+    return PanelLayout(bands_top, speed_top, row_top, device_top, foot_top, map_top,
+                       map_top + map_h + PAD)
 
 
 @dataclass(frozen=True)
