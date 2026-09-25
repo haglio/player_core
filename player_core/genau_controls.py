@@ -31,12 +31,14 @@ from .clip_advance import (
     toggle_lock,
 )
 from .clip_flip import ClipFlip
+from .console import HELD_HEIGHT, OSR2_PARKED, OSR2_RETRACTED
 from .control_registry import Control, Verb, bind, bind_keys, look_up
 from .cruise_control import (
     CruiseControlState,
     disable_cruise_control,
     enable_cruise_control,
 )
+from .device_walk import RoomHold
 from .flag import Flag
 from .learned_motion import (
     LearnedMotionState,
@@ -96,7 +98,7 @@ class GenauControls:
     set_volume: Callable[[int, bool], None] | None = None
     reorder_clips: Callable[[bool], None] | None = None
     clip_flip: ClipFlip = field(default_factory=ClipFlip)
-    parked: Flag = field(default_factory=Flag)
+    room_hold: RoomHold = field(default_factory=RoomHold)
 
 
 # The acts below all take these controls and the rest of the line, and say
@@ -283,9 +285,11 @@ def _playing(playing: bool) -> Act:
     return act
 
 
-def _parked(controls: GenauControls, value: str) -> bool:
-    controls.parked.on = True
-    return _playing(False)(controls, value)
+def _held_at(height: float) -> Act:
+    def act(controls: GenauControls, _value: str) -> bool:
+        controls.room_hold.height = height
+        return True
+    return act
 
 
 def _tcode_enabled(controls: GenauControls, value: str) -> bool:
@@ -439,8 +443,12 @@ CONTROLS: tuple[Control, ...] = (
     ),
     Control(
         name="pause",
-        verbs=(Verb("PAUSE", _playing(False)), Verb("RESUME", _playing(True)),
-               Verb("PARK", _parked)),
+        verbs=(Verb("PAUSE", _playing(False)), Verb("RESUME", _playing(True))),
+    ),
+    Control(
+        name="hold",
+        verbs=(Verb("PARK", _held_at(HELD_HEIGHT[OSR2_PARKED])),
+               Verb("RETRACT", _held_at(HELD_HEIGHT[OSR2_RETRACTED]))),
     ),
     Control(
         name="tcode",

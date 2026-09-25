@@ -116,6 +116,8 @@ OSR2_CONTROL_BUTTONS: dict[str, str] = {
     OSR2_DRIVING: "robot_hand_release",
 }
 
+HELD_HEIGHT = {OSR2_PARKED: 0.0, OSR2_RETRACTED: 1.0}
+
 
 @dataclass(frozen=True)
 class ConsoleModel:

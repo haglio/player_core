@@ -8,9 +8,9 @@ from unittest.mock import MagicMock
 import pytest
 
 from player_core.broker_feed import BrokerFeed
-from player_core.broker_park import BROKER_PARK_DELAY_MS
 from player_core.clip_advance import ClipAdvanceState
 from player_core.cruise_control import CruiseControlState
+from player_core.device_walk import BROKER_HOLD_DELAY_MS
 from player_core.flag import Flag
 from player_core.funscript import PARK_SETTLE_MS
 from player_core.genau_controls import GenauControls
@@ -20,6 +20,7 @@ from player_core.learned_motion import LearnedMotionState
 from player_core.robot_hand import RobotHandState, position_fraction, toggle_playing
 from player_core.robot_hand_beat import BeatEngine
 from player_core.robot_hand_driver import RobotHandTCodeDriver
+from player_core.tcode import HANDOFF_MS
 
 
 class FakeLoader:
@@ -868,11 +869,27 @@ def _resumed_by_the_windows_own_key(tick, hand, at):
     return tick(at)
 
 
-class TestTheRoomParkingTheDevice:
+def _switched_back_on(tick, _hand, at):
+    return tick(at, "SET_TCODE_ENABLED 1")
+
+
+_FRAMES = 1000
+
+
+def _height_pictured(index: int) -> float:
+    phase = ((_FRAMES - 1) - index + 0.5) / _FRAMES
+    return 2 * phase if phase <= 0.5 else 2 * (1 - phase)
+
+
+def _heights(*heights: float):
+    return pytest.approx(list(heights), abs=0.005)
+
+
+class TestTheRoomHoldingTheDevice:
     ASKED = 5.1
-    WAITS = BROKER_PARK_DELAY_MS / 1000
+    WAITS = BROKER_HOLD_DELAY_MS / 1000
     GLIDES = PARK_SETTLE_MS / 1000
-    HOME = ASKED + WAITS + GLIDES
+    SETTLED = ASKED + WAITS + GLIDES
 
     @staticmethod
     def _room(position: int = 5000):
@@ -882,13 +899,13 @@ class TestTheRoomParkingTheDevice:
         clock = [5.0]
         commands: list[str] = []
         built = _build_controller(
-            entry={"frames": [object() for _ in range(8)]}, robot_hand=hand,
+            entry={"frames": [object() for _ in range(_FRAMES)]}, robot_hand=hand,
             tcode_sender=tcode, commands=commands, now_source=lambda: clock[0])
 
-        def tick(at: float, *said: str) -> int:
+        def tick(at: float, *said: str) -> float:
             clock[0], commands[:] = at, list(said)
             built["controller"].refresh()
-            return built["renderer"].current_frame_index
+            return _height_pictured(built["renderer"].current_frame_index)
 
         return tick, hand, tcode
 
@@ -897,20 +914,71 @@ class TestTheRoomParkingTheDevice:
 
         shown = [tick(5.0), tick(self.ASKED, "PAUSE", "PARK"),
                  tick(self.ASKED + self.WAITS - 0.1),
-                 tick(self.ASKED + self.WAITS + self.GLIDES / 2), tick(self.HOME)]
+                 tick(self.ASKED + self.WAITS + self.GLIDES / 2), tick(self.SETTLED)]
 
-        assert shown == [5, 5, 5, 6, 7]
+        assert shown == _heights(0.5, 0.5, 0.5, 0.25, 0.0)
 
-    @pytest.mark.parametrize("takes_it_back",
-                             [_resumed_by_the_room, _resumed_by_the_windows_own_key])
-    def test_the_picture_follows_the_hand_again_once_it_takes_the_device_back(
-            self, takes_it_back):
+    def test_the_picture_goes_to_the_far_end_with_the_device(self):
+        tick, _hand, _tcode = self._room(position=5000)
+
+        shown = [tick(5.0), tick(self.ASKED, "PAUSE", "RETRACT"),
+                 tick(self.ASKED + self.WAITS - 0.1),
+                 tick(self.ASKED + self.WAITS + self.GLIDES / 2), tick(self.SETTLED)]
+
+        assert shown == _heights(0.5, 0.5, 0.5, 0.75, 1.0)
+
+    def test_a_hold_the_hand_plays_on_under_unheard_keeps_the_picture_with_the_device(self):
+        tick, hand, tcode = self._room(position=5000)
+        tick(5.0)
+        tick(self.ASKED, "RESUME", "SET_TCODE_ENABLED 0", "PARK")
+        tcode._position = 8000
+
+        shown = [tick(self.ASKED + self.WAITS + self.GLIDES / 2), tick(self.SETTLED + 1.0)]
+
+        assert (hand.playing, shown) == (True, _heights(0.25, 0.0))
+
+    @pytest.mark.parametrize(("held_by", "taken_back_by", "held_at"), [
+        (("PAUSE", "PARK"), _resumed_by_the_room, 0.0),
+        (("PAUSE", "PARK"), _resumed_by_the_windows_own_key, 0.0),
+        (("PAUSE", "RETRACT"), _resumed_by_the_room, 1.0),
+        (("RESUME", "SET_TCODE_ENABLED 0", "PARK"), _switched_back_on, 0.0),
+    ])
+    def test_the_picture_eases_back_onto_the_hand_as_the_device_does(
+            self, held_by, taken_back_by, held_at):
         tick, hand, _tcode = self._room(position=5000)
         tick(5.0)
-        tick(self.ASKED, "PAUSE", "PARK")
-        tick(self.HOME)
+        tick(self.ASKED, *held_by)
+        tick(self.SETTLED)
+        back, eases = self.SETTLED + 0.1, HANDOFF_MS / 1000
 
-        assert takes_it_back(tick, hand, self.HOME + 0.1) == 5
+        shown = [taken_back_by(tick, hand, back), tick(back + eases / 2), tick(back + eases)]
+
+        assert shown == _heights(held_at, (held_at + 0.5) / 2, 0.5)
+
+    def test_after_a_pause_with_no_hold_the_picture_eases_on_from_where_it_stopped(self):
+        tick, _hand, tcode = self._room(position=5000)
+        tick(5.0)
+        tick(5.05, "PAUSE")
+        tcode._position = 2000
+        tick(6.0)
+        eases = HANDOFF_MS / 1000
+
+        shown = [tick(6.1, "RESUME"), tick(6.1 + eases / 2), tick(6.1 + eases)]
+
+        assert shown == _heights(0.5, 0.35, 0.2)
+
+    def test_a_hold_moved_to_the_other_end_walks_there_from_where_the_picture_is(self):
+        tick, _hand, _tcode = self._room(position=5000)
+        tick(5.0)
+        tick(self.ASKED, "PAUSE", "PARK")
+        tick(self.SETTLED)
+        moved = self.SETTLED + 1.0
+
+        shown = [tick(moved, "PAUSE", "RETRACT"), tick(moved + self.WAITS - 0.1),
+                 tick(moved + self.WAITS + self.GLIDES / 2),
+                 tick(moved + self.WAITS + self.GLIDES)]
+
+        assert shown == _heights(0.0, 0.0, 0.5, 1.0)
 
     def test_a_park_asked_again_on_the_way_home_keeps_its_own_schedule(self):
         tick, _hand, _tcode = self._room(position=5000)
@@ -918,17 +986,18 @@ class TestTheRoomParkingTheDevice:
         tick(self.ASKED, "PAUSE", "PARK")
         tick(self.ASKED + self.WAITS - 0.1, "PAUSE", "PARK")
 
-        assert tick(self.HOME) == 7
+        assert [tick(self.SETTLED)] == _heights(0.0)
 
     def test_a_pause_after_the_hand_took_the_device_back_is_not_a_park(self):
         tick, _hand, _tcode = self._room(position=5000)
         tick(5.0)
         tick(self.ASKED, "PAUSE", "PARK")
-        tick(self.HOME)
-        tick(self.HOME + 0.1, "RESUME")
-        tick(self.HOME + 0.2, "PAUSE")
+        tick(self.SETTLED)
+        tick(self.SETTLED + 0.1, "RESUME")
+        tick(self.SETTLED + 0.1 + HANDOFF_MS / 1000)
+        tick(self.SETTLED + 0.5, "PAUSE")
 
-        assert tick(self.HOME + 5.0) == 5
+        assert [tick(self.SETTLED + 5.0)] == _heights(0.5)
 
     def test_a_pause_without_a_park_leaves_the_picture_where_the_hand_let_go(self):
         tick, _hand, tcode = self._room(position=5000)
@@ -936,7 +1005,7 @@ class TestTheRoomParkingTheDevice:
         tick(5.05, "PAUSE")
         tcode._position = 2000
 
-        assert tick(self.HOME) == 5
+        assert [tick(self.SETTLED)] == _heights(0.5)
 
     def test_a_park_asked_after_the_picture_stopped_starts_where_the_picture_stopped(self):
         tick, _hand, tcode = self._room(position=5000)
@@ -946,9 +1015,9 @@ class TestTheRoomParkingTheDevice:
         tick(self.ASKED - 0.01)
 
         shown = [tick(self.ASKED, "PARK"), tick(self.ASKED + self.WAITS + self.GLIDES / 2),
-                 tick(self.HOME)]
+                 tick(self.SETTLED)]
 
-        assert shown == [5, 6, 7]
+        assert shown == _heights(0.5, 0.25, 0.0)
 
 
 def test_the_controller_cannot_be_built_without_a_direct_state():

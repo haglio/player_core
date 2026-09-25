@@ -9,20 +9,26 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
-## 2026-09-25 — Genau's picture goes home with the device when the room parks it
+## 2026-09-25 — Genau's picture goes where the room holds the device
 
-`PARK` is a new verb on `genau_cmd.txt`. It pauses Genau exactly as `PAUSE`
-does, and says the room is parking the OSR2 as well. From then until the hand
-takes the device back, the frame shown is the device on the broker's own
-schedule: held where the hand let go for `broker_park.BROKER_PARK_DELAY_MS`
-(the broker's `HoldScheduler.DELAY_SECONDS`), then walked down onto the park
-over `PARK_SETTLE_MS`. `PAUSE` alone still leaves the picture where the hand let
-go: a pause that retracts the device, or that nothing parks, is not a walk
-home. `GenauControls.parked` is built by default, so no shell wires anything.
+`PARK` and `RETRACT` are new verbs on `genau_cmd.txt`: the room is holding the
+OSR2 at home, or at the far end. Neither stops the hand; `PAUSE` still does
+that, and a hold the hand plays on under (output switched off) is a hold all
+the same. From the verb until the hand drives the device again, the frame shown
+is the device on the broker's own schedule: held where the picture was for
+`device_walk.BROKER_HOLD_DELAY_MS` (the broker's `HoldScheduler.DELAY_SECONDS`),
+then walked to that end over `PARK_SETTLE_MS`. When the hand takes the device
+back, the picture eases from wherever it was onto the motion over the handoff
+glide, as the device does, rather than jumping there. `PAUSE` alone still leaves
+the picture where the hand let go. `GenauControls.room_hold` is built by
+default, so no shell wires anything.
+
+Where each hold keeps the device is `console.HELD_HEIGHT` now, one table the
+readout's dot and the picture both read.
 
 `clip_renderer.display_index_for_phase` is now only the phase-to-frame
 arithmetic. Whether the picture holds still is the tick's to decide, since only
-the tick knows the room is parking the device.
+the tick knows the room is holding the device.
 
 ## 2026-09-25 — every player's scrubber can carry its funscript's colors
 
