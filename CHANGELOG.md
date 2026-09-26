@@ -28,11 +28,19 @@ of the picture -- as close as the window fits it, never nearer than
 `CLOSEST_AIM` -- and holds there until the next file; on a player laying the
 picture out in tiles it aims at the middle tile.
 
-Two timing defects went with it: a room told twice that it was frozen moved
-the picture on by the time between the two, and a picture stepped to while the
-room was frozen came up partway through its move. A pace of nought now holds a moving picture
-where it is rather than snapping it back to its fitted size, and a picture held
-since it came up sets off with a zoom in from that size.
+Three timing defects of the old creep went with it: a room told twice that it
+was frozen moved the picture on by the time between the two; a picture stepped
+to while the room was frozen came up partway through its move; and the move,
+whose clock starts when the file does, a little before its first frame, ran out
+a little before mpv ended the file and started over for those last frames. A
+picture whose hold has run out now waits at the end of its move for the next
+file; only a locked picture, which repeats, makes its move again
+(`set_loop_file` tells the move which it is). A pace of nought holds a moving
+picture where it is rather than snapping it back to its fitted size, and a
+picture held since it came up sets off with a zoom in from that size.
+`push_still` asks for the zoom first when the picture is drawn closer and for
+its place first when it is drawn back, since mpv can draw a frame between the
+two and each must leave the picture covering the window.
 
 ## 2026-09-26 — the scrubber's frame is no longer published piece by piece
 

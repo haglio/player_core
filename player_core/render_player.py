@@ -40,7 +40,7 @@ class MpvRenderPlayer(_MpvControl):
         prefetch: bool = False,
         audio: bool = True,
     ) -> None:
-        super().__init__()
+        super().__init__(looping=loop_file)
         mpv = _import_mpv()
         options = _shared_options(muted=muted, loop_file=loop_file, prefetch=prefetch)
         # No window to own: libmpv renders on demand into the caller's FBO.

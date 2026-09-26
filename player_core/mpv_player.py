@@ -264,7 +264,7 @@ class _MpvControl:
 
     _mpv: object
 
-    def __init__(self, moves: Moves | None = None) -> None:
+    def __init__(self, moves: Moves | None = None, *, looping: bool = False) -> None:
         self._gate = CallGate()
         self._frame_rate = 0.0
         self._showing_picture = False
@@ -273,6 +273,7 @@ class _MpvControl:
         # playhead at nought and simply ends the file when the pace runs out
         # (verified against libmpv, 2026-09-19).
         self._ken_burns = KenBurns(moves)
+        self._ken_burns.set_looping(looping)
         self._placed = (0.0, 0.0, 0.0)
         self._window = (0, 0)
         # Read off an observation rather than asked for: a property read takes
@@ -471,14 +472,15 @@ class _MpvControl:
         this player."""
         view = self._ken_burns.view(self._now()) if self._showing_picture else View()
         placed = self._fit().on_screen(view)
-        zoom, pan_x, pan_y = placed
-        was_zoom, was_x, was_y = self._placed
-        if zoom != was_zoom:
-            self._mpv.video_zoom = zoom
-        if pan_x != was_x:
-            self._mpv.video_pan_x = pan_x
-        if pan_y != was_y:
-            self._mpv.video_pan_y = pan_y
+        zoom = ("video_zoom", placed[0], self._placed[0])
+        pans = [("video_pan_x", placed[1], self._placed[1]),
+                ("video_pan_y", placed[2], self._placed[2])]
+        # mpv can draw a frame between any two of these, so each one asked for
+        # must leave the picture covering the window: a picture drawn closer
+        # has room for its old place, and one drawn back has room for its new.
+        for name, value, was in [zoom, *pans] if placed[0] >= self._placed[0] else [*pans, zoom]:
+            if value != was:
+                setattr(self._mpv, name, value)
         self._placed = placed
 
     def aim_still(self, part: tuple[float, float, float, float], seconds: float) -> None:
@@ -503,6 +505,7 @@ class _MpvControl:
         satellite starts unlocked, the main player starts locked — but the switch is the same
         one, so "locked" means the same thing wherever it is said.
         """
+        self._ken_burns.set_looping(loop)
         self._mpv.loop_file = "inf" if loop else "no"
 
     @mpv_call()
@@ -633,7 +636,7 @@ class MpvPlayer(_MpvControl):
     def __init__(
         self, wid: int, *, muted: bool = False, loop_file: bool = True, prefetch: bool = False
     ) -> None:
-        super().__init__()
+        super().__init__(looping=loop_file)
         mpv = _import_mpv()
         options = _shared_options(muted=muted, loop_file=loop_file, prefetch=prefetch)
         options.update(

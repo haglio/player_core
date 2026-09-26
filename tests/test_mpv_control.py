@@ -17,7 +17,7 @@ import pytest
 from one_move import DRIFT, OneMove
 
 from player_core import audio_outputs
-from player_core.ken_burns import Fit, Move, zoom_in
+from player_core.ken_burns import Fit, Move, zoom_in, zoom_out
 from player_core.mpv_player import (
     TILES_SHADER,
     _client_size,
@@ -85,8 +85,10 @@ class Control(_MpvControl):
     """
 
     def __init__(self, mpv, now: float = 0.0, move: Move = CREEP,
-                 window: tuple[int, int] = (0, 0), deals: OneMove | None = None) -> None:
-        super().__init__(deals or OneMove(move))  # the call gate every method here runs under
+                 window: tuple[int, int] = (0, 0), deals: OneMove | None = None,
+                 looping: bool = False) -> None:
+        # the call gate every method here runs under
+        super().__init__(deals or OneMove(move), looping=looping)
         self.now = now
         self._window = window
         self._adopt(mpv)
@@ -560,6 +562,70 @@ def test_a_windows_size_is_read_off_windows_itself():
 
 def test_a_window_that_is_not_there_has_no_size():
     assert _client_size(0) == (0, 0)
+
+
+def placing_asked_for_between(mpv: FakeMpv, control: Control, now: float) -> list[str]:
+    asked = len(mpv.calls)
+    control.now = now
+    control.push_still()
+    return [call[1] for call in mpv.calls[asked:] if call[0] == "set"]
+
+
+def test_a_picture_drawn_closer_takes_its_new_zoom_before_its_new_place():
+    mpv = FakeMpv()
+    control = Control(mpv, now=100.0, move=zoom_in(1.0, 1.0), window=WIDE)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+    control.push_still()
+
+    assert placing_asked_for_between(mpv, control, 102.0) == [
+        "video_zoom", "video_pan_x", "video_pan_y"]
+
+
+def test_a_picture_drawn_back_takes_its_new_place_before_its_new_zoom():
+    mpv = FakeMpv()
+    control = Control(mpv, now=100.0, move=zoom_out(1.0, 1.0), window=WIDE)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+    control.push_still()
+
+    assert placing_asked_for_between(mpv, control, 102.0) == [
+        "video_pan_x", "video_pan_y", "video_zoom"]
+
+
+def zoom_drawn_at(control: Control, mpv: FakeMpv, now: float) -> float:
+    control.now = now
+    control.push_still()
+    return mpv.video_zoom
+
+
+def test_an_unlocked_picture_past_its_hold_stays_where_its_move_ended():
+    mpv = FakeMpv()
+    control = Control(mpv, now=100.0)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+
+    assert zoom_drawn_at(control, mpv, 104.05) == pytest.approx(math.log2(CREEP.at(1.0).zoom))
+
+
+def test_locking_a_picture_has_it_make_its_move_again_each_time_it_repeats():
+    mpv = FakeMpv()
+    control = Control(mpv, now=100.0)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+
+    control.set_loop_file(True)
+
+    assert zoom_drawn_at(control, mpv, 106.0) == pytest.approx(math.log2(CREEP.at(0.5).zoom))
+
+
+def test_a_player_opened_locked_has_its_pictures_make_their_moves_again_as_they_repeat():
+    mpv = FakeMpv()
+    control = Control(mpv, now=100.0, looping=True)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+
+    assert zoom_drawn_at(control, mpv, 106.0) == pytest.approx(math.log2(CREEP.at(0.5).zoom))
 
 
 def test_a_file_that_would_not_open_leaves_the_player_with_nothing_up():

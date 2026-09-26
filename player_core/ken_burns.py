@@ -166,7 +166,11 @@ class KenBurns:
         self._pace_s = 0.0
         self._started_s = 0.0
         self._held_progress = 0.0
+        self._looping = False
         self._aim: Aim | None = None
+
+    def set_looping(self, looping: bool) -> None:
+        self._looping = looping
 
     def set_pace(self, seconds: float, now_s: float) -> None:
         reached = self._progress(now_s)
@@ -201,4 +205,5 @@ class KenBurns:
     def _progress(self, now_s: float) -> float:
         if not self._pace_s:
             return self._held_progress
-        return ((self._clock.read(now_s) - self._started_s) / self._pace_s) % 1.0
+        progress = (self._clock.read(now_s) - self._started_s) / self._pace_s
+        return progress % 1.0 if self._looping else min(progress, 1.0)
