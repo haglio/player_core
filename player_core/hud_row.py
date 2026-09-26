@@ -84,9 +84,8 @@ class RowSection:
              *, heatmap: np.ndarray | None = None) -> None:
         """Paint the row with its top-left corner at ``(x, y)`` of *image*.
 
-        *heatmap* is the funscript's own colors across the track, for a host
-        that has one; without it the track is the plain bar every other player
-        draws.
+        *heatmap* is the funscript's colors across the track; without it the
+        track is the plain bar.
         """
         _width, height = self.size(width)
         bar = progress_bar_bgra(row.position_ms, row.duration_ms, None, width, heatmap=heatmap)
