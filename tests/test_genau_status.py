@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from player_core import genau_status
 from player_core.clip_advance import ClipAdvanceState
 from player_core.cruise_control import CruiseControlState
 from player_core.genau_status import build_status_text, write_status_file
@@ -193,3 +194,15 @@ def test_build_status_text_says_whether_the_clip_on_screen_is_portrait():
 
 def test_build_status_text_leaves_the_shape_empty_until_a_clip_is_up():
     assert "portrait=\n" in build_status_text(RobotHandState(), CruiseControlState())
+
+
+def test_write_status_file_replaces_the_record_whole_so_a_poller_never_reads_half(
+        tmp_path: Path, monkeypatch):
+    published = []
+    monkeypatch.setattr(genau_status, "publish_whole",
+                        lambda path, text: published.append((path, text)) or True)
+    path = tmp_path / "genau_status.txt"
+    text = build_status_text(RobotHandState(), CruiseControlState())
+
+    assert write_status_file(path, text) is True
+    assert published == [(path, text)]

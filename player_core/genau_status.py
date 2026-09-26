@@ -7,6 +7,7 @@ from app_support.state_files import GENAU_STATUS
 
 from .clip_advance import ClipAdvanceState
 from .cruise_control import CruiseControlState
+from .file_channel import publish_whole
 from .learned_motion import LearnedMotionState
 from .robot_hand import RobotHandState, control_limits
 
@@ -62,6 +63,4 @@ def write_status_file(path: Path, text: str) -> bool:
             return False
     except (OSError, ValueError):
         pass
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
-    return True
+    return publish_whole(path, text)
