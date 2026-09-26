@@ -14,9 +14,17 @@ import time
 from pathlib import Path
 
 import pytest
+from one_move import DRIFT, OneMove
 
 from player_core import audio_outputs
-from player_core.mpv_player import TILES_SHADER, _MpvControl, _shared_options, tiles_across
+from player_core.ken_burns import Fit, Move, zoom_in
+from player_core.mpv_player import (
+    TILES_SHADER,
+    _client_size,
+    _MpvControl,
+    _shared_options,
+    tiles_across,
+)
 
 
 class FakeMpv:
@@ -56,22 +64,44 @@ class FakeMpv:
     def command(self, name: str, *args) -> None:
         self.calls.append(("command", name, *args))
 
+    def __setattr__(self, name: str, value) -> None:
+        if name in PLACING:
+            self.calls.append(("set", name, value))
+        super().__setattr__(name, value)
+
+
+PLACING = {"video_zoom", "video_pan_x", "video_pan_y"}
+
+
+CREEP = zoom_in(0.0, 0.0)
+
 
 class Control(_MpvControl):
     """A control surface whose clock a test moves by hand.
 
-    The creep into a still is paced by a clock rather than by a playhead --
-    mpv leaves a picture's at nought -- so ``now`` is what a test winds on to
-    say how far into the hold the picture has got.
+    A still's move is paced by a clock rather than by a playhead -- mpv
+    leaves a picture's at nought -- so ``now`` is what a test winds on to say
+    how far into the hold the picture has got.
     """
 
-    def __init__(self, mpv, now: float = 0.0) -> None:
-        super().__init__()  # the call gate every method here runs under
+    def __init__(self, mpv, now: float = 0.0, move: Move = CREEP,
+                 window: tuple[int, int] = (0, 0), deals: OneMove | None = None) -> None:
+        super().__init__(deals or OneMove(move))  # the call gate every method here runs under
         self.now = now
+        self._window = window
         self._adopt(mpv)
 
     def _now(self) -> float:
         return self.now
+
+
+WIDE = (1920, 1080)
+
+
+def show_a_picture(mpv: FakeMpv, shape: tuple[int, int] = WIDE) -> None:
+    mpv.report("path", "made-up-scene.png")
+    mpv.report("current-tracks/video/image", True)
+    mpv.report("video-out-params", {"dw": shape[0], "dh": shape[1]})
 
 
 def test_the_frame_rate_is_the_one_mpv_reported_for_the_file_on_screen():
@@ -423,26 +453,25 @@ def test_a_picture_is_drawn_closer_as_its_hold_runs_out():
     control.now = 102.0
     control.push_still()
 
-    assert mpv.video_zoom == pytest.approx(math.log2(1.05))
+    assert mpv.video_zoom == pytest.approx(math.log2(CREEP.at(0.5).zoom))
 
 
 def test_a_clip_after_a_picture_is_drawn_as_it_comes():
     mpv = FakeMpv()
-    control = Control(mpv, now=100.0)
+    control = Control(mpv, now=100.0, move=DRIFT, window=WIDE)
     control.set_pace(4.0)
-    mpv.report("path", "made-up-scene.png")
-    mpv.report("current-tracks/video/image", True)
-    control.now = 102.0
+    show_a_picture(mpv)
+    control.now = 101.0
     control.push_still()
 
     mpv.report("path", "made-up-scene.mp4")
     mpv.report("current-tracks/video/image", False)
     control.push_still()
 
-    assert mpv.video_zoom == 0.0
+    assert (mpv.video_zoom, mpv.video_pan_x, mpv.video_pan_y) == (0.0, 0.0, 0.0)
 
 
-def test_a_frozen_room_holds_the_picture_where_the_creep_had_got_to():
+def test_a_frozen_room_holds_the_picture_where_its_move_had_got_to():
     mpv = FakeMpv()
     control = Control(mpv, now=100.0)
     control.set_pace(4.0)
@@ -454,7 +483,83 @@ def test_a_frozen_room_holds_the_picture_where_the_creep_had_got_to():
     control.now = 103.0
     control.push_still()
 
-    assert mpv.video_zoom == pytest.approx(math.log2(1.025))
+    assert mpv.video_zoom == pytest.approx(math.log2(CREEP.at(0.25).zoom))
+
+
+def test_a_pan_reaches_mpv_as_where_the_picture_sits_in_its_window():
+    mpv = FakeMpv()
+    control = Control(mpv, now=100.0, move=DRIFT, window=WIDE)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+
+    control.push_still()
+
+    assert (mpv.video_zoom, mpv.video_pan_x, mpv.video_pan_y) == Fit(WIDE, WIDE).on_screen(
+        DRIFT.at(0.0))
+
+
+def test_a_zoom_about_the_middle_asks_mpv_for_the_zoom_alone():
+    mpv = FakeMpv()
+    control = Control(mpv, now=100.0, window=WIDE)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+    control.now = 102.0
+
+    control.push_still()
+
+    assert [call[1] for call in mpv.calls if call[0] == "set"] == ["video_zoom"]
+
+
+def test_a_picture_that_has_not_moved_since_the_last_frame_asks_mpv_for_nothing():
+    mpv = FakeMpv()
+    control = Control(mpv, now=100.0, move=DRIFT, window=WIDE)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+    control.push_still()
+    asked = list(mpv.calls)
+
+    control.push_still()
+
+    assert mpv.calls == asked
+
+
+def test_aiming_at_a_part_of_the_picture_brings_it_onto_the_part_in_the_time_given():
+    mpv = FakeMpv()
+    control = Control(mpv, now=100.0, move=DRIFT, window=WIDE)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+    part = (0.5, 0.0, 1.0, 0.5)
+
+    control.aim_still(part, seconds=1.5)
+    control.now = 101.5
+    control.push_still()
+
+    fit = Fit(WIDE, WIDE)
+    assert (mpv.video_zoom, mpv.video_pan_x, mpv.video_pan_y) == fit.on_screen(fit.framing(part))
+
+
+def test_the_gap_between_two_files_is_dealt_no_move_of_its_own():
+    mpv = FakeMpv()
+    deals = OneMove(DRIFT)
+    control = Control(mpv, now=100.0, deals=deals)
+    control.set_pace(4.0)
+
+    mpv.report("path", "made-up-one.png")
+    mpv.report("path", None)
+    mpv.report("path", "made-up-two.png")
+
+    assert deals.dealt == 2
+
+
+def test_a_windows_size_is_read_off_windows_itself():
+    user32 = ctypes.windll.user32
+    screen = (user32.GetSystemMetrics(0), user32.GetSystemMetrics(1))  # SM_CXSCREEN, SM_CYSCREEN
+
+    assert _client_size(user32.GetDesktopWindow()) == screen
+
+
+def test_a_window_that_is_not_there_has_no_size():
+    assert _client_size(0) == (0, 0)
 
 
 def test_a_file_that_would_not_open_leaves_the_player_with_nothing_up():

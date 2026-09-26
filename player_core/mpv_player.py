@@ -25,6 +25,7 @@ hidden-desktop integration suite is what exercises that.
 from __future__ import annotations
 
 import ctypes
+import ctypes.wintypes
 import importlib
 import logging
 import math
@@ -36,9 +37,9 @@ from pathlib import Path
 import numpy as np
 
 from .audio_outputs import Output, pick_output
+from .ken_burns import Fit, KenBurns, Moves, View
 from .libmpv_loader import add_libmpv_to_path, libmpv_dirs
 from .mpv_gate import CallGate, mpv_call
-from .still_push import StillPush
 
 __all__ = [
     "MpvPlayer",
@@ -208,6 +209,19 @@ CLOSE_DRAIN_TIMEOUT_S = 10.0
 
 _APTTYPEQUALIFIER_IMPLICIT_MTA = 1
 
+_Corners = ctypes.wintypes.LONG * 4
+_user32 = ctypes.WinDLL("user32")
+_user32.GetClientRect.argtypes = (ctypes.wintypes.HWND, ctypes.POINTER(_Corners))
+_user32.GetClientRect.restype = ctypes.wintypes.BOOL
+
+
+def _client_size(hwnd: int) -> tuple[int, int]:
+    corners = _Corners()
+    if not _user32.GetClientRect(hwnd, ctypes.byref(corners)):
+        return 0, 0
+    x0, y0, x1, y1 = corners
+    return x1 - x0, y1 - y0
+
 
 def _holds_a_com_apartment() -> bool:
     kind, qualifier = ctypes.c_int(), ctypes.c_int()
@@ -250,17 +264,17 @@ class _MpvControl:
 
     _mpv: object
 
-    def __init__(self) -> None:
+    def __init__(self, moves: Moves | None = None) -> None:
         self._gate = CallGate()
         self._frame_rate = 0.0
         self._showing_picture = False
         self._overlays: dict[int, np.ndarray] = {}
-        # The creep into a still while it holds the screen, and the zoom last
-        # handed to mpv for it -- a picture's own clock, because mpv leaves a
-        # still's playhead at nought and simply ends the file when the pace
-        # runs out (verified against libmpv, 2026-09-19).
-        self._push = StillPush()
-        self._zoom_applied = 0.0
+        # A still's move runs on a clock of its own: mpv leaves a still's
+        # playhead at nought and simply ends the file when the pace runs out
+        # (verified against libmpv, 2026-09-19).
+        self._ken_burns = KenBurns(moves)
+        self._placed = (0.0, 0.0, 0.0)
+        self._window = (0, 0)
         # Read off an observation rather than asked for: a property read takes
         # the core's lock, which a file being opened holds for long stretches,
         # and a frame loop asking mid-open measured hundreds of milliseconds
@@ -284,8 +298,9 @@ class _MpvControl:
     def _note_picture(self, _name: str, value) -> None:
         self._showing_picture = bool(value)
 
-    def _note_file(self, _name: str, _value) -> None:
-        self._push.restart(self._now())
+    def _note_file(self, _name: str, path) -> None:
+        if path:
+            self._ken_burns.new_picture(self._now())
 
     def _note_video_dims(self, _name: str, value) -> None:
         if isinstance(value, dict):
@@ -336,8 +351,8 @@ class _MpvControl:
         return self._video_dims
 
     def _now(self) -> float:
-        """The clock the creep into a still is paced by, in one call a test can
-        wind on by hand -- mpv leaves a picture's own playhead at nought."""
+        """The clock a still's move is paced by, in one call a test can wind on
+        by hand -- mpv leaves a picture's own playhead at nought."""
         return time.monotonic()
 
     @property
@@ -441,27 +456,42 @@ class _MpvControl:
 
     @mpv_call()
     def set_paused(self, paused: bool) -> None:
-        self._push.set_paused(paused, self._now())
+        self._ken_burns.set_paused(paused, self._now())
         self._mpv.pause = paused
 
     @mpv_call()
     def set_pace(self, seconds: float) -> None:
-        self._push.set_pace(seconds or 0.0, self._now())
+        self._ken_burns.set_pace(seconds or 0.0, self._now())
         self._mpv.image_display_duration = seconds or "inf"
 
     @mpv_call()
     def push_still(self) -> None:
-        """Creep a little further into the picture on screen.
+        """Carry the picture on screen one frame further along its move; a video
+        is drawn as it comes.  Called once a frame by whichever loop is driving
+        this player."""
+        view = self._ken_burns.view(self._now()) if self._showing_picture else View()
+        placed = self._fit().on_screen(view)
+        zoom, pan_x, pan_y = placed
+        was_zoom, was_x, was_y = self._placed
+        if zoom != was_zoom:
+            self._mpv.video_zoom = zoom
+        if pan_x != was_x:
+            self._mpv.video_pan_x = pan_x
+        if pan_y != was_y:
+            self._mpv.video_pan_y = pan_y
+        self._placed = placed
 
-        A still ends a hair closer than it began, which is what makes a show of
-        pictures read as moving; a video is drawn as it comes.  Called once a
-        frame by whichever loop is driving this player.
-        """
-        scale = math.log2(self._push.zoom(self._now()) if self._showing_picture else 1.0)
-        if scale == self._zoom_applied:
-            return
-        self._mpv.video_zoom = scale
-        self._zoom_applied = scale
+    def aim_still(self, part: tuple[float, float, float, float], seconds: float) -> None:
+        """Take the picture on screen, over *seconds*, onto the part of it from
+        (x0, y0) to (x1, y1) -- fractions of the picture from its top left -- as
+        close as the window fits it, and hold it there until the next file."""
+        self._ken_burns.aim(self._fit().framing(part), seconds, self._now())
+
+    def _fit(self) -> Fit:
+        return Fit(self._window_size(), self._video_dims, self._tiling[0])
+
+    def _window_size(self) -> tuple[int, int]:
+        return self._window
 
     @mpv_call()
     def set_loop_file(self, loop: bool) -> None:
@@ -611,4 +641,8 @@ class MpvPlayer(_MpvControl):
             vo="gpu",
             input_vo_keyboard=False,
         )
+        self._wid = int(wid)
         self._adopt(mpv.MPV(**options))
+
+    def _window_size(self) -> tuple[int, int]:
+        return _client_size(self._wid)

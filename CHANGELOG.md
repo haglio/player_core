@@ -9,6 +9,31 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-09-26 — a still makes one of three moves, and a host can aim one
+
+`push_still` no longer only creeps into the middle of a picture. Each picture
+is dealt a move by `ken_burns.Moves` (which `still_push.StillPush` became, as
+`ken_burns.KenBurns`): a zoom in about a spot anywhere in it, a zoom out from
+one, or a pan from a corner to the opposite one at a steady `ZOOMED_IN`, never
+the kind the picture before had. The view reaches mpv as `video-pan-x/-y` as
+well as `video-zoom`; `Fit` keeps every edge of the picture at least
+`EDGE_OVERHANG_PX` outside the window, and on an axis where the picture is
+narrower than the window it stays centered until a zoom takes it past the
+window's edges. A windowed player reads its window's size off Windows
+(`GetClientRect`), an offscreen one off the target it last rendered.
+
+`aim_still(part, seconds)` is new: from wherever the picture's move had got to
+it eases, over *seconds*, onto the part `(x0, y0, x1, y1)` given in fractions
+of the picture -- as close as the window fits it, never nearer than
+`CLOSEST_AIM` -- and holds there until the next file; on a player laying the
+picture out in tiles it aims at the middle tile.
+
+Two timing defects went with it: a room told twice that it was frozen moved
+the picture on by the time between the two, and a picture stepped to while the
+room was frozen came up partway through its move. A pace of nought now holds a moving picture
+where it is rather than snapping it back to its fitted size, and a picture held
+since it came up sets off with a zoom in from that size.
+
 ## 2026-09-26 — the scrubber's frame is no longer published piece by piece
 
 `framed_track`, `draw_border`, `draw_track_marks`, `BAR_BORDER` and `BORDER_W`
