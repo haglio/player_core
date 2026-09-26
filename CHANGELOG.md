@@ -9,6 +9,14 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-09-26 — the scrubber's frame is no longer published piece by piece
+
+`framed_track`, `draw_border`, `draw_track_marks`, `BAR_BORDER` and `BORDER_W`
+leave `__all__`. Fun Time's main player drew its funscript strip out of them;
+it now asks `progress_bar_bgra(..., heatmap=)` for the whole bar like every
+other player, so no app reaches for the pieces. They keep their names and
+signatures, so a checkout still drawing the strip the old way runs as before.
+
 ## 2026-09-26 — a satellite HUD holds one size
 
 The panel `satellite_hud_paint.HudRenderer` draws is laid out top down by
