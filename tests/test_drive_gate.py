@@ -23,7 +23,7 @@ import pytest
 
 from player_core.descent_latch import DescentChoice, DescentLatch, DriveKey
 from player_core.drive_gate import DriveGate, next_handoff_touch
-from player_core.drive_readout import TRACE_SAMPLES, DriveHud
+from player_core.drive_readout import DRIVEN_BY_FUNSCRIPT, TRACE_SAMPLES, DriveHud
 from player_core.funscript import Funscript
 
 SPAN_S = 7.9
@@ -60,7 +60,7 @@ class FakeSession:
     """What the gate reads off the player: where it is, in what, how fast."""
 
     def __init__(self) -> None:
-        self.current_funscript = _script()
+        self.funscript_as_played = _script()
         self.current_video = FIRST_VIDEO
         self.position_ms = 0.0
         self.speed = 1.0
@@ -403,6 +403,31 @@ class TestWhetherGenauHasBeenSeenLiveHere:
         hud = gate.readout(_motion(NEWER_MS, let_go=0.44))
 
         assert hud.let_go == 0.44
+
+
+class TestALoopingPlayer:
+    def test_the_trace_is_drawn_from_the_script_as_the_player_will_play_it(self):
+        swings = Funscript(actions=[(0, 0), (1_250, 100), (2_500, 0), (3_760, 100), (5_010, 0)])
+        session = FakeSession()
+        session.current_funscript = swings
+        session.funscript_as_played = swings.looped(0, 5_000)
+        session.position_ms = 4_000.0
+
+        hud = DriveGate(session).readout(_motion(4_000))
+
+        assert hud.segments == ((0, DRIVEN_BY_FUNSCRIPT),)
+
+
+class TestAPlayerThatDoesNotSayHowItPlaysItsScript:
+    def test_is_drawn_from_the_script_it_has(self):
+        session = FakeSession()
+        session.current_funscript = session.funscript_as_played
+        del session.funscript_as_played
+        gate = DriveGate(session)
+
+        gate.readout(_motion())
+
+        assert gate.handoff_touch() == CHOSEN_TOUCH_MS
 
 
 class TestTheTouchTheTraceChose:

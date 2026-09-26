@@ -30,6 +30,7 @@ from player_core.drive_readout import (
 )
 from player_core.drive_trace import drive_readout
 from player_core.funscript import HANDOFF_RAMP_MS, Funscript
+from player_core.playback_rate import MAX_RATE
 
 # A 7.9-second trace: 79 steps of a round 100ms each, so a whole-step slide in
 # these tests is exact tuple equality rather than a hair of interpolation.
@@ -714,6 +715,16 @@ class TestThePublishedTouch:
 
         assert next_handoff_touch(_script_ahead(), 1_000, DescentLatch()) is None
         assert next_handoff_touch(None, 1_000, DescentLatch()) is None
+
+
+class TestALoopingPlayer:
+    def test_the_loop_fills_the_trace_to_its_far_edge_at_the_fastest_rate(self):
+        swings = Funscript(actions=[(0, 0), (1_250, 100), (2_500, 0), (3_760, 100), (5_010, 0)])
+
+        hud = drive_readout(_motion(trace_seconds=DriveHud.trace_seconds),
+                            script=swings.looped(0, 5_000), position_ms=4_999, speed=MAX_RATE)
+
+        assert hud.segments == ((0, DRIVEN_BY_FUNSCRIPT),)
 
 
 class TestNothingToFoldIn:

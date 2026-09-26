@@ -41,13 +41,7 @@ _SNAP_TOLERANCE_MS = 1000
 # doubles as the gap that marks a leading action as an isolated stray blip:
 # real action is densely sampled, so the first action closely followed by
 # another (gap below this) is where it truly begins.
-_QUIET_LEAD_IN_MS = 5000
-
-# The same number, public: it is also how far ahead of a cluster the video-mode
-# handoff gives the device to the script (resting ends this far before the
-# onset), so a drawer reconstructing where a handoff fell reads it from here
-# rather than growing a second copy of the buffer.
-QUIET_LEAD_IN_MS = _QUIET_LEAD_IN_MS
+QUIET_LEAD_IN_MS = 5000
 
 # How long the device takes to rise from its parked rest to a cluster's opening
 # action: long enough to read as a deliberate approach rather than a twitch,
@@ -102,6 +96,8 @@ _MAX_TRAVEL_PER_SECOND = 100_000 / FASTEST_FULL_TRAVEL_MS
 _DEPTH_LOOKAHEAD_MS = 500
 _DEPTH_RECOVERY_MS = 3000
 
+_LOOP_REACH_MS = 300_000
+
 # Past any real playhead, so a turn's start alone orders it against a position
 # in :meth:`Funscript.turn_bounds_at`'s bisect.
 _MS_MAX = 1 << 62
@@ -121,6 +117,8 @@ class Funscript:
         # :meth:`planned_trace_window` to take windows of.
         self._planned_grid_key: tuple[float, float] | None = None
         self._planned_grid_values: tuple[float, ...] = ()
+        self._looped_key: tuple[int, int] | None = None
+        self._looped_value: Funscript = self
 
     @property
     def first_real_event_ms(self) -> int | None:
@@ -135,7 +133,7 @@ class Funscript:
         if not self._onsets:
             return None
         onset = self._onsets[0]
-        return onset if onset >= _QUIET_LEAD_IN_MS else None
+        return onset if onset >= QUIET_LEAD_IN_MS else None
 
     def is_parked_at(self, position_ms: int) -> bool:
         """Whether the device's plan at *position_ms* is its parked position.
@@ -158,7 +156,7 @@ class Funscript:
         # Between two dense actions of one cluster the device is mid-cycle;
         # between clusters (or past the last) it rests.
         return not (
-            prv is not None and nxt is not None and nxt - prv < _QUIET_LEAD_IN_MS
+            prv is not None and nxt is not None and nxt - prv < QUIET_LEAD_IN_MS
         )
 
     def planned_position_at(self, position_ms: int, speed: float = 1.0) -> float:
@@ -184,7 +182,7 @@ class Funscript:
             return 0.0
         rising = (
             nxt is not None and position_ms < nxt
-            and (prv is None or nxt - prv >= _QUIET_LEAD_IN_MS)
+            and (prv is None or nxt - prv >= QUIET_LEAD_IN_MS)
         )
         if rising:
             return self.paced_position_at(nxt, speed) * (1 - (nxt - position_ms) / _RISE_MS)
@@ -237,6 +235,20 @@ class Funscript:
                 for i in range(count))
         return self._planned_grid_values
 
+    def looped(self, start_ms: int, end_ms: int) -> Funscript:
+        period = end_ms - start_ms
+        if period <= 0:
+            return self
+        if self._looped_key != (start_ms, end_ms):
+            one_pass = [(t, p) for t, p in self.actions if start_ms <= t < end_ms]
+            passes = range(-1, _LOOP_REACH_MS // period + 2)
+            laid_out_until = end_ms + _LOOP_REACH_MS
+            self._looped_key = (start_ms, end_ms)
+            self._looped_value = Funscript(actions=[
+                (t + k * period, p) for k in passes for t, p in one_pass
+                if t + k * period < laid_out_until])
+        return self._looped_value
+
     def position_at(self, position_ms: int) -> float:
         """Where the script has the device at *position_ms*, 0-100.
 
@@ -278,7 +290,7 @@ class Funscript:
         return min(1.0, max(_MAX_TRAVEL_PER_SECOND / demand, 1.0) / speed)
 
     def _demand_at(self, position_ms: int) -> float:
-        """The neighbourhood's fastest travel at *position_ms*, interpolated
+        """The neighborhood's fastest travel at *position_ms*, interpolated
         because the envelope only steps at an action and the depth would jump
         mid-cycle by the whole size of the step."""
         i = bisect.bisect_left(self._times, position_ms)
@@ -329,7 +341,7 @@ class Funscript:
 
     def _compute_onsets(self) -> list[int]:
         """The start of each dense cluster: a dense time with no dense
-        predecessor inside _QUIET_LEAD_IN_MS, i.e. the far side of a quiet
+        predecessor inside QUIET_LEAD_IN_MS, i.e. the far side of a quiet
         stretch.  The first is where the script begins in earnest, which is what
         first_real_event_ms reports once it is far enough in to be worth parking
         for; the rest are where it resumes after each interior gap.
@@ -337,22 +349,22 @@ class Funscript:
         onsets: list[int] = []
         previous: int | None = None
         for t in self._dense_times:
-            if previous is None or t - previous >= _QUIET_LEAD_IN_MS:
+            if previous is None or t - previous >= QUIET_LEAD_IN_MS:
                 onsets.append(t)
             previous = t
         return onsets
 
     def _compute_dense_times(self) -> list[int]:
         """Times of actions that belong to a dense cluster — those with a
-        neighbour within _QUIET_LEAD_IN_MS.  Isolated stray blips are excluded,
+        neighbor within QUIET_LEAD_IN_MS.  Isolated stray blips are excluded,
         the same standard first_real_event_ms uses to find where action begins.
         """
         dense: list[int] = []
         for k, (t, _p) in enumerate(self.actions):
-            prev_close = k > 0 and t - self.actions[k - 1][0] < _QUIET_LEAD_IN_MS
+            prev_close = k > 0 and t - self.actions[k - 1][0] < QUIET_LEAD_IN_MS
             next_close = (
                 k + 1 < len(self.actions)
-                and self.actions[k + 1][0] - t < _QUIET_LEAD_IN_MS
+                and self.actions[k + 1][0] - t < QUIET_LEAD_IN_MS
             )
             if prev_close or next_close:
                 dense.append(t)
@@ -361,12 +373,12 @@ class Funscript:
     def _compute_turns(self) -> list[tuple[int, int]]:
         """The stretches the script holds the device for, in order.
 
-        One per dense cluster, opened _QUIET_LEAD_IN_MS before its first action
+        One per dense cluster, opened QUIET_LEAD_IN_MS before its first action
         and closed QUIET_LEAD_OUT_MS after its last — early enough that the next
         driver's climb out of the park lands where the motion has always
         resumed.
 
-        Two clusters merge when their _QUIET_LEAD_IN_MS neighbourhoods overlap:
+        Two clusters merge when their QUIET_LEAD_IN_MS neighborhoods overlap:
         whether the script gives the device back between two is about whether
         there is room for the other driver to do anything, which is the long
         lead-in and not the short lead-out.  Measured on the lead-out, a
@@ -375,8 +387,8 @@ class Funscript:
         """
         turns: list[list[int]] = []
         for t in self._dense_times:
-            low, high = t - _QUIET_LEAD_IN_MS, t + QUIET_LEAD_OUT_MS
-            if turns and low <= turns[-1][1] + (_QUIET_LEAD_IN_MS - QUIET_LEAD_OUT_MS):
+            low, high = t - QUIET_LEAD_IN_MS, t + QUIET_LEAD_OUT_MS
+            if turns and low <= turns[-1][1] + (QUIET_LEAD_IN_MS - QUIET_LEAD_OUT_MS):
                 turns[-1][1] = high
             else:
                 turns.append([low, high])
