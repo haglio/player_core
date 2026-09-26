@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 from shared_ui.palette import (
     BG_BUTTON,
     BLUE,
@@ -85,6 +85,7 @@ from .satellite_hud import (
     filter_button_rects,
     label_is_filtered,
     label_stack_top,
+    largest_size_that_fits,
     loop_button_rects,
     looped_group_rect,
     map_row_width,
@@ -169,6 +170,7 @@ class HudRenderer:
     def __init__(self, player: str) -> None:
         self._player = player
         self._body = load_font(_SIZE_BODY)
+        self._titles: dict[int, ImageFont.FreeTypeFont] = {_SIZE_BODY: self._body}
         self._tiny = load_font(_SIZE_TINY)
         self._row = load_font(_ROW_LABEL_PT)
         self._pointer: tuple[int, int] | None = None
@@ -272,8 +274,7 @@ class HudRenderer:
         drive_w, drive_h = section_size() if model.drive is not None else (0, 0)
         device_w = max(self._osr2.width(osr2_line) if model.osr2 else 0, drive_w)
         foot_w, foot_h = model.foot.size() if model.foot is not None else (0, 0)
-        width = panel_width(model.player, text_width(self._body, model.lock_label),
-                            text_width(self._tiny, video),
+        width = panel_width(model.player, text_width(self._tiny, video),
                             content_width=max(
                                 band_width,
                                 2 * PAD + device_w if device_w else 0,
@@ -293,10 +294,13 @@ class HudRenderer:
         image, draw = panel.image, panel.draw
 
         x = PAD
+        room = width - STATUS_TEXT_X - PAD
+        title = self._title_font(largest_size_that_fits(
+            _SIZE_BODY, room,
+            lambda size: text_width(self._title_font(size), model.lock_label)))
         favorite = self._draw_status_band(
-            image, draw, PAD, model,
-            name_line(video, model.item_note, width - STATUS_TEXT_X - PAD,
-                      lambda text: text_width(self._tiny, text)))
+            image, draw, PAD, model, title,
+            name_line(video, model.item_note, room, lambda text: text_width(self._tiny, text)))
         y = layout.bands
 
         # Laid out against the panel rather than against the map: they act on the
@@ -436,26 +440,16 @@ class HudRenderer:
         the word as this face draws it, padded either side."""
         return button.width or text_width(self._tiny, button.glyph) + 2 * MODE_LABEL_PAD
 
+    def _title_font(self, size: int) -> ImageFont.FreeTypeFont:
+        if size not in self._titles:
+            self._titles[size] = load_font(size)
+        return self._titles[size]
+
     def _draw_status_band(self, image, draw, y: int, model: HudModel,
-                          under_status: str) -> Rect | None:
-        """The active-side dot, the status line, the file on screen under it, and
-        the favorite mark at the head of that line.  Returns the mark's rect.
-
-        The status is fun_time's own sentence — lock, loop, browse order, F-mode,
-        filter — drawn full strength on one line always, in the room the panel was
-        widened to leave it.  Pillow clips an overrun tail away in silence, which
-        reads as the states that ran out of room being *off*, and a second line
-        reads as two states rather than one side's.  The file name hangs off that
-        line's descender, muted: the status is what the side is doing, and the
-        name only says which clip it is doing it to.
-
-        The star sits in the column the dot heads, immediately left of that
-        name (:func:`satellite_hud.favorite_mark_rect` says why).  No name, no
-        line, and so no star — there is nothing for it to be beside.
-        """
+                          title: ImageFont.FreeTypeFont, under_status: str) -> Rect | None:
         draw_active_dot(draw, PAD, y + 2, model.active)
         draw.text((STATUS_TEXT_X, y + STATUS_BASELINE), model.lock_label,
-                  font=self._body, anchor="ls", fill=(*TEXT_PRIMARY, 255))
+                  font=title, anchor="ls", fill=(*TEXT_PRIMARY, 255))
         if not under_status:
             return None
         _ascent, descent = self._body.getmetrics()

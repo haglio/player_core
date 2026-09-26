@@ -295,16 +295,18 @@ def test_the_status_text_starts_clear_of_the_dot(thumb):
     assert (gap > 200).all(axis=2).sum() == 0, "text ink in the gap before the text starts"
 
 
-def test_a_status_too_wide_for_the_map_widens_the_panel_rather_than_wrapping(thumb):
+def test_a_status_too_wide_for_the_map_is_drawn_smaller_rather_than_widening_the_panel(thumb):
     def rendered(label: str):
         return HudRenderer("portrait").render(
             _model(lock_label=label, corner=HudCell(path="c.mp4", thumb=thumb)))
 
     short = rendered("Locked")
     long = rendered("Looping actions · Locked · Latest · F-Mode · Enhanceds · beta gamma")
+    band = _rgb(long.bgra)[PAD:PAD + STATUS_BAND_H, STATUS_TEXT_X:]
+    inked_columns = np.nonzero((band > 200).all(axis=2).any(axis=0))[0]
 
-    assert long.bgra.shape[1] > short.bgra.shape[1]
-    assert long.bgra.shape[0] == short.bgra.shape[0]
+    assert long.bgra.shape == short.bgra.shape
+    assert STATUS_TEXT_X + inked_columns.max() < long.bgra.shape[1] - PAD
 
 
 def _control_band_top(rendered) -> int:
