@@ -604,6 +604,21 @@ def test_a_player_opened_locked_has_its_pictures_make_their_moves_again_as_they_
     assert zoom_drawn_at(control, mpv, 106.0) == pytest.approx(math.log2(CREEP.at(0.5).zoom))
 
 
+def test_between_two_files_a_still_is_left_where_its_move_had_got_to():
+    mpv = FakeMpv()
+    control = Control(mpv, now=100.0, move=DRIFT)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+    control.now = 101.0
+    control.push_still()
+
+    mpv.report("current-tracks/video/image", None)
+    control.now = 101.5
+    control.push_still()
+
+    assert (mpv.video_zoom, mpv.video_align_x, mpv.video_align_y) == DRIFT.at(0.25).placement()
+
+
 def test_a_file_that_would_not_open_leaves_the_player_with_nothing_up():
     mpv = FakeMpv()
     control = Control(mpv)

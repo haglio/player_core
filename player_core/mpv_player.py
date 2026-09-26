@@ -276,7 +276,9 @@ class _MpvControl:
     def __init__(self, moves: Moves | None = None, *, looping: bool = False) -> None:
         self._gate = CallGate()
         self._frame_rate = 0.0
-        self._showing_picture = False
+        # mpv's word on the file's video track: an image, a clip, or None
+        # while it has none -- between two files, before the next one's tracks.
+        self._image_track: bool | None = None
         self._overlays: dict[int, np.ndarray] = {}
         # A still's move runs on a clock of its own: mpv leaves a still's
         # playhead at nought and simply ends the file when the pace runs out
@@ -297,7 +299,7 @@ class _MpvControl:
     def _adopt(self, handle) -> None:
         self._mpv = handle
         handle.observe_property("container-fps", self._note_frame_rate)
-        handle.observe_property("current-tracks/video/image", self._note_picture)
+        handle.observe_property("current-tracks/video/image", self._note_image_track)
         handle.observe_property("path", self._note_file)
         handle.observe_property("video-out-params", self._note_video_dims)
         handle.observe_property("video-dec-params", self._note_source_dims)
@@ -305,8 +307,8 @@ class _MpvControl:
     def _note_frame_rate(self, _name: str, value) -> None:
         self._frame_rate = value or 0.0
 
-    def _note_picture(self, _name: str, value) -> None:
-        self._showing_picture = bool(value)
+    def _note_image_track(self, _name: str, value) -> None:
+        self._image_track = value
 
     def _note_file(self, _name: str, path) -> None:
         if path:
@@ -371,7 +373,7 @@ class _MpvControl:
 
     @property
     def showing_picture(self) -> bool:
-        return self._showing_picture
+        return self._image_track is True
 
     @mpv_call()
     def load(self, path: Path) -> None:
@@ -479,7 +481,9 @@ class _MpvControl:
         """Carry the picture on screen one frame further along its move; a video
         is drawn as it comes.  Called once a frame by whichever loop is driving
         this player."""
-        view = self._ken_burns.view(self._now()) if self._showing_picture else View()
+        if self._image_track is None:
+            return
+        view = self._ken_burns.view(self._now()) if self._image_track else View()
         placed = view.placement()
         for name, value, was in zip(_PLACING, placed, self._placed, strict=True):
             if value != was:
