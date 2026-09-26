@@ -32,8 +32,6 @@ from shared_ui.palette import (
 from shared_ui.spacing import BUTTON_GAP
 
 from .console import (
-    HELD_HEIGHT,
-    OSR2_CONTROL_OFF,
     Button,
     ConsoleModel,
     ModeHud,
@@ -45,12 +43,9 @@ from .console import (
     tooltip_at,
 )
 from .drive_readout import (
-    DRIVEN_BY_AUTO,
     DRIVEN_BY_FUNSCRIPT,
     DRIVEN_BY_NEUTRAL,
-    DRIVEN_BY_NOTHING,
     DRIVEN_BY_ROBOT_HAND,
-    POSITION_MAX,
     DriveHud,
     DriveSection,
     DriveTrack,
@@ -61,7 +56,7 @@ from .drive_readout import (
 from .geometry import Rect, contains
 from .hud_osr2 import BUFFER as OSR2_BUFFER
 from .hud_osr2 import HEIGHT as _OSR2_H
-from .hud_osr2 import Osr2Line, Osr2Section, state_for
+from .hud_osr2 import Osr2Line, Osr2Section, ReadoutResolver, state_for
 from .hud_panel import (
     ACTIVE_DOT,
     SYMBOL_FONT,
@@ -102,22 +97,6 @@ _LENGTH_LABELS = {LengthMode.FULL: "Full length", LengthMode.SHORTS: "Shorts"}
 # the trailing "(v1)" the archivist's revision, leaving the volume as the part
 # that says which one you are inside.
 _REVISION = re.compile(r"\s*\(v\d+\)$")
-
-# What the OSR2 state means for the trace.  Auto is the device running itself,
-# which is a motion of its own to draw in a color of its own.  Off is nothing
-# running at all and control off is this app having let go; in neither is
-# anything here being sent, so there is no motion of ours to draw and the
-# readout goes gray.
-_DRIVEN_BY_OSR2 = {
-    Osr2State.ROBOT_HAND: DRIVEN_BY_ROBOT_HAND,
-    Osr2State.FUNSCRIPT: DRIVEN_BY_FUNSCRIPT,
-    Osr2State.AUTO: DRIVEN_BY_AUTO,
-}
-
-
-def _driven_by(osr2: Osr2State) -> str:
-    return _DRIVEN_BY_OSR2.get(osr2, DRIVEN_BY_NOTHING)
-
 
 def _format_rate(rate: float) -> str:
     """A playback rate as a compact label: 1.0 -> '1×', 1.5 -> '1.5×'."""
@@ -263,9 +242,7 @@ class ConsolePainter:
         # coordinates (:func:`player_core.hud_row.row_part`).
         self.row_rect: Rect | None = None
         self._grip = TrackGrip()
-        # The trace and the device's position, held still while nothing is being
-        # sent — see :meth:`_resolve`.
-        self._still: tuple[tuple[float, ...], int, float, float | None] | None = None
+        self._readout = ReadoutResolver()
 
     def bgra(self, hud: ConsoleHud, *, hover: tuple[int, int] | None = None,
              clip_row: RowHud | None = None) -> np.ndarray:
@@ -292,70 +269,11 @@ class ConsolePainter:
         after the comparison it would repaint the whole panel forty times a
         second to draw the same still picture.
         """
-        drive = hud.drive
-        if drive is None:
-            self._still = None
-            return hud
-        # Genau cannot see the handoff, so whoever draws the console tells the
-        # readout who has the device.  Anything but Genau dims every control on
-        # it: adjusting a motion Genau is not sending is what woke it against the
-        # funscript.
-        # Not where a composed trace already names who has the device at the
-        # playhead — set by the same function that drew the line under the dot —
-        # since the round trip lags the arbiter, and the arbiter itself decides
-        # seconds before the device is done riding the blue.
-        held = HELD_HEIGHT.get(hud.console.osr2_control)
-        if hud.console.device_drives_itself:
-            # The device is running its own firmware, and that wins over
-            # everything the room does to it: a hold, a let-go, a handoff
-            # between two drivers.  None of those reaches it, so none is the
-            # picture — one line, the device's own, in its own color.
-            drive = replace(drive, driven=DRIVEN_BY_AUTO, segments=())
-        elif held is not None:
-            # The device is being kept at one end, so that is the picture: a
-            # flat line there with the dot on it, in the gray of a device nobody
-            # is moving.  Whatever the motion or the script had planned is not
-            # reaching it, and drawn it would be a picture of a device in motion.
-            drive = replace(
-                drive, waveform=(held,) * len(drive.waveform or (0.0,)),
-                position=round(held * POSITION_MAX), segments=(), slide=0.0,
-                edge=None, let_go=None, driven=DRIVEN_BY_NEUTRAL)
-        elif hud.console.osr2_control == OSR2_CONTROL_OFF:
-            # Nothing is going out, so nobody has the device — whatever the
-            # round trip or the composed trace last said had it.  The trace's own
-            # names go with it: a video-mode plan says who has the device at each
-            # knot, and kept, they drew the line in the script's green under a
-            # word that read "control off".
-            drive = replace(drive, driven=DRIVEN_BY_NOTHING, segments=())
-        elif not (main_player_displays(hud.console.main_mode) and drive.segments):
-            drive = replace(drive, driven=_driven_by(hud.console.osr2))
-        # In video mode the readout is not a picture of the Robot Hand's motion: it is the
-        # picture of the handoff, and the device changes hands inside it.  The
-        # OSR2 reads "off" whenever nothing is answering on the wire, which is
-        # exactly the gap between Genau letting go and the script's driver
-        # picking up.
-        # Frozen ONLY when the trace is Genau's own resampled motion — one
-        # nobody is sending, which must not keep animating.  A composed
-        # trace (video mode) is the script's plan, computed fresh per
-        # frame from the playhead: it keeps sliding through every rest and
-        # every handoff whatever the OSR2 state says, because the rests ARE
-        # part of what it draws — freezing it on the round-tripped "off"
-        # was the picture that stopped scrolling for the length of each gap.
-        if not drive.live and (hud.console.osr2_control == OSR2_CONTROL_OFF
-                               or not main_player_displays(hud.console.main_mode)):
-            # Genau goes on driving regardless — it cannot see that the OSR2 is
-            # off — so both the trace and the position it publishes keep moving,
-            # and either one left running is a dead readout still claiming to be
-            # live.  The slide freezes with them, or the "still" trace would go on
-            # creeping left a fraction of a sample at a time.
-            if self._still is None:
-                self._still = (drive.waveform, drive.position, drive.slide, drive.edge)
-            waveform, position, slide, edge = self._still
-            drive = replace(drive, waveform=waveform, position=position,
-                            segments=(), slide=slide, edge=edge)
-        else:
-            self._still = None
-        return replace(hud, drive=drive)
+        console = hud.console
+        return replace(hud, drive=self._readout.resolve(
+            hud.drive if console.has_osr2 else None,
+            osr2=console.osr2, control=console.osr2_control,
+            composed=main_player_displays(console.main_mode)))
 
     def _ensure(self, hud: ConsoleHud, hover: tuple[int, int] | None,
                 clip_row: RowHud | None = None) -> bool:
@@ -457,7 +375,8 @@ class ConsolePainter:
         filename_h = (_SUBTITLE_GAP + tiny_h) if filename else 0
 
         text_x = ACTIVE_DOT + DOT_GAP
-        parts_w = max(_row_width(rows), drive_w, self._osr2_width(console),
+        parts_w = max(_row_width(rows), drive_w,
+                      self._osr2_width(console) if console.has_osr2 else 0,
                       self._clip_row.least_width() if clip_row is not None else 0)
         if self._width is None:
             width = 2 * _PAD + max(
@@ -470,10 +389,9 @@ class ConsolePainter:
             room = width - 2 * _PAD - text_x
             status = fit_text(self._body, status, room)
             filename = fit_text(self._tiny, filename, room)
-        height = (
-            2 * _PAD + top_h + filename_h + _ROW_GAP + rows_height(rows)
-            + _ROW_GAP + _OSR2_H
-        )
+        height = 2 * _PAD + top_h + filename_h + _ROW_GAP + rows_height(rows)
+        if console.has_osr2:
+            height += _ROW_GAP + _OSR2_H
         if drive is not None:
             height += _ROW_GAP + drive_h
         # The clip's own row, under everything the console says about the room:
@@ -495,11 +413,13 @@ class ConsolePainter:
                         hovered=hover is not None and contains(rect, *hover),
                         glyph_font=self._glyph, word_font=self._tiny,
                         row_label=rect[0] == _PAD)
-        y += rows_height(rows) + _ROW_GAP
+        y += rows_height(rows)
 
-        self.buttons.extend(self._osr2.draw(panel.image, draw, _PAD, y,
-                                            self._osr2_line(console), hover=hover))
-        y += _OSR2_H
+        if console.has_osr2:
+            y += _ROW_GAP
+            self.buttons.extend(self._osr2.draw(panel.image, draw, _PAD, y,
+                                                self._osr2_line(console), hover=hover))
+            y += _OSR2_H
 
         if drive is not None:
             y += _ROW_GAP

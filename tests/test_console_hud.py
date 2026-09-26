@@ -772,6 +772,32 @@ class TestDeclaredRows:
         assert 3 + np.nonzero(inked)[0].min() <= PAD + 2
 
 
+class TestAConsoleAnotherPlayerTookTheOsr2From:
+    @staticmethod
+    def _painted(*, has_osr2: bool) -> tuple[ConsolePainter, np.ndarray]:
+        painter = ConsolePainter()
+        bgra = painter.bgra(ConsoleHud(
+            console=ConsoleModel(
+                main_mode=MainMode.VIDEO, osr2=Osr2State.ROBOT_HAND,
+                rows=((Button("main_take_osr2", "OSR2", "Take the OSR2"),),),
+                osr2_controls=(Button("broker_panel", BROKER_ICON, "Broker"),),
+                has_osr2=has_osr2),
+            drive=_drive()))
+        return painter, bgra
+
+    def test_draws_the_rows_it_was_handed_and_neither_the_osr2_line_nor_the_readout(self):
+        painter, _bgra = self._painted(has_osr2=False)
+
+        assert [button.command for _rect, button in painter.buttons] == ["main_take_osr2"]
+        assert painter.tracks == []
+
+    def test_is_shorter_by_the_line_and_the_readout(self):
+        _with, holding = self._painted(has_osr2=True)
+        _without, taken = self._painted(has_osr2=False)
+
+        assert taken.shape[0] < holding.shape[0]
+
+
 class TestPlaybackSpeed:
     def test_the_drawing_player_folds_in_its_own_rate(self):
         """Fun Time does not publish the main player's video rate — the main player knows it and adds it

@@ -32,7 +32,7 @@ from shared_ui.spacing import (
 from .console import VALUE_W
 from .drive_readout import DriveHud, DriveTrack, TrackGrip
 from .geometry import Rect, contains
-from .hud_button import Button, rows_from_raw, rows_raw
+from .hud_button import Button, buttons_from_raw, buttons_raw, rows_from_raw, rows_raw
 from .hud_osr2 import HEIGHT as OSR2_H
 from .hud_status import SEPARATOR
 
@@ -161,16 +161,13 @@ class HudModel:
     # panel draws nothing it was not handed.
     rows: tuple[tuple[Button, ...], ...] = ()
 
-    # --- the device, for a host that drives it itself -----------------------
+    # --- the device, for a panel whose player has the OSR2 ------------------
     # Which driver has the OSR2, and the controls that aim it: the same line the
     # main console draws (:mod:`player_core.hud_osr2`), grown here because a host
     # can be both the thing browsing a set AND the thing driving the device.
     # Origenerator's shows are: they floated this HUD for the set and the whole
     # console underneath it for the device, which is two status lines that
-    # disagree and two copies of every transport button.  Empty for a satellite,
-    # which drives nothing and draws no line -- so nothing about fun_time's
-    # players moves.  Not published either: fun_time's panel file says what a
-    # side is browsing, and what a host is sending is that host's own.
+    # disagree and two copies of every transport button.
     osr2: str = ""
     # The rows that AIM the device -- the hands-free switches, the waveform, the
     # four control states.  They sit in the device's own block rather than among
@@ -892,6 +889,10 @@ def hud_text(model: HudModel) -> str:
         "seeds": [_cell_raw(cell) for cell in model.seeds],
         "actions": [_cell_raw(cell) for cell in model.actions],
         "rows": rows_raw(model.rows),
+        "osr2": model.osr2,
+        "osr2_control": model.osr2_control,
+        "osr2_rows": rows_raw(model.osr2_rows),
+        "osr2_controls": buttons_raw(model.osr2_controls),
     })
 
 
@@ -928,4 +929,8 @@ def parse_hud(text: str) -> HudModel | None:
         action_count=int(raw.get("action_count", 0) or 0),
         playing=(str(playing[0]), int(playing[1])),
         rows=rows_from_raw(raw.get("rows")),
+        osr2=str(raw.get("osr2", "") or ""),
+        osr2_control=str(raw.get("osr2_control", "") or ""),
+        osr2_rows=rows_from_raw(raw.get("osr2_rows")),
+        osr2_controls=buttons_from_raw(raw.get("osr2_controls")),
     )

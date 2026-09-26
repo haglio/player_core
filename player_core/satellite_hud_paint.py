@@ -45,7 +45,7 @@ from player_core.hud_panel import (
 from .drive_readout import DriveSection, DriveTrack, readout_targets, section_size
 from .geometry import Rect, contains
 from .hud_osr2 import HEIGHT as OSR2_H
-from .hud_osr2 import Osr2Line, Osr2Section, state_for
+from .hud_osr2 import Osr2Line, Osr2Section, ReadoutResolver, state_for
 from .hud_row import RowHud, RowSection
 from .hud_status import PLAYBACK_SPEED_LABEL
 from .playback_rate import format_rate
@@ -176,10 +176,11 @@ class HudRenderer:
         self._pointer: tuple[int, int] | None = None
         self._glyph = load_font(_SIZE_BODY, SYMBOL_FONT)
         self._thumbs: dict[str, Image.Image] = {}
-        # The main console's own two blocks, hosted here for a source that
-        # drives the device itself -- see HudModel.osr2.
+        # The main console's own two blocks, hosted here for a panel whose
+        # player has the OSR2 -- see HudModel.osr2.
         self._osr2 = Osr2Section()
         self._drive = DriveSection()
+        self._readout = ReadoutResolver()
         self._clip_row = RowSection()
 
     def _thumbnail(self, cell: HudCell) -> Image.Image:
@@ -247,6 +248,8 @@ class HudRenderer:
         # position is only current while something under it has a tooltip —
         # every control here has one — so an empty tip means "not on a button".
         self._pointer = hover_pos if hover_tip else None
+        model = replace(model, drive=self._readout.resolve(
+            model.drive, osr2=model.osr2, control=model.osr2_control, composed=False))
         counts = self._count_lines(model)
         model, seed_win, action_win = self._window(model)
         corner_thumb, seed_thumbs, action_thumbs = self._map_thumbnails(model)

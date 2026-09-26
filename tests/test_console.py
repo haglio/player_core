@@ -210,6 +210,12 @@ class TestThePublishedConsoleIsWrittenWhereItIsRead:
         assert parse_console(console_text(ConsoleModel(latest=None))).latest is None
         assert parse_console(console_text(ConsoleModel(latest=False))).latest is False
 
+    def test_a_console_another_player_took_the_osr2_from_says_so(self):
+        assert parse_console(console_text(ConsoleModel(has_osr2=False))).has_osr2 is False
+
+    def test_a_panel_that_says_nothing_about_the_osr2_has_it(self):
+        assert parse_console(json.dumps({"main_mode": MainMode.VIDEO})).has_osr2 is True
+
     def test_a_torn_read_is_no_panel(self):
         assert parse_console('{"main_mode": "video"') is None
         assert parse_console("") is None

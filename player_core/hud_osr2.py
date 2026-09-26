@@ -14,7 +14,7 @@ reads as one read-out instead of as another button.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from PIL import Image, ImageDraw
 from shared_ui.palette import (
@@ -26,7 +26,16 @@ from shared_ui.palette import (
     TEXT_PRIMARY,
 )
 
-from .console import GAP, OSR2_CONTROL_OFF, OSR2_PARKED, OSR2_RETRACTED
+from .console import GAP, HELD_HEIGHT, OSR2_CONTROL_OFF, OSR2_PARKED, OSR2_RETRACTED
+from .drive_readout import (
+    DRIVEN_BY_AUTO,
+    DRIVEN_BY_FUNSCRIPT,
+    DRIVEN_BY_NEUTRAL,
+    DRIVEN_BY_NOTHING,
+    DRIVEN_BY_ROBOT_HAND,
+    POSITION_MAX,
+    DriveHud,
+)
 from .geometry import Rect, contains
 from .hud_button import BUTTON, Button
 from .hud_panel import SYMBOL_FONT, draw_button, load_font, text_width
@@ -92,6 +101,75 @@ def state_for(osr2: str, control: str, *, driving: str = "") -> str:
     if control in (OSR2_CONTROL_OFF, OSR2_PARKED, OSR2_RETRACTED):
         return control
     return driving or osr2
+
+
+_DRIVEN_BY_OSR2 = {
+    Osr2State.ROBOT_HAND: DRIVEN_BY_ROBOT_HAND,
+    Osr2State.FUNSCRIPT: DRIVEN_BY_FUNSCRIPT,
+    Osr2State.AUTO: DRIVEN_BY_AUTO,
+}
+
+
+class ReadoutResolver:
+    """The readout under the line, drawn by the same precedence as the pill."""
+
+    def __init__(self) -> None:
+        self._still: tuple[tuple[float, ...], int, float, float | None] | None = None
+
+    def resolve(self, drive: DriveHud | None, *, osr2: str, control: str,
+                composed: bool) -> DriveHud | None:
+        if drive is None:
+            self._still = None
+            return None
+        # Genau cannot see the handoff, so whoever draws the readout tells it
+        # who has the device.  Anything but Genau dims every control on it:
+        # adjusting a motion Genau is not sending is what woke it against the
+        # funscript.
+        # Not where a composed trace already names who has the device at the
+        # playhead — set by the same function that drew the line under the dot —
+        # since the round trip lags the arbiter, and the arbiter itself decides
+        # seconds before the device is done riding the blue.
+        held = HELD_HEIGHT.get(control)
+        if osr2 == Osr2State.AUTO:
+            # The device is running its own firmware, and that wins over
+            # everything the room does to it: a hold, a let-go, a handoff
+            # between two drivers.  None of those reaches it, so none is the
+            # picture — one line, the device's own, in its own color.
+            drive = replace(drive, driven=DRIVEN_BY_AUTO, segments=())
+        elif held is not None:
+            # The device is being kept at one end, so that is the picture: a
+            # flat line there with the dot on it, in the gray of a device nobody
+            # is moving.  Whatever the motion or the script had planned is not
+            # reaching it, and drawn it would be a picture of a device in motion.
+            drive = replace(
+                drive, waveform=(held,) * len(drive.waveform or (0.0,)),
+                position=round(held * POSITION_MAX), segments=(), slide=0.0,
+                edge=None, let_go=None, driven=DRIVEN_BY_NEUTRAL)
+        elif control == OSR2_CONTROL_OFF:
+            # Nothing is going out, so nobody has the device — whatever the
+            # round trip or the composed trace last said had it.  The trace's own
+            # names go with it: a video-mode plan says who has the device at each
+            # knot, and kept, they drew the line in the script's green under a
+            # word that read "control off".
+            drive = replace(drive, driven=DRIVEN_BY_NOTHING, segments=())
+        elif not (composed and drive.segments):
+            drive = replace(drive, driven=_DRIVEN_BY_OSR2.get(osr2, DRIVEN_BY_NOTHING))
+        # A composed trace is the script's plan, computed fresh per frame from
+        # the playhead: it keeps sliding through every rest and every handoff
+        # whatever the OSR2 state says, because the rests ARE part of what it
+        # draws — freezing it on the round-tripped "off" was the picture that
+        # stopped scrolling for the length of each gap.  Anything else is
+        # Genau's own resampled motion, which goes on moving while nobody is
+        # sending it, and the slide freezes with it or the "still" trace would
+        # go on creeping left a fraction of a sample at a time.
+        if not drive.live and (control == OSR2_CONTROL_OFF or not composed):
+            if self._still is None:
+                self._still = (drive.waveform, drive.position, drive.slide, drive.edge)
+            waveform, position, slide, edge = self._still
+            return replace(drive, waveform=waveform, position=position,
+                           segments=(), slide=slide, edge=edge)
+        self._still = None
+        return drive
 
 
 @dataclass(frozen=True)
