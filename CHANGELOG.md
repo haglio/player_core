@@ -9,6 +9,16 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-09-25 — every player's scrubber can carry its funscript's colors
+
+`progress_bar_bgra(..., heatmap=colors)` fills the track with a funscript's
+colors, one RGB per track pixel, in place of the dark fill; the frame, the
+cursor and the marks are the plain bar's. The main player drew that strip with
+a copy of this frame of its own, and nothing else could draw it at all, so Fun
+Time's side screens and headset could not show a script's colors. The panel
+row's `heatmap` was handed to the bar as its loop bounds, which crashed the
+first draw a host gave it; it now reaches the bar as its colors.
+
 ## 2026-09-25 — a source can put the newest frame of a picture being made over the one on screen
 
 `SHOW_FRAME <path to an image>` asks a player to draw that picture over what it

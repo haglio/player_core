@@ -89,7 +89,7 @@ class RowSection:
         draws.
         """
         _width, height = self.size(width)
-        bar = progress_bar_bgra(row.position_ms, row.duration_ms, heatmap, width)
+        bar = progress_bar_bgra(row.position_ms, row.duration_ms, None, width, heatmap=heatmap)
         image.alpha_composite(_rgba(bar), (x, y + height - bar.shape[0]))
         if row.volume is not None:
             chip = _rgba(self._volume.bgra(row.volume))
