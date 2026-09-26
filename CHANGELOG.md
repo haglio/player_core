@@ -9,6 +9,16 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-09-25 — a player can lay a portrait picture side by side across a wide window
+
+`tile_to_fill(width, height)`, called with the window's size every frame, shows
+as many copies of a portrait picture as fit across a window wider than it is
+tall, and one of anything else. mpv does it on the GPU: `tiles.glsl` widens the
+picture by the count and `video-aspect-override` letterboxes the widened shape,
+so hardware decoding stays on. `source_dims` is the picture's own shape, which
+the override does not change. Fun Time's main player and portrait player call
+it; nothing else does.
+
 ## 2026-09-25 — Genau's picture goes where the room holds the device
 
 `PARK` and `RETRACT` are new verbs on `genau_cmd.txt`: the room is holding the

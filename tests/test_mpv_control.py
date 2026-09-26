@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from player_core import audio_outputs
-from player_core.mpv_player import _MpvControl, _shared_options
+from player_core.mpv_player import TILES_SHADER, _MpvControl, _shared_options, tiles_across
 
 
 class FakeMpv:
@@ -499,3 +499,110 @@ def test_letting_go_of_the_file_on_screen_unloads_it():
     control.stop()
 
     assert ("command", "stop") in mpv.calls
+
+
+WIDE_WINDOW = (1080, 524)
+
+
+def test_as_many_portrait_pictures_as_fit_side_by_side_fill_a_wide_window():
+    assert tiles_across((1080, 1920), WIDE_WINDOW) == 3
+
+
+def test_a_landscape_picture_is_never_tiled_however_wide_the_window():
+    assert tiles_across((1920, 1080), (4000, 1000)) == 1
+
+
+def test_a_window_taller_than_it_is_wide_is_never_tiled_even_by_a_narrow_picture():
+    assert tiles_across((300, 1200), (1080, 1396)) == 1
+
+
+def test_a_picture_not_measured_yet_is_not_tiled():
+    assert tiles_across((0, 0), WIDE_WINDOW) == 1
+
+
+PORTRAIT_SOURCE = {"w": 1080, "h": 1920, "dw": 1080, "dh": 1920}
+
+
+def _tiling_calls(mpv: FakeMpv) -> list[tuple]:
+    return [call for call in mpv.calls if call[:2] == ("command", "change-list")]
+
+
+def test_tiling_a_portrait_picture_across_a_wide_window_widens_its_shape_by_the_count():
+    mpv = FakeMpv()
+    control = Control(mpv)
+    mpv.report("video-dec-params", PORTRAIT_SOURCE)
+
+    control.tile_to_fill(*WIDE_WINDOW)
+
+    assert _tiling_calls(mpv) == [
+        ("command", "change-list", "glsl-shaders", "set", str(TILES_SHADER)),
+        ("command", "change-list", "glsl-shader-opts", "set", "tiles=3"),
+    ]
+    assert mpv.video_aspect_override == "27:16"
+
+
+def test_a_frame_that_changes_nothing_asks_mpv_for_nothing():
+    mpv = FakeMpv()
+    control = Control(mpv)
+    mpv.report("video-dec-params", PORTRAIT_SOURCE)
+    control.tile_to_fill(*WIDE_WINDOW)
+    asked = list(mpv.calls)
+
+    control.tile_to_fill(*WIDE_WINDOW)
+
+    assert mpv.calls == asked
+
+
+TALL_WINDOW = (1080, 1396)
+
+
+def test_a_window_turned_tall_takes_the_tiles_away():
+    mpv = FakeMpv()
+    control = Control(mpv)
+    mpv.report("video-dec-params", PORTRAIT_SOURCE)
+    control.tile_to_fill(*WIDE_WINDOW)
+
+    control.tile_to_fill(*TALL_WINDOW)
+
+    assert _tiling_calls(mpv)[-1] == ("command", "change-list", "glsl-shaders", "clr", "")
+    assert mpv.video_aspect_override == "no"
+
+
+def test_a_landscape_file_after_a_tiled_one_takes_the_tiles_away():
+    mpv = FakeMpv()
+    control = Control(mpv)
+    mpv.report("video-dec-params", PORTRAIT_SOURCE)
+    control.tile_to_fill(*WIDE_WINDOW)
+
+    mpv.report("video-dec-params", {"w": 1920, "h": 1080, "dw": 1920, "dh": 1080})
+    control.tile_to_fill(*WIDE_WINDOW)
+
+    assert _tiling_calls(mpv)[-1] == ("command", "change-list", "glsl-shaders", "clr", "")
+    assert mpv.video_aspect_override == "no"
+
+
+def test_the_source_shape_outlives_the_gap_between_files():
+    mpv = FakeMpv()
+    control = Control(mpv)
+    mpv.report("video-dec-params", PORTRAIT_SOURCE)
+
+    mpv.report("video-dec-params", None)
+
+    assert control.source_dims == (1080, 1920)
+
+
+def test_a_portrait_file_of_another_size_but_the_same_shape_keeps_its_tiles():
+    mpv = FakeMpv()
+    control = Control(mpv)
+    mpv.report("video-dec-params", PORTRAIT_SOURCE)
+    control.tile_to_fill(*WIDE_WINDOW)
+    asked = list(mpv.calls)
+
+    mpv.report("video-dec-params", {"w": 720, "h": 1280, "dw": 720, "dh": 1280})
+    control.tile_to_fill(*WIDE_WINDOW)
+
+    assert mpv.calls == asked
+
+
+def test_the_tile_shader_ships_beside_the_player_and_takes_its_count_as_a_parameter():
+    assert "//!PARAM tiles" in TILES_SHADER.read_text(encoding="utf-8")
