@@ -11,7 +11,6 @@ from one_move import CREEP, DRIFT, OneMove
 
 from player_core.ken_burns import (
     CLOSEST_AIM,
-    EDGE_OVERHANG_PX,
     ZOOMED_IN,
     Fit,
     KenBurns,
@@ -25,7 +24,7 @@ from player_core.ken_burns import (
 
 
 def assert_view(view: View, zoom: float, x: float, y: float) -> None:
-    assert (view.zoom, view.x, view.y) == pytest.approx((zoom, x, y))
+    assert (view.zoom, view.align_x, view.align_y) == pytest.approx((zoom, x, y))
 
 
 def test_a_zoom_in_starts_on_the_whole_picture_and_ends_closer_about_its_spot():
@@ -85,7 +84,7 @@ def test_a_picture_set_off_from_rest_zooms_in_and_the_next_one_moves_another_way
 
 
 def test_a_zoom_is_about_a_spot_anywhere_in_the_picture_not_only_its_middle():
-    spots = [(move.start.x, move.start.y) for move in dealt(300) if kind_of(move) != "pan"]
+    spots = [(move.start.align_x, move.start.align_y) for move in dealt(300) if kind_of(move) != "pan"]
 
     assert all(-1.0 <= x <= 1.0 and -1.0 <= y <= 1.0 for x, y in spots)
     assert max(abs(x) for x, _ in spots) > 0.9
@@ -95,7 +94,7 @@ def test_a_zoom_is_about_a_spot_anywhere_in_the_picture_not_only_its_middle():
 def test_a_pan_sets_off_from_a_corner_so_it_crosses_whichever_way_the_picture_has_room():
     pans = [move for move in dealt(300) if kind_of(move) == "pan"]
 
-    assert {(move.start.x, move.start.y) for move in pans} == {
+    assert {(move.start.align_x, move.start.align_y) for move in pans} == {
         (-1.0, -1.0), (-1.0, 1.0), (1.0, -1.0), (1.0, 1.0)}
 
 
@@ -108,7 +107,7 @@ def paced(seconds: float = 4.0, *, now_s: float = 100.0, deals: OneMove | None =
 
 def assert_along(view: View, move: Move, progress: float) -> None:
     expected = move.at(progress)
-    assert_view(view, expected.zoom, expected.x, expected.y)
+    assert_view(view, expected.zoom, expected.align_x, expected.align_y)
 
 
 def test_a_picture_arrives_at_the_start_of_its_move():
@@ -286,17 +285,17 @@ WIDE = (1920, 1080)
 
 
 def test_the_whole_picture_reaches_mpv_unzoomed_and_centered():
-    assert Fit(WIDE, WIDE).on_screen(View()) == (0.0, 0.0, 0.0)
+    assert View().placement() == (0.0, 0.0, 0.0)
 
 
-def test_a_window_of_unknown_size_keeps_the_picture_centered_as_it_zooms():
-    assert Fit((0, 0), WIDE).on_screen(View(ZOOMED_IN, 1.0, -1.0)) == (
-        math.log2(ZOOMED_IN), 0.0, 0.0)
+def test_a_view_reaches_mpv_as_its_zoom_and_how_far_it_leans_each_way():
+    assert View(ZOOMED_IN, 1.0, -0.5).placement() == (math.log2(ZOOMED_IN), 1.0, -0.5)
 
 
 # mpv's own arithmetic for where a picture is drawn: aspect_calc_panscan and
-# src_dst_split_scaling in video/out/aspect.c, at the pinned build (989d32716e),
-# single precision and truncated to whole pixels as mpv does it.
+# src_dst_split_scaling in video/out/aspect.c at the build the players load
+# (v0.41.0-724-g71ebd0840), with video-recenter on, single precision and
+# truncated to whole pixels as mpv does it.
 F32 = np.float32
 
 
@@ -310,17 +309,19 @@ def mpv_fitted(window: tuple[int, int], shown: tuple[int, int]) -> tuple[int, in
     return width, height
 
 
-def mpv_span(window: int, fitted: int, video_zoom: float, pan: float) -> tuple[int, int]:
+def mpv_span(window: int, fitted: int, video_zoom: float, align: float) -> tuple[int, int]:
     scaled = max(int(F32(fitted) * F32(2.0) ** F32(video_zoom)), 1)
-    start = int(F32(window - scaled) * F32(0.5) + F32(pan) * F32(scaled))
+    if window >= scaled:
+        align = 0.0
+    start = int(F32(window - scaled) * ((F32(align) + F32(1.0)) / F32(2.0)))
     return start, start + scaled
 
 
 def drawn(fit: Fit, view: View) -> list[tuple[int, int, int]]:
-    video_zoom, *pans = fit.on_screen(view)
-    return [(window, *mpv_span(window, fitted, video_zoom, pan))
-            for window, fitted, pan in zip(fit.window, mpv_fitted(fit.window, fit.shown), pans,
-                                           strict=True)]
+    video_zoom, *aligns = view.placement()
+    return [(window, *mpv_span(window, fitted, video_zoom, align))
+            for window, fitted, align in zip(fit.window, mpv_fitted(fit.window, fit.shown),
+                                             aligns, strict=True)]
 
 
 SHAPES = [(1920, 1080), (832, 1216), (3000, 1000), (1024, 1024)]
@@ -345,7 +346,7 @@ def test_no_view_draws_an_edge_of_the_picture_inside_the_window(shown, corner, z
 def test_a_view_at_the_end_of_its_reach_brings_the_pictures_edge_up_to_the_windows(shown, corner):
     for window, start, end in drawn(Fit(WIDE, shown), View(8.0, *corner)):
         assert start <= 0 and end >= window
-        assert min(-start, end - window) <= EDGE_OVERHANG_PX + 1
+        assert min(-start, end - window) == 0
 
 
 def part_drawn(fit: Fit, view: View, part: tuple[float, float, float, float]):
@@ -370,8 +371,8 @@ def test_a_part_aimed_at_anywhere_in_the_picture_is_drawn_whole_inside_the_windo
     fit = Fit(WIDE, shown)
 
     for window, start, end in part_drawn(fit, fit.framing(part), part):
-        assert start >= -EDGE_OVERHANG_PX - 1
-        assert end <= window + EDGE_OVERHANG_PX + 1
+        assert start >= -1
+        assert end <= window + 1
 
 
 def test_aiming_at_a_sliver_comes_no_closer_than_an_aim_ever_comes():
@@ -386,8 +387,10 @@ def test_a_part_reaching_past_the_picture_is_aimed_at_what_of_it_lies_inside():
     assert fit.framing((-0.5, 0.25, 0.5, 0.75)) == fit.framing((0.0, 0.25, 0.5, 0.75))
 
 
-def test_aiming_before_the_window_is_known_zooms_straight_in_on_the_middle():
-    assert Fit((0, 0), WIDE).framing((0.0, 0.0, 0.5, 0.5)) == View(2.0, 0.0, 0.0)
+def test_aiming_before_the_window_is_known_frames_the_part_as_if_it_had_the_pictures_shape():
+    part = (0.0, 0.0, 0.5, 0.5)
+
+    assert Fit((0, 0), WIDE).framing(part) == Fit(WIDE, WIDE).framing(part)
 
 
 def test_aiming_on_a_player_laying_the_picture_out_in_tiles_aims_at_the_middle_tile():

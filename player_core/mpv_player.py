@@ -175,6 +175,9 @@ def _shared_options(*, muted: bool, loop_file: bool, prefetch: bool) -> dict:
         **_MPV_SCRIPTS_OFF,
         input_default_bindings=False,
         image_display_duration=_DEFAULT_PACE_S,
+        # Leaning a still (video-align) moves it only along a side it
+        # overhangs the window on: along one it fits inside, it stays centered.
+        video_recenter="yes",
     )
     if prefetch:
         # Open and demux the *next* playlist entry during the tail of the
@@ -187,6 +190,12 @@ def _shared_options(*, muted: bool, loop_file: bool, prefetch: bool) -> dict:
 
 
 TILES_SHADER = Path(__file__).with_name("tiles.glsl")
+
+# How a still's view reaches mpv: its zoom, and how far it leans each way
+# between the picture's two edges (video/out/aspect.c places a picture that
+# overhangs the window from flush with one edge at -1 to flush with the other
+# at +1, so every lean keeps it covering the window).
+_PLACING = ("video_zoom", "video_align_x", "video_align_y")
 
 
 def tiles_across(source: tuple[int, int], window: tuple[int, int]) -> int:
@@ -471,14 +480,8 @@ class _MpvControl:
         is drawn as it comes.  Called once a frame by whichever loop is driving
         this player."""
         view = self._ken_burns.view(self._now()) if self._showing_picture else View()
-        placed = self._fit().on_screen(view)
-        zoom = ("video_zoom", placed[0], self._placed[0])
-        pans = [("video_pan_x", placed[1], self._placed[1]),
-                ("video_pan_y", placed[2], self._placed[2])]
-        # mpv can draw a frame between any two of these, so each one asked for
-        # must leave the picture covering the window: a picture drawn closer
-        # has room for its old place, and one drawn back has room for its new.
-        for name, value, was in [zoom, *pans] if placed[0] >= self._placed[0] else [*pans, zoom]:
+        placed = view.placement()
+        for name, value, was in zip(_PLACING, placed, self._placed, strict=True):
             if value != was:
                 setattr(self._mpv, name, value)
         self._placed = placed

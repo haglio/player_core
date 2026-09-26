@@ -8,18 +8,17 @@ __all__: list[str] = []
 
 ZOOMED_IN = 1.10
 
-# mpv places the picture in whole pixels, rounding each edge on its own, so a
-# pan taken exactly to the picture's edge can leave a line of the window showing.
-EDGE_OVERHANG_PX = 2
-
 CLOSEST_AIM = 8.0
 
 
 @dataclass(frozen=True)
 class View:
     zoom: float = 1.0
-    x: float = 0.0
-    y: float = 0.0
+    align_x: float = 0.0
+    align_y: float = 0.0
+
+    def placement(self) -> tuple[float, float, float]:
+        return math.log2(self.zoom), self.align_x, self.align_y
 
 
 @dataclass(frozen=True)
@@ -29,8 +28,8 @@ class Move:
 
     def at(self, progress: float) -> View:
         return View(self.start.zoom * (self.end.zoom / self.start.zoom) ** progress,
-                    _between(self.start.x, self.end.x, progress),
-                    _between(self.start.y, self.end.y, progress))
+                    _between(self.start.align_x, self.end.align_x, progress),
+                    _between(self.start.align_y, self.end.align_y, progress))
 
 
 STANDSTILL = Move(View(), View())
@@ -40,16 +39,16 @@ def _between(start: float, end: float, progress: float) -> float:
     return start + (end - start) * progress
 
 
-def zoom_in(x: float, y: float) -> Move:
-    return Move(View(1.0, x, y), View(ZOOMED_IN, x, y))
+def zoom_in(align_x: float, align_y: float) -> Move:
+    return Move(View(1.0, align_x, align_y), View(ZOOMED_IN, align_x, align_y))
 
 
-def zoom_out(x: float, y: float) -> Move:
-    return Move(View(ZOOMED_IN, x, y), View(1.0, x, y))
+def zoom_out(align_x: float, align_y: float) -> Move:
+    return Move(View(ZOOMED_IN, align_x, align_y), View(1.0, align_x, align_y))
 
 
-def pan(x: float, y: float) -> Move:
-    return Move(View(ZOOMED_IN, x, y), View(ZOOMED_IN, -x, -y))
+def pan(align_x: float, align_y: float) -> Move:
+    return Move(View(ZOOMED_IN, align_x, align_y), View(ZOOMED_IN, -align_x, -align_y))
 
 
 class Moves:
@@ -79,31 +78,19 @@ class Fit:
     shown: tuple[int, int]
     tiles: int = 1
 
-    def on_screen(self, view: View) -> tuple[float, float, float]:
-        reach_x, reach_y = self._reach(view.zoom)
-        return math.log2(view.zoom), -view.x * reach_x, -view.y * reach_y
-
     def framing(self, part: tuple[float, float, float, float]) -> View:
         x0, y0, x1, y1 = (min(max(edge, 0.0), 1.0) for edge in part)
         middle_tile = self.tiles // 2
         x0, x1 = (middle_tile + x0) / self.tiles, (middle_tile + x1) / self.tiles
         room_x, room_y = self._room()
         zoom = min(CLOSEST_AIM, _fitting(room_x, x1 - x0), _fitting(room_y, y1 - y0))
-        reach_x, reach_y = self._reach(zoom)
-        return View(zoom, _toward((x0 + x1) / 2, reach_x), _toward((y0 + y1) / 2, reach_y))
+        return View(zoom, _align_centering((x0 + x1) / 2, room_x, zoom), _align_centering((y0 + y1) / 2, room_y, zoom))
 
     def _room(self) -> tuple[float, float]:
         fitted = self._fitted()
         if fitted is None:
             return 1.0, 1.0
         return self.window[0] / fitted[0], self.window[1] / fitted[1]
-
-    def _reach(self, zoom: float) -> tuple[float, float]:
-        fitted = self._fitted()
-        if fitted is None:
-            return 0.0, 0.0
-        return (_overhang_share(self.window[0], fitted[0] * zoom),
-                _overhang_share(self.window[1], fitted[1] * zoom))
 
     def _fitted(self) -> tuple[float, float] | None:
         (window_w, window_h), (shown_w, shown_h) = self.window, self.shown
@@ -113,18 +100,14 @@ class Fit:
         return shown_w * scale, shown_h * scale
 
 
-def _overhang_share(window: float, zoomed: float) -> float:
-    return max(0.0, (zoomed - window) / 2 - EDGE_OVERHANG_PX) / zoomed
-
-
 def _fitting(room: float, part: float) -> float:
     return room / part if part > 0 else math.inf
 
 
-def _toward(middle: float, reach: float) -> float:
-    if not reach:
+def _align_centering(middle: float, room: float, zoom: float) -> float:
+    if zoom <= room:
         return 0.0
-    return max(-1.0, min(1.0, (middle - 0.5) / reach))
+    return max(-1.0, min(1.0, 2.0 * (room / 2.0 - middle * zoom) / (room - zoom) - 1.0))
 
 
 class RoomClock:
