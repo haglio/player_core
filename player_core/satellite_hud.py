@@ -211,11 +211,10 @@ def map_row_width(player: str) -> int:
     return MAP_CELLS * slot_width(player) + (MAP_CELLS - 1) * MAP_GAP
 
 
-def panel_width(player: str, status_width: int, subtitle_width: int = 0, *,
-                content_width: int = 0) -> int:
+def panel_width(player: str, name_width: int = 0, *, content_width: int = 0) -> int:
     for_map = (PAD + ROW_LABEL_GUTTER + ELLIPSIS_ROOM + map_row_width(player) + ELLIPSIS_ROOM
                + MAP_RIGHT_RESERVE + PAD)
-    return max(for_map, STATUS_TEXT_X + max(status_width, subtitle_width) + PAD, content_width)
+    return max(for_map, STATUS_TEXT_X + name_width + PAD, content_width)
 
 
 def device_height(osr2: str, drive: DriveHud | None, drive_h: int,
@@ -478,6 +477,10 @@ def name_line(name: str, note: str, room: int, width_of: Callable[[str], int]) -
         if width_of(shortened) <= room:
             return shortened
     return note
+
+
+def largest_size_that_fits(largest: int, room: int, width_at: Callable[[int], int]) -> int:
+    return next((size for size in range(largest, 1, -1) if width_at(size) <= room), 1)
 
 
 # The strike under the current clip's act: this act is wrong, ask about it again.

@@ -34,6 +34,7 @@ from player_core.satellite_hud import (
     hit_test_targets,
     hud_text,
     label_is_filtered,
+    largest_size_that_fits,
     loop_button_rects,
     looped_group_rect,
     map_row_width,
@@ -59,12 +60,12 @@ def _squares(x: int, y: int, buttons) -> list:
 # --- the status line ---------------------------------------------------------
 
 
-def test_the_panel_is_as_wide_as_its_map_or_its_status_whichever_asks_for_more():
-    for_map = panel_width("portrait", 0)
+def test_the_panel_is_as_wide_as_its_map_or_its_file_name_whichever_asks_for_more():
+    for_map = panel_width("portrait")
     room = for_map - STATUS_TEXT_X - PAD
 
-    assert panel_width("portrait", room) == for_map
-    assert panel_width("portrait", room + 20) == for_map + 20
+    assert panel_width("portrait", name_width=room) == for_map
+    assert panel_width("portrait", name_width=room + 20) == for_map + 20
 
 
 def test_parse_hud_reads_whether_this_side_has_the_floor():
@@ -498,6 +499,18 @@ def test_a_note_with_no_name_before_it_stands_alone():
 
 def test_a_note_too_long_to_leave_any_of_the_name_stands_alone():
     assert name_line("clip", "Enhancing…", room=12, width_of=len) == "Enhancing…"
+
+
+def test_a_title_that_fits_keeps_its_full_size():
+    assert largest_size_that_fits(11, room=100, width_at=lambda size: 5 * size) == 11
+
+
+def test_a_title_too_wide_takes_the_largest_size_that_fits():
+    assert largest_size_that_fits(11, room=40, width_at=lambda size: 5 * size) == 8
+
+
+def test_a_title_that_fits_at_no_size_takes_the_smallest():
+    assert largest_size_that_fits(11, room=3, width_at=lambda size: 5 * size) == 1
 
 
 def test_action_label_blocks_separate_comma_joined_acts():
