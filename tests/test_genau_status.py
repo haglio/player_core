@@ -121,11 +121,9 @@ def test_build_status_text_hud_inactive():
 
 
 def test_write_status_file_creates_file(tmp_path: Path):
-    ds = RobotHandState()
-    cs = CruiseControlState()
     path = tmp_path / "genau_status.txt"
 
-    write_status_file(path, ds, cs)
+    write_status_file(path, build_status_text(RobotHandState(), CruiseControlState()))
 
     assert path.exists()
     text = path.read_text(encoding="utf-8")
@@ -134,14 +132,13 @@ def test_write_status_file_creates_file(tmp_path: Path):
 
 
 def test_write_status_file_skips_when_unchanged(tmp_path: Path):
-    ds = RobotHandState()
-    cs = CruiseControlState()
+    text = build_status_text(RobotHandState(), CruiseControlState())
     path = tmp_path / "genau_status.txt"
 
-    assert write_status_file(path, ds, cs) is True  # first write
+    assert write_status_file(path, text) is True  # first write
     written_at = path.stat().st_mtime_ns
 
-    assert write_status_file(path, ds, cs) is False  # no change
+    assert write_status_file(path, text) is False  # no change
     assert path.stat().st_mtime_ns == written_at, "the file was rewritten anyway"
 
 
@@ -160,8 +157,7 @@ def test_build_status_text_reports_a_released_clip():
 
 
 def test_build_status_text_names_the_clip_on_screen():
-    """The one thing about Genau an orchestrator cannot work out for itself:
-    which clip is up, so a reopened session can be pointed back at it."""
+    """Which clip is up, so a reopened session can be pointed back at it."""
     text = build_status_text(
         RobotHandState(), CruiseControlState(), clip=Path("C:/clips/alpha.mp4"),
     )
@@ -188,3 +184,12 @@ def test_build_status_text_says_whether_the_learned_motion_has_the_hand():
 def test_build_status_text_says_whether_the_clip_on_screen_is_flipped():
     assert "flipped=0" in build_status_text(RobotHandState(), CruiseControlState())
     assert "flipped=1" in build_status_text(RobotHandState(), CruiseControlState(), flipped=True)
+
+
+def test_build_status_text_says_whether_the_clip_on_screen_is_portrait():
+    assert "portrait=1\n" in build_status_text(RobotHandState(), CruiseControlState(), portrait=True)
+    assert "portrait=0\n" in build_status_text(RobotHandState(), CruiseControlState(), portrait=False)
+
+
+def test_build_status_text_leaves_the_shape_empty_until_a_clip_is_up():
+    assert "portrait=\n" in build_status_text(RobotHandState(), CruiseControlState())

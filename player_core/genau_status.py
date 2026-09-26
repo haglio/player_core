@@ -1,9 +1,4 @@
-"""What Genau publishes back: the status file an orchestrator reads.
-
-Every line but one describes the hand, which the orchestrator set and therefore
-already knows; the clip it does not, and without it a reopened session can only
-start Genau at the top of a freshly scanned folder.
-"""
+"""What Genau publishes back: the status file an orchestrator reads."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -25,6 +20,10 @@ __all__ = [
 GENAU_STATUS_FILENAME = GENAU_STATUS
 
 
+def _flag_or_unknown(flag: bool | None) -> str:
+    return "" if flag is None else "1" if flag else "0"
+
+
 def build_status_text(
     hand: RobotHandState,
     cruise: CruiseControlState,
@@ -34,6 +33,7 @@ def build_status_text(
     hud_active: bool = False,
     clip: Path | None = None,
     flipped: bool = False,
+    portrait: bool | None = None,
 ) -> str:
     limits = control_limits(hand)
     advance = clip_advance or ClipAdvanceState()
@@ -44,6 +44,7 @@ def build_status_text(
         # Which clip is up.  Empty until the first clip is on screen.
         f"clip={clip if clip is not None else ''}\n"
         f"flipped={'1' if flipped else '0'}\n"
+        f"portrait={_flag_or_unknown(portrait)}\n"
         f"shape={hand.shape.value}\n"
         f"amp_at_max={'1' if limits.amp_at_max else '0'}\n"
         f"amp_at_min={'1' if limits.amp_at_min else '0'}\n"
@@ -55,21 +56,7 @@ def build_status_text(
     )
 
 
-def write_status_file(
-    path: Path,
-    hand: RobotHandState,
-    cruise: CruiseControlState,
-    *,
-    learned: LearnedMotionState | None = None,
-    clip_advance: ClipAdvanceState | None = None,
-    hud_active: bool = False,
-    clip: Path | None = None,
-    flipped: bool = False,
-) -> bool:
-    text = build_status_text(
-        hand, cruise, learned=learned, clip_advance=clip_advance, hud_active=hud_active,
-        clip=clip, flipped=flipped,
-    )
+def write_status_file(path: Path, text: str) -> bool:
     try:
         if path.read_text(encoding="utf-8") == text:
             return False

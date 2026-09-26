@@ -50,6 +50,7 @@ class FakeRenderer:
         self._entry = entry
         self.current_frame_index = current_frame_index
         self.display_calls: list[int] = []
+        self.portrait: bool | None = None
 
     def current_clip_entry(self):
         return self._entry
@@ -1297,3 +1298,16 @@ class TestAFlippedClip:
         built["controller"].refresh()
 
         assert "flipped=1" in (tmp_path / "genau_status.txt").read_text(encoding="utf-8")
+
+
+def test_the_status_says_whether_the_clip_up_is_portrait(tmp_path):
+    built = _build_controller(
+        entry={"frames": [object() for _ in range(8)]},
+        cruise_control=CruiseControlState(),
+        status_file=tmp_path / "genau_status.txt",
+    )
+    built["renderer"].portrait = True
+
+    built["controller"].refresh()
+
+    assert "portrait=1" in (tmp_path / "genau_status.txt").read_text(encoding="utf-8")
