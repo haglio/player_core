@@ -206,3 +206,14 @@ def test_write_status_file_replaces_the_record_whole_so_a_poller_never_reads_hal
 
     assert write_status_file(path, text) is True
     assert published == [(path, text)]
+def test_whether_the_hand_is_moving_is_said_for_a_genau_taking_its_place():
+    """A Genau arriving beside this one has to know whether to be moving when
+    it takes the room, and nothing else it can read says so."""
+    assert "playing=1" in build_status_text(RobotHandState(playing=True), CruiseControlState())
+    assert "playing=0" in build_status_text(RobotHandState(playing=False), CruiseControlState())
+
+
+def test_the_seconds_a_clip_holds_the_screen_are_said_too():
+    advance = ClipAdvanceState(interval=25)
+    assert "interval=25" in build_status_text(
+        RobotHandState(), CruiseControlState(), clip_advance=advance)

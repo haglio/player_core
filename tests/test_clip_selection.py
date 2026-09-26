@@ -272,3 +272,24 @@ class TestDiscardCurrent:
         assert condemned == []
         assert controller.count == 1
         assert renderer.current_clip_path is None
+
+
+class TestFollowingAnotherGenausClip:
+    def test_a_clip_it_holds_goes_up_and_the_order_follows_it(self):
+        controller, clip_store, _loader, renderer, _notifier = _build_controller(
+            "a.mp4", "b.mp4", "c.mp4")
+        clip_store.clip_cache[Path("c.mp4")] = {"frames": ["f0"]}
+
+        assert controller.follow(Path("c.mp4")) is True
+
+        assert renderer.current_clip_path == Path("c.mp4")
+        assert controller.current_path == Path("c.mp4")
+
+    def test_a_clip_it_does_not_hold_is_not_followed(self):
+        controller, _clip_store, loader, renderer, _notifier = _build_controller(
+            "a.mp4", "b.mp4")
+
+        assert controller.follow(Path("elsewhere.mp4")) is False
+
+        assert loader.load_requests == []
+        assert renderer.current_clip_path is None

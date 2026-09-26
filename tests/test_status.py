@@ -10,7 +10,13 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
-from player_core.status import PlayerStatus, StatusWriter, parse_status, status_fields
+from player_core.status import (
+    PlayerStatus,
+    StatusWriter,
+    parse_status,
+    stamp_the_playhead,
+    status_fields,
+)
 
 
 class StubSession:
@@ -151,23 +157,37 @@ class TestStatusWriter:
 
 
 class TestWhatEveryPlayerPublishes:
-    """The seven lines every player's status leads with, written and read here so
-    a player and the source polling it cannot disagree about a key."""
+    """The lines every player's status leads with, written and read here so a
+    player and the source polling it cannot disagree about a key."""
 
     def test_the_lines_in_the_order_they_are_written(self):
         fields = status_fields(PlayerStatus(
             video="C:/vids/a.mp4", position_ms=1500, duration_ms=5000, paused=False, locked=True,
-            speed=1.5))
+            speed=1.5, read_at=1_000.0))
 
         assert fields == {
             "video": "C:/vids/a.mp4", "position_ms": "1500", "duration_ms": "5000",
-            "paused": "0", "locked": "1", "speed": "1.5", "picture": "0",
+            "paused": "0", "locked": "1", "speed": "1.5", "picture": "0", "read_at": "1000.000",
         }
         assert list(fields) == ["video", "position_ms", "duration_ms", "paused", "locked",
-                                "speed", "picture"]
+                                "speed", "picture", "read_at"]
 
     def test_a_playhead_is_published_as_whole_milliseconds(self):
         assert status_fields(PlayerStatus(position_ms=12345.9))["position_ms"] == "12345"
+
+    def test_a_status_says_when_its_playhead_was_read(self):
+        """A reader keeping in step extrapolates the playhead from when it was
+        true; the file's own write time can trail that by every property read
+        the player made after it."""
+        status = PlayerStatus(video="C:/vids/a.mp4", position_ms=1500, read_at=1_000.25)
+
+        assert status_fields(status)["read_at"] == "1000.250"
+        assert parse_status(status_fields(status)).read_at == 1_000.25
+
+    def test_the_playhead_is_stamped_with_the_clock_it_was_read_by(self, monkeypatch):
+        monkeypatch.setattr("player_core.status.time.time", lambda: 1_000.5)
+
+        assert stamp_the_playhead(4_000.7) == (4_000, 1_000.5)
 
     def test_what_is_published_is_what_is_read_back(self):
         status = PlayerStatus(
