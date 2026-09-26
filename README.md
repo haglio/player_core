@@ -89,6 +89,11 @@ a lock and waits out a pause exactly as a video does, and a player opens at 4
 seconds until a source sets a pace. Whether an item is a picture is mpv's to
 say once the file is open (`showing_picture`), so a playlist line carries no
 kind; the still a HUD map draws for one is its cell's `thumb`, as for a video.
+While it holds, a picture makes one slow move, carried on a frame at a time by
+`push_still`: a zoom in toward a spot, a zoom out from one, or a pan across it
+held a little closer -- never the same kind twice in a row, and never showing
+the window past the picture's edge. `aim_still(part, seconds)` takes it onto a
+part of the picture instead and holds it there until the next file.
 
 `clip_decode` reaches `app_support.subprocess_utils` for the one Windows fact
 about launching ffmpeg (no console window), so `../app_support` has to be
