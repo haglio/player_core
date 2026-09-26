@@ -104,6 +104,19 @@ class GenauControls:
 # whether they could.
 Act = Callable[[GenauControls, str], bool]
 
+# The verbs that name a value or a state outright, which a Genau taking over
+# another's room says to itself to take up what the room was doing.
+HAND_SPEED = "SPEED"
+HAND_AMP = "AMP"
+HAND_CENTER = "CENTER"
+CRUISE_ON = "CRUISE_ON"
+CRUISE_OFF = "CRUISE_OFF"
+LEARNED_ON = "LEARNED_ON"
+LEARNED_OFF = "LEARNED_OFF"
+CLIP_SECONDS = "CLIP_SECONDS"
+PAUSE = "PAUSE"
+RESUME = "RESUME"
+
 # Fun Time's spelling for the quarter-turn of the motion's phase.  Named because
 # two spellings of it once shipped side by side, which is the drift a literal per
 # branch invites.
@@ -402,7 +415,7 @@ CONTROLS: tuple[Control, ...] = (
         verbs=(
             Verb("CLIP_SECONDS_DOWN", _interval_step(-1)),
             Verb("CLIP_SECONDS_UP", _interval_step(1)),
-            Verb("CLIP_SECONDS", _interval_named, takes_a_value=True),
+            Verb(CLIP_SECONDS, _interval_named, takes_a_value=True),
         ),
     ),
     Control(
@@ -438,7 +451,7 @@ CONTROLS: tuple[Control, ...] = (
     ),
     Control(
         name="pause",
-        verbs=(Verb("PAUSE", _playing(False)), Verb("RESUME", _playing(True))),
+        verbs=(Verb(PAUSE, _playing(False)), Verb(RESUME, _playing(True))),
     ),
     Control(
         name="hold",

@@ -311,3 +311,28 @@ class TestTheTraceUnderTheLearnedMotion:
 
         assert shown[-1].drive.waveform == shown[-2].drive.waveform
         assert shown[-1].drive.slide > shown[-2].drive.slide
+
+
+class TestAReadoutThatIsNotYetTheRooms:
+    """A Genau arriving beside the one that has the room draws its own console
+    but leaves the readout the room reads to the one publishing it."""
+
+    def test_nothing_goes_out_while_it_holds(self, tmp_path):
+        drive = tmp_path / "genau_drive.txt"
+        consoles = []
+        readout = _readout(drive_file=drive, set_console=consoles.append, publishing=False)
+
+        readout.update(1.0)
+
+        assert not drive.exists()
+        assert consoles
+
+    def test_it_goes_out_once_told_to(self, tmp_path):
+        drive = tmp_path / "genau_drive.txt"
+        readout = _readout(drive_file=drive, publishing=False)
+        readout.update(1.0)
+
+        readout.publishing = True
+        readout.update(1.05)
+
+        assert drive.exists()

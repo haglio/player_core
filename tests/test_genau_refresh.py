@@ -9,6 +9,7 @@ import pytest
 
 from player_core.broker_feed import BrokerFeed
 from player_core.clip_advance import ClipAdvanceState
+from player_core.crossing import Crossing, follow_channel
 from player_core.cruise_control import CruiseControlState
 from player_core.device_walk import BROKER_HOLD_DELAY_MS
 from player_core.flag import Flag
@@ -161,10 +162,18 @@ def _build_controller(
     set_hud_mode=None,
     command_file: Path | None = None,
     status_file: Path | None = None,
+    drive_file: Path | None = None,
     now_source=None,
+    arriving: bool = False,
+    let_go=None,
 ):
     loading_texts: list[str | None] = []
     consoles: list = []
+    drained_from: list[Path] = []
+
+    def consume(path, logger=None):
+        drained_from.append(path)
+        return commands if commands is not None else ([command] if command else [])
     present_calls: list[int] = []
     hud_mode_calls: list[bool] = []
 
@@ -214,14 +223,18 @@ def _build_controller(
         set_loading_text=loading_texts.append,
         logger=logger,
         now_source=now_source or (lambda: 5.0),
-        consume_command=lambda _path, logger=None: (commands if commands is not None else ([command] if command else [])),
+        consume_command=consume,
         read_paused_state=lambda _path, logger=None: paused_state,
         tcode_sender=tcode_sender,
         set_console=consoles.append,
         present_scene=lambda: present_calls.append(1),
         set_hud_mode=set_hud_mode or hud_mode_calls.append,
+        drive_file=drive_file,
+        arriving=arriving,
+        let_go=let_go or (lambda: None),
     )
     return {
+        "drained_from": drained_from,
         "controller": controller,
         "loader": loader,
         "notifier": notifier,
@@ -1311,3 +1324,54 @@ def test_the_status_says_whether_the_clip_up_is_portrait(tmp_path):
     built["controller"].refresh()
 
     assert "portrait=1" in (tmp_path / "genau_status.txt").read_text(encoding="utf-8")
+
+class TestAGenauArrivingBesideTheOneWithTheRoom:
+    """It follows the room until it is told to take it: its own channel, no
+    status, no readout, and the device left alone."""
+
+    @staticmethod
+    def _arriving(tmp_path, **over):
+        return _build_controller(
+            entry={"frames": [object() for _ in range(8)]},
+            command_file=tmp_path / "genau_cmd.txt",
+            status_file=tmp_path / "genau_status.txt",
+            drive_file=tmp_path / "genau_drive.txt",
+            arriving=True, **over)
+
+    @staticmethod
+    def _take_the_room(tmp_path):
+        Crossing(tmp_path, ["genau"]).say_take_the_room()
+
+    def test_it_drains_the_follow_channel(self, tmp_path):
+        built = self._arriving(tmp_path)
+        built["controller"].refresh()
+        assert built["drained_from"] == [follow_channel(tmp_path / "genau_cmd.txt")]
+
+    def test_it_publishes_no_status_over_the_rooms(self, tmp_path):
+        built = self._arriving(tmp_path, cruise_control=CruiseControlState())
+        built["controller"].refresh()
+        assert not (tmp_path / "genau_status.txt").exists()
+
+    def test_it_publishes_no_readout_over_the_rooms(self, tmp_path):
+        built = self._arriving(tmp_path, tcode_sender=FakeTCodeSender())
+        built["controller"].refresh()
+        assert not (tmp_path / "genau_drive.txt").exists()
+
+    def test_taking_the_room_lets_go_and_starts_publishing(self, tmp_path):
+        let_go = []
+        built = self._arriving(tmp_path, let_go=lambda: let_go.append(True),
+                               cruise_control=CruiseControlState())
+        built["controller"].refresh()
+        self._take_the_room(tmp_path)
+
+        built["controller"].refresh()
+
+        assert let_go == [True]
+        assert (tmp_path / "genau_status.txt").exists()
+
+    def test_after_it_drains_the_rooms_own_channel(self, tmp_path):
+        built = self._arriving(tmp_path)
+        self._take_the_room(tmp_path)
+        built["controller"].refresh()
+        built["controller"].refresh()
+        assert built["drained_from"][-1] == tmp_path / "genau_cmd.txt"

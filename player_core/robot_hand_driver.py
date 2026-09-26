@@ -108,6 +108,9 @@ class RobotHandTCodeDriver:
             self._let_go_position = None
         self._glide.begin()
 
+    def ease_in(self) -> None:
+        self._glide.begin()
+
     def hand_over(self) -> None:
         """The hand is losing the device: remember where, and let go.
 
