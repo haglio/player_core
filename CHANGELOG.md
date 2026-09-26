@@ -9,6 +9,27 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-09-26 — a satellite HUD holds one size
+
+The panel `satellite_hud_paint.HudRenderer` draws is laid out top down by
+`satellite_hud.panel_layout`, and the nav map is its last block, under the
+clip's row, the device and a source's own block, set off from them by
+`FAMILY_GAP` (which `DEVICE_GAP` was). The map is one fixed box whatever it
+shows: three cells a side are always kept, every cell is a slot
+`slot_width(player)` wide (the widest shape a side's clips take at full height,
+4:5 or 16:9) with the picture centered in it and shrunk when it is wider, the
+row-label gutter is `ROW_LABEL_GUTTER` wide, and the loop and "more seeds"
+buttons stand past the axes' fixed ends. The box is kept before the first clip,
+and the line under the status is kept while it is empty. A note after the file
+name shortens the name rather than widening the panel (`name_line`), and a status
+line too long for the panel is drawn at the largest size that fits
+(`largest_size_that_fits`) rather than widening it.
+
+Gone, having nothing left to do: `panel_height`, `thumbnail_rects`, `map_reach`,
+`map_column_height`, `cell_width` and `CELL_W`, `MIN_GUTTER` and `MAX_GUTTER`,
+`FILTER_ROOM`, `friendly_action_label`, and the painter's `gutter_width_for`.
+None was in an `__all__`.
+
 ## 2026-09-26 — Genau says whether the clip on screen is portrait
 
 `genau_status.txt` gains a `portrait=` line: `1` for a clip taller than it is
