@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 from PIL import Image
 
 from player_core.hud_row import (
@@ -15,7 +16,13 @@ from player_core.hud_row import (
     volume_to,
 )
 from player_core.playhead import lower_edge_height
-from player_core.timeline import HEATMAP_ALPHA, TIMELINE_HEIGHT, bar_track_x
+from player_core.timeline import (
+    AMBER,
+    HEATMAP_ALPHA,
+    RED,
+    TIMELINE_HEIGHT,
+    bar_track_x,
+)
 from player_core.volume import CHIP_H, CHIP_W, MAX_VOLUME, MIN_VOLUME, SPEAKER_W, VolumeHud, chip_xy
 
 
@@ -60,6 +67,49 @@ def test_a_host_with_a_funscript_fills_the_track_with_its_colors():
     middle = np.asarray(panel)[height - TIMELINE_HEIGHT // 2]
     assert middle[x0 + 10:x1 - 10].tolist() == [
         [*color, HEATMAP_ALPHA] for color in colors[10:-10].tolist()]
+
+
+def _marks(panel, height, color) -> list[int]:
+    """The middle of each mark the track carries in *color*, left to right."""
+    pixels = np.asarray(panel)[height - TIMELINE_HEIGHT // 2]
+    columns = [x for x, pixel in enumerate(pixels.tolist())
+               if tuple(pixel[:3]) == tuple(color[:3])]
+    marks: list[list[int]] = []
+    for x in columns:
+        if marks and x == marks[-1][-1] + 1:
+            marks[-1].append(x)
+        else:
+            marks.append([x])
+    return [sum(mark) // len(mark) for mark in marks]
+
+
+def test_a_loop_being_played_shows_its_ends_on_the_track():
+    """The row is the lower edge of a player's video, and the player marks a
+    loop's in and out there — so the panel does too."""
+    section = RowSection()
+    width, height = section.size(400)
+    x0, x1 = bar_track_x(width)
+    panel = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+
+    section.draw(panel, 0, 0, width, RowHud(position_ms=0, duration_ms=60_000,
+                                            loop_bounds=(15_000, 45_000)))
+
+    assert _marks(panel, height, AMBER) == [
+        pytest.approx(x0 + (x1 - x0) // 4, abs=3),
+        pytest.approx(x0 + 3 * (x1 - x0) // 4, abs=3),
+    ]
+
+
+def test_a_loop_still_being_recorded_shows_its_in_point_in_red():
+    section = RowSection()
+    width, height = section.size(400)
+    x0, x1 = bar_track_x(width)
+    panel = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+
+    section.draw(panel, 0, 0, width, RowHud(position_ms=0, duration_ms=60_000,
+                                            record_in_ms=30_000))
+
+    assert _marks(panel, height, RED) == [pytest.approx(x0 + (x1 - x0) // 2, abs=3)]
 
 
 class TestWhatAPressOnTheRowIsOn:

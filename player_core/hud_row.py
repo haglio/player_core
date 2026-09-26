@@ -56,12 +56,16 @@ _LEAST_TRACK = 60
 
 @dataclass(frozen=True)
 class RowHud:
-    """What the row says: where the video is, how long it runs, how loud it is."""
+    """What the row says: where the video is, how long it runs, how loud it is,
+    and the ends of the loop it is playing — the in point red while that loop is
+    still being recorded."""
 
     position_ms: float = 0.0
     duration_ms: float = 0.0
     volume: VolumeHud | None = None
     playhead: PlayheadHud | None = None
+    loop_bounds: tuple[float, float] | None = None
+    record_in_ms: float | None = None
 
 
 class RowSection:
@@ -88,7 +92,8 @@ class RowSection:
         track is the plain bar.
         """
         _width, height = self.size(width)
-        bar = progress_bar_bgra(row.position_ms, row.duration_ms, None, width, heatmap=heatmap)
+        bar = progress_bar_bgra(row.position_ms, row.duration_ms, row.loop_bounds,
+                                width, record_in_ms=row.record_in_ms, heatmap=heatmap)
         image.alpha_composite(_rgba(bar), (x, y + height - bar.shape[0]))
         if row.volume is not None:
             chip = _rgba(self._volume.bgra(row.volume))
