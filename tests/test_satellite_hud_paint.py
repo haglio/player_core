@@ -1353,6 +1353,39 @@ class TestTheDeviceOnAHostThatDrivesItself:
         assert clicks.holding is False
 
 
+def _wave(offset: float = 0.0) -> DriveHud:
+    return DriveHud(speed=50, amplitude=80, center=50,
+                    waveform=tuple(0.5 + 0.4 * np.sin(i / 6 + offset) for i in range(80)))
+
+
+class TestTheReadoutIsDrawnAsTheMainConsoleDrawsIt:
+    def test_the_trace_holds_still_while_nothing_is_driving(self):
+        renderer = HudRenderer("portrait")
+        first = renderer.render(_model(osr2=Osr2State.OFF, drive=_wave(0.0))).bgra.copy()
+
+        later = renderer.render(_model(osr2=Osr2State.OFF, drive=_wave(3.0))).bgra
+
+        assert np.array_equal(later, first)
+
+    def test_it_moves_again_the_moment_something_is_driving(self):
+        renderer = HudRenderer("portrait")
+        still = renderer.render(_model(osr2=Osr2State.OFF, drive=_wave(0.0))).bgra.copy()
+
+        moving = renderer.render(_model(osr2=Osr2State.ROBOT_HAND, drive=_wave(3.0))).bgra
+
+        assert not np.array_equal(moving, still)
+
+    def test_a_held_device_is_a_gray_line_nobody_can_press(self):
+        rendered = HudRenderer("portrait").render(_model(
+            osr2=Osr2State.ROBOT_HAND, osr2_control=OSR2_PARKED, drive=_wave()))
+        band = rendered.targets.tracks[0]
+        x, y, w, h = band.rect
+
+        assert not (_rgb(rendered.bgra) == np.array(BLUE)).all(axis=-1).any()
+        assert HudClicks("portrait").press(
+            rendered.targets, x + w // 2, y + h // 2, now=0.0) == ""
+
+
 class _Block:
     """A source's own block: a slab of a fixed size in a color nothing else on
     the panel wears, with one control."""

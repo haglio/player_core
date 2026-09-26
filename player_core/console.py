@@ -163,6 +163,7 @@ class ConsoleModel:
     # console draws nothing it was not handed.
     rows: tuple[tuple[Button, ...], ...] = ()
     osr2_controls: tuple[Button, ...] = ()
+    has_osr2: bool = True
 
     @property
     def device_drives_itself(self) -> bool:
@@ -205,6 +206,7 @@ def console_text(model: ConsoleModel) -> str:
         "locked": model.locked,
         "rows": rows_raw(model.rows),
         "osr2_controls": buttons_raw(model.osr2_controls),
+        "has_osr2": model.has_osr2,
     })
 
 
@@ -226,6 +228,7 @@ def parse_console(text: str) -> ConsoleModel | None:
         locked=bool(raw.get("locked", True)),
         rows=rows_from_raw(raw.get("rows")),
         osr2_controls=buttons_from_raw(raw.get("osr2_controls")),
+        has_osr2=bool(raw.get("has_osr2", True)),
     )
 
 

@@ -6,8 +6,9 @@ import json
 from satellite_rows import band, player_rows
 from shared_ui.spacing import BUTTON_GAP, BUTTON_GROUP_GAP
 
-from player_core.console import VALUE_W
+from player_core.console import OSR2_PARKED, VALUE_W
 from player_core.hud_button import Button
+from player_core.modes import Osr2State
 from player_core.satellite_hud import (
     CTRL_BTN,
     DOUBLE_CLICK_S,
@@ -682,6 +683,16 @@ class TestThePublishedPanelIsWrittenWhereItIsRead:
             rows=((Button("origenerator_activate", "Origenerator", "Shows", width=0),
                    Button("landscape_minimize", "\x00minimize", "Park", group_break=True)),
                   (Button("landscape_lock", "🔒", "Hold", lit=True, favorite=True),)),
+        )
+
+        assert parse_hud(hud_text(model)) == model
+
+    def test_the_osr2_section_a_source_hands_this_player_survives_the_round_trip(self):
+        model = HudModel(
+            player="portrait", osr2=Osr2State.ROBOT_HAND, osr2_control=OSR2_PARKED,
+            osr2_rows=((Button("robot_hand_park", "\x00park", "Park", lit=True),
+                        Button("robot_hand_release", "\x00release", "Drive")),),
+            osr2_controls=(Button("broker_panel", "\x00broker", "Broker", warn=True),),
         )
 
         assert parse_hud(hud_text(model)) == model
