@@ -63,8 +63,16 @@ install -- so a fresh worktree needs nothing copied in. A checkout's own
   `tests/test_consumer_imports.py` asks the question the consumers can answer —
   every name a module's `__all__` declares must be imported by some sibling
   checkout, and every name a sibling imports must be declared. It needs those
-  checkouts on disk and skips rather than passes without them, so a public clone
-  and CI both skip it and this machine is where it bites.
+  checkouts on disk and skips without them, so a public clone skips it; the
+  merge gate does not, since it clones fun_time, genau and origenerator at their
+  main, and its `consumer / suite` job also runs genau's suite against your
+  branch. That makes the order across repos matter both ways: drop a name from
+  `__all__` only after the app change that stops importing it has landed, and
+  land this repo's half straight after it, because from the moment an app stops
+  importing a name the gate here is red for every pull request until the name
+  leaves `__all__` (2026-09-26: genau's key test was the only importer of
+  `wave_stack`'s `Ramp`, `Wave` and `WaveStack`, and its removal turned the gate
+  red for half an hour).
 
 ## libmpv changes: mandatory pre-flight
 
