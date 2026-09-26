@@ -17,7 +17,7 @@ import pytest
 from one_move import DRIFT, OneMove
 
 from player_core import audio_outputs
-from player_core.ken_burns import Fit, Move, zoom_in, zoom_out
+from player_core.ken_burns import Fit, Move, zoom_in
 from player_core.mpv_player import (
     TILES_SHADER,
     _client_size,
@@ -70,7 +70,7 @@ class FakeMpv:
         super().__setattr__(name, value)
 
 
-PLACING = {"video_zoom", "video_pan_x", "video_pan_y"}
+PLACING = {"video_zoom", "video_align_x", "video_align_y"}
 
 
 CREEP = zoom_in(0.0, 0.0)
@@ -470,7 +470,7 @@ def test_a_clip_after_a_picture_is_drawn_as_it_comes():
     mpv.report("current-tracks/video/image", False)
     control.push_still()
 
-    assert (mpv.video_zoom, mpv.video_pan_x, mpv.video_pan_y) == (0.0, 0.0, 0.0)
+    assert (mpv.video_zoom, mpv.video_align_x, mpv.video_align_y) == (0.0, 0.0, 0.0)
 
 
 def test_a_frozen_room_holds_the_picture_where_its_move_had_got_to():
@@ -488,16 +488,21 @@ def test_a_frozen_room_holds_the_picture_where_its_move_had_got_to():
     assert mpv.video_zoom == pytest.approx(math.log2(CREEP.at(0.25).zoom))
 
 
-def test_a_pan_reaches_mpv_as_where_the_picture_sits_in_its_window():
+def test_a_pan_reaches_mpv_as_how_far_the_picture_leans_each_way():
     mpv = FakeMpv()
-    control = Control(mpv, now=100.0, move=DRIFT, window=WIDE)
+    control = Control(mpv, now=100.0, move=DRIFT)
     control.set_pace(4.0)
     show_a_picture(mpv)
 
     control.push_still()
 
-    assert (mpv.video_zoom, mpv.video_pan_x, mpv.video_pan_y) == Fit(WIDE, WIDE).on_screen(
-        DRIFT.at(0.0))
+    assert (mpv.video_zoom, mpv.video_align_x, mpv.video_align_y) == DRIFT.at(0.0).placement()
+
+
+def test_every_player_keeps_a_picture_centered_along_a_side_it_fits_inside():
+    options = _shared_options(muted=False, loop_file=False, prefetch=True)
+
+    assert options["video_recenter"] == "yes"
 
 
 def test_a_zoom_about_the_middle_asks_mpv_for_the_zoom_alone():
@@ -536,8 +541,8 @@ def test_aiming_at_a_part_of_the_picture_brings_it_onto_the_part_in_the_time_giv
     control.now = 101.5
     control.push_still()
 
-    fit = Fit(WIDE, WIDE)
-    assert (mpv.video_zoom, mpv.video_pan_x, mpv.video_pan_y) == fit.on_screen(fit.framing(part))
+    assert (mpv.video_zoom, mpv.video_align_x, mpv.video_align_y) == Fit(
+        WIDE, WIDE).framing(part).placement()
 
 
 def test_the_gap_between_two_files_is_dealt_no_move_of_its_own():
@@ -562,35 +567,6 @@ def test_a_windows_size_is_read_off_windows_itself():
 
 def test_a_window_that_is_not_there_has_no_size():
     assert _client_size(0) == (0, 0)
-
-
-def placing_asked_for_between(mpv: FakeMpv, control: Control, now: float) -> list[str]:
-    asked = len(mpv.calls)
-    control.now = now
-    control.push_still()
-    return [call[1] for call in mpv.calls[asked:] if call[0] == "set"]
-
-
-def test_a_picture_drawn_closer_takes_its_new_zoom_before_its_new_place():
-    mpv = FakeMpv()
-    control = Control(mpv, now=100.0, move=zoom_in(1.0, 1.0), window=WIDE)
-    control.set_pace(4.0)
-    show_a_picture(mpv)
-    control.push_still()
-
-    assert placing_asked_for_between(mpv, control, 102.0) == [
-        "video_zoom", "video_pan_x", "video_pan_y"]
-
-
-def test_a_picture_drawn_back_takes_its_new_place_before_its_new_zoom():
-    mpv = FakeMpv()
-    control = Control(mpv, now=100.0, move=zoom_out(1.0, 1.0), window=WIDE)
-    control.set_pace(4.0)
-    show_a_picture(mpv)
-    control.push_still()
-
-    assert placing_asked_for_between(mpv, control, 102.0) == [
-        "video_pan_x", "video_pan_y", "video_zoom"]
 
 
 def zoom_drawn_at(control: Control, mpv: FakeMpv, now: float) -> float:

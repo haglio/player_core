@@ -15,12 +15,14 @@ baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 is dealt a move by `ken_burns.Moves` (which `still_push.StillPush` became, as
 `ken_burns.KenBurns`): a zoom in about a spot anywhere in it, a zoom out from
 one, or a pan from a corner to the opposite one at a steady `ZOOMED_IN`, never
-the kind the picture before had. The view reaches mpv as `video-pan-x/-y` as
-well as `video-zoom`; `Fit` keeps every edge of the picture at least
-`EDGE_OVERHANG_PX` outside the window, and on an axis where the picture is
-narrower than the window it stays centered until a zoom takes it past the
-window's edges. A windowed player reads its window's size off Windows
-(`GetClientRect`), an offscreen one off the target it last rendered.
+the kind the picture before had. A view reaches mpv as `video-zoom` and
+`video-align-x/-y`, with `video-recenter` on for every player: mpv then places
+the picture itself, against the window and the file actually on screen, from
+flush with one edge at -1 to flush with the other at +1 along a side it
+overhangs, and centered along a side it fits inside, so no view and no pair of
+properties half-set ever shows the window past the picture's edge. A windowed
+player reads its window's size off Windows (`GetClientRect`), an offscreen one
+off the target it last rendered; only an aim needs it.
 
 `aim_still(part, seconds)` is new: from wherever the picture's move had got to
 it eases, over *seconds*, onto the part `(x0, y0, x1, y1)` given in fractions
@@ -38,9 +40,6 @@ file; only a locked picture, which repeats, makes its move again
 (`set_loop_file` tells the move which it is). A pace of nought holds a moving
 picture where it is rather than snapping it back to its fitted size, and a
 picture held since it came up sets off with a zoom in from that size.
-`push_still` asks for the zoom first when the picture is drawn closer and for
-its place first when it is drawn back, since mpv can draw a frame between the
-two and each must leave the picture covering the window.
 
 ## 2026-09-26 — the scrubber's frame is no longer published piece by piece
 
