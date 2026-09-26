@@ -47,7 +47,7 @@ from .geometry import Rect, contains
 from .hud_osr2 import HEIGHT as OSR2_H
 from .hud_osr2 import Osr2Line, Osr2Section, state_for
 from .hud_row import RowHud, RowSection
-from .hud_status import PLAYBACK_SPEED_LABEL, SEPARATOR
+from .hud_status import PLAYBACK_SPEED_LABEL
 from .playback_rate import format_rate
 from .satellite_hud import (
     ACT_GAP,
@@ -89,6 +89,7 @@ from .satellite_hud import (
     looped_group_rect,
     map_row_width,
     map_window,
+    name_line,
     panel_layout,
     panel_width,
     picture_rect,
@@ -244,7 +245,6 @@ class HudRenderer:
         # position is only current while something under it has a tooltip —
         # every control here has one — so an empty tip means "not on a button".
         self._pointer = hover_pos if hover_tip else None
-        name_line = SEPARATOR.join(part for part in (video, model.item_note) if part)
         counts = self._count_lines(model)
         model, seed_win, action_win = self._window(model)
         corner_thumb, seed_thumbs, action_thumbs = self._map_thumbnails(model)
@@ -273,7 +273,7 @@ class HudRenderer:
         device_w = max(self._osr2.width(osr2_line) if model.osr2 else 0, drive_w)
         foot_w, foot_h = model.foot.size() if model.foot is not None else (0, 0)
         width = panel_width(model.player, text_width(self._body, model.lock_label),
-                            text_width(self._tiny, name_line),
+                            text_width(self._tiny, video),
                             content_width=max(
                                 band_width,
                                 2 * PAD + device_w if device_w else 0,
@@ -293,7 +293,10 @@ class HudRenderer:
         image, draw = panel.image, panel.draw
 
         x = PAD
-        favorite = self._draw_status_band(image, draw, PAD, model, name_line)
+        favorite = self._draw_status_band(
+            image, draw, PAD, model,
+            name_line(video, model.item_note, width - STATUS_TEXT_X - PAD,
+                      lambda text: text_width(self._tiny, text)))
         y = layout.bands
 
         # Laid out against the panel rather than against the map: they act on the
@@ -434,7 +437,7 @@ class HudRenderer:
         return button.width or text_width(self._tiny, button.glyph) + 2 * MODE_LABEL_PAD
 
     def _draw_status_band(self, image, draw, y: int, model: HudModel,
-                          name_line: str) -> Rect | None:
+                          under_status: str) -> Rect | None:
         """The active-side dot, the status line, the file on screen under it, and
         the favorite mark at the head of that line.  Returns the mark's rect.
 
@@ -453,11 +456,11 @@ class HudRenderer:
         draw_active_dot(draw, PAD, y + 2, model.active)
         draw.text((STATUS_TEXT_X, y + STATUS_BASELINE), model.lock_label,
                   font=self._body, anchor="ls", fill=(*TEXT_PRIMARY, 255))
-        if not name_line:
+        if not under_status:
             return None
         _ascent, descent = self._body.getmetrics()
         line_y = y + STATUS_BASELINE + descent + SUBTITLE_GAP
-        draw.text((STATUS_TEXT_X, line_y), name_line,
+        draw.text((STATUS_TEXT_X, line_y), under_status,
                   font=self._tiny, anchor="la", fill=(*TEXT_MUTED, 255))
         favorite = favorite_mark_rect(line_y, sum(self._tiny.getmetrics()))
         draw_mark(image, shared_mark_name(_FAVORITE_GLYPH), favorite,

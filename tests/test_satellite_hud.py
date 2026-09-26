@@ -38,6 +38,7 @@ from player_core.satellite_hud import (
     looped_group_rect,
     map_row_width,
     map_window,
+    name_line,
     panel_width,
     parse_hud,
     picture_rect,
@@ -475,6 +476,28 @@ def test_the_speed_buttons_say_what_a_press_does_to_the_video():
 
     assert [button_tooltip(targets, x + 5, y + 5) for (x, y, _w, _h), _b in buttons] == [
         "Play the video slower", "Play the video faster"]
+
+
+def test_a_name_too_long_for_its_line_is_shortened_so_the_note_after_it_stays_whole():
+    line = name_line("folder one / seed 12345", "Enhancing…", room=25, width_of=len)
+
+    assert line == "folder one…" + " · Enhancing…"
+
+
+def test_a_name_and_a_note_that_fit_their_line_are_left_whole():
+    assert name_line("clip", "Enhancing…", room=100, width_of=len) == "clip · Enhancing…"
+
+
+def test_a_name_with_no_note_after_it_is_left_whole_however_long():
+    assert name_line("a long name " * 5, "", room=10, width_of=len) == "a long name " * 5
+
+
+def test_a_note_with_no_name_before_it_stands_alone():
+    assert name_line("", "Enhancing…", room=100, width_of=len) == "Enhancing…"
+
+
+def test_a_note_too_long_to_leave_any_of_the_name_stands_alone():
+    assert name_line("clip", "Enhancing…", room=12, width_of=len) == "Enhancing…"
 
 
 def test_action_label_blocks_separate_comma_joined_acts():

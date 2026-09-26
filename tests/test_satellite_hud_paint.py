@@ -349,18 +349,18 @@ def test_a_file_name_too_wide_for_the_map_widens_the_panel(thumb):
     assert long.bgra.shape[0] == short.bgra.shape[0]
 
 
-def test_a_note_about_the_clip_runs_on_after_its_name(thumb):
+def test_a_note_after_a_name_shortens_the_name_rather_than_widening_the_panel(thumb):
     renderer = HudRenderer("portrait")
     corner = HudCell(path="c.mp4", thumb=thumb)
+    name = "Example Folder / seed 123456789012345"
 
-    named = renderer.render(_model(lock_label="Unlocked", corner=corner), video="clip")
+    named = renderer.render(_model(lock_label="Unlocked", corner=corner), video=name)
     noted = renderer.render(
         _model(lock_label="Unlocked", corner=corner,
-               item_note="a considerably longer note about the clip than the map is wide"),
-        video="clip")
+               item_note="Enhance 1 — 1 of 2 · Enhancing…"),
+        video=name)
 
-    assert noted.bgra.shape[1] > named.bgra.shape[1]
-    assert noted.bgra.shape[0] == named.bgra.shape[0]
+    assert noted.bgra.shape == named.bgra.shape
 
 
 def test_a_note_about_a_clip_with_no_name_is_drawn_on_the_kept_name_line(thumb):
