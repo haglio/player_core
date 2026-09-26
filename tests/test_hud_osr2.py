@@ -4,12 +4,15 @@ from __future__ import annotations
 import numpy as np
 from shared_ui.palette import BLUE, GREEN, RED, TEXT_MUTED
 
+from player_core.drive_readout import DriveHud
 from player_core.hud_button import Button
 from player_core.hud_osr2 import (
+    BUFFER,
     HEIGHT,
     LABELS,
     Osr2Line,
     Osr2Section,
+    driving_at_the_playhead,
     state_for,
 )
 from player_core.hud_panel import HudPanel
@@ -86,3 +89,13 @@ class TestWhoTheLineNames:
 
     def test_a_panel_that_knows_better_says_who_is_driving(self):
         assert state_for(Osr2State.OFF, "", driving=Osr2State.FUNSCRIPT) == Osr2State.FUNSCRIPT
+
+    def test_a_composed_trace_names_whoever_it_drew_at_the_playhead(self):
+        handoff = ((0, "funscript"), (40, "robot_hand"))
+        for driven, word in (("funscript", Osr2State.FUNSCRIPT),
+                             ("robot_hand", Osr2State.ROBOT_HAND), ("neutral", BUFFER)):
+            drive = DriveHud(driven=driven, segments=handoff)
+            assert driving_at_the_playhead(drive, Osr2State.OFF) == word
+
+    def test_no_composed_trace_leaves_the_wire_to_say_it(self):
+        assert driving_at_the_playhead(None, Osr2State.ROBOT_HAND) == ""
