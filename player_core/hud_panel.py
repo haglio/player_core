@@ -33,7 +33,7 @@ from shared_ui.palette import (
     WHITE,
     hovered,
 )
-from shared_ui.spacing import BUTTON_MARK_INSET_HUD
+from shared_ui.spacing import BUTTON_MARK_INSET
 
 from .hud_marks import APP_MARK, MINIMIZE_ICON, SHARED_MARK, app_mark_letter, shared_mark_name
 
@@ -148,9 +148,6 @@ def draw_glyph(draw: ImageDraw.ImageDraw, cx: float, cy: float, glyph: str,
     draw.text((cx - offset[0], cy - offset[1]), glyph, font=font, fill=fill)
 
 
-MARK_INSET = BUTTON_MARK_INSET_HUD
-
-
 def draw_mark(image: Image.Image, name: str, rect: tuple[int, int, int, int],
               fill) -> None:
     """One of the family's marks, centred in *rect*.
@@ -164,8 +161,8 @@ def draw_mark(image: Image.Image, name: str, rect: tuple[int, int, int, int],
     """
     x, y, w, h = rect
     paste_glyph(image, name,
-                (x + MARK_INSET, y + MARK_INSET, w - 2 * MARK_INSET,
-                 h - 2 * MARK_INSET),
+                (x + BUTTON_MARK_INSET, y + BUTTON_MARK_INSET, w - 2 * BUTTON_MARK_INSET,
+                 h - 2 * BUTTON_MARK_INSET),
                 fill)
 
 
