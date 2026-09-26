@@ -185,6 +185,17 @@ def _shared_options(*, muted: bool, loop_file: bool, prefetch: bool) -> dict:
     return options
 
 
+TILES_SHADER = Path(__file__).with_name("tiles.glsl")
+
+
+def tiles_across(source: tuple[int, int], window: tuple[int, int]) -> int:
+    source_width, source_height = source
+    window_width, window_height = window
+    if source_width >= source_height or window_width <= window_height:
+        return 1
+    return window_width * source_height // (window_height * source_width)
+
+
 # How long close() waits for calls already inside mpv before giving up on
 # freeing the handle at all.  Generous because it is only ever spent on calls
 # that are genuinely in flight: the gate turns every *later* call into a no-op
@@ -256,6 +267,8 @@ class _MpvControl:
         # blocked on it.  video-out-params (not dwidth/dheight) so both numbers
         # land in one event and a reader can never see half a size.
         self._video_dims = (0, 0)
+        self._source_dims = (0, 0)
+        self._tiling = (1, "no")
 
     def _adopt(self, handle) -> None:
         self._mpv = handle
@@ -263,6 +276,7 @@ class _MpvControl:
         handle.observe_property("current-tracks/video/image", self._note_picture)
         handle.observe_property("path", self._note_file)
         handle.observe_property("video-out-params", self._note_video_dims)
+        handle.observe_property("video-dec-params", self._note_source_dims)
 
     def _note_frame_rate(self, _name: str, value) -> None:
         self._frame_rate = value or 0.0
@@ -279,10 +293,39 @@ class _MpvControl:
         else:
             self._video_dims = (0, 0)
 
+    def _note_source_dims(self, _name: str, value) -> None:
+        if isinstance(value, dict) and value.get("dw") and value.get("dh"):
+            self._source_dims = (int(value["dw"]), int(value["dh"]))
+
+    @property
+    def source_dims(self) -> tuple[int, int]:
+        return self._source_dims
+
+    @mpv_call()
+    def tile_to_fill(self, window_width: int, window_height: int) -> None:
+        tiles = tiles_across(self._source_dims, (window_width, window_height))
+        tiling = (tiles, self._tiled_aspect(tiles))
+        if tiling == self._tiling:
+            return
+        if tiles > 1:
+            self._mpv.command("change-list", "glsl-shaders", "set", str(TILES_SHADER))
+            self._mpv.command("change-list", "glsl-shader-opts", "set", f"tiles={tiles}")
+        else:
+            self._mpv.command("change-list", "glsl-shaders", "clr", "")
+        self._mpv.video_aspect_override = tiling[1]
+        self._tiling = tiling
+
+    def _tiled_aspect(self, tiles: int) -> str:
+        if tiles == 1:
+            return "no"
+        source_width, source_height = self._source_dims
+        common = math.gcd(tiles * source_width, source_height)
+        return f"{tiles * source_width // common}:{source_height // common}"
+
     @property
     def video_dims(self) -> tuple[int, int]:
-        """How big the picture on screen is once mpv has scaled the file --
-        (0, 0) until it knows, and between files.
+        """The picture's shape as mpv puts it out, tiles included -- (0, 0)
+        until it knows, and between files.
 
         What a host measures its own chrome against: where to float the stills
         either side of the picture, where to seat a panel under it.  Callers

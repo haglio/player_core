@@ -63,7 +63,7 @@ include = ["player_core*"]
 # built by tools/train_learned_motion.py from a corpus that lives outside
 # every repo.
 [tool.setuptools.package-data]
-player_core = ["learned_motion.json.gz"]
+player_core = ["learned_motion.json.gz", "tiles.glsl"]
 
 [tool.pytest.ini_options]
 # The content guard's tracked-tree check comes from app_support, not a copy
