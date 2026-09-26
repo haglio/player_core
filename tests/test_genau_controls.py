@@ -8,7 +8,7 @@ import pytest
 
 from player_core.control_registry import Control, Verb, bind
 from player_core.flag import Flag
-from player_core.genau_controls import CONTROLS, KEYS, VERBS, GenauControls
+from player_core.genau_controls import CONTROLS, VERBS, GenauControls
 from player_core.robot_hand import RobotHandState
 from player_core.robot_hand_beat import BeatEngine
 
@@ -84,7 +84,7 @@ class TestHalfACommandIsNotACommand:
         assert VERBS[spelling][1].takes_a_value is False
 
 
-# Every verb the registry answers, and the key each one means.  Written down
+# Every verb the registry answers.  Written down
 # here so a verb added to the registry is a deliberate line in a diff -- the
 # spellings are a contract with the orchestrator that sends them, kept from its
 # own side in genau's tests/test_genau_vocabulary.py.
@@ -98,30 +98,9 @@ WRITTEN_DOWN_VERBS = frozenset({
     "AMP", "CENTER", "SPEED", "CLIP_SECONDS", "SET_VOLUME", "SET_TCODE_ENABLED",
 })
 
-WRITTEN_DOWN_KEYS = {
-    "K_j": "SPEED_DOWN",
-    "K_l": "SPEED_UP",
-    "K_7": "AMPLITUDE_DOWN",
-    "K_9": "AMPLITUDE_UP",
-    "K_u": "CENTER_DOWN",
-    "K_o": "CENTER_UP",
-    "K_i": "CYCLE_SHAPE",
-    "K_m": "PREV",
-    "K_PERIOD": "NEXT",
-    "K_k": "WEIRD",
-    "K_COMMA": "TOGGLE_LOCK",
-    "K_BACKSLASH": "OFFSET_QUARTER_CYCLE",
-    "K_SLASH": "TOGGLE_CRUISE",
-    "K_SEMICOLON": "TOGGLE_LEARNED",
-}
-
-
 class TestTheVocabularyIsWrittenDown:
     def test_the_registry_declares_exactly_the_verbs_written_down(self):
         assert set(VERBS) == WRITTEN_DOWN_VERBS
-
-    def test_each_key_means_the_verb_written_down_beside_it(self):
-        assert {name: verb.spelling for name, (_control, verb) in KEYS.items()} == WRITTEN_DOWN_KEYS
 
 
 # The verbs Genau answers that every player answers -- the family's, spelled in

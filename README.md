@@ -39,7 +39,7 @@ another application's internals to get it. By what it is:
   from a folder to the frame the motion is at, and `genau_controls`,
   `genau_refresh`, `genau_readout`, `genau_status` and `genau_notifier` are its
   verbs, its tick, and what it publishes. A shell — Genau's pygame window, Fun
-  Time's headset — supplies the surface, the loop and the keys.
+  Time's headset — supplies the surface and the loop.
 - **the chrome and what is drawn on it** — `hud_panel`, `hud_marks`,
   `geometry`, `timeline`, `volume`, `hud_status`, and then a model and a
   painter per HUD: `console` / `console_hud`, `drive_layout` / `drive_readout`,
@@ -51,7 +51,7 @@ another application's internals to get it. By what it is:
   right before it opens one (its taskbar identity it claims through
   `app_support.win32`, like every other process in the family).
 - **the loop** — `control_registry` (how any player declares a control and the
-  verb and key that move it), `flag` (a bit two parts of an app share, with its
+  verbs that move it), `flag` (a bit two parts of an app share, with its
   edge), `tick_failures` (a frame loop's fault, said once).
 
 Nothing app-specific belongs here. A module earns a place only once a second

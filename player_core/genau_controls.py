@@ -1,8 +1,8 @@
 """What Genau's controls can reach, and every verb that moves one.
 
 Genau -- the family's clip player, whatever window or headset it is drawn in --
-is spoken to from three places: a verb in ``genau_cmd.txt``, a key in a window,
-a press on the console.  Every one of them has to be able to move the same
+is spoken to from two places: a verb in ``genau_cmd.txt`` and a press on the
+console.  Both of them have to be able to move the same
 handful of things: the hand's own state, the cruise stack, the learned motion,
 the clip advance, the two flags an orchestrator flips, the clip sequence.
 
@@ -32,7 +32,7 @@ from .clip_advance import (
 )
 from .clip_flip import ClipFlip
 from .console import HELD_HEIGHT, OSR2_PARKED, OSR2_RETRACTED
-from .control_registry import Control, Verb, bind, bind_keys, look_up
+from .control_registry import Control, Verb, bind, look_up
 from .cruise_control import (
     CruiseControlState,
     disable_cruise_control,
@@ -70,7 +70,6 @@ from .robot_hand import (
 from .robot_hand_beat import BeatEngine
 
 __all__ = [
-    "KEYS",
     "VERBS",
     "GenauControls",
     "apply_runtime_command",
@@ -81,7 +80,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class GenauControls:
-    """Everything one command, key or console press may move."""
+    """Everything one command or console press may move."""
 
     engine: BeatEngine
     paused: Flag
@@ -334,8 +333,8 @@ CONTROLS: tuple[Control, ...] = (
         name="speed",
         needs=("robot_hand",),
         verbs=(
-            Verb(SPEED_DOWN, _stepper(-5), key="K_j"),
-            Verb(SPEED_UP, _stepper(5), key="K_l"),
+            Verb(SPEED_DOWN, _stepper(-5)),
+            Verb(SPEED_UP, _stepper(5)),
             Verb("SPEED", _number_setter(set_speed), takes_a_value=True),
         ),
     ),
@@ -343,8 +342,8 @@ CONTROLS: tuple[Control, ...] = (
         name="amplitude",
         needs=("robot_hand",),
         verbs=(
-            Verb("AMPLITUDE_DOWN", _amplitude_step(-10), key="K_7"),
-            Verb("AMPLITUDE_UP", _amplitude_step(10), key="K_9"),
+            Verb("AMPLITUDE_DOWN", _amplitude_step(-10)),
+            Verb("AMPLITUDE_UP", _amplitude_step(10)),
             Verb("AMP", _number_setter(set_amplitude), takes_a_value=True),
         ),
     ),
@@ -352,8 +351,8 @@ CONTROLS: tuple[Control, ...] = (
         name="center",
         needs=("robot_hand",),
         verbs=(
-            Verb("CENTER_DOWN", _center_step(-5), key="K_u"),
-            Verb("CENTER_UP", _center_step(5), key="K_o"),
+            Verb("CENTER_DOWN", _center_step(-5)),
+            Verb("CENTER_UP", _center_step(5)),
             Verb("CENTER", _number_setter(set_center), takes_a_value=True),
         ),
     ),
@@ -361,7 +360,7 @@ CONTROLS: tuple[Control, ...] = (
         name="shape",
         needs=("robot_hand",),
         verbs=(
-            Verb("CYCLE_SHAPE", _shape_step(1), key="K_i"),
+            Verb("CYCLE_SHAPE", _shape_step(1)),
             Verb("CYCLE_SHAPE_PREV", _shape_step(-1)),
         ),
     ),
@@ -369,7 +368,7 @@ CONTROLS: tuple[Control, ...] = (
         name="cruise",
         needs=("cruise_control_state",),
         verbs=(
-            Verb("TOGGLE_CRUISE", _cruise_toggled, key="K_SLASH"),
+            Verb("TOGGLE_CRUISE", _cruise_toggled),
             Verb("CRUISE_ON", _cruise_on),
             Verb("CRUISE_OFF", _cruise_off),
         ),
@@ -378,20 +377,18 @@ CONTROLS: tuple[Control, ...] = (
         name="learned",
         needs=("learned_motion_state",),
         verbs=(
-            Verb("TOGGLE_LEARNED", _learned_toggled, key="K_SEMICOLON"),
+            Verb("TOGGLE_LEARNED", _learned_toggled),
             Verb("LEARNED_ON", _learned_on),
             Verb("LEARNED_OFF", _learned_off),
         ),
     ),
     # The lock, under the same three verbs the video player answers to, because
     # it is the same thing on both: hold what is on screen, or let it move on.
-    # Whichever player owns the main slot gets them, and the one padlock on the
-    # console is what sends them.
     Control(
         name="lock",
         needs=("clip_advance_state",),
         verbs=(
-            Verb(TOGGLE_LOCK, _lock_toggled, key="K_COMMA"),
+            Verb(TOGGLE_LOCK, _lock_toggled),
             Verb(LOCK_ON, _lock_set(True)),
             Verb(LOCK_OFF, _lock_set(False)),
         ),
@@ -415,13 +412,12 @@ CONTROLS: tuple[Control, ...] = (
     ),
     Control(
         name="clip",
-        verbs=(Verb(PREV, _step_clip(-1), key="K_m"),
-            Verb(NEXT, _step_clip(1), key="K_PERIOD"),),
+        verbs=(Verb(PREV, _step_clip(-1)), Verb(NEXT, _step_clip(1))),
     ),
     Control(
         name="condemn",
         needs=("condemn_clip",),
-        verbs=(Verb("WEIRD", _condemn, key="K_k"),),
+        verbs=(Verb("WEIRD", _condemn),),
     ),
     Control(
         name="flip_ends",
@@ -438,8 +434,7 @@ CONTROLS: tuple[Control, ...] = (
     ),
     Control(
         name="quarter_cycle",
-        verbs=(Verb(QUARTER_CYCLE_OFFSET_COMMAND, _offset_quarter_cycle,
-                    key="K_BACKSLASH"),),
+        verbs=(Verb(QUARTER_CYCLE_OFFSET_COMMAND, _offset_quarter_cycle),),
     ),
     Control(
         name="pause",
@@ -471,7 +466,6 @@ CONTROLS: tuple[Control, ...] = (
 
 
 VERBS = bind(CONTROLS)
-KEYS = bind_keys(CONTROLS)
 
 
 def apply_runtime_command(command, controls: GenauControls) -> None:

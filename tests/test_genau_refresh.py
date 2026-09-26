@@ -17,7 +17,7 @@ from player_core.genau_controls import GenauControls
 from player_core.genau_refresh import GenauRefreshController
 from player_core.learned_model import LearnedModel, Phrase, classify
 from player_core.learned_motion import LearnedMotionState
-from player_core.robot_hand import RobotHandState, position_fraction, toggle_playing
+from player_core.robot_hand import RobotHandState, position_fraction
 from player_core.robot_hand_beat import BeatEngine
 from player_core.robot_hand_driver import RobotHandTCodeDriver
 from player_core.tcode import HANDOFF_MS
@@ -864,11 +864,6 @@ def _resumed_by_the_room(tick, _hand, at):
     return tick(at, "RESUME")
 
 
-def _resumed_by_the_windows_own_key(tick, hand, at):
-    toggle_playing(hand)
-    return tick(at)
-
-
 def _switched_back_on(tick, _hand, at):
     return tick(at, "SET_TCODE_ENABLED 1")
 
@@ -939,7 +934,6 @@ class TestTheRoomHoldingTheDevice:
 
     @pytest.mark.parametrize(("held_by", "taken_back_by", "held_at"), [
         (("PAUSE", "PARK"), _resumed_by_the_room, 0.0),
-        (("PAUSE", "PARK"), _resumed_by_the_windows_own_key, 0.0),
         (("PAUSE", "RETRACT"), _resumed_by_the_room, 1.0),
         (("RESUME", "SET_TCODE_ENABLED 0", "PARK"), _switched_back_on, 0.0),
     ])

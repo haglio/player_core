@@ -14,7 +14,6 @@ from player_core.robot_hand import (
     adjust_speed,
     bpm_for_speed,
     cycle_shape,
-    pause_playing,
     phase_advanced,
     phase_for_position_fraction,
     phase_to_position,
@@ -22,7 +21,6 @@ from player_core.robot_hand import (
     set_amplitude,
     set_center,
     set_speed,
-    toggle_playing,
     trace_window,
 )
 
@@ -43,30 +41,6 @@ class TestBpmForSpeed:
         low_step = bpm_for_speed(10) - bpm_for_speed(5)
         high_step = bpm_for_speed(100) - bpm_for_speed(95)
         assert low_step < high_step
-
-
-class TestTogglePlaying:
-    def test_false_to_true(self):
-        state = RobotHandState()
-        toggle_playing(state)
-        assert state.playing is True
-
-    def test_true_to_false(self):
-        state = RobotHandState(playing=True)
-        toggle_playing(state)
-        assert state.playing is False
-
-
-class TestPausePlaying:
-    def test_pauses_when_playing(self):
-        state = RobotHandState(playing=True)
-        pause_playing(state)
-        assert state.playing is False
-
-    def test_noop_when_already_paused(self):
-        state = RobotHandState(playing=False)
-        pause_playing(state)
-        assert state.playing is False
 
 
 class TestSetSpeed:
