@@ -22,10 +22,18 @@ Always `--config-settings editable_mode=compat`; the README says why, and
 
 ## Where the DLL is
 
-`libmpv-2.dll` is fetched, not tracked, into `%LOCALAPPDATA%\haglio\libmpv\`
+`libmpv-2.dll` is fetched, not tracked, into `%USERPROFILE%\.haglio\libmpv\`
 (`python tools/fetch_libmpv.py`), and `libmpv_loader` finds it there from any
-install -- so a fresh worktree needs nothing copied in. A checkout's own
+install -- so a worktree of this repo needs nothing copied in. A checkout's own
 `vendor/` is looked in first and still wins where one exists.
+
+- **Never put that copy under `AppData`.** Every agent's shell runs inside a
+  packaged app whose `AppData\Local`, `Roaming` and `LocalLow` are private to it,
+  so a DLL fetched there is found by every suite and by nothing the user
+  launches. That is how his Fun Time previews came up with dead players from
+  2026-09-22 to 09-26.
+- A worktree of this repo from before 2026-09-26 still looks under `AppData`, so
+  a Fun Time session pinning one gets the DLL copied into its `vendor/` at launch.
 
 ## What belongs here
 

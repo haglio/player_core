@@ -129,9 +129,9 @@ def test_the_dll_lands_where_the_loader_looks():
     assert fetch_libmpv.dll_path().parent == machine_libmpv_dir()
 
 
-def test_a_wrong_local_app_data_variable_moves_neither(monkeypatch, tmp_path):
+def test_a_wrong_user_folder_variable_moves_neither(monkeypatch, tmp_path):
     before = fetch_libmpv.dll_path()
-    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
 
     assert fetch_libmpv.dll_path() == before
 
