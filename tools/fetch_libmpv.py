@@ -3,23 +3,14 @@
     python tools/fetch_libmpv.py            # fetch it if absent
     python tools/fetch_libmpv.py --require  # ...and exit non-zero unless it is there
 
-``libmpv-2.dll`` is ~117 MB, is in no package, and is the engine every
-player in the suite stands on.  It was provisioned two ways, neither of them
-recorded: fun_time's merge gate asked the GitHub API for the newest asset
-matching a glob in a community repository's last fifteen releases and copied the
-result next to the interpreter -- no version, no checksum, no signature, in a
-job holding the workflow token -- while a developer machine got its copy by hand
-from a README paragraph naming neither source nor version.  So the DLL CI linked
-was a different, unrecorded build from the one production ran.
+``libmpv-2.dll`` is ~117 MB, is in no package, and is the engine every player in
+the suite stands on.  ``tools/libmpv.lock`` pins which build: the asset's digest
+is verified and a mismatch is refused outright.  Upstream keeps about a month of
+releases, so a pinned tag eventually stops existing; that case is loud, names the
+lock file, and falls back to resolving the newest build.  Standard library only,
+so this runs before anything is installed.
 
-``tools/libmpv.lock`` is what both now read.  The pinned asset's digest is
-verified and a mismatch is refused outright.  Upstream keeps about a month of
-releases, so a pinned tag eventually stops existing; that case is loud, names
-the lock file, and falls back to resolving the newest build the way every run
-behaved before the pin -- worse than a pin, never worse than what it replaced.
-Standard library only, so this runs before anything is installed.
-
-It lands in ``%LOCALAPPDATA%\\haglio\\libmpv``, the one copy every install finds:
+It lands in ``%USERPROFILE%\\.haglio\\libmpv``, the one copy every install finds:
 an app pins a version of player_core, so its venv holds a copy of the package
 beside no ``vendor/`` of its own.  ``player_core.libmpv_loader`` spells the same
 path, and ``tests/test_fetch_libmpv.py`` holds the two together.

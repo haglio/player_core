@@ -140,10 +140,16 @@ root wins as an implicit namespace package: submodules still import, but
 ## libmpv
 
 `libmpv-2.dll` (~117 MB) is **not committed**. Fetch it once; it lands in
-`%LOCALAPPDATA%\haglio\libmpv\`, and every install of this package finds it
+`%USERPROFILE%\.haglio\libmpv\`, and every install of this package finds it
 there -- an app's pinned copy, an editable checkout and a fresh worktree alike.
 `libmpv_loader` looks in a checkout's own `vendor/` first, so a copy fetched
 there by hand still wins for that checkout.
+
+Not under `AppData`, on purpose: a packaged Windows app -- Claude Desktop, which
+every agent's shell runs inside -- is given a private copy of `AppData\Local`,
+`Roaming` and `LocalLow`, so a DLL an agent fetches there exists for that app
+alone and for nothing the user launches. The user's own folder, `Temp` and
+`ProgramData` are the real ones for both (measured 2026-09-26).
 
 ```bash
 python tools/fetch_libmpv.py

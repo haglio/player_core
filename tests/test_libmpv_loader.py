@@ -11,8 +11,8 @@ from player_core import mpv_player
 from player_core.libmpv_loader import (
     add_libmpv_to_path,
     libmpv_dirs,
-    local_app_data,
     machine_libmpv_dir,
+    user_folder,
 )
 
 windows_only = pytest.mark.skipif(sys.platform != "win32", reason="the known-folder API is Windows'")
@@ -27,26 +27,30 @@ def test_the_machine_wide_copy_is_looked_in_after_it():
     assert libmpv_dirs()[1] == machine_libmpv_dir()
 
 
-def test_the_machine_wide_copy_is_under_local_app_data():
-    assert machine_libmpv_dir() == local_app_data() / "haglio" / "libmpv"
+def test_the_machine_wide_copy_is_in_the_user_folder_and_not_under_app_data():
+    """AppData's Local, Roaming and LocalLow are private per packaged app -- the
+    Claude app every agent's shell runs inside -- so a DLL an agent fetches there
+    is found by every suite and by nothing the user launches (measured 2026-09-26)."""
+    assert machine_libmpv_dir() == user_folder() / ".haglio" / "libmpv"
+    assert "AppData" not in machine_libmpv_dir().parts
 
 
 @windows_only
-def test_a_wrong_local_app_data_variable_does_not_move_the_engine(monkeypatch, tmp_path: Path):
-    """The players Fun Time launches inherited a %LOCALAPPDATA% that was not the
+def test_a_wrong_user_folder_variable_does_not_move_the_engine(monkeypatch, tmp_path: Path):
+    """The players Fun Time launches inherited a folder variable that was not the
     real folder, looked for the engine there, and every one of them died on its
     first launch; the folder Windows keeps for the user is the one to ask."""
     real = machine_libmpv_dir()
-    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
 
     assert machine_libmpv_dir() == real
     assert tmp_path not in machine_libmpv_dir().parents
 
 
 @windows_only
-def test_no_local_app_data_variable_at_all_does_not_move_it_either(monkeypatch):
+def test_no_user_folder_variable_at_all_does_not_move_it_either(monkeypatch):
     real = machine_libmpv_dir()
-    monkeypatch.delenv("LOCALAPPDATA", raising=False)
+    monkeypatch.delenv("USERPROFILE", raising=False)
 
     assert machine_libmpv_dir() == real
 
