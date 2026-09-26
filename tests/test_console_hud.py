@@ -1270,6 +1270,21 @@ class TestTheRowTheConsoleCarriesForItsVideo:
 
         assert with_row > without
 
+    def test_the_clip_s_funscript_colors_fill_that_track(self):
+        """The main player laid its heatmap along the lower edge of the video;
+        on the console it is the track's own fill, as it is on a show's panel."""
+        painter = ConsolePainter()
+        row = RowHud(position_ms=0, duration_ms=60_000)
+        plain = painter.rgba(self._hud(), clip_row=row)[0]
+        _x, _y, width, _row_h = painter.row_rect
+        x0, x1 = bar_track_x(width)
+        colors = np.array([(200, 40 + x % 150, 30) for x in range(x1 - x0)],
+                          dtype=np.uint8)
+
+        colored = ConsolePainter().rgba(self._hud(), clip_row=row, heatmap=colors)[0]
+
+        assert colored != plain
+
     def test_it_lands_at_the_foot_of_the_panel(self):
         painter = ConsolePainter()
         row = RowHud(position_ms=30_000, duration_ms=60_000, volume=VolumeHud(volume=40))
