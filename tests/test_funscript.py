@@ -99,7 +99,7 @@ class TestIsRestingAt:
         assert fs.is_resting_at(25000) is True  # midway in the 30s gap
 
     def test_buffer_before_a_cluster_is_not_resting(self):
-        # The funscript reclaims a _QUIET_LEAD_IN_MS buffer ahead of its action,
+        # The funscript reclaims a QUIET_LEAD_IN_MS buffer ahead of its action,
         # so the OSR2 settles onto the script before it fires.
         fs = Funscript(actions=[(40000, 0), (40300, 100), (40600, 0)])
 
@@ -112,7 +112,7 @@ class TestIsRestingAt:
         assert fs.is_resting_at(0) is True
 
     def test_isolated_blip_does_not_anchor_driving(self):
-        # A stray blip with no dense neighbour must not pull the OSR2 off Genau.
+        # A stray blip with no dense neighbor must not pull the OSR2 off Genau.
         fs = Funscript(actions=[(20000, 50), (60000, 0), (60300, 100), (60600, 0)])
 
         assert fs.is_resting_at(20000) is True
@@ -200,7 +200,7 @@ class TestNextActiveMs:
         assert self._two_clusters().next_active_ms(25000) == 40000
 
     def test_lands_on_the_first_cycle_not_in_the_buffer_before_it(self):
-        # is_resting_at hands the script back a _QUIET_LEAD_IN_MS buffer ahead of
+        # is_resting_at hands the script back a QUIET_LEAD_IN_MS buffer ahead of
         # a cluster so the OSR2 settles onto it; a jump that stopped there would
         # be five seconds of nothing, so it goes all the way to the first cycle.
         fs = self._two_clusters()
@@ -498,3 +498,34 @@ class TestDepthAtSpeed:
 
         assert max(full) == 1.0
         assert max(paced) == 0.5
+
+
+class TestPlayedOnALoop:
+    def _two_swings(self):
+        return Funscript(actions=[(0, 0), (1_250, 100), (2_500, 0), (3_760, 100), (5_010, 0)])
+
+    def test_the_loop_comes_round_again_where_the_script_would_have_run_out(self):
+        looped = self._two_swings().looped(0, 5_000)
+
+        assert [looped.position_at(t) for t in (5_000, 6_250, 7_500, 8_760)] == [0, 100, 0, 100]
+
+    def test_right_after_the_seam_the_device_is_still_on_its_way_down_from_the_pass_before(self):
+        ends_high = Funscript(actions=[(1_000, 0), (2_250, 100), (3_500, 0), (4_750, 100)])
+
+        assert ends_high.looped(0, 5_000).planned_position_at(0) == 80
+
+    def test_a_clip_not_open_yet_has_no_loop_to_repeat(self):
+        swings = self._two_swings()
+
+        assert swings.looped(0, 0) is swings
+
+    def test_a_loop_over_a_quiet_stretch_never_rises_for_a_cluster_past_its_end(self):
+        script = Funscript(actions=[(t, (t // 200) % 2 * 100) for t in range(30_000, 35_001, 200)])
+
+        assert script.is_resting_at(26_000) is False
+        assert script.looped(20_000, 27_000).is_resting_at(26_000) is True
+
+    def test_the_same_loop_asked_for_every_frame_is_laid_out_once(self):
+        swings = self._two_swings()
+
+        assert swings.looped(0, 5_000) is swings.looped(0, 5_000)

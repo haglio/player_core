@@ -55,6 +55,8 @@ _JUMP_AHEAD_MS = 400
 # off the wave it was cut from.
 _STALLED_FRAMES = 25
 
+_UNSAID = object()
+
 
 def next_handoff_touch(script, position_ms: int, latch: DescentLatch) -> int | None:
     """The touch-down the trace has chosen for the boundary ahead (or the one
@@ -88,8 +90,8 @@ class DriveGate:
     """The forecasts this trace is holding, and the rules that void them.
 
     *session* is the player drawing the picture, read for where it is
-    (``position_ms``), in what (``current_video``), with which script
-    (``current_funscript``) and how fast (``speed``).
+    (``position_ms``), in what (``current_video``), with which script as it
+    will play it (``funscript_as_played``) and how fast (``speed``).
     """
 
     def __init__(self, session) -> None:
@@ -151,7 +153,7 @@ class DriveGate:
         self._position = position
         return drive_readout(
             drive,
-            script=self._session.current_funscript,
+            script=self._script_as_played(),
             position_ms=position,
             speed=self._session.speed,
             latch=self._latch,
@@ -165,5 +167,9 @@ class DriveGate:
         one chooser rather than two.
         """
         return next_handoff_touch(
-            self._session.current_funscript,
-            int(self._session.position_ms), self._latch)
+            self._script_as_played(), int(self._session.position_ms), self._latch)
+
+    def _script_as_played(self):
+        # A player on a branch opened before it said this runs on the same install.
+        script = getattr(self._session, "funscript_as_played", _UNSAID)
+        return self._session.current_funscript if script is _UNSAID else script
