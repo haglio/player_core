@@ -268,8 +268,16 @@ def test_a_new_picture_is_dealt_its_own_move_from_the_start():
     assert deals.dealt == 2
 
 
+def test_a_picture_whose_hold_has_run_out_waits_at_the_end_of_its_move_for_the_next():
+    still = paced()
+
+    assert_along(still.view(now_s=104.05), DRIFT, 1.0)
+
+
 def test_a_locked_picture_makes_its_move_again_each_time_it_repeats():
     still = paced()
+
+    still.set_looping(True)
 
     assert_along(still.view(now_s=106.0), DRIFT, 0.5)
 
