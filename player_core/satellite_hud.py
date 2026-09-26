@@ -19,7 +19,7 @@ font: the paint module measures text and hands the width back in.
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol
 
@@ -34,6 +34,7 @@ from .drive_readout import DriveHud, DriveTrack, TrackGrip
 from .geometry import Rect, contains
 from .hud_button import Button, rows_from_raw, rows_raw
 from .hud_osr2 import HEIGHT as OSR2_H
+from .hud_status import SEPARATOR
 
 if TYPE_CHECKING:
     from PIL import Image
@@ -463,6 +464,20 @@ def favorite_mark_rect(y: int, line_h: int) -> Rect:
     and anything smaller reads as a speck rather than as a state.
     """
     return (PAD + (STATUS_DOT + 1 - line_h) // 2, y, line_h, line_h)
+
+
+SHORTENED_MARK = "…"
+
+
+def name_line(name: str, note: str, room: int, width_of: Callable[[str], int]) -> str:
+    whole = SEPARATOR.join(part for part in (name, note) if part)
+    if not (name and note) or width_of(whole) <= room:
+        return whole
+    for kept in range(len(name) - 1, -1, -1):
+        shortened = f"{name[:kept].rstrip()}{SHORTENED_MARK}{SEPARATOR}{note}"
+        if width_of(shortened) <= room:
+            return shortened
+    return note
 
 
 # The strike under the current clip's act: this act is wrong, ask about it again.
