@@ -4,6 +4,7 @@ from __future__ import annotations
 from player_core.playhead import PlayheadHudPainter, video_playhead
 from player_core.timeline import (
     BAR_INSET_Y,
+    HEATMAP_ALPHA,
     bar_track_x,
     progress_bar_bgra,
 )
@@ -99,6 +100,16 @@ class TestProgressBar:
     def test_zero_duration_is_safe(self):
         bar = progress_bar_bgra(0, 0, None, 800, height=20)
         assert bar.shape == (20, 800, 4)
+
+    def test_a_funscripts_colors_fill_the_track_in_place_of_the_dark_fill(self):
+        x0, x1 = bar_track_x(1000)
+        colors = [(40 + x % 200, 90, 220 - x % 180) for x in range(x1 - x0)]
+
+        bar = progress_bar_bgra(0, 10_000, None, 1000, heatmap=colors)
+
+        middle = bar.shape[0] // 2
+        assert [_rgba(bar, middle, x) for x in range(x0 + 10, x1 - 10)] == [
+            (*colors[x - x0], HEATMAP_ALPHA) for x in range(x0 + 10, x1 - 10)]
 
     def test_the_track_ends_before_the_volume_slot(self):
         """The whole point of reserving SLOT_W: the fill and border stop clear of

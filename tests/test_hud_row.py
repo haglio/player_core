@@ -15,7 +15,7 @@ from player_core.hud_row import (
     volume_to,
 )
 from player_core.playhead import lower_edge_height
-from player_core.timeline import TIMELINE_HEIGHT, bar_track_x
+from player_core.timeline import HEATMAP_ALPHA, TIMELINE_HEIGHT, bar_track_x
 from player_core.volume import CHIP_H, CHIP_W, MAX_VOLUME, MIN_VOLUME, SPEAKER_W, VolumeHud, chip_xy
 
 
@@ -46,6 +46,20 @@ def test_it_draws_the_track_and_the_chip_inside_the_room_it_asked_for():
     assert painted.size
     assert painted[:, 0].min() >= 20 and painted[:, 0].max() < 20 + height
     assert painted[:, 1].min() >= 20 and painted[:, 1].max() < 20 + width
+
+
+def test_a_host_with_a_funscript_fills_the_track_with_its_colors():
+    section = RowSection()
+    width, height = section.size(400)
+    x0, x1 = bar_track_x(width)
+    colors = np.array([(200, 40 + x % 150, 30) for x in range(x1 - x0)], dtype=np.uint8)
+    panel = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+
+    section.draw(panel, 0, 0, width, RowHud(position_ms=0, duration_ms=60_000), heatmap=colors)
+
+    middle = np.asarray(panel)[height - TIMELINE_HEIGHT // 2]
+    assert middle[x0 + 10:x1 - 10].tolist() == [
+        [*color, HEATMAP_ALPHA] for color in colors[10:-10].tolist()]
 
 
 class TestWhatAPressOnTheRowIsOn:

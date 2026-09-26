@@ -1,11 +1,9 @@
 """The scrubber every player in this family draws along the lower edge of its video.
 
 An inset, floated, bordered track with a full-height playcursor and loop/record
-marks — the main player draws it under a funscript heatmap or as a plain bar, and a silent
-satellite draws the plain bar as a progress indicator.  Both players are separate
-processes in separate repos, so the track and its frame live here in the shared
-engine; the funscript heatmap that fills the main player's version stays in the main player, built on the
-frame this module owns.
+marks, filled with the colors of the video's funscript where it has one and
+with a dark translucent fill where it has none.  Every player draws it, in
+separate processes and separate repos, so the whole of it lives here.
 
 The track stops short of the volume chip that shares its row — ``bar_track_x``
 subtracts :data:`player_core.volume.SLOT_W` — so the two never overlap and
@@ -44,6 +42,7 @@ BAR_INSET_Y = 3      # upper/lower margin so the timeline floats off the edge
 BAR_FILL = (34, 34, 38, 165)       # dark translucent fill (plain bar only)
 BAR_BORDER = (215, 215, 220, 235)  # light inner border (reads on the dark fill)
 BAR_EDGE = (8, 8, 10, 235)         # dark outer edge (reads on the bright heatmap)
+HEATMAP_ALPHA = 178  # ~70%: present but unobtrusive under the video
 BORDER_W = 2
 CURSOR = (255, 255, 255, 255)   # prominent white playcursor
 CURSOR_W = 3
@@ -139,16 +138,18 @@ def draw_track_marks(bgra, *, x0, x1, y0, y1, to_x, position_ms,
 
 
 def progress_bar_bgra(position_ms, duration_ms, loop_bounds, width,
-                      record_in_ms=None, height=TIMELINE_HEIGHT):
-    """A bordered, inset seek bar for videos with no funscript heatmap.
-
-    Shares the heatmap strip's frame — a dark translucent track floated in from
-    the window edges under a light border, with a full-height white playcursor
-    and full-height loop in/out marks (amber; the in point shows red while it is
-    still being recorded) — so every video, scripted or not, has a clear timeline.
-    """
+                      record_in_ms=None, height=TIMELINE_HEIGHT, *, heatmap=None):
+    """A bordered, inset seek bar: the track floated in from the window edges
+    under a light border, with a full-height white playcursor and full-height
+    loop in/out marks (amber; the in point shows red while it is still being
+    recorded).  *heatmap* is the funscript's color for each pixel of the track,
+    RGB, and fills it in place of the dark fill."""
     bar, x0, x1, y0, y1 = framed_track(width, height)
-    paint_rect(bar, x0, x1, y0, y1, BAR_FILL)
+    if heatmap is None or not len(heatmap):
+        paint_rect(bar, x0, x1, y0, y1, BAR_FILL)
+    else:
+        bar[y0:y1, x0:x1, :3] = np.asarray(heatmap, dtype=np.uint8)[np.newaxis, :, ::-1]
+        bar[y0:y1, x0:x1, 3] = HEATMAP_ALPHA
     draw_border(bar, x0, x1, y0, y1, BORDER_W, BAR_BORDER)
     draw_track_marks(
         bar, x0=x0, x1=x1, y0=y0, y1=y1,
