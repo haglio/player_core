@@ -8,7 +8,7 @@ naming an item to jump to spells it exactly as the file does.
 
 Written and read here, in one module, because more than one player reads the
 one shape Fun Time writes: the main player drives the OSR2 from the funscript
-column, and a satellite (silent and unscripted) drops it.
+column, and every player colors its scrubber with it.
 """
 from __future__ import annotations
 
