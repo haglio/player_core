@@ -103,6 +103,19 @@ def state_for(osr2: str, control: str, *, driving: str = "") -> str:
     return driving or osr2
 
 
+_OSR2_AT_THE_PLAYHEAD = {
+    DRIVEN_BY_ROBOT_HAND: Osr2State.ROBOT_HAND,
+    DRIVEN_BY_FUNSCRIPT: Osr2State.FUNSCRIPT,
+    DRIVEN_BY_NEUTRAL: BUFFER,
+}
+
+
+def driving_at_the_playhead(composed: DriveHud | None, osr2: str) -> str:
+    if composed is None:
+        return ""
+    return _OSR2_AT_THE_PLAYHEAD.get(composed.driven, osr2)
+
+
 _DRIVEN_BY_OSR2 = {
     Osr2State.ROBOT_HAND: DRIVEN_BY_ROBOT_HAND,
     Osr2State.FUNSCRIPT: DRIVEN_BY_FUNSCRIPT,

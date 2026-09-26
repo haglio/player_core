@@ -43,9 +43,6 @@ from .console import (
     tooltip_at,
 )
 from .drive_readout import (
-    DRIVEN_BY_FUNSCRIPT,
-    DRIVEN_BY_NEUTRAL,
-    DRIVEN_BY_ROBOT_HAND,
     DriveHud,
     DriveSection,
     DriveTrack,
@@ -54,9 +51,14 @@ from .drive_readout import (
     section_size,
 )
 from .geometry import Rect, contains
-from .hud_osr2 import BUFFER as OSR2_BUFFER
 from .hud_osr2 import HEIGHT as _OSR2_H
-from .hud_osr2 import Osr2Line, Osr2Section, ReadoutResolver, state_for
+from .hud_osr2 import (
+    Osr2Line,
+    Osr2Section,
+    ReadoutResolver,
+    driving_at_the_playhead,
+    state_for,
+)
 from .hud_panel import (
     ACTIVE_DOT,
     SYMBOL_FONT,
@@ -76,7 +78,7 @@ from .hud_status import (
     SHUFFLE_LABEL,
     status_line,
 )
-from .modes import LengthMode, Osr2State
+from .modes import LengthMode
 
 __all__ = [
     "ConsoleHud",
@@ -454,13 +456,8 @@ class ConsolePainter:
         The precedence around it -- auto, then a hold or a let-go, then whoever
         is driving -- is the shared line's (:func:`player_core.hud_osr2.state_for`),
         since every panel that draws this line answers it the same way."""
-        drive = self._composed_drive
-        driving = "" if drive is None else {
-            DRIVEN_BY_ROBOT_HAND: Osr2State.ROBOT_HAND,
-            DRIVEN_BY_FUNSCRIPT: Osr2State.FUNSCRIPT,
-            DRIVEN_BY_NEUTRAL: OSR2_BUFFER,
-        }.get(drive.driven, model.osr2)
-        return state_for(model.osr2, model.osr2_control, driving=driving)
+        return state_for(model.osr2, model.osr2_control,
+                         driving=driving_at_the_playhead(self._composed_drive, model.osr2))
 
     def _osr2_line(self, model: ConsoleModel) -> Osr2Line:
         """The device's line as the shared section takes it — the controls the

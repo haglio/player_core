@@ -45,7 +45,13 @@ from player_core.hud_panel import (
 from .drive_readout import DriveSection, DriveTrack, readout_targets, section_size
 from .geometry import Rect, contains
 from .hud_osr2 import HEIGHT as OSR2_H
-from .hud_osr2 import Osr2Line, Osr2Section, ReadoutResolver, state_for
+from .hud_osr2 import (
+    Osr2Line,
+    Osr2Section,
+    ReadoutResolver,
+    driving_at_the_playhead,
+    state_for,
+)
 from .hud_row import RowHud, RowSection
 from .hud_status import PLAYBACK_SPEED_LABEL
 from .playback_rate import format_rate
@@ -249,7 +255,8 @@ class HudRenderer:
         # every control here has one — so an empty tip means "not on a button".
         self._pointer = hover_pos if hover_tip else None
         model = replace(model, drive=self._readout.resolve(
-            model.drive, osr2=model.osr2, control=model.osr2_control, composed=False))
+            model.drive, osr2=model.osr2, control=model.osr2_control,
+            composed=model.drive_composed))
         counts = self._count_lines(model)
         model, seed_win, action_win = self._window(model)
         corner_thumb, seed_thumbs, action_thumbs = self._map_thumbnails(model)
@@ -271,8 +278,11 @@ class HudRenderer:
         ), default=0)
         # The device's own blocks, on a host that drives it: the OSR2 line and
         # the readout ask for width the way the bands do, and for room under them.
+        composed = (model.drive if model.drive_composed and model.drive is not None
+                    and model.drive.segments else None)
         osr2_line = Osr2Line(
-            state=state_for(model.osr2, model.osr2_control),
+            state=state_for(model.osr2, model.osr2_control,
+                            driving=driving_at_the_playhead(composed, model.osr2)),
             controls=model.osr2_controls)
         drive_w, drive_h = section_size() if model.drive is not None else (0, 0)
         device_w = max(self._osr2.width(osr2_line) if model.osr2 else 0, drive_w)

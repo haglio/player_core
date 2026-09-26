@@ -186,6 +186,7 @@ class HudModel:
     # (:mod:`player_core.drive_readout`), hosted here rather than on a panel of
     # its own.  None wherever there is nothing to report.
     drive: DriveHud | None = None
+    drive_composed: bool = False
 
     foot: HudSection | None = None
 
