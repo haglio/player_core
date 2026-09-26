@@ -39,6 +39,14 @@ class ClipRenderController:
             return None
         return self.clip_store.clip_cache.get(path)
 
+    @property
+    def portrait(self) -> bool | None:
+        entry = self.current_clip_entry()
+        if entry is None or not entry["frames"]:
+            return None
+        height, width = entry["frames"][0].shape[:2]
+        return height > width
+
     def prepare_active_clip_for_current_size(self) -> None:
         path = self.current_clip_path
         if path is None or path not in self.clip_store.clip_cache:

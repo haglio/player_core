@@ -19,7 +19,7 @@ from .device_walk import Walk, the_broker_holding, the_hand_taking_back
 from .file_channel import consume_command_file
 from .genau_controls import GenauControls, apply_runtime_command
 from .genau_readout import AutoMotion, GenauReadout
-from .genau_status import GENAU_STATUS_FILENAME, write_status_file
+from .genau_status import GENAU_STATUS_FILENAME, build_status_text, write_status_file
 from .learned_motion import tick_learned_motion
 from .robot_hand import POSITION_MAX, phase_for_position_fraction
 from .robot_hand_beat import Beat, advance_beat
@@ -303,8 +303,7 @@ class GenauRefreshController:
     def _publish_status(self) -> None:
         if self.cruise_control is None:
             return
-        write_status_file(
-            self.status_file,
+        write_status_file(self.status_file, build_status_text(
             self.robot_hand,
             self.cruise_control,
             learned=self.learned,
@@ -312,7 +311,8 @@ class GenauRefreshController:
             hud_active=self._over_a_video,
             clip=self.renderer.current_clip_path,
             flipped=self.flip.on,
-        )
+            portrait=self.renderer.portrait,
+        ))
 
     def seek_the_clip(self, fraction: float) -> None:
         """Put the clip *fraction* of the way along its bar, and the device where

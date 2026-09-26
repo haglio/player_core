@@ -9,6 +9,15 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-09-26 — Genau says whether the clip on screen is portrait
+
+`genau_status.txt` gains a `portrait=` line: `1` for a clip taller than it is
+wide, `0` for any other, empty until a clip's frames are in hand. It comes from
+`ClipRenderController.portrait`. Fun Time reads it to give Genau most of the
+secondary monitor when the main player has the crown. `write_status_file` now
+takes the text `build_status_text` makes, rather than repeating every one of its
+arguments.
+
 ## 2026-09-25 — a player can lay a portrait picture side by side across a wide window
 
 `tile_to_fill(width, height)`, called with the window's size every frame, shows
