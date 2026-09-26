@@ -31,13 +31,11 @@ __all__ = [
     "adjust_speed",
     "bpm_for_speed",
     "cycle_shape",
-    "pause_playing",
     "phase_advanced",
     "position_fraction",
     "set_amplitude",
     "set_center",
     "set_speed",
-    "toggle_playing",
     "trace_window",
 ]
 
@@ -83,14 +81,6 @@ class RobotHandState:
         if self.bpm == 0.0:
             self.bpm = bpm_for_speed(self.speed)
         _recompute_center(self)
-
-
-def toggle_playing(state: RobotHandState) -> None:
-    state.playing = not state.playing
-
-
-def pause_playing(state: RobotHandState) -> None:
-    state.playing = False
 
 
 def set_speed(state: RobotHandState, speed: int) -> None:
