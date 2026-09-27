@@ -25,9 +25,8 @@ def test_starts_at_first_clip():
 
 
 class TestStartAt:
-    """Where a reopened session picks up.  The clips are rescanned every launch
-    (and reshuffled, when that is on), so there is no order to come back to —
-    only the one clip that was on screen."""
+    """Where a reopened session picks up: the clip that was on screen, named
+    into whatever order the launch scanned the folder in."""
 
     def test_opens_on_the_named_clip(self):
         controller = ClipSequenceController(_paths(), start_at=Path("c.mp4"))
