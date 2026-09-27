@@ -90,11 +90,7 @@ class ClipLoadController:
         if err:
             return
 
-        self.clip_store.cache_clip(
-            path, frames, protected_paths=self._clip_on_screen())
-
-        if self.current_clip_path_getter() == path:
-            self.on_active_clip_loaded()
+        self._adopt(path, frames)
 
     def adopt_prefetch_if_ready(self) -> None:
         result = self.prefetch_state.take_completed_result()
@@ -106,8 +102,17 @@ class ClipLoadController:
             return
 
         self.logger.info("Prefetch ready: %s (%d frames)", path.name, len(frames) if frames else 0)
+        if self.current_clip_path_getter() == path:
+            self._adopt(path, frames)
+            return
         self.clip_store.cache_decoded_frames(
             path, frames, protected_paths=self._clip_on_screen())
+
+    def _adopt(self, path: Path, frames: list) -> None:
+        self.clip_store.cache_clip(
+            path, frames, protected_paths=self._clip_on_screen())
+        if self.current_clip_path_getter() == path:
+            self.on_active_clip_loaded()
 
     def _already_decoding(self, path: Path) -> bool:
         """Whether a decode of this very clip is running, either side.
