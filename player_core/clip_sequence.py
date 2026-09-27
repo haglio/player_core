@@ -1,9 +1,4 @@
-"""The order Genau browses its clips in, and where it is in that order.
-
-Genau has no playlist file: the folder is rescanned every launch and reshuffled
-when that is on, so the sequence is this session's own, and the one thing a
-reopened session gets back is the clip that was on screen.
-"""
+"""The order Genau browses its clips in, and where it is in that order."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -29,12 +24,10 @@ def _index_of(clips: list[Path], wanted: Path | None) -> int | None:
 
 class ClipSequenceController:
     def __init__(self, clips: list[Path], *, start_at: Path | None = None):
-        """*start_at* is the clip to open on — where a reopened session picks up.
-
-        Only the clip, never an order: the folder is rescanned every launch and
-        reshuffled when that is on, so the sequence around it is this session's
-        own.  A clip that is no longer in it (deleted, or condemned as weird
-        since) simply is not found, and the scan order stands from its top.
+        """*start_at* is the clip to open on — where a reopened session picks up,
+        in whatever order *clips* were scanned in.  A clip that is no longer in
+        it (deleted, or condemned as weird since) simply is not found, and the
+        scan order stands from its top.
         """
         if not clips:
             raise ValueError("ClipSequenceController requires at least one clip")
