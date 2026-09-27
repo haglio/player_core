@@ -86,12 +86,32 @@ SET_PACE = "SET_PACE"
 SHOW_FRAME = "SHOW_FRAME"
 CLEAR_FRAME = "CLEAR_FRAME"
 
+# The picture on screen eased onto one part of it and held there until the
+# next item (AIM_STILL <x0> <y0> <x1> <y1> <seconds>, fractions of the picture).
+AIM_STILL = "AIM_STILL"
+
 QUIT = "QUIT"
 
 
 def play_file(item: PlaylistItem) -> str:
     """The command that shows *item*."""
     return f"{PLAY_FILE} {item_line(item)}"
+
+
+def aim_still(part: tuple[float, float, float, float], seconds: float) -> str:
+    return " ".join([AIM_STILL, *(f"{number:g}" for number in (*part, seconds))])
+
+
+def aim_of(value: str) -> tuple[tuple[float, float, float, float], float] | None:
+    try:
+        x0, y0, x1, y1, seconds = (float(word) for word in value.split())
+    except ValueError:
+        return None
+    if not (0.0 <= x0 < x1 <= 1.0 and 0.0 <= y0 < y1 <= 1.0):
+        return None
+    if not (math.isfinite(seconds) and seconds >= 0):
+        return None
+    return (x0, y0, x1, y1), seconds
 
 
 def pace_seconds(value: str) -> float | None:

@@ -48,3 +48,20 @@ def test_a_pace_is_read_as_the_seconds_it_names():
 @pytest.mark.parametrize("value", ["-1", "soon", "", "inf", "nan"])
 def test_a_value_that_names_no_pace_is_refused(value):
     assert player_verbs.pace_seconds(value) is None
+
+
+def test_an_aim_carries_the_part_and_the_seconds_it_names():
+    line = player_verbs.aim_still((0.1, 0.2, 0.3, 0.4), 2.0)
+
+    keyword, _, value = line.partition(" ")
+    assert keyword == player_verbs.AIM_STILL
+    assert player_verbs.aim_of(value) == ((0.1, 0.2, 0.3, 0.4), 2.0)
+
+
+@pytest.mark.parametrize("value", [
+    "", "0.1 0.2 0.3 0.4", "0.1 0.2 0.3 0.4 2 9", "0.1 0.2 0.3 nearby 2",
+    "0.3 0.2 0.1 0.4 2", "0.1 0.4 0.3 0.2 2", "0.1 0.2 1.5 0.4 2", "-0.1 0.2 0.3 0.4 2",
+    "0.1 0.2 0.3 0.4 -1", "0.1 0.2 0.3 0.4 nan", "0.1 0.2 0.3 0.4 inf",
+])
+def test_a_value_that_names_no_aim_is_refused(value):
+    assert player_verbs.aim_of(value) is None
