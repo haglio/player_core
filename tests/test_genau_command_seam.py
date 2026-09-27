@@ -75,6 +75,7 @@ class Seam:
         self.tcode = FakeTCodeSender()
         self.volumes: list[tuple[int, bool]] = []
         self.reorders: list[bool] = []
+        self.kept_shapes: list[tuple[bool, bool]] = []
         self.stop_event = _Stop()
         self.command_file = tmp_path / "genau_cmd.txt"
 
@@ -94,6 +95,8 @@ class Seam:
                 tcode_enabled=self.tcode_enabled,
                 set_volume=lambda level, muted: self.volumes.append((level, muted)),
                 reorder_clips=self.reorders.append,
+                keep_shapes=lambda plays_vr, plays_flat: self.kept_shapes.append(
+                    (plays_vr, plays_flat)),
             ),
             broker=BrokerFeed(),
             loader=FakeLoader(),
@@ -136,6 +139,7 @@ class Seam:
             "flipped": self.controller.flip.on,
             "held_at": self.controller.room_hold.height,
             "reorders": tuple(self.reorders),
+            "kept_shapes": tuple(self.kept_shapes),
             "volumes": tuple(self.volumes),
             "hud": self.hud.on,
             "tcode_enabled": self.tcode_enabled.on,
@@ -197,12 +201,13 @@ SEAM = [
     ("CLIP_SECONDS_UP", {}, {"interval": 21}),
     ("HUD_ON", {}, {"hud": True}),
     ("HUD_OFF", {"hud": True}, {"hud": False}),
-    # The six that carry a value.
+    # The seven that carry a value.
     ("AMP 80", {}, {"amplitude": 80}),
     ("CENTER 65", {}, {"center": 65, "intended_center": 65}),
     ("SPEED 90", {}, {"speed": 90}),
     ("CLIP_SECONDS 30", {}, {"interval": 30}),
     ("SET_VOLUME 40 1", {}, {"volumes": ((40, True),)}),
+    ("SHAPES flat", {}, {"kept_shapes": ((False, True),)}),
     ("SET_TCODE_ENABLED 0", {}, {"tcode_enabled": False}),
     ("SET_TCODE_ENABLED 1", {"tcode_enabled": False}, {"tcode_enabled": True}),
 ]

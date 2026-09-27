@@ -245,6 +245,48 @@ class TestReorder:
         assert renderer.current_clip_path == Path("newest.mp4")
 
 
+class TestNarrow:
+    """The folder rescanned under a narrower choice of clip, which a reloaded
+    playlist answers by keeping the item on screen where it survived."""
+
+    def test_the_clip_on_screen_stays_where_it_survived(self):
+        controller, _store, _loader, renderer, notifier = _build_controller(
+            "a.mp4", "b.mp4", "c.mp4")
+        controller.set_current_clip(Path("b.mp4"))
+        notifier.clip_notifications.clear()
+
+        controller.narrow([Path("c.mp4"), Path("b.mp4")])
+
+        assert renderer.current_clip_path == Path("b.mp4")
+        assert notifier.clip_notifications == []
+        assert controller.current_path == Path("b.mp4")
+        assert controller.count == 2
+
+    def test_a_clip_on_screen_that_was_dropped_gives_way_to_the_head_at_once(self):
+        controller, _store, loader, renderer, notifier = _build_controller("a.mp4", "b.mp4")
+        controller.set_current_clip(Path("a.mp4"))
+        notifier.clip_notifications.clear()
+
+        controller.narrow([Path("c.mp4"), Path("b.mp4")])
+
+        assert renderer.current_clip_path == Path("c.mp4")
+        assert notifier.clip_notifications == [Path("c.mp4")]
+        assert loader.load_requests[-1] == Path("c.mp4")
+
+    def test_a_step_still_waiting_to_load_is_dropped_with_the_list_it_stepped_along(self):
+        controller, clip_store, _loader, renderer, _notifier = _build_controller(
+            "a.mp4", "b.mp4", "c.mp4")
+        controller.set_current_clip(Path("a.mp4"))
+        controller.step(1)
+        assert controller.pending_clip_name == "b.mp4"
+
+        controller.narrow([Path("a.mp4"), Path("c.mp4")])
+        clip_store.clip_cache[Path("b.mp4")] = {"frames": ["f0"]}
+
+        assert controller.adopt_pending_clip() is False
+        assert renderer.current_clip_path == Path("a.mp4")
+
+
 class TestDiscardCurrent:
     def test_condemns_the_clip_and_moves_on_to_the_next(self):
         condemned: list[Path] = []

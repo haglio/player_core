@@ -2,9 +2,10 @@
 
 A step to a clip that is already decoded switches at once; a step to one that
 is not keeps the current clip playing and takes the new one up when its decode
-lands, so the screen never goes blank waiting.  A condemned clip's successor and
-a reordered folder's head are the two switches that are never deferred, because
-in both the point is to see the new clip now.
+lands, so the screen never goes blank waiting.  A condemned clip's successor, a
+reordered folder's head, and the head of a narrowed folder that left out the
+clip on screen are never deferred, because in each the point is to see the new
+clip now.
 """
 from __future__ import annotations
 
@@ -74,6 +75,14 @@ class ClipSelectionController:
         does.
         """
         self.set_current_clip(self.sequence.take_up(clips))
+
+    def narrow(self, clips: list[Path]) -> None:
+        on_screen = self.renderer.current_clip_path
+        up = self.sequence.take_up(clips, holding=on_screen)
+        if up == on_screen:
+            self._pending_path = None
+        else:
+            self.set_current_clip(up)
 
     def step(self, delta: int) -> None:
         """Advance to next/prev clip.  A clip whose frames are in hand -- up
