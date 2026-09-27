@@ -116,3 +116,21 @@ def test_adopt_prefetch_if_ready_caches_frames_without_active_notification():
 
     assert clip_store.decoded_frame_cache[path] == ["f0"]
     assert active_loaded == []
+
+
+def test_a_clip_switched_to_while_it_was_decoding_ahead_goes_up_when_that_decode_lands():
+    """A switch to a clip already being decoded ahead waits for that decode rather
+    than starting a second one, so the decode landing is what puts it up."""
+    path = Path("demo.mp4")
+    controller, clip_store, _load_state, prefetch_state, starter, _logger, active_loaded = _make_loader(
+        current_clip_path=path)
+    request_id = prefetch_state.begin(path)
+    controller.request_clip_load(path)
+    prefetch_state.record_success(path, ["f0", "f1"], request_id)
+
+    controller.adopt_prefetch_if_ready()
+
+    assert starter.calls == []
+    assert clip_store.clip_cache[path]["frames"] == ["f0", "f1"]
+    assert path not in clip_store.decoded_frame_cache
+    assert active_loaded == ["ready"]
