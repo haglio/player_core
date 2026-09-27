@@ -658,8 +658,9 @@ def test_broker_auto_does_not_tick_cruise_control():
     assert dc.speed == 50 and dc.amplitude == 100 and dc.center == 50
 
 
-def test_broker_auto_respects_sync_pulses():
-    """When broker signals auto, sync pulses should pull phase toward zero."""
+def test_broker_auto_sync_pulses_never_move_the_cursor_backward():
+    """A sync pulse under the broker holds a leading loop rather than dragging
+    its phase back, so the clip's cursor never runs backwards."""
     dc = RobotHandState(playing=False, bpm=60.0)
     state = BrokerFeed(auto_active=True, raw_bpm=120.0, sync_pulse_id=1)
     entry = {"frames": [object() for _ in range(8)]}
@@ -667,10 +668,10 @@ def test_broker_auto_respects_sync_pulses():
 
     built["controller"].refresh()
 
-    # Engine starts at phase 0.25, sync_strength=0.5
-    # Sync correction: error = -0.25 (since 0.25 <= 0.5), phase += -0.25 * 0.5 = -0.125
-    # New phase = 0.25 - 0.125 = 0.125
-    assert abs(built["engine"].phase - 0.125) < 0.001
+    # Engine starts at phase 0.25 (the loop has already passed the downbeat), so
+    # the pulse holds rather than pulling it back to zero. The tiny forward phase
+    # advance from the tick's own clock is all that moves it.
+    assert built["engine"].phase >= 0.25
 
 
 def test_broker_auto_cleared_resumes_direct_control():
@@ -856,22 +857,21 @@ def test_turning_at_the_top_puts_the_other_half_of_the_clip_on_the_way_down():
     assert built["renderer"].display_calls[-1] == 2
 
 
-def test_a_motion_that_never_reaches_an_end_keeps_the_half_it_is_in():
-    # Working the middle of the axis shows the middle of the one half, up and
-    # back down it, rather than rolling on into the other.
+def test_a_motion_short_of_the_ends_swaps_halves_on_a_turn():
+    # A mid-axis motion that turns back short of an end swaps to the other half
+    # rather than rewinding the one it is in — so the cursor carries on forward.
     dc = RobotHandState(playing=True, bpm=120.0)
     tcode = FakeTCodeSender()
     tcode._position = 3000
-    entry = {"frames": [object() for _ in range(8)]}
+    entry = {"frames": [object() for _ in range(120)]}
     built = _build_controller(entry=entry, robot_hand=dc, tcode_sender=tcode)
     controller = built["controller"]
 
-    for position in (3000, 6000, 8000, 6000, 3000, 6000):
+    for position in (3000, 5000, 7000, 5000, 3000):   # up the middle, then back
         tcode._position = position
         controller.refresh()
 
-    assert built["controller"]._scrub.back_half is False
-    assert built["renderer"].display_calls[-1] == 5
+    assert controller._scrub.back_half is True
 
 
 def _resumed_by_the_room(tick, _hand, at):

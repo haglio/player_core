@@ -80,7 +80,9 @@ class TestUpdateEngine:
         assert returned is None
         assert engine.phase == pytest.approx(0.4)
 
-    def test_sync_pulse_corrections_pull_phase_toward_zero(self):
+    def test_a_sync_pulse_never_pulls_the_phase_backward(self):
+        # A downbeat the loop has already passed (phase in the first half) would
+        # step the cursor back, so the pulse holds the phase instead.
         engine = BeatEngine(last_tick=100.0, phase=0.4, seen_sync_pulse_id=1)
 
         advance_beat(
@@ -96,7 +98,28 @@ class TestUpdateEngine:
         )
 
         assert engine.seen_sync_pulse_id == 2
-        assert engine.phase == pytest.approx(0.2)
+        assert engine.phase == pytest.approx(0.4)
+
+    def test_a_sync_pulse_pulls_a_lagging_phase_forward(self):
+        # Past the half the downbeat is ahead, so the pulse eases the loop up
+        # toward the loop's end — forward, never wrapping past it.
+        engine = BeatEngine(last_tick=100.0, phase=0.8, seen_sync_pulse_id=1)
+
+        advance_beat(
+            engine,
+            now=100.01,
+            auto_active=False,
+            raw_bpm=None,
+            sync_pulse_id=2,
+            beats_per_loop=4.0,
+            bpm_smoothing=0.2,
+            sync_strength=0.5,
+            paused=False,
+        )
+
+        # error = 1 - 0.8 = 0.2, a forward step of 0.2 * 0.5 = 0.1
+        assert engine.seen_sync_pulse_id == 2
+        assert engine.phase == pytest.approx(0.9)
 
     def test_dt_is_clamped_to_avoid_large_phase_jumps(self):
         engine = BeatEngine(last_tick=100.0, estimated_bpm=120.0, target_bpm=120.0, phase=0.0)
