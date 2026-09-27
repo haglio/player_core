@@ -27,6 +27,7 @@ from player_core.console import (
 )
 from player_core.hud_button import Button
 from player_core.hud_marks import BROKER_ICON, MINIMIZE_ICON
+from player_core.hud_placement import HudCorner, HudEdge
 from player_core.modes import MainMode, Osr2State
 
 # A source's rows, made up: a mode pair with minimize standing apart, and a
@@ -219,3 +220,13 @@ class TestThePublishedConsoleIsWrittenWhereItIsRead:
     def test_a_torn_read_is_no_panel(self):
         assert parse_console('{"main_mode": "video"') is None
         assert parse_console("") is None
+
+
+def test_the_published_console_carries_where_it_sits_and_whether_it_is_minimized():
+    read_back = parse_console(console_text(ConsoleModel(
+        hud_corner=HudCorner.UPPER_RIGHT, hud_edge=HudEdge.UPPER, hud_minimized=True)))
+
+    assert read_back.hud_corner is HudCorner.UPPER_RIGHT
+    assert read_back.hud_edge is HudEdge.UPPER
+    assert read_back.hud_minimized is True
+    assert read_back.player == "main"

@@ -13,8 +13,11 @@ from shared_ui.palette import BLUE, GREEN, TEXT_MUTED, TEXT_PRIMARY, WHITE
 from player_core.console import OSR2_PARKED
 from player_core.drive_layout import SECTION_W
 from player_core.drive_readout import DRIVEN_BY_ROBOT_HAND, DriveHud, section_size, tracks
+from player_core.geometry import Rect
 from player_core.hud_button import Button
+from player_core.hud_minimize import minimize_command
 from player_core.hud_panel import ACTIVE_DOT, ICON_GRIDS, SYMBOL_FONT, load_font
+from player_core.hud_placement import HudCorner
 from player_core.hud_row import SCRUBBER, RowHud, row_part
 from player_core.modes import Osr2State
 from player_core.satellite_hud import (
@@ -22,13 +25,16 @@ from player_core.satellite_hud import (
     COL_LABEL_GAP,
     COL_LABEL_H,
     CTRL_BAND_H,
+    CTRL_BTN,
     ELLIPSIS_ROOM,
     FAMILY_GAP,
     FILTER_BTN,
     MAP_CELLS,
     MAP_GAP,
+    MAP_RIGHT_RESERVE,
     MAP_THUMB_H,
     PAD,
+    ROW_LABEL_GUTTER,
     STATUS_BAND_H,
     STATUS_DOT,
     STATUS_TEXT_X,
@@ -38,6 +44,7 @@ from player_core.satellite_hud import (
     button_tooltip,
     ellipsis_rects,
     looped_group_rect,
+    map_row_width,
     slot_width,
 )
 from player_core.satellite_hud_paint import (
@@ -48,9 +55,15 @@ from player_core.satellite_hud_paint import (
 from player_core.volume import VolumeHud
 
 
+def _declared(rendered) -> list:
+    """The buttons the source declared, without the panel's own minimize."""
+    return [(rect, button) for rect, button in rendered.targets.buttons
+            if button.command != minimize_command(button.command.split("_")[0])]
+
+
 def _names(rendered) -> list[str]:
     """What each drawn button is for, in the order they were laid out."""
-    return [short_name(button) for _rect, button in rendered.targets.buttons]
+    return [short_name(button) for _rect, button in _declared(rendered)]
 
 
 def _rects(rendered) -> dict:
@@ -312,7 +325,7 @@ def test_a_status_too_wide_for_the_map_is_drawn_smaller_rather_than_widening_the
 def _control_band_top(rendered) -> int:
     """Where the side's own control buttons start — the row under the status block,
     and so how deep that block ended up."""
-    return min(y for (_x, y, _w, _h), _button in rendered.targets.buttons)
+    return min(y for (_x, y, _w, _h), _button in _declared(rendered))
 
 
 def test_the_file_on_screen_is_named_in_muted_gray_under_the_status_line(thumb):
@@ -416,7 +429,7 @@ def test_a_panel_that_declares_no_buttons_holds_no_band_open_for_them():
     one_row = renderer.render(HudModel(player="landscape", lock_label="Unlocked",
                                        rows=(player_rows("landscape")[-1],)))
 
-    assert bare.targets.buttons == []
+    assert _declared(bare) == []
     assert one_row.bgra.shape[0] - bare.bgra.shape[0] == CTRL_BAND_H
 
 
@@ -1549,3 +1562,129 @@ class TestTheRowThePanelCarriesForItsClip:
         x, y, width, height = rendered.targets.row
 
         assert row_part(width // 2, height - 2, width=width) == SCRUBBER
+
+
+def _bands(rendered) -> dict[int, tuple[int, int]]:
+    bands: dict[int, tuple[int, int]] = {}
+    for (x, y, w, _h), _button in _declared(rendered):
+        left, right = bands.get(y, (x, x + w))
+        bands[y] = (min(left, x), max(right, x + w))
+    return bands
+
+
+def test_a_band_starts_at_the_left_pad_in_a_left_hand_corner(thumb):
+    rendered = HudRenderer("portrait").render(
+        _model(corner=HudCell(path="c.mp4", thumb=thumb)))
+
+    assert {left for left, _right in _bands(rendered).values()} == {PAD}
+
+
+def test_a_band_ends_at_the_right_pad_in_a_right_hand_corner(thumb):
+    rendered = HudRenderer("portrait").render(
+        _model(hud_corner=HudCorner.UPPER_RIGHT, corner=HudCell(path="c.mp4", thumb=thumb)))
+    width = rendered.bgra.shape[1]
+
+    assert {right for _left, right in _bands(rendered).values()} == {width - PAD}
+
+
+def test_the_status_block_moves_to_the_corner_the_panel_sits_in(thumb):
+    def rendered(corner):
+        return HudRenderer("portrait").render(
+            _model(hud_corner=corner, active=True, is_favorite=True, lock_label="Locked",
+                   corner=HudCell(path="c.mp4", thumb=thumb)), video="one.mp4")
+
+    left = rendered(HudCorner.UPPER_LEFT)
+    right = rendered(HudCorner.UPPER_RIGHT)
+
+    assert left.targets.favorite is not None and right.targets.favorite is not None
+    assert left.targets.favorite[0] < PAD + STATUS_DOT
+    assert right.targets.favorite[0] > left.bgra.shape[1] // 2
+
+
+def _map_corner_x(rendered) -> int:
+    return rendered.targets.click[0][0][0]
+
+
+def test_the_map_moves_to_the_corner_the_panel_sits_in(thumb):
+    def rendered(corner):
+        return HudRenderer("portrait").render(
+            _model(hud_corner=corner, corner=HudCell(path="c.mp4", thumb=thumb),
+                   seeds=(HudCell(path="s.mp4", thumb=thumb),), seed_count=2),
+            video="a name far longer than the map is wide, by a good margin.mp4")
+
+    left, right = rendered(HudCorner.UPPER_LEFT), rendered(HudCorner.UPPER_RIGHT)
+    width = right.bgra.shape[1]
+
+    assert _map_corner_x(left) == PAD + ROW_LABEL_GUTTER + ELLIPSIS_ROOM
+    assert _map_corner_x(right) == (width - PAD - MAP_RIGHT_RESERVE - ELLIPSIS_ROOM
+                                   - map_row_width("portrait"))
+
+
+def test_the_speed_row_moves_to_the_corner_the_panel_sits_in(thumb):
+    def rendered(corner):
+        return HudRenderer("portrait").render(
+            _model(hud_corner=corner, playback_speed=1.0,
+                   corner=HudCell(path="c.mp4", thumb=thumb)),
+            video="a name far longer than the map is wide, by a good margin.mp4")
+
+    right = rendered(HudCorner.UPPER_RIGHT)
+    width = right.bgra.shape[1]
+    speed_y = min(y for (_x, y, _w, _h), button in right.targets.buttons
+                  if button.command.endswith("_speed_up"))
+    speeds = [(x, w) for (x, y, w, _h), _b in right.targets.buttons if y == speed_y]
+
+    assert max(x + w for x, w in speeds) == width - PAD
+    left = rendered(HudCorner.UPPER_LEFT)
+    assert min(rect[0] for rect, _b in left.targets.buttons) == PAD
+
+
+def test_the_device_block_moves_to_the_corner_the_panel_sits_in(thumb):
+    def rendered(corner):
+        return HudRenderer("portrait").render(
+            _model(hud_corner=corner, osr2=Osr2State.ROBOT_HAND,
+                   drive=DriveHud(driven=DRIVEN_BY_ROBOT_HAND),
+                   corner=HudCell(path="c.mp4", thumb=thumb)),
+            video="a name far longer than the map is wide, by a good margin.mp4")
+
+    right = rendered(HudCorner.UPPER_RIGHT)
+    left = rendered(HudCorner.UPPER_LEFT)
+    width = right.bgra.shape[1]
+
+    assert right.targets.tracks, "the readout drew no bands to place"
+    moved = width - 2 * PAD - section_size()[0]
+    assert moved > 0, "the panel is no wider than the readout, so nothing can move"
+    assert (min(band.rect[0] for band in right.targets.tracks)
+            - min(band.rect[0] for band in left.targets.tracks)) == moved
+
+
+def _button_rect(rendered, command: str) -> Rect:
+    rects = [rect for rect, button in rendered.targets.buttons if button.command == command]
+    assert len(rects) == 1, f"{command} drew {len(rects)} buttons"
+    return rects[0]
+
+
+def test_the_minimize_button_sits_opposite_the_edge_the_panel_is_justified_to(thumb):
+    def rendered(corner):
+        return HudRenderer("portrait").render(
+            _model(hud_corner=corner, corner=HudCell(path="c.mp4", thumb=thumb)))
+
+    left = rendered(HudCorner.UPPER_LEFT)
+    right = rendered(HudCorner.LOWER_RIGHT)
+
+    x, y, w, h = _button_rect(left, "portrait_hud_minimize")
+    assert (w, h) == (CTRL_BTN, CTRL_BTN)
+    assert x + w == left.bgra.shape[1] - PAD
+    assert PAD <= y < PAD + STATUS_BAND_H
+    assert _button_rect(right, "portrait_hud_minimize")[0] == PAD
+
+
+def test_a_minimized_panel_is_the_restore_button_and_nothing_else(thumb):
+    rendered = HudRenderer("portrait").render(
+        _model(hud_minimized=True, corner=HudCell(path="c.mp4", thumb=thumb)),
+        video="one.mp4")
+    height, width = rendered.bgra.shape[:2]
+
+    assert (width, height) == (CTRL_BTN, CTRL_BTN)
+    assert [button.command for _rect, button in rendered.targets.buttons] == [
+        "portrait_hud_restore"]
+    assert rendered.targets.click == []

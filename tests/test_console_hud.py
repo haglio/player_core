@@ -18,6 +18,7 @@ from player_core.console import (
     ConsoleModel,
 )
 from player_core.console_hud import (
+    _MARGIN,
     _PAD,
     ConsoleHud,
     ConsolePainter,
@@ -37,6 +38,7 @@ from player_core.drive_readout import (
 from player_core.geometry import Rect
 from player_core.hud_button import Button
 from player_core.hud_marks import BROKER_ICON, shared_mark
+from player_core.hud_minimize import minimize_command
 from player_core.hud_osr2 import COLORS as _OSR2_COLORS
 from player_core.hud_osr2 import LABELS as _OSR2_LABELS
 from player_core.hud_panel import (
@@ -45,6 +47,7 @@ from player_core.hud_panel import (
     load_font,
     text_width,
 )
+from player_core.hud_placement import HudCorner
 from player_core.hud_row import SCRUBBER, RowHud, row_part
 from player_core.modes import LengthMode, MainMode, Osr2State
 from player_core.timeline import bar_track_x
@@ -748,7 +751,7 @@ class TestDeclaredRows:
             osr2_controls=(Button("wake_broker", BROKER_ICON, "Wake it", warn=True),),
         )))
 
-        assert [button.command for _rect, button in painter.buttons] == [
+        assert [button.command for _rect, button in _declared(painter)] == [
             "go_on", "", "slower", "wake_broker"]
 
     def test_a_panel_that_declares_no_buttons_draws_none(self):
@@ -758,7 +761,7 @@ class TestDeclaredRows:
         painter = ConsolePainter()
         painter.bgra(ConsoleHud(console=ConsoleModel(main_mode=MainMode.VIDEO)))
 
-        assert painter.buttons == []
+        assert _declared(painter) == []
 
     def test_with_no_controls_on_its_line_the_osr2_label_starts_the_line(self):
         """No gap is held open before the label for controls that are not there."""
@@ -788,7 +791,7 @@ class TestAConsoleAnotherPlayerTookTheOsr2From:
     def test_draws_the_rows_it_was_handed_and_neither_the_osr2_line_nor_the_readout(self):
         painter, _bgra = self._painted(has_osr2=False)
 
-        assert [button.command for _rect, button in painter.buttons] == ["main_take_osr2"]
+        assert [button.command for _rect, button in _declared(painter)] == ["main_take_osr2"]
         assert painter.tracks == []
 
     def test_is_shorter_by_the_line_and_the_readout(self):
@@ -1208,7 +1211,7 @@ class TestARowsNameLinesUpWithItsControls:
         painter.bgra(ConsoleHud(console=ConsoleModel(main_mode=mode,
                                                     rows=console_rows(mode))))
         rows: dict[int, list] = {}
-        for rect, button in painter.buttons:
+        for rect, button in _declared(painter):
             rows.setdefault(rect[1], []).append((rect[0], rect[2], button))
         return painter, {y: sorted(items) for y, items in rows.items()}
 
@@ -1281,3 +1284,92 @@ class TestTheRowTheConsoleCarriesForItsVideo:
         assert all(rect[1] + rect[3] <= y for rect, _button in painter.buttons)
         x0, x1 = bar_track_x(width)
         assert row_part((x0 + x1) // 2, row_h - 2, width=width) == SCRUBBER
+
+
+def _declared(painter) -> list:
+    """The buttons the source declared, without the panel's own minimize."""
+    return [(rect, button) for rect, button in painter.buttons
+            if button.command != minimize_command(button.command.split("_")[0])]
+
+
+def _button_rect(painter, command: str) -> Rect:
+    rects = [rect for rect, button in painter.buttons if button.command == command]
+    assert len(rects) == 1, f"{command} drew {len(rects)} buttons"
+    return rects[0]
+
+
+class TestWhereTheConsoleSits:
+    """The corner the room moved this panel to, and what that moves with it."""
+
+    @staticmethod
+    def _hud(corner, **console) -> ConsoleHud:
+        return ConsoleHud(
+            modes=ModeHud(video="scene one"),
+            console=ConsoleModel(hud_corner=corner, rows=console_rows(),
+                                 osr2_controls=osr2_controls(), **console))
+
+    def _painted(self, corner, **console):
+        painter = ConsolePainter(width=420)
+        painter.bgra(self._hud(corner, **console))
+        return painter
+
+    @staticmethod
+    def _declared_bands(painter) -> dict[int, tuple[int, int]]:
+        """Each row of the source's own buttons, by its top: where it starts and ends.
+
+        The device line's controls sit inside that line rather than along the
+        panel's edge, so they are not one of these rows."""
+        on_the_line = {button.command for button in osr2_controls()}
+        bands: dict[int, tuple[int, int]] = {}
+        for (x, y, w, _h), button in _declared(painter):
+            if button.command in on_the_line:
+                continue
+            left, end = bands.get(y, (x, x + w))
+            bands[y] = (min(left, x), max(end, x + w))
+        return bands
+
+    def test_every_row_ends_at_the_right_pad_in_a_right_hand_corner(self):
+        right = self._painted(HudCorner.LOWER_RIGHT)
+        width = right._image.size[0]
+        bands = self._declared_bands(right)
+
+        assert bands, "the console drew no buttons"
+        assert {end for _left, end in bands.values()} == {width - PAD}
+
+    def test_every_row_starts_at_the_left_pad_in_a_left_hand_corner(self):
+        left = self._painted(HudCorner.UPPER_LEFT)
+
+        assert min(rect[0] for rect, _button in left.buttons) == PAD
+
+    def test_the_panel_is_placed_in_the_corner_the_room_moved_it_to(self):
+        painter = self._painted(HudCorner.LOWER_RIGHT)
+        panel_w, panel_h = painter._image.size
+
+        origin = painter.place(window=(1920, 1080), lower_edge=40)
+
+        assert origin == (1920 - _MARGIN - panel_w, 1080 - 40 - _MARGIN - panel_h)
+
+    def test_a_press_lands_against_wherever_the_player_last_put_the_panel(self):
+        painter = self._painted(HudCorner.LOWER_RIGHT)
+        left, top = painter.place(window=(1920, 1080))
+        (x, y, w, h), button = painter.buttons[0]
+
+        assert painter.press_at(left + x + w // 2, top + y + h // 2) == button.command
+        assert painter.press_at(x + w // 2, y + h // 2) == ""
+
+    def test_the_minimize_button_sits_opposite_the_edge_the_console_is_justified_to(self):
+        left = self._painted(HudCorner.UPPER_LEFT)
+        right = self._painted(HudCorner.UPPER_RIGHT)
+        width = left._image.size[0]
+
+        x, y, w, _h = _button_rect(left, "main_hud_minimize")
+        assert x + w == width - PAD
+        assert y < PAD + BUTTON
+        assert _button_rect(right, "main_hud_minimize")[0] == PAD
+
+    def test_a_minimized_console_is_the_restore_button_and_nothing_else(self):
+        painter = self._painted(HudCorner.LOWER_LEFT, hud_minimized=True)
+
+        assert painter._image.size == (BUTTON, BUTTON)
+        assert [button.command for _rect, button in painter.buttons] == ["main_hud_restore"]
+        assert painter.tracks == []
