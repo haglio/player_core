@@ -287,6 +287,7 @@ class _MpvControl:
         self._ken_burns.set_looping(looping)
         self._placed = (0.0, 0.0, 0.0)
         self._window = (0, 0)
+        self._path: str | None = None
         # Read off an observation rather than asked for: a property read takes
         # the core's lock, which a file being opened holds for long stretches,
         # and a frame loop asking mid-open measured hundreds of milliseconds
@@ -311,6 +312,7 @@ class _MpvControl:
         self._image_track = value
 
     def _note_file(self, _name: str, path) -> None:
+        self._path = path
         if path:
             self._ken_burns.new_picture(self._now())
 
