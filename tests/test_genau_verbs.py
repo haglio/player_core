@@ -772,6 +772,42 @@ class TestBrowseOrderCommands:
             assert handled is False, f"{cmd} should be ignored without reorder_clips"
 
 
+class TestShapeCommands:
+    """Which of the two shapes a clip can be mastered in Genau browses: the
+    headset's VR clips, the flat ones, or both.  A verb for the same reason the
+    browse order is one: Genau owns its sequence."""
+
+    def _asked(self, command) -> tuple[bool, list[tuple[bool, bool]]]:
+        asked: list[tuple[bool, bool]] = []
+        handled = _answered(
+            command,
+            engine=BeatEngine(phase=0.0, last_tick=0.0),
+            paused=Flag(),
+            step_clip=lambda _step: None,
+            keep_shapes=lambda plays_vr, plays_flat: asked.append((plays_vr, plays_flat)),
+        )
+        return handled, asked
+
+    def test_it_names_the_shapes_to_keep(self):
+        assert self._asked("SHAPES vr") == (True, [(True, False)])
+
+    def test_both_is_both_named(self):
+        assert self._asked("SHAPES vr flat") == (True, [(True, True)])
+
+    def test_a_word_that_is_no_shape_is_refused_rather_than_read_as_none(self):
+        assert self._asked("SHAPES round") == (False, [])
+
+    def test_a_genau_with_one_shape_of_clip_does_not_answer_it(self):
+        handled = _answered(
+            "SHAPES vr",
+            engine=BeatEngine(phase=0.0, last_tick=0.0),
+            paused=Flag(),
+            step_clip=lambda _step: None,
+        )
+
+        assert handled is False
+
+
 class TestAnUnhandledCommand:
     """The dispatcher says so itself, because it is the only thing that knows.
 

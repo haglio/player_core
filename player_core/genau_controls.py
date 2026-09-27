@@ -96,6 +96,7 @@ class GenauControls:
     tcode_enabled: Flag = field(default_factory=lambda: Flag(on=True))
     set_volume: Callable[[int, bool], None] | None = None
     reorder_clips: Callable[[bool], None] | None = None
+    keep_shapes: Callable[[bool, bool], None] | None = None
     clip_flip: ClipFlip = field(default_factory=ClipFlip)
     room_hold: RoomHold = field(default_factory=RoomHold)
 
@@ -277,6 +278,17 @@ def _reorder(recent: bool) -> Act:
     return act
 
 
+_SHAPE_WORDS = frozenset({"vr", "flat"})
+
+
+def _keep_shapes(controls: GenauControls, value: str) -> bool:
+    said = set(value.lower().split())
+    if not said <= _SHAPE_WORDS:
+        return False
+    controls.keep_shapes("vr" in said, "flat" in said)
+    return True
+
+
 def _offset_quarter_cycle(controls: GenauControls, _value: str) -> bool:
     controls.engine.phase = (controls.engine.phase + 0.25) % 1.0
     return True
@@ -444,6 +456,11 @@ CONTROLS: tuple[Control, ...] = (
         name="browse_order",
         needs=("reorder_clips",),
         verbs=(Verb("LATEST", _reorder(True)), Verb("SHUFFLE", _reorder(False))),
+    ),
+    Control(
+        name="shapes",
+        needs=("keep_shapes",),
+        verbs=(Verb("SHAPES", _keep_shapes, takes_a_value=True),),
     ),
     Control(
         name="quarter_cycle",
