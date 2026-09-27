@@ -51,6 +51,7 @@ from .drive_readout import (
     section_size,
 )
 from .geometry import Rect, contains
+from .hud_minimize import collapsed_button, minimize_button, minimize_rect
 from .hud_osr2 import HEIGHT as _OSR2_H
 from .hud_osr2 import (
     Osr2Line,
@@ -71,6 +72,7 @@ from .hud_panel import (
     text_width,
     to_bgra,
 )
+from .hud_placement import HudCorner, block_x, hud_origin
 from .hud_row import RowHud, RowSection
 from .hud_status import (
     LATEST_LABEL,
@@ -245,6 +247,7 @@ class ConsolePainter:
         self.row_rect: Rect | None = None
         self._grip = TrackGrip()
         self._readout = ReadoutResolver()
+        self._origin = hud_xy()
 
     def bgra(self, hud: ConsoleHud, *, hover: tuple[int, int] | None = None,
              clip_row: RowHud | None = None) -> np.ndarray:
@@ -327,14 +330,23 @@ class ConsolePainter:
         local = self._local(mx, my)
         return local if tooltip_at(self.buttons, *local) else None
 
-    @staticmethod
-    def _local(mx: int, my: int) -> tuple[int, int]:
-        """A window point in the panel's own coordinates."""
-        left, top = hud_xy()
+    def place(self, *, window: tuple[int, int], lower_edge: int = 0) -> tuple[int, int]:
+        painted = self._painted[0] if self._painted is not None else None
+        corner = painted.console.hud_corner if painted is not None else HudCorner.UPPER_LEFT
+        size = self._image.size if self._image is not None else (0, 0)
+        self._origin = hud_origin(corner, panel=size, window=window,
+                                  margin=_MARGIN, lower_edge=lower_edge)
+        return self._origin
+
+    def _local(self, mx: int, my: int) -> tuple[int, int]:
+        left, top = self._origin
         return mx - left, my - top
 
+    def _block_x(self, corner: HudCorner, panel_width: int, extent: int) -> int:
+        return block_x(corner, panel_width=panel_width, extent=extent, pad=_PAD)
+
     def _draw_top_block(self, draw, y: int, status: str, filename: str,
-                        active: bool) -> int:
+                        active: bool, width: int, corner: HudCorner) -> int:
         """The active-player dot and the status line — what is selecting this
         playlist — with the file on screen muted under it, and the y the next band
         starts at.
@@ -344,16 +356,20 @@ class ConsolePainter:
         mode, and the block is then only the dot.
         """
         ascent, descent = self._body.getmetrics()
-        text_x = _PAD + ACTIVE_DOT + DOT_GAP
-        draw_active_dot(draw, _PAD, y + (ascent + descent) // 2 - ACTIVE_DOT // 2,
+        indent = ACTIVE_DOT + DOT_GAP
+        status_x = self._block_x(corner, width,
+                                 indent + text_width(self._body, status))
+        draw_active_dot(draw, status_x, y + (ascent + descent) // 2 - ACTIVE_DOT // 2,
                         active)
         if status:
-            draw.text((text_x, y + ascent), status, font=self._body,
+            draw.text((status_x + indent, y + ascent), status, font=self._body,
                       anchor="ls", fill=(*TEXT_PRIMARY, 255))
         y += ascent + descent
         if filename:
             y += _SUBTITLE_GAP
-            draw.text((text_x, y), filename, font=self._tiny, anchor="la",
+            name_x = self._block_x(corner, width,
+                                   indent + text_width(self._tiny, filename))
+            draw.text((name_x + indent, y), filename, font=self._tiny, anchor="la",
                       fill=(*TEXT_MUTED, 255))
             y += sum(self._tiny.getmetrics())
         return y
@@ -361,6 +377,8 @@ class ConsolePainter:
     def _paint(self, hud: ConsoleHud, hover: tuple[int, int] | None = None,
                clip_row: RowHud | None = None) -> Image.Image:
         console, drive = hud.console, hud.drive
+        if console.hud_minimized:
+            return self._paint_minimized(console.player, hover)
         # Held for the OSR2 pill: with a composed trace on the panel the pill
         # reads the trace's own answer to who has the device (see _osr2_state),
         # and the width helpers need it before the pill is drawn.
@@ -406,34 +424,49 @@ class ConsolePainter:
         panel = HudPanel(width, height, ground=hud.ground or BG_PRIMARY)
         draw = panel.draw
 
-        y = self._draw_top_block(draw, _PAD, status, filename, console.active)
+        corner = console.hud_corner
+        minimize = (minimize_rect(corner, panel_width=width, y=_PAD, pad=_PAD),
+                    minimize_button(console.player))
+        draw_button(panel.image, draw, minimize[0], minimize[1],
+                    hovered=hover is not None and contains(minimize[0], *hover),
+                    glyph_font=self._glyph, word_font=self._tiny)
+        y = self._draw_top_block(draw, _PAD, status, filename, console.active,
+                                 width, corner)
         y += _ROW_GAP
 
-        self.buttons, self.tracks = place_rows(rows, x=_PAD, y=y), []
+        self.buttons, self.tracks = place_rows(
+            rows, x=_PAD, y=y, ends_at=width - _PAD if corner.right else None), []
+        row_top = None
         for rect, button in self.buttons:
             draw_button(panel.image, draw, rect, button,
                         hovered=hover is not None and contains(rect, *hover),
                         glyph_font=self._glyph, word_font=self._tiny,
-                        row_label=rect[0] == _PAD)
+                        row_label=rect[1] != row_top)
+            row_top = rect[1]
         y += rows_height(rows)
 
         if console.has_osr2:
             y += _ROW_GAP
-            self.buttons.extend(self._osr2.draw(panel.image, draw, _PAD, y,
-                                                self._osr2_line(console), hover=hover))
+            osr2_line = self._osr2_line(console)
+            self.buttons.extend(self._osr2.draw(
+                panel.image, draw,
+                self._block_x(corner, width, self._osr2.width(osr2_line)),
+                y, osr2_line, hover=hover))
             y += _OSR2_H
 
         if drive is not None:
             y += _ROW_GAP
+            drive_x = self._block_x(corner, width, drive_w)
             # The panel's image rather than its pen: the readout supersamples
             # its trace and composites it back, which a pen cannot carry.
-            self._drive.draw(panel.image, _PAD, y, drive)
+            self._drive.draw(panel.image, drive_x, y, drive)
             # The readout draws its own arrows and bands; the console only needs
             # them as hit targets, so they answer a press and name themselves on
             # hover.
-            targets, self.tracks = readout_targets(_PAD, y, drive)
+            targets, self.tracks = readout_targets(drive_x, y, drive)
             self.buttons.extend(targets)
 
+        self.buttons.append(minimize)
         self.row_rect = None
         if clip_row is not None:
             self.row_rect = (_PAD, height - _PAD - row_h, width - 2 * _PAD, row_h)
@@ -445,6 +478,11 @@ class ConsolePainter:
             if tip:
                 draw_tooltip(draw, self._tiny, tip, hover, (width, height))
         return panel.image
+
+    def _paint_minimized(self, player: str, hover: tuple[int, int] | None) -> Image.Image:
+        image, buttons = collapsed_button(player, hovered=hover is not None)
+        self.buttons, self.tracks, self.row_rect = buttons, [], None
+        return image
 
     def _osr2_state(self, model: ConsoleModel) -> str:
         """What the pill says has the device — the drawn line's own answer

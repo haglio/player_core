@@ -34,7 +34,9 @@ from .drive_readout import DriveHud, DriveTrack, TrackGrip
 from .geometry import Rect, contains
 from .hud_button import Button, buttons_from_raw, buttons_raw, rows_from_raw, rows_raw
 from .hud_osr2 import HEIGHT as OSR2_H
+from .hud_placement import HudCorner, HudEdge
 from .hud_status import SEPARATOR
+from .modes import read_mode
 
 if TYPE_CHECKING:
     from PIL import Image
@@ -119,6 +121,9 @@ class HudModel:
 
     # Which player this is: "portrait" or "landscape".
     player: str
+    hud_corner: HudCorner = HudCorner.UPPER_LEFT
+    hud_edge: HudEdge = HudEdge.LOWER
+    hud_minimized: bool = False
     locked: bool = False
     lock_label: str = ""
     # Whether a bare, player-less command lands here — the player addressed most
@@ -209,10 +214,14 @@ def map_row_width(player: str) -> int:
     return MAP_CELLS * slot_width(player) + (MAP_CELLS - 1) * MAP_GAP
 
 
+def map_block_width(player: str) -> int:
+    return (ROW_LABEL_GUTTER + ELLIPSIS_ROOM + map_row_width(player) + ELLIPSIS_ROOM
+            + MAP_RIGHT_RESERVE)
+
+
 def panel_width(player: str, name_width: int = 0, *, content_width: int = 0) -> int:
-    for_map = (PAD + ROW_LABEL_GUTTER + ELLIPSIS_ROOM + map_row_width(player) + ELLIPSIS_ROOM
-               + MAP_RIGHT_RESERVE + PAD)
-    return max(for_map, STATUS_TEXT_X + name_width + PAD, content_width)
+    return max(2 * PAD + map_block_width(player),
+               STATUS_TEXT_X + name_width + PAD, content_width)
 
 
 def device_height(osr2: str, drive: DriveHud | None, drive_h: int,
@@ -412,6 +421,14 @@ CTRL_BAND_H = CTRL_BTN + BLOCK_GAP
 MODE_LABEL_PAD = 6
 
 
+def button_row_width(buttons: Sequence[Button], widths: Sequence[int]) -> int:
+    rects = button_row_rects(0, 0, buttons, widths)
+    if not rects:
+        return 0
+    (x, _y, w, _h), _button = rects[-1]
+    return x + w
+
+
 def button_row_rects(x: int, y: int, buttons: Sequence[Button],
                      widths: Sequence[int]) -> list[tuple[Rect, Button]]:
     """Each button's ``(rect, button)`` along a row running right from ``(x, y)``,
@@ -434,6 +451,10 @@ _SPEED_BUTTONS = (
 )
 
 
+def speed_row_width(label_width: int) -> int:
+    return label_width + 2 * CTRL_BTN + 2 * MAP_GAP + VALUE_W
+
+
 def speed_row(player: str, x: int, y: int, *,
               label_width: int) -> tuple[list[tuple[Rect, Button]], Rect]:
     """*player*'s slower and faster buttons after a name *label_width* wide, and
@@ -448,7 +469,10 @@ def speed_row(player: str, x: int, y: int, *,
     return buttons, (rate_x, y, VALUE_W, CTRL_BTN)
 
 
-def favorite_mark_rect(y: int, line_h: int) -> Rect:
+STATUS_INDENT = STATUS_TEXT_X - PAD
+
+
+def favorite_mark_rect(x: int, y: int, line_h: int) -> Rect:
     """The favorite mark: at the head of the file-name line, under the dot.
 
     A readout, not a button, so it belongs where the panel keeps readouts and
@@ -460,7 +484,7 @@ def favorite_mark_rect(y: int, line_h: int) -> Rect:
     tall as that line: a mark beside words wants to be the size of the words,
     and anything smaller reads as a speck rather than as a state.
     """
-    return (PAD + (STATUS_DOT + 1 - line_h) // 2, y, line_h, line_h)
+    return (x + (STATUS_DOT + 1 - line_h) // 2, y, line_h, line_h)
 
 
 SHORTENED_MARK = "…"
@@ -874,6 +898,9 @@ def hud_text(model: HudModel) -> str:
     """
     return json.dumps({
         "player": model.player,
+        "hud_corner": model.hud_corner,
+        "hud_edge": model.hud_edge,
+        "hud_minimized": model.hud_minimized,
         "locked": model.locked,
         "lock_label": model.lock_label,
         "active": model.active,
@@ -914,6 +941,9 @@ def parse_hud(text: str) -> HudModel | None:
     actions = [_cell(item) for item in raw.get("actions", []) or []]
     return HudModel(
         player=str(raw.get("player", "")),
+        hud_corner=read_mode(HudCorner, raw.get("hud_corner"), HudCorner.UPPER_LEFT),
+        hud_edge=read_mode(HudEdge, raw.get("hud_edge"), HudEdge.LOWER),
+        hud_minimized=bool(raw.get("hud_minimized", False)),
         locked=bool(raw.get("locked", False)),
         lock_label=str(raw.get("lock_label", "") or ""),
         active=bool(raw.get("active", False)),

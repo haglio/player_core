@@ -44,6 +44,8 @@ from player_core.hud_panel import (
 
 from .drive_readout import DriveSection, DriveTrack, readout_targets, section_size
 from .geometry import Rect, contains
+from .hud_minimize import ROOM as MINIMIZE_ROOM
+from .hud_minimize import collapsed_panel, minimize_button, minimize_rect
 from .hud_osr2 import HEIGHT as OSR2_H
 from .hud_osr2 import (
     Osr2Line,
@@ -52,6 +54,7 @@ from .hud_osr2 import (
     driving_at_the_playhead,
     state_for,
 )
+from .hud_placement import block_x
 from .hud_row import RowHud, RowSection
 from .hud_status import PLAYBACK_SPEED_LABEL
 from .playback_rate import format_rate
@@ -70,7 +73,9 @@ from .satellite_hud import (
     MODE_LABEL_PAD,
     PAD,
     ROW_LABEL_GUTTER,
+    STATUS_BAND_H,
     STATUS_BASELINE,
+    STATUS_INDENT,
     STATUS_TEXT_X,
     SUBTITLE_GAP,
     WRONG_BTN,
@@ -83,6 +88,7 @@ from .satellite_hud import (
     action_label_blocks,
     build_click_targets,
     button_row_rects,
+    button_row_width,
     column_anchor_rect,
     device_height,
     ellipsis_rects,
@@ -94,6 +100,7 @@ from .satellite_hud import (
     largest_size_that_fits,
     loop_button_rects,
     looped_group_rect,
+    map_block_width,
     map_row_width,
     map_window,
     name_line,
@@ -105,6 +112,7 @@ from .satellite_hud import (
     slot_rects,
     slot_width,
     speed_row,
+    speed_row_width,
     wrong_action_rect,
 )
 
@@ -216,6 +224,10 @@ class HudRenderer:
                 [self._thumbnail(cell) for cell in model.seeds],
                 [self._thumbnail(cell) for cell in model.actions])
 
+    @staticmethod
+    def _block_x(model: HudModel, panel_width: int, extent: int) -> int:
+        return block_x(model.hud_corner, panel_width=panel_width, extent=extent, pad=PAD)
+
     def render(
         self,
         model: HudModel,
@@ -254,6 +266,11 @@ class HudRenderer:
         # position is only current while something under it has a tooltip —
         # every control here has one — so an empty tip means "not on a button".
         self._pointer = hover_pos if hover_tip else None
+        if model.hud_minimized:
+            bgra, buttons = collapsed_panel(
+                model.player, hovered=self._pointer is not None)
+            return RenderedHud(bgra, HudTargets(click=[], loop=[], filter=[], expand=None,
+                                                buttons=buttons))
         model = replace(model, drive=self._readout.resolve(
             model.drive, osr2=model.osr2, control=model.osr2_control,
             composed=model.drive_composed))
@@ -272,7 +289,7 @@ class HudRenderer:
         device_rows = [list(row) for row in model.osr2_rows]
         device_row_widths = [[self._button_width(b) for b in row] for row in device_rows]
         band_width = max((
-            button_row_rects(PAD, 0, row, row_widths)[-1][0][0] + row_widths[-1] + PAD
+            2 * PAD + button_row_width(row, row_widths)
             for row, row_widths in zip(rows + device_rows, widths + device_row_widths)
             if row
         ), default=0)
@@ -307,24 +324,32 @@ class HudRenderer:
         image, draw = panel.image, panel.draw
 
         x = PAD
-        room = width - STATUS_TEXT_X - PAD
+        room = width - STATUS_TEXT_X - PAD - MINIMIZE_ROOM
         title = self._title_font(largest_size_that_fits(
             _SIZE_BODY, room,
             lambda size: text_width(self._title_font(size), model.lock_label)))
         favorite = self._draw_status_band(
-            image, draw, PAD, model, title,
+            image, draw, PAD, model, width, title,
             name_line(video, model.item_note, room, lambda text: text_width(self._tiny, text)))
         y = layout.bands
+        buttons: list[tuple[Rect, Button]] = [(
+            minimize_rect(model.hud_corner, panel_width=width,
+                          y=PAD + (STATUS_BAND_H - CTRL_BTN) // 2, pad=PAD),
+            minimize_button(model.player))]
+        draw_button(image, draw, buttons[0][0], buttons[0][1],
+                    hovered=self._pointer_is_on(buttons[0][0]),
+                    glyph_font=self._glyph, word_font=self._tiny)
 
         # Laid out against the panel rather than against the map: they act on the
         # side and the clip on screen, and are there whether or not there is a map.
-        buttons: list[tuple[Rect, Button]] = []
         for row, row_widths in zip(rows, widths):
-            placed = button_row_rects(x, y, row, row_widths)
-            for rect, button in placed:
+            placed = button_row_rects(
+                self._block_x(model, width, button_row_width(row, row_widths)),
+                y, row, row_widths)
+            for index, (rect, button) in enumerate(placed):
                 draw_button(image, draw, rect, button, hovered=self._pointer_is_on(rect),
                             glyph_font=self._glyph, word_font=self._tiny,
-                            row_label=rect[0] == PAD)
+                            row_label=index == 0)
             buttons.extend(placed)
             y += CTRL_BAND_H
 
@@ -334,9 +359,10 @@ class HudRenderer:
         # the side's speed verb and a hover names it like any other.
         if model.playback_speed is not None:
             label_width = text_width(self._tiny, PLAYBACK_SPEED_LABEL) + BUTTON_GROUP_GAP
-            speed_buttons, rate_rect = speed_row(model.player, x, layout.speed,
+            speed_x = self._block_x(model, width, speed_row_width(label_width))
+            speed_buttons, rate_rect = speed_row(model.player, speed_x, layout.speed,
                                                  label_width=label_width)
-            draw.text((PAD, layout.speed + CTRL_BTN / 2), PLAYBACK_SPEED_LABEL,
+            draw.text((speed_x, layout.speed + CTRL_BTN / 2), PLAYBACK_SPEED_LABEL,
                       font=self._tiny, anchor="lm", fill=(*TEXT_MUTED, 255))
             for rect, button in speed_buttons:
                 draw_button(image, draw, rect, button, hovered=self._pointer_is_on(rect),
@@ -352,14 +378,14 @@ class HudRenderer:
             self._clip_row.draw(image, x, row_rect[1], row_rect[2], clip_row,
                                 heatmap=heatmap)
         device_buttons, bands = self._draw_device(
-            image, draw, x, layout.device, model, osr2_line, drive_h,
+            image, draw, width, layout.device, model, osr2_line, drive_h,
             rows=device_rows, widths=device_row_widths)
         buttons.extend(device_buttons)
         if model.foot is not None:
             buttons.extend(model.foot.paint(image, x, layout.foot, width - 2 * PAD,
                                             self._pointer))
 
-        map_targets = (self._draw_map(image, draw, model, layout.map, counts,
+        map_targets = (self._draw_map(image, draw, model, layout.map, width, counts,
                                       (corner_thumb, seed_thumbs, action_thumbs),
                                       (seed_win, action_win), hover_loop)
                        if corner_thumb is not None
@@ -369,12 +395,13 @@ class HudRenderer:
         return RenderedHud(panel.to_bgra(), replace(
             map_targets, tracks=bands, row=row_rect, buttons=buttons, favorite=favorite))
 
-    def _draw_map(self, image, draw, model: HudModel, top: int, counts: tuple[str, ...],
-                  thumbs, windows, hover_loop: str) -> HudTargets:
+    def _draw_map(self, image, draw, model: HudModel, top: int, width: int,
+                  counts: tuple[str, ...], thumbs, windows, hover_loop: str) -> HudTargets:
         corner_thumb, seed_thumbs, action_thumbs = thumbs
         seed_win, action_win = windows
-        self._draw_counts(draw, PAD, top, counts)
-        map_x = PAD + ROW_LABEL_GUTTER + ELLIPSIS_ROOM
+        gutter_x = self._block_x(model, width, map_block_width(model.player))
+        self._draw_counts(draw, gutter_x, top, counts)
+        map_x = gutter_x + ROW_LABEL_GUTTER + ELLIPSIS_ROOM
         map_y = top + COL_LABEL_H + COL_LABEL_GAP + ELLIPSIS_ROOM
         corner_rect, seed_rects, action_rects = slot_rects(
             map_x=map_x, map_y=map_y, slot_w=slot_width(model.player),
@@ -388,10 +415,10 @@ class HudRenderer:
             hx, hy, hw, hh = pictures[held]
             draw.rectangle([hx, hy, hx + hw - 1, hy + hh - 1],
                            outline=(*WHITE, 255), width=_BORDER_W)
-        wrong_rect = self._draw_labels(image, draw, model, PAD, top,
+        wrong_rect = self._draw_labels(image, draw, model, gutter_x, top,
                                        corner_rect, seed_rects, action_rects,
                                        seed_offset=seed_win.start if seed_win else 0)
-        filter_rects = filter_button_rects(corner_rect, action_rects, PAD,
+        filter_rects = filter_button_rects(corner_rect, action_rects, gutter_x,
                                            model.current_action,
                                            [cell.label for cell in model.actions])
         self._draw_filter_buttons(draw, filter_rects, model)
@@ -420,31 +447,35 @@ class HudRenderer:
             wrong_action=wrong_rect,
         )
 
-    def _draw_device(self, image, draw, x: int, y: int, model: HudModel,
+    def _draw_device(self, image, draw, width: int, y: int, model: HudModel,
                      osr2_line: Osr2Line, drive_h: int, *, rows, widths,
                      ) -> tuple[list[tuple[Rect, Button]], list[DriveTrack]]:
         buttons: list[tuple[Rect, Button]] = []
         bands: list[DriveTrack] = []
         y += FAMILY_GAP
         for row, row_widths in zip(rows, widths):
-            placed = button_row_rects(x, y, row, row_widths)
-            for rect, button in placed:
+            placed = button_row_rects(
+                self._block_x(model, width, button_row_width(row, row_widths)),
+                y, row, row_widths)
+            for index, (rect, button) in enumerate(placed):
                 draw_button(image, draw, rect, button, hovered=self._pointer_is_on(rect),
                             glyph_font=self._glyph, word_font=self._tiny,
-                            row_label=rect[0] == PAD)
+                            row_label=index == 0)
             buttons.extend(placed)
             y += CTRL_BAND_H
         if model.osr2:
             y += BLOCK_GAP
-            buttons.extend(self._osr2.draw(image, draw, x, y, osr2_line,
+            osr2_x = self._block_x(model, width, self._osr2.width(osr2_line))
+            buttons.extend(self._osr2.draw(image, draw, osr2_x, y, osr2_line,
                                            hover=self._pointer))
             y += OSR2_H
         if model.drive is not None:
             y += BLOCK_GAP
+            drive_x = self._block_x(model, width, section_size()[0])
             # The panel's image rather than its pen: the readout supersamples its
             # trace and composites it back, which a pen cannot carry.
-            self._drive.draw(image, x, y, model.drive)
-            drive_targets, bands = readout_targets(x, y, model.drive)
+            self._drive.draw(image, drive_x, y, model.drive)
+            drive_targets, bands = readout_targets(drive_x, y, model.drive)
             buttons.extend(drive_targets)
         return buttons, bands
 
@@ -458,18 +489,22 @@ class HudRenderer:
             self._titles[size] = load_font(size)
         return self._titles[size]
 
-    def _draw_status_band(self, image, draw, y: int, model: HudModel,
+    def _draw_status_band(self, image, draw, y: int, model: HudModel, width: int,
                           title: ImageFont.FreeTypeFont, under_status: str) -> Rect | None:
-        draw_active_dot(draw, PAD, y + 2, model.active)
-        draw.text((STATUS_TEXT_X, y + STATUS_BASELINE), model.lock_label,
+        status_x = self._block_x(model, width,
+                                 STATUS_INDENT + text_width(title, model.lock_label))
+        draw_active_dot(draw, status_x, y + 2, model.active)
+        draw.text((status_x + STATUS_INDENT, y + STATUS_BASELINE), model.lock_label,
                   font=title, anchor="ls", fill=(*TEXT_PRIMARY, 255))
         if not under_status:
             return None
         _ascent, descent = self._body.getmetrics()
         line_y = y + STATUS_BASELINE + descent + SUBTITLE_GAP
-        draw.text((STATUS_TEXT_X, line_y), under_status,
+        name_x = self._block_x(model, width,
+                              STATUS_INDENT + text_width(self._tiny, under_status))
+        draw.text((name_x + STATUS_INDENT, line_y), under_status,
                   font=self._tiny, anchor="la", fill=(*TEXT_MUTED, 255))
-        favorite = favorite_mark_rect(line_y, sum(self._tiny.getmetrics()))
+        favorite = favorite_mark_rect(name_x, line_y, sum(self._tiny.getmetrics()))
         draw_mark(image, shared_mark_name(_FAVORITE_GLYPH), favorite,
                   (*(GREEN if model.is_favorite else TEXT_MUTED), 255))
         return favorite

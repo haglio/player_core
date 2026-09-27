@@ -8,6 +8,7 @@ from shared_ui.spacing import BUTTON_GAP, BUTTON_GROUP_GAP
 
 from player_core.console import OSR2_PARKED, VALUE_W
 from player_core.hud_button import Button
+from player_core.hud_placement import HudCorner, HudEdge
 from player_core.modes import Osr2State
 from player_core.satellite_hud import (
     CTRL_BTN,
@@ -724,3 +725,21 @@ class TestThePublishedPanelIsWrittenWhereItIsRead:
         assert raw["corner"] == {"path": "C:/v/cur.mp4", "thumb": ""}
         assert raw["actions"] == [{"path": "C:/v/a1.mp4", "thumb": "", "label": "gamma"}]
         assert raw["playing"] == ["action", 0]
+
+
+def test_the_published_panel_carries_where_it_sits_and_whether_it_is_minimized():
+    read_back = parse_hud(hud_text(HudModel(
+        player="landscape", hud_corner=HudCorner.LOWER_RIGHT, hud_edge=HudEdge.RIGHT,
+        hud_minimized=True)))
+
+    assert read_back.hud_corner is HudCorner.LOWER_RIGHT
+    assert read_back.hud_edge is HudEdge.RIGHT
+    assert read_back.hud_minimized is True
+
+
+def test_a_panel_published_without_a_corner_is_drawn_in_the_upper_left():
+    read_back = parse_hud(json.dumps({"player": "portrait"}))
+
+    assert read_back.hud_corner is HudCorner.UPPER_LEFT
+    assert read_back.hud_edge is HudEdge.LOWER
+    assert read_back.hud_minimized is False

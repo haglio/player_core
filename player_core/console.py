@@ -21,6 +21,7 @@ from pathlib import Path
 
 from .geometry import Rect, contains
 from .hud_button import BUTTON, Button, buttons_from_raw, buttons_raw, rows_from_raw, rows_raw
+from .hud_placement import HudCorner, HudEdge
 from .modes import LengthMode, MainMode, Osr2State, read_mode
 
 __all__ = [
@@ -129,6 +130,10 @@ class ConsoleModel:
     """
 
     main_mode: MainMode = MainMode.VIDEO
+    player: str = "main"
+    hud_corner: HudCorner = HudCorner.UPPER_LEFT
+    hud_edge: HudEdge = HudEdge.LOWER
+    hud_minimized: bool = False
     # The dot: whether a bare, player-less command ("next", "lock") lands on the
     # main player rather than on a satellite.
     active: bool = False
@@ -199,6 +204,10 @@ def console_text(model: ConsoleModel) -> str:
     """
     return json.dumps({
         "main_mode": model.main_mode,
+        "player": model.player,
+        "hud_corner": model.hud_corner,
+        "hud_edge": model.hud_edge,
+        "hud_minimized": model.hud_minimized,
         "active": model.active,
         "latest": model.latest,
         "osr2": model.osr2,
@@ -220,6 +229,10 @@ def parse_console(text: str) -> ConsoleModel | None:
         return None
     return ConsoleModel(
         main_mode=read_mode(MainMode, raw.get("main_mode"), MainMode.VIDEO),
+        player=str(raw.get("player", "") or "main"),
+        hud_corner=read_mode(HudCorner, raw.get("hud_corner"), HudCorner.UPPER_LEFT),
+        hud_edge=read_mode(HudEdge, raw.get("hud_edge"), HudEdge.LOWER),
+        hud_minimized=bool(raw.get("hud_minimized", False)),
         active=bool(raw.get("active", False)),
         # Absent is None -- no browse order to name -- rather than "shuffled".
         latest=(None if raw.get("latest") is None else bool(raw.get("latest"))),
@@ -237,8 +250,10 @@ def main_player_displays(main_mode: MainMode) -> bool:
     return main_mode == MainMode.VIDEO
 
 
-def place_rows(rows: list[list[Button]], *, x: int, y: int) -> list[tuple[Rect, Button]]:
-    """Each button's rect, rows stacked down from ``(x, y)``.
+def place_rows(rows: list[list[Button]], *, x: int, y: int,
+               ends_at: int | None = None) -> list[tuple[Rect, Button]]:
+    """Each button's rect, rows stacked down from ``(x, y)``, or ending at
+    *ends_at* with each row's own order kept.
 
     One placement feeds both the painting and the hit-testing, so what is drawn
     and what is clickable cannot drift apart.
@@ -246,7 +261,7 @@ def place_rows(rows: list[list[Button]], *, x: int, y: int) -> list[tuple[Rect, 
     placed: list[tuple[Rect, Button]] = []
     row_y = y
     for row in rows:
-        run_x = x
+        run_x = x if ends_at is None else max(x, ends_at - one_row_width(row))
         for index, button in enumerate(row):
             if index and button.group_break:
                 run_x += GROUP_GAP - GAP
@@ -256,10 +271,13 @@ def place_rows(rows: list[list[Button]], *, x: int, y: int) -> list[tuple[Rect, 
     return placed
 
 
+def one_row_width(row: list[Button]) -> int:
+    return max((rect[0] + rect[2] for rect, _b in place_rows([row], x=0, y=0)), default=0)
+
+
 def _row_width(rows: list[list[Button]]) -> int:
     """How wide the widest row runs — what the panel has to be to hold them."""
-    placed = place_rows(rows, x=0, y=0)
-    return max((rect[0] + rect[2] for rect, _b in placed), default=0)
+    return max((one_row_width(row) for row in rows), default=0)
 
 
 def rows_height(rows: list[list[Button]]) -> int:
