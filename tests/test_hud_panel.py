@@ -46,6 +46,16 @@ def test_panel_is_a_translucent_rounded_slab_of_the_asked_size():
     assert np.asarray(bgra).dtype == np.uint8
 
 
+def test_a_divider_is_one_line_across_the_slab_in_the_gray_of_its_edge():
+    panel = HudPanel(60, 40)
+
+    panel.divide(20)
+
+    rgba = np.asarray(panel.image)
+    assert (rgba[20] == (*palette.BORDER_PANEL, 255)).all()
+    assert not (rgba[[19, 21], 1:-1] == (*palette.BORDER_PANEL, 255)).all(axis=-1).any()
+
+
 def test_point_sizes_become_pixels_at_96_dpi():
     """Qt sized these HUDs' fonts in points and Pillow sizes in pixels, so the
     panels keep their old proportions only if the conversion does."""

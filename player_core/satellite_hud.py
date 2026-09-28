@@ -36,6 +36,7 @@ from .geometry import Rect, contains
 from .hud_button import Button, buttons_from_raw, buttons_raw, rows_from_raw, rows_raw
 from .hud_osr2 import HEIGHT as OSR2_H
 from .hud_placement import HudCorner, HudEdge
+from .hud_sections import stack
 from .hud_status import SEPARATOR
 from .modes import read_mode
 
@@ -60,11 +61,7 @@ __all__ = [
 MARGIN = 12
 
 PAD = 10
-# The step each block down the panel opens above itself — the control bands
-# carry it (see CTRL_BAND_H), and the device's line and readout keep to it so
-# the panel reads at one rhythm rather than two.
 BLOCK_GAP = 6
-FAMILY_GAP = 2 * BUTTON_GROUP_GAP
 MAP_THUMB_H = 54
 MAP_GAP = 5
 ROW_GAP = 12        # vertical gap between action rows — roomier than the seed gap
@@ -226,12 +223,14 @@ def panel_width(player: str, name_width: int = 0, *, content_width: int = 0) -> 
                STATUS_TEXT_X + name_width + PAD, content_width)
 
 
+def _blocks_height(heights: Sequence[int]) -> int:
+    return sum(heights) + BLOCK_GAP * max(0, len(heights) - 1)
+
+
 def device_height(osr2: str, drive: DriveHud | None, drive_h: int,
                   osr2_rows: int = 0) -> int:
-    room = (osr2_rows * CTRL_BAND_H
-            + (OSR2_H + BLOCK_GAP if osr2 else 0)
-            + (drive_h + BLOCK_GAP if drive is not None else 0))
-    return room + FAMILY_GAP if room else 0
+    return _blocks_height([CTRL_BTN] * osr2_rows + ([OSR2_H] if osr2 else [])
+                + ([drive_h] if drive is not None else []))
 
 
 @dataclass(frozen=True)
@@ -243,20 +242,16 @@ class PanelLayout:
     foot: int
     map: int
     height: int
+    dividers: tuple[int, ...]
 
 
-def panel_layout(*, subtitle_h: int = 0, bands: int = 0, speed: bool = False,
-                 row_h: int = 0, device_h: int = 0,
-                 foot_h: int | None = None) -> PanelLayout:
-    bands_top = PAD + STATUS_BAND_H + subtitle_h
-    speed_top = bands_top + bands * CTRL_BAND_H
-    row_top = speed_top + (CTRL_BAND_H if speed else 0)
-    device_top = row_top + row_h
-    foot_top = device_top + device_h + (FAMILY_GAP if foot_h is not None else 0)
-    blocks_end = foot_top + (foot_h or 0)
-    map_top = blocks_end + (FAMILY_GAP if blocks_end > row_top else 0)
-    return PanelLayout(bands_top, speed_top, row_top, device_top, foot_top, map_top,
-                       map_top + MAP_H + PAD)
+def panel_layout(*, status_h: int, bands: int = 0, speed: bool = False,
+                 row_h: int = 0, device_h: int = 0, foot_h: int = 0) -> PanelLayout:
+    stacked = stack(PAD, [status_h, _blocks_height([CTRL_BTN] * (bands + speed)), row_h,
+                          device_h, foot_h, MAP_H])
+    _status, bands_top, row_top, device_top, foot_top, map_top = stacked.tops
+    return PanelLayout(bands_top, bands_top + bands * CTRL_BAND_H, row_top, device_top,
+                       foot_top, map_top, stacked.end + PAD, stacked.dividers)
 
 
 @dataclass(frozen=True)

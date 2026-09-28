@@ -8,7 +8,7 @@ import pytest
 from PIL import Image, ImageDraw
 from satellite_rows import player_rows, short_name
 from shared_ui import colors
-from shared_ui.palette import BLUE, GREEN, TEXT_MUTED, TEXT_PRIMARY, WHITE
+from shared_ui.palette import BLUE, BORDER_PANEL, GREEN, TEXT_MUTED, TEXT_PRIMARY, WHITE
 
 from player_core.console import OSR2_PARKED
 from player_core.drive_layout import MAX_INTENSITY, SECTION_W
@@ -25,15 +25,14 @@ from player_core.hud_minimize import RESTORE_TOOLTIP, minimize_command
 from player_core.hud_panel import ACTIVE_DOT, ICON_GRIDS
 from player_core.hud_placement import HudCorner
 from player_core.hud_row import SCRUBBER, RowHud, row_part
+from player_core.hud_sections import DIVIDER_H, SECTION_GAP
 from player_core.modes import Osr2State
 from player_core.satellite_hud import (
-    BLOCK_GAP,
     COL_LABEL_GAP,
     COL_LABEL_H,
     CTRL_BAND_H,
     CTRL_BTN,
     ELLIPSIS_ROOM,
-    FAMILY_GAP,
     FILTER_BTN,
     MAP_CELLS,
     MAP_GAP,
@@ -113,6 +112,15 @@ def _model(**overrides) -> HudModel:
 def _rgb(bgra: np.ndarray) -> np.ndarray:
     """(H, W, 3) RGB view of an mpv BGRA buffer, for pixel assertions."""
     return bgra[:, :, [2, 1, 0]]
+
+
+def _dividers(rendered) -> list[int]:
+    rgba = rendered.bgra[:, :, [2, 1, 0, 3]]
+    return [y for y in range(rgba.shape[0]) if (rgba[y] == (*BORDER_PANEL, 255)).all()]
+
+
+def _lines_between(rendered, above_ends: int, below_starts: int) -> int:
+    return sum(above_ends <= line < below_starts for line in _dividers(rendered))
 
 
 def _map_top(rendered) -> int:
@@ -335,7 +343,7 @@ def test_the_file_on_screen_is_named_in_muted_gray_under_the_status_line(thumb):
     model = _model(lock_label="Unlocked", corner=HudCell(path="c.mp4", thumb=thumb))
     named = renderer.render(model, video="example clip one")
 
-    strip = _rgb(named.bgra)[PAD + STATUS_BAND_H:_control_band_top(named), STATUS_TEXT_X:-PAD]
+    strip = _rgb(named.bgra)[PAD + STATUS_BAND_H:_dividers(named)[0], STATUS_TEXT_X:-PAD]
     assert (strip > 80).any(axis=2).sum() > 0
     assert (strip > 200).all(axis=2).sum() == 0
 
@@ -388,7 +396,7 @@ def test_a_note_about_a_clip_with_no_name_is_drawn_on_the_kept_name_line(thumb):
     noted = renderer.render(_model(lock_label="Unlocked", corner=corner, item_note="Enhancing…"))
 
     def name_line_ink(rendered) -> int:
-        line = _rgb(rendered.bgra)[PAD + STATUS_BAND_H:_control_band_top(rendered), PAD:-PAD]
+        line = _rgb(rendered.bgra)[PAD + STATUS_BAND_H:_dividers(rendered)[0], PAD:-PAD]
         return int((line > 80).any(axis=2).sum())
 
     assert name_line_ink(noted) > name_line_ink(bare) == 0
@@ -432,7 +440,7 @@ def test_a_panel_that_declares_no_buttons_holds_no_band_open_for_them():
                                        rows=(player_rows("landscape")[-1],)))
 
     assert _declared(bare) == []
-    assert one_row.bgra.shape[0] - bare.bgra.shape[0] == CTRL_BAND_H
+    assert one_row.bgra.shape[0] - bare.bgra.shape[0] == CTRL_BTN + 2 * SECTION_GAP + DIVIDER_H
 
 
 def test_render_draws_the_sides_own_controls_even_with_no_clip():
@@ -1336,7 +1344,7 @@ class TestTheDeviceOnAHostThatDrivesItself:
         assert all(band.rect[1] > placed["robot_hand_park"][1]
                    for band in rendered.targets.tracks)
 
-    def test_the_map_is_set_off_from_the_device_by_a_family_break(self, thumb):
+    def test_the_map_is_set_off_from_the_device_by_a_line(self, thumb):
         drive = DriveHud(driven=DRIVEN_BY_ROBOT_HAND)
         rendered = HudRenderer("portrait").render(_model(
             lock_label="Unlocked", corner=HudCell(path="c.mp4", thumb=thumb),
@@ -1345,7 +1353,7 @@ class TestTheDeviceOnAHostThatDrivesItself:
         readout_top = rendered.targets.tracks[0].rect[1] - tracks(0, 0, drive)[0].rect[1]
         readout_end = readout_top + section_size()[1]
 
-        assert _map_top(rendered) - readout_end >= FAMILY_GAP > BLOCK_GAP
+        assert _lines_between(rendered, readout_end, _map_top(rendered)) == 1
 
     def test_a_press_in_a_band_takes_hold_of_it_and_sets_it(self):
         rendered = self._rendered(osr2=Osr2State.ROBOT_HAND,
@@ -1462,23 +1470,23 @@ class TestTheBlockASourcePaintsAtTheFoot:
                                          for band in rendered.targets.tracks)
         assert painted[:, 0].max() < _map_top(rendered)
 
-    def test_the_map_is_set_off_from_it_by_a_family_break(self, thumb):
+    def test_the_map_is_set_off_from_it_by_a_line(self, thumb):
         block = _Block()
         rendered = self._rendered(
             block, corner=HudCell(path="c.mp4", thumb=thumb),
             seeds=(HudCell(path="s.mp4", thumb=thumb),), seed_count=2)
         painted = np.argwhere((_rgb(rendered.bgra) == np.array(_Block.MARK)).all(axis=-1))
 
-        assert _map_top(rendered) - (painted[:, 0].max() + 1) >= FAMILY_GAP > BLOCK_GAP
+        assert _lines_between(rendered, painted[:, 0].max() + 1, _map_top(rendered)) == 1
 
-    def test_it_is_set_off_from_the_sets_own_bands_by_a_family_break(self):
+    def test_it_is_set_off_from_the_sets_own_bands_by_a_line(self):
         block = _Block()
         rendered = self._rendered(block)
         painted = np.argwhere((_rgb(rendered.bgra) == np.array(_Block.MARK)).all(axis=-1))
         bands_end = max(y + h for (_x, y, _w, h), button in rendered.targets.buttons
                         if button is not block.button)
 
-        assert painted[:, 0].min() - bands_end >= FAMILY_GAP
+        assert _lines_between(rendered, bands_end, painted[:, 0].min()) == 1
 
     def test_the_panel_widens_to_hold_it(self):
         wide = _Block(size=(600, 30))
@@ -1718,3 +1726,54 @@ def test_a_minimized_panel_is_the_restore_button_and_nothing_else(thumb):
     assert [button.command for _rect, button in rendered.targets.buttons] == [
         "portrait_hud_restore"]
     assert rendered.targets.click == []
+
+
+
+
+def _span(rects) -> tuple[int, int]:
+    rects = list(rects)
+    return min(y for _x, y, _w, _h in rects), max(y + h for _x, y, _w, h in rects)
+
+
+class TestEverySectionIsSetOffFromTheNextByALine:
+    @staticmethod
+    def _status(rendered) -> tuple[int, int]:
+        return _span([_button_rect(rendered, "portrait_hud_minimize"),
+                      rendered.targets.favorite])
+
+    @staticmethod
+    def _controls(rendered) -> tuple[int, int]:
+        return _span(rect for rect, button in rendered.targets.buttons
+                     if button.command.startswith("portrait_")
+                     and button.command != "portrait_hud_minimize")
+
+    @staticmethod
+    def _device(rendered, drive: DriveHud) -> tuple[int, int]:
+        top, _end = _span(rect for rect, button in rendered.targets.buttons
+                             if button.command.startswith("robot_hand_toggle"))
+        readout_top = rendered.targets.tracks[0].rect[1] - tracks(0, 0, drive)[0].rect[1]
+        return top, readout_top + section_size()[1]
+
+    @staticmethod
+    def _map(rendered) -> tuple[int, int]:
+        return _map_top(rendered), rendered.bgra.shape[0] - PAD
+
+    def test_a_panel_carrying_every_section_has_a_line_between_each_and_the_next(self, thumb):
+        block = _Block()
+        drive = DriveHud(driven=DRIVEN_BY_ROBOT_HAND)
+        rendered = HudRenderer("portrait").render(
+            _model(lock_label="Unlocked", corner=HudCell(path="c.mp4", thumb=thumb),
+                   playback_speed=1.0, osr2=Osr2State.ROBOT_HAND, drive=drive, foot=block,
+                   osr2_rows=((Button("robot_hand_toggle_cruise", "cc", "Cruise"),),)),
+            video="example clip one", clip_row=RowHud(duration_ms=60_000))
+        painted = np.argwhere((_rgb(rendered.bgra) == np.array(_Block.MARK)).all(axis=-1))
+        _x, row_y, _w, row_h = rendered.targets.row
+        sections = [self._status(rendered), self._controls(rendered), (row_y, row_y + row_h),
+                    self._device(rendered, drive),
+                    (painted[:, 0].min(), painted[:, 0].max() + 1), self._map(rendered)]
+
+        lines = _dividers(rendered)
+
+        assert len(lines) == len(sections) - 1
+        for (_top, above_ends), line, (below_starts, _end) in zip(sections, lines, sections[1:]):
+            assert above_ends <= line < below_starts

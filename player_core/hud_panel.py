@@ -307,6 +307,9 @@ class HudPanel:
             fill=(*ground, PANEL_ALPHA), outline=(*BORDER_PANEL, 255), width=1,
         )
 
+    def divide(self, y: int) -> None:
+        self.draw.line([(0, y), (self.image.width - 1, y)], fill=(*BORDER_PANEL, 255))
+
     def to_bgra(self) -> np.ndarray:
         return to_bgra(self.image)
 

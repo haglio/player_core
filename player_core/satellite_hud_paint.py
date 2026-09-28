@@ -67,7 +67,6 @@ from .satellite_hud import (
     CTRL_BTN,
     ELLIPSIS_ROOM,
     EXPAND_MARK,
-    FAMILY_GAP,
     FAVORITE_MARK,
     LOOP_MARK,
     MAP_COLUMN_H,
@@ -276,7 +275,6 @@ class HudRenderer:
         counts = self._count_lines(model)
         model, seed_win, action_win = self._window(model)
         corner_thumb, seed_thumbs, action_thumbs = self._map_thumbnails(model)
-        subtitle_h = SUBTITLE_GAP + sum(self._tiny.getmetrics())
         # The bands' own demand: a row the panel cannot hold clips away in
         # silence — the buttons past the edge are simply not there, with nothing
         # raised — so the panel is measured around the widest row.
@@ -314,12 +312,14 @@ class HudRenderer:
         # the track on a panel too narrow to carry both on one line.
         row_h = self._clip_row.size(width - 2 * PAD)[1] if clip_row is not None else 0
         layout = panel_layout(
-            subtitle_h=subtitle_h, bands=len(rows), speed=model.playback_speed is not None,
-            row_h=row_h,
+            status_h=self._status_height(),
+            bands=len(rows), speed=model.playback_speed is not None, row_h=row_h,
             device_h=device_height(model.osr2, model.drive, drive_h, len(device_rows)),
-            foot_h=foot_h if model.foot is not None else None)
+            foot_h=foot_h)
         height = layout.height
         panel = HudPanel(width, height)
+        for divider in layout.dividers:
+            panel.divide(divider)
         image, draw = panel.image, panel.draw
 
         x = PAD
@@ -451,7 +451,6 @@ class HudRenderer:
                      ) -> tuple[list[tuple[Rect, Button]], list[DriveTrack]]:
         buttons: list[tuple[Rect, Button]] = []
         bands: list[DriveTrack] = []
-        y += FAMILY_GAP
         for row, row_widths in zip(rows, widths):
             placed = button_row_rects(
                 self._block_x(model, width, button_row_width(row, row_widths)),
@@ -464,14 +463,12 @@ class HudRenderer:
             y += CTRL_BAND_H
         max_intensity_bands: list[DriveTrack] = []
         if model.osr2:
-            y += BLOCK_GAP
             osr2_x = self._block_x(model, width, self._osr2.width(osr2_line))
             buttons.extend(self._osr2.draw(image, draw, osr2_x, y, osr2_line,
                                            hover=self._pointer))
             max_intensity_bands = self._osr2.bands(osr2_x, y, osr2_line)
-            y += OSR2_H
+            y += OSR2_H + BLOCK_GAP
         if model.drive is not None:
-            y += BLOCK_GAP
             drive_x = self._block_x(model, width, section_size()[0])
             # The panel's image rather than its pen: the readout supersamples its
             # trace and composites it back, which a pen cannot carry.
@@ -499,8 +496,7 @@ class HudRenderer:
                   font=title, anchor="ls", fill=(*TEXT_PRIMARY, 255))
         if not under_status:
             return None
-        _ascent, descent = self._body.getmetrics()
-        line_y = y + STATUS_BASELINE + descent + SUBTITLE_GAP
+        line_y = y + self._name_line_top()
         name_x = self._block_x(model, width,
                               STATUS_INDENT + text_width(self._tiny, under_status))
         draw.text((name_x + STATUS_INDENT, line_y), under_status,
@@ -509,6 +505,13 @@ class HudRenderer:
         draw_mark(image, FAVORITE_MARK, favorite,
                   (*(GREEN if model.is_favorite else TEXT_MUTED), 255))
         return favorite
+
+    def _name_line_top(self) -> int:
+        _ascent, descent = self._body.getmetrics()
+        return STATUS_BASELINE + descent + SUBTITLE_GAP
+
+    def _status_height(self) -> int:
+        return self._name_line_top() + sum(self._tiny.getmetrics())
 
     def _window(
         self, model: HudModel
