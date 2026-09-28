@@ -38,18 +38,18 @@ LESS, MORE = "−", "+"
 _LABEL_H = 14        # a "key value" line
 _BAR_H = 12          # the speed track's thickness
 _CTRL = 14           # an integrated control button (square)
+_MARK_GAP = 2
 _GAP = 6
 _AMP_W = 18          # the amplitude bar's width
 _WAVE_H = 96         # the trace's own height
 # The side labels stack their number under their word, so each column is only as
 # wide as the wider of the two rather than as wide as both plus a gap.
 _CTR_LABEL_W = 34    # room for "Center" down the left
-_AMP_LABEL_W = 24    # room for "Amp" down the right
+_AMP_LABEL_W = 25    # room for "Amp" down the right
 _WAVE_W = 120        # the trace, between the two axis columns
 
-# The block: the trace's band, then the speed row and its number under it.
 SECTION_W = _CTR_LABEL_W + _GAP + _CTRL + _GAP + _WAVE_W + _GAP + _AMP_W + _GAP + _AMP_LABEL_W
-SECTION_H = _WAVE_H + _GAP + _CTRL + 2 + _LABEL_H
+SECTION_H = _CTRL + _MARK_GAP + _WAVE_H + _GAP + _CTRL + 2 + _LABEL_H
 
 # How many points the trace is drawn from. Shared, because a funscript sampled
 # to take the trace over has to arrive at the same resolution as the motion it
@@ -125,26 +125,28 @@ def geometry(x: int, y: int, center_frac: float) -> Geometry:
     ctr_ctrl_x = x + _CTR_LABEL_W + _GAP
     wave_x = ctr_ctrl_x + _CTRL + _GAP
     amp_x = wave_x + _WAVE_W + _GAP
-    wave = (wave_x, y, _WAVE_W, _WAVE_H)
-    wave_lower = y + _WAVE_H
+    wave_y = y + _CTRL + _MARK_GAP
+    wave = (wave_x, wave_y, _WAVE_W, _WAVE_H)
+    wave_lower = wave_y + _WAVE_H
 
+    amp_bar_h = _WAVE_H
     amp_up = (amp_x, y, _AMP_W, _CTRL)
-    amp_down = (amp_x, wave_lower - _CTRL, _AMP_W, _CTRL)
-    amp_bar = (amp_x, y + _CTRL + 2, _AMP_W, _WAVE_H - 2 * (_CTRL + 2))
+    amp_bar = (amp_x, wave_y, _AMP_W, amp_bar_h)
+    amp_down = (amp_x, wave_lower + _MARK_GAP, _AMP_W, _CTRL)
 
     # The centre marks ride its dotted line, kept inside the trace's band so a
     # centre at either end cannot push one off the block.
-    center_y = y + round((1 - center_frac) * (_WAVE_H - 1))
-    up_y = min(max(y, center_y - _CTRL - 1), wave_lower - 2 * _CTRL - 2)
+    center_y = wave_y + round((1 - center_frac) * (_WAVE_H - 1))
+    up_y = min(max(wave_y, center_y - _CTRL - _MARK_GAP // 2), wave_lower - 2 * _CTRL - _MARK_GAP)
     center_up = (ctr_ctrl_x, up_y, _CTRL, _CTRL)
-    center_down = (ctr_ctrl_x, up_y + _CTRL + 2, _CTRL, _CTRL)
+    center_down = (ctr_ctrl_x, up_y + _CTRL + _MARK_GAP, _CTRL, _CTRL)
 
     speed_y = wave_lower + _GAP
-    speed_down = (wave_x, speed_y, _CTRL, _CTRL)
-    speed_up = (amp_x + _AMP_W - _CTRL, speed_y, _CTRL, _CTRL)
-    bar_x = wave_x + _CTRL + 4
-    speed_bar = (bar_x, speed_y + (_CTRL - _BAR_H) // 2,
-                 (amp_x + _AMP_W - _CTRL - 4) - bar_x, _BAR_H)
+    speed_up_x = wave_x + _WAVE_W - _CTRL
+    bar_x = speed_up_x - _MARK_GAP - amp_bar_h
+    speed_down = (bar_x - _MARK_GAP - _CTRL, speed_y, _CTRL, _CTRL)
+    speed_up = (speed_up_x, speed_y, _CTRL, _CTRL)
+    speed_bar = (bar_x, speed_y + (_CTRL - _BAR_H) // 2, amp_bar_h, _BAR_H)
 
     return Geometry(
         wave=wave, speed_bar=speed_bar, speed_down=speed_down, speed_up=speed_up,
@@ -152,9 +154,9 @@ def geometry(x: int, y: int, center_frac: float) -> Geometry:
         center_up=center_up, center_down=center_down,
         center_label_right=x + _CTR_LABEL_W,
         amp_label_left=amp_x + _AMP_W + _GAP,
-        axis_label_y=y + (_WAVE_H - 2 * _LABEL_H) // 2,
+        axis_label_y=wave_y + (_WAVE_H - 2 * _LABEL_H) // 2,
         speed_label_y=speed_y + _CTRL + 2,
-        speed_label_x=(wave_x + amp_x + _AMP_W) // 2,
+        speed_label_x=bar_x + amp_bar_h // 2,
     )
 
 
