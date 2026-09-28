@@ -288,6 +288,9 @@ class _MpvControl:
         self._placed = (0.0, 0.0, 0.0)
         self._window = (0, 0)
         self._path: str | None = None
+        self._swapped_in: set[str] = set()
+        self._ran_out = False
+        self._staged: str | None = None
         # Read off an observation rather than asked for: a property read takes
         # the core's lock, which a file being opened holds for long stretches,
         # and a frame loop asking mid-open measured hundreds of milliseconds
@@ -313,7 +316,8 @@ class _MpvControl:
 
     def _note_file(self, _name: str, path) -> None:
         self._path = path
-        if path:
+        if path and path not in self._swapped_in:
+            self._swapped_in.clear()
             self._ken_burns.new_picture(self._now())
 
     def _note_video_dims(self, _name: str, value) -> None:
@@ -379,12 +383,25 @@ class _MpvControl:
 
     @mpv_call()
     def load(self, path: Path) -> None:
+        self._staged = None
+        self._ran_out = False
+        self._swapped_in.clear()
+        self._hold_pictures_for_the_pace()
         self._mpv.play(str(path))
         # Reset to just this file: drop any entry the previous clip had staged as
         # its prefetched next, so the caller stages a fresh one from a clean base.
         # A no-op for the main player (single-file playlist); the reset is what a satellite's
         # jump/discard/filter navigation needs.
         self._mpv.playlist_clear()
+
+    @mpv_call()
+    def swap_still(self, path: Path) -> None:
+        self._swapped_in.add(str(path))
+        self._mpv.image_display_duration = "inf"
+        self._mpv.play(str(path))
+        self._mpv.playlist_clear()
+        if self._staged is not None:
+            self._mpv.loadfile(self._staged, "append")
 
     # Everything below trims mpv's playlist down to the clip on screen, and each
     # does it with ``playlist-clear`` — "clear the playlist, except the currently
@@ -406,6 +423,7 @@ class _MpvControl:
         engine holds an open handle on it, and Windows refuses to move a file
         out from under one.
         """
+        self._staged = None
         self._mpv.command("stop")
 
     @mpv_call()
@@ -418,10 +436,12 @@ class _MpvControl:
         """
         self._mpv.playlist_clear()
         self._mpv.loadfile(str(path), "append")
+        self._staged = str(path)
 
     @mpv_call()
     def clear_next(self) -> None:
         """Drop the staged next entry (used when a lock pins the current clip)."""
+        self._staged = None
         self._mpv.playlist_clear()
 
     @property
@@ -443,6 +463,7 @@ class _MpvControl:
         around the current entry shifts it back to the head (mpv keeps playing it
         uninterrupted), restoring the [current, next] window.
         """
+        self._staged = None
         self._mpv.playlist_clear()
 
     @property
@@ -476,7 +497,11 @@ class _MpvControl:
     @mpv_call()
     def set_pace(self, seconds: float) -> None:
         self._ken_burns.set_pace(seconds or 0.0, self._now())
-        self._mpv.image_display_duration = seconds or "inf"
+        if not self._swapped_in:
+            self._hold_pictures_for_the_pace()
+
+    def _hold_pictures_for_the_pace(self) -> None:
+        self._mpv.image_display_duration = self._ken_burns.pace_s or "inf"
 
     @mpv_call()
     def push_still(self) -> None:
@@ -491,6 +516,16 @@ class _MpvControl:
             if value != was:
                 setattr(self._mpv, name, value)
         self._placed = placed
+        if self._path in self._swapped_in and self._ken_burns.ran_out(self._now()):
+            self._end_the_swapped_in_still()
+
+    def _end_the_swapped_in_still(self) -> None:
+        self._swapped_in.clear()
+        self._hold_pictures_for_the_pace()
+        if self._staged is None:
+            self._ran_out = True
+        else:
+            self._mpv.command("playlist-next")
 
     def aim_still(self, part: tuple[float, float, float, float], seconds: float) -> None:
         """Take the picture on screen, over *seconds*, onto the part of it from
@@ -575,7 +610,7 @@ class _MpvControl:
     @property
     @mpv_call(False)
     def eof(self) -> bool:
-        return bool(self._mpv.eof_reached)
+        return self._ran_out or bool(self._mpv.eof_reached)
 
     @mpv_call()
     def screenshot_bgra(self, height: int = 64):

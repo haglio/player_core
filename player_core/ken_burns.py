@@ -152,6 +152,10 @@ class KenBurns:
         self._looping = False
         self._aim: Aim | None = None
 
+    @property
+    def pace_s(self) -> float:
+        return self._pace_s
+
     def set_looping(self, looping: bool) -> None:
         self._looping = looping
 
@@ -184,6 +188,9 @@ class KenBurns:
         if self._aim is not None:
             return self._aim.at(self._clock.read(now_s))
         return self._move.at(self._progress(now_s))
+
+    def ran_out(self, now_s: float) -> bool:
+        return bool(self._pace_s) and self._progress(now_s) >= 1.0
 
     def _progress(self, now_s: float) -> float:
         if not self._pace_s:

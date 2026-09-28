@@ -273,6 +273,24 @@ def test_a_picture_whose_hold_has_run_out_waits_at_the_end_of_its_move_for_the_n
     assert_along(still.view(now_s=104.05), DRIFT, 1.0)
 
 
+def test_a_picture_has_run_out_once_its_pace_has_gone_by():
+    still = paced()
+
+    assert (still.ran_out(now_s=103.9), still.ran_out(now_s=104.0)) == (False, True)
+
+
+def test_a_held_picture_never_runs_out():
+    assert paced(0.0).ran_out(now_s=1000.0) is False
+
+
+def test_a_locked_picture_never_runs_out():
+    still = paced()
+
+    still.set_looping(True)
+
+    assert still.ran_out(now_s=1000.0) is False
+
+
 def test_a_locked_picture_makes_its_move_again_each_time_it_repeats():
     still = paced()
 
