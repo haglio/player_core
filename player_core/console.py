@@ -169,6 +169,7 @@ class ConsoleModel:
     rows: tuple[tuple[Button, ...], ...] = ()
     osr2_controls: tuple[Button, ...] = ()
     has_osr2: bool = True
+    max_intensity: int | None = None
 
     @property
     def device_drives_itself(self) -> bool:
@@ -216,6 +217,7 @@ def console_text(model: ConsoleModel) -> str:
         "rows": rows_raw(model.rows),
         "osr2_controls": buttons_raw(model.osr2_controls),
         "has_osr2": model.has_osr2,
+        "max_intensity": model.max_intensity,
     })
 
 
@@ -242,7 +244,15 @@ def parse_console(text: str) -> ConsoleModel | None:
         rows=rows_from_raw(raw.get("rows")),
         osr2_controls=buttons_from_raw(raw.get("osr2_controls")),
         has_osr2=bool(raw.get("has_osr2", True)),
+        max_intensity=max_intensity_from_raw(raw.get("max_intensity")),
     )
+
+
+def max_intensity_from_raw(raw) -> int | None:
+    try:
+        return None if raw is None else int(raw)
+    except (TypeError, ValueError):
+        return None
 
 
 def main_player_displays(main_mode: MainMode) -> bool:

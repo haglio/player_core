@@ -51,6 +51,7 @@ from .player_verbs import (
     NEXT,
     PREV,
     QUIT,
+    SET_MAX_INTENSITY,
     SET_TCODE_ENABLED,
     SET_VOLUME,
     SPEED_DOWN,
@@ -65,6 +66,7 @@ from .robot_hand import (
     cycle_shape,
     set_amplitude,
     set_center,
+    set_max_intensity,
     set_speed,
 )
 from .robot_hand_beat import BeatEngine
@@ -380,6 +382,11 @@ CONTROLS: tuple[Control, ...] = (
             Verb("CENTER_UP", _center_step(5)),
             Verb("CENTER", _number_setter(set_center), takes_a_value=True),
         ),
+    ),
+    Control(
+        name="max_intensity",
+        needs=("robot_hand",),
+        verbs=(Verb(SET_MAX_INTENSITY, _number_setter(set_max_intensity), takes_a_value=True),),
     ),
     Control(
         name="shape",

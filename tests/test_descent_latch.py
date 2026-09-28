@@ -24,13 +24,13 @@ def _choice(top: float = 0.35, touch: int | None = 3_600) -> DescentChoice:
 
 
 class TestTheWaveAChoiceWasCutFrom:
-    def test_a_key_is_the_four_fields_that_identify_a_wave(self):
-        """Anything else about a publish moves every frame; these four move
+    def test_a_key_is_the_five_fields_that_identify_a_wave(self):
+        """Anything else about a publish moves every frame; these five move
         only when the motion is really a different motion."""
-        publish = DriveHud(center=50, amplitude=100, speed=40, let_go=0.44)
+        publish = DriveHud(center=50, amplitude=100, speed=40, let_go=0.44, max_intensity=30)
 
         assert DriveKey.cut_from(publish) == DriveKey(
-            center=50, amplitude=100, speed=40, let_go=0.44)
+            center=50, amplitude=100, speed=40, let_go=0.44, max_intensity=30)
 
 
 class TestWhatIsHeldForATurn:

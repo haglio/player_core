@@ -4,6 +4,7 @@ import bisect
 import time
 
 from .funscript import HANDOFF_RAMP_MS, PARK_SETTLE_MS, Funscript
+from .robot_hand import FULL_INTENSITY
 from .tcode import (
     HandoffGlide,
     TCodeSink,
@@ -43,7 +44,8 @@ class FunscriptTCodeDriver:
         self._park_total_ms: int = _PARK_INTERVAL_MS
 
     def update(
-        self, position_ms: int, fs: Funscript, *, now: float | None = None, speed: float = 1.0
+        self, position_ms: int, fs: Funscript, *, now: float | None = None,
+        speed: float = 1.0, max_intensity: int = FULL_INTENSITY,
     ) -> None:
         if now is None:
             now = time.monotonic()
@@ -60,7 +62,7 @@ class FunscriptTCodeDriver:
 
         next_index = bisect.bisect_right(fs._times, position_ms)
         if self._should_send(next_index, now):
-            self._send_waypoint(fs, next_index, position_ms, speed, now)
+            self._send_waypoint(fs, next_index, position_ms, speed, max_intensity, now)
             self._mark_sent(next_index, now)
             self._took_over = False
 
@@ -106,7 +108,8 @@ class FunscriptTCodeDriver:
         self._last_send_time = now
 
     def _send_waypoint(
-        self, fs: Funscript, next_index: int, position_ms: int, speed: float, now: float
+        self, fs: Funscript, next_index: int, position_ms: int, speed: float, max_intensity: int,
+        now: float,
     ) -> None:
         """Aim at ``fs.actions[next_index]``, the first action still ahead.
 
@@ -125,7 +128,8 @@ class FunscriptTCodeDriver:
         else:
             next_t, remaining = fs.actions[-1][0], 100
         self._send(
-            to_tcode_position(fs.paced_position_at(next_t, speed)), remaining, now)
+            to_tcode_position(fs.paced_position_at(next_t, speed, max_intensity=max_intensity)),
+            remaining, now)
 
     def _send(self, position: int, interval_ms: int, now: float) -> None:
         """One waypoint, given the handoff's glide while one is running.

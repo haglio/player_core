@@ -698,6 +698,11 @@ class TestThePublishedPanelIsWrittenWhereItIsRead:
 
         assert parse_hud(hud_text(model)) == model
 
+    def test_the_max_intensity_a_source_hands_this_player_survives_it_too(self):
+        model = HudModel(player="portrait", osr2=Osr2State.ROBOT_HAND, max_intensity=35)
+
+        assert parse_hud(hud_text(model)) == model
+
     def test_a_key_the_panel_no_longer_carries_is_passed_over(self):
         """The switches a player's band was once lit from still come from a
         publisher on an older release; the panel reads the same without them."""

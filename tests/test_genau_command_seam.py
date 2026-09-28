@@ -141,6 +141,7 @@ class Seam:
             "reorders": tuple(self.reorders),
             "kept_shapes": tuple(self.kept_shapes),
             "volumes": tuple(self.volumes),
+            "max_intensity": self.direct.max_intensity,
             "hud": self.hud.on,
             "tcode_enabled": self.tcode_enabled.on,
             "stopping": self.stop_event.is_set(),
@@ -208,6 +209,8 @@ SEAM = [
     ("CLIP_SECONDS 30", {}, {"interval": 30}),
     ("SET_VOLUME 40 1", {}, {"volumes": ((40, True),)}),
     ("SHAPES flat", {}, {"kept_shapes": ((False, True),)}),
+    ("SET_MAX_INTENSITY 5", {}, {"max_intensity": 5, "amplitude": 40, "speed": 33,
+                                 "center": 27, "intended_center": 27}),
     ("SET_TCODE_ENABLED 0", {}, {"tcode_enabled": False}),
     ("SET_TCODE_ENABLED 1", {"tcode_enabled": False}, {"tcode_enabled": True}),
 ]

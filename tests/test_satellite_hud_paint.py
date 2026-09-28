@@ -11,8 +11,14 @@ from shared_ui import colors
 from shared_ui.palette import BLUE, GREEN, TEXT_MUTED, TEXT_PRIMARY, WHITE
 
 from player_core.console import OSR2_PARKED
-from player_core.drive_layout import SECTION_W
-from player_core.drive_readout import DRIVEN_BY_ROBOT_HAND, DriveHud, section_size, tracks
+from player_core.drive_layout import MAX_INTENSITY, SECTION_W
+from player_core.drive_readout import (
+    DRIVEN_BY_ROBOT_HAND,
+    DriveHud,
+    section_size,
+    track_command,
+    tracks,
+)
 from player_core.geometry import Rect
 from player_core.hud_button import Button
 from player_core.hud_minimize import RESTORE_TOOLTIP, minimize_command
@@ -1291,6 +1297,13 @@ class TestTheDeviceOnAHostThatDrivesItself:
         rendered = self._rendered(osr2=Osr2State.ROBOT_HAND, osr2_controls=(park,))
         assert park in [button for _rect, button in rendered.targets.buttons]
 
+    def test_the_max_intensity_on_that_line_is_a_slider_a_press_sets(self):
+        rendered = self._rendered(osr2=Osr2State.ROBOT_HAND, max_intensity=35)
+        (max_intensity,) = [band for band in rendered.targets.tracks if band.axis == MAX_INTENSITY]
+        x, y, w, h = max_intensity.rect
+
+        assert track_command(max_intensity, x + w - 1, y + h // 2) == "max_intensity_100"
+
     def test_a_hold_is_named_ahead_of_whoever_would_have_been_driving(self):
         """The host says what the wire says AND what it is doing to the device,
         the way the main console's source does, and the panel resolves the two
@@ -1655,6 +1668,25 @@ def test_the_device_block_moves_to_the_corner_the_panel_sits_in(thumb):
     assert moved > 0, "the panel is no wider than the readout, so nothing can move"
     assert (min(band.rect[0] for band in right.targets.tracks)
             - min(band.rect[0] for band in left.targets.tracks)) == moved
+
+def test_the_max_intensity_moves_with_its_line_to_the_corner_the_panel_sits_in(thumb):
+    park = Button("robot_hand_park", "P", "Parked")
+
+    def rendered(corner):
+        return HudRenderer("portrait").render(
+            _model(hud_corner=corner, osr2=Osr2State.ROBOT_HAND, osr2_controls=(park,),
+                   max_intensity=35, corner=HudCell(path="c.mp4", thumb=thumb)),
+            video="a name far longer than the map is wide, by a good margin.mp4")
+
+    def slider_past_park(panel) -> int:
+        (max_intensity,) = [band for band in panel.targets.tracks if band.axis == MAX_INTENSITY]
+        return max_intensity.rect[0] - _button_rect(panel, "robot_hand_park")[0]
+
+    left, right = rendered(HudCorner.UPPER_LEFT), rendered(HudCorner.UPPER_RIGHT)
+
+    assert (_button_rect(right, "robot_hand_park")[0]
+            > _button_rect(left, "robot_hand_park")[0]), "the line did not move"
+    assert slider_past_park(right) == slider_past_park(left)
 
 
 def _button_rect(rendered, command: str) -> Rect:

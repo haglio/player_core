@@ -22,7 +22,7 @@ from .genau_controls import (
     GenauControls,
     apply_runtime_command,
 )
-from .player_verbs import LOCK_OFF, LOCK_ON
+from .player_verbs import LOCK_OFF, LOCK_ON, SET_MAX_INTENSITY
 from .robot_hand import WaveformShape, phase_for_position_fraction
 from .tcode import POSITION_MAX
 
@@ -130,6 +130,9 @@ class GenauArrival:
         interval = said.get("interval", "").strip()
         if advance is not None and interval.isdigit() and int(interval) != advance.interval:
             apply_runtime_command(f"{CLIP_SECONDS} {interval}", controls)
+        max_intensity = said.get("max_intensity", "").strip()
+        if max_intensity.isdigit() and int(max_intensity) != controls.robot_hand.max_intensity:
+            apply_runtime_command(f"{SET_MAX_INTENSITY} {max_intensity}", controls)
 
     def _in_step(self, said: Mapping[str, str], drive: DriveHud | None) -> bool:
         clip = said.get("clip", "").strip()

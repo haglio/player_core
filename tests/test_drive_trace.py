@@ -113,6 +113,16 @@ class TestOneLineTwoDrivers:
         assert hud.waveform == script.planned_trace_window(
             0, round(SPAN_S * 1000), TRACE_SAMPLES)[0][:TRACE_SAMPLES]
 
+    def test_a_script_under_a_max_intensity_is_drawn_as_shallow_as_the_device_is_sent(self):
+        script = _script(until_ms=120_000)
+
+        hud = drive_readout(_motion(), script=script, position_ms=0, max_intensity=30)
+
+        assert hud.waveform == script.planned_trace_window(
+            0, round(SPAN_S * 1000), TRACE_SAMPLES, max_intensity=30)[0][:TRACE_SAMPLES]
+        assert hud.position == round(POSITION_MAX * script.planned_position_at(
+            0, 1.0, max_intensity=30) / 100)
+
     def test_the_end_of_a_scripted_stretch_hands_over_through_the_buffer(self):
         """Green while the script runs, gray for the buffer that belongs to
         neither driver, blue for the motion waiting to take over."""

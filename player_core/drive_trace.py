@@ -48,6 +48,7 @@ from player_core.drive_readout import (
 from player_core.funscript import HANDOFF_RAMP_MS, PARK_TOUCH_WAIT_CAP_MS
 
 from .descent_latch import DescentChoice, DescentLatch, DriveKey
+from .robot_hand import FULL_INTENSITY
 from .trace_grid import on_the_grid
 
 __all__: list[str] = []
@@ -91,6 +92,7 @@ def drive_readout(
     position_ms: int,
     speed: float = 1.0,
     latch: DescentLatch | None = None,
+    max_intensity: int = FULL_INTENSITY,
 ) -> DriveHud:
     """The readout to draw, folding the funscript's own shape into it.
 
@@ -132,7 +134,7 @@ def drive_readout(
     # computed once and only reread — and the leftover fraction of a knot rides
     # along as ``slide`` for the painter to shift the stable shape by.
     scripted, slide = script.planned_trace_window(
-        position_ms, span_ms, TRACE_SAMPLES, speed)
+        position_ms, span_ms, TRACE_SAMPLES, speed, max_intensity=max_intensity)
     if len(scripted) != TRACE_SAMPLES + 1:
         return base
     # Sample times anchored to the window's own knots, so what each sample says
@@ -355,7 +357,7 @@ def drive_readout(
     # instead it would sit on Genau's frozen position over a gray ramp at every
     # handoff, for as long as the console lags the arbiter.
     height, who_now = at(
-        position_ms, script.planned_position_at(position_ms, speed) / 100)
+        position_ms, script.planned_position_at(position_ms, speed, max_intensity=max_intensity) / 100)
     marker = (base.position if who_now == DRIVEN_BY_ROBOT_HAND
               else round(height * POSITION_MAX))
     return replace(

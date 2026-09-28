@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from player_core.funscript import Funscript
-from player_core.tcode import HANDOFF_MS
+from player_core.tcode import HANDOFF_MS, to_tcode_position
 from player_core.tcode_driver import FunscriptTCodeDriver
 
 
@@ -315,3 +315,12 @@ class TestDepthAtSpeed:
 
     def test_the_same_script_is_aimed_at_its_full_depth_at_normal_speed(self):
         assert self._aimed_at(1.0) == 9999
+
+
+def test_a_script_past_the_max_intensity_is_aimed_as_shallow_as_the_max_intensity_leaves_it():
+    sink = FakeSink()
+    fs = Funscript(actions=[(0, 0), (1000, 100), (2000, 0), (3000, 100)])
+
+    FunscriptTCodeDriver(sink).update(0, fs, now=0.0, max_intensity=30)
+
+    assert sink.sent[0] == f"L0{to_tcode_position(fs.paced_position_at(1000, 1.0, max_intensity=30)):04d}I1000"

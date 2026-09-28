@@ -12,7 +12,15 @@ import pytest
 
 from player_core.cruise_control import CruiseControlState
 from player_core.genau_status import build_status_text
-from player_core.robot_hand import MAX_SPEED, MIN_SPEED, RobotHandState, control_limits
+from player_core.robot_hand import (
+    MAX_SPEED,
+    MIN_SPEED,
+    RobotHandState,
+    control_limits,
+    set_amplitude,
+    set_max_intensity,
+    set_speed,
+)
 
 
 def _limits(**state):
@@ -87,6 +95,24 @@ class TestTheSpeed:
         limits = _limits(speed=(MIN_SPEED + MAX_SPEED) // 2)
 
         assert (limits.spd_at_max, limits.spd_at_min) == (False, False)
+
+
+class TestTheCeilingsAMaxIntensityLeaves:
+    def test_an_amplitude_at_the_widest_the_max_intensity_leaves_dims_its_up_arrow(self):
+        hand = RobotHandState(amplitude=20, speed=50)
+        set_max_intensity(hand, 5)
+
+        set_amplitude(hand, 100)
+
+        assert control_limits(hand).amp_at_max is True
+
+    def test_a_speed_at_the_fastest_the_max_intensity_leaves_dims_its_up_arrow(self):
+        hand = RobotHandState(amplitude=20, speed=30)
+        set_max_intensity(hand, 5)
+
+        set_speed(hand, 100)
+
+        assert control_limits(hand).spd_at_max is True
 
 
 class TestBothPublicationsReadTheSameSix:

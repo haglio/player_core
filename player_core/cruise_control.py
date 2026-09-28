@@ -212,7 +212,7 @@ def tick_cruise_control(
     # puts on that is what the ramps under it get.
     step = max(0.0, min(dt, MAX_TICK_SECONDS))
     cc.clock += step
-    wave_stack.advance(cc.stack, cc.clock, step)
+    wave_stack.advance(cc.stack, cc.clock, step, max_intensity=robot_hand.max_intensity)
     _hand_turns(cc, robot_hand)
     _onward_all(cc)
     _write_dials(cc, robot_hand)

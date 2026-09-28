@@ -29,7 +29,7 @@ from shared_ui.spacing import (
     BUTTON_SIZE_HUD,
 )
 
-from .console import VALUE_W
+from .console import VALUE_W, max_intensity_from_raw
 from .drive_readout import DriveHud, DriveTrack, TrackGrip
 from .geometry import Rect, contains
 from .hud_button import Button, buttons_from_raw, buttons_raw, rows_from_raw, rows_raw
@@ -187,6 +187,7 @@ class HudModel:
     # console does (:func:`player_core.hud_osr2.state_for`).
     osr2_control: str = ""
     osr2_controls: tuple[Button, ...] = ()
+    max_intensity: int | None = None
     # The motion being sent, drawn under that line — the main console's readout
     # (:mod:`player_core.drive_readout`), hosted here rather than on a panel of
     # its own.  None wherever there is nothing to report.
@@ -921,6 +922,7 @@ def hud_text(model: HudModel) -> str:
         "osr2_control": model.osr2_control,
         "osr2_rows": rows_raw(model.osr2_rows),
         "osr2_controls": buttons_raw(model.osr2_controls),
+        "max_intensity": model.max_intensity,
     })
 
 
@@ -964,4 +966,5 @@ def parse_hud(text: str) -> HudModel | None:
         osr2_control=str(raw.get("osr2_control", "") or ""),
         osr2_rows=rows_from_raw(raw.get("osr2_rows")),
         osr2_controls=buttons_from_raw(raw.get("osr2_controls")),
+        max_intensity=max_intensity_from_raw(raw.get("max_intensity")),
     )

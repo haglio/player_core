@@ -14,7 +14,14 @@ import random
 import pytest
 
 from player_core import wave_stack
-from player_core.robot_hand import WaveformShape, position_fraction
+from player_core.robot_hand import (
+    PARK_CENTER,
+    WaveformShape,
+    bpm_for_speed,
+    position_fraction,
+    travel_cap,
+    wave_travel,
+)
 from player_core.wave_stack import Ramp, Wave, WaveStack
 
 
@@ -65,6 +72,40 @@ def test_one_wave_is_the_plain_single_motion():
     assert wave_stack.position(stack, 0.0) == pytest.approx(
         100 * position_fraction(0.3, shape=WaveformShape.TRIANGLE,
                                 amplitude=60, center=40))
+
+
+def _loud_pair() -> WaveStack:
+    return WaveStack(waves=[
+        Wave(phase=0.2, speed=Ramp(80.0, 80.0), amplitude=Ramp(60.0, 60.0),
+             center=Ramp(25.0, 25.0)),
+        Wave(phase=0.7, speed=Ramp(30.0, 30.0), amplitude=Ramp(20.0, 20.0),
+             center=Ramp(25.0, 25.0)),
+    ])
+
+
+def _kept_by(max_intensity: int) -> float:
+    travel = (wave_travel(60, bpm_for_speed(80)) + wave_travel(20, bpm_for_speed(30)))
+    return math.sqrt(travel_cap(max_intensity) / travel)
+
+
+def test_a_stack_past_its_max_intensity_settles_toward_the_park_by_what_it_keeps():
+    stack = _loud_pair()
+
+    capped = wave_stack.position(stack, 0.0, max_intensity=30)
+
+    assert capped - PARK_CENTER == pytest.approx(
+        _kept_by(30) * (wave_stack.position(stack, 0.0) - PARK_CENTER))
+
+
+def test_a_stack_past_its_max_intensity_runs_each_wave_only_as_fast_as_it_lets():
+    stack = _loud_pair()
+
+    wave_stack.advance(stack, 0.05, 0.05, max_intensity=30)
+
+    assert [wave.phase for wave in stack.waves] == pytest.approx([
+        0.2 + 0.05 * bpm_for_speed(80) * _kept_by(30) / 60,
+        0.7 + 0.05 * bpm_for_speed(30) * _kept_by(30) / 60,
+    ])
 
 
 def test_every_wave_carries_its_own_center():
@@ -139,6 +180,13 @@ def test_aiming_ahead_lands_where_carrying_the_motion_forward_gets_to():
     assert aimed == pytest.approx(wave_stack.position(stack, 0.04), abs=1e-9)
 
 
+def test_aiming_a_stack_held_down_by_its_max_intensity_lands_where_carrying_it_forward_gets_to():
+    stack = _loud_pair()
+    aimed = wave_stack.position_ahead(stack, 0.0, 0.04, max_intensity=30)
+    wave_stack.advance(stack, 0.04, 0.04, max_intensity=30)
+    assert aimed == pytest.approx(wave_stack.position(stack, 0.04, max_intensity=30), abs=1e-9)
+
+
 def test_the_console_is_told_the_whole_motion_and_the_wave_you_can_feel():
     stack = WaveStack(waves=[
         Wave(shape=WaveformShape.SAWTOOTH, speed=Ramp(30.0, 30.0),
@@ -171,6 +219,15 @@ class TestTheTraceOnKnots:
         assert slide == 0.0
         assert heights == pytest.approx([
             wave_stack.position_ahead(stack, 10.0, i * 0.5) / 100 for i in range(6)])
+
+    def test_a_stack_held_down_by_its_max_intensity_is_drawn_as_the_motion_it_sends(self):
+        stack = _loud_pair()
+
+        heights, _ = wave_stack.trace_window(stack, 10.0, samples=5, span_s=2.0, max_intensity=30)
+
+        assert heights == pytest.approx([
+            wave_stack.position_ahead(stack, 10.0, i * 0.5, max_intensity=30) / 100
+            for i in range(6)])
 
     def test_a_moving_stacks_trace_stays_on_the_axis_and_moves(self):
         heights, _ = wave_stack.trace_window(

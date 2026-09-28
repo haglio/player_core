@@ -18,6 +18,9 @@ from pathlib import Path
 
 from app_support.funscript import read_actions
 
+from .max_intensity import depth
+from .robot_hand import FULL_INTENSITY, toward_the_park
+
 __all__ = [
     "PARK_TOUCH_WAIT_CAP_MS",
     "Funscript",
@@ -115,7 +118,7 @@ class Funscript:
         self._demand = self._compute_demand()
         # The device's plan sampled on a fixed grid, for
         # :meth:`planned_trace_window` to take windows of.
-        self._planned_grid_key: tuple[float, float] | None = None
+        self._planned_grid_key: tuple[float, float, int] | None = None
         self._planned_grid_values: tuple[float, ...] = ()
         self._looped_key: tuple[int, int] | None = None
         self._looped_value: Funscript = self
@@ -159,7 +162,8 @@ class Funscript:
             prv is not None and nxt is not None and nxt - prv < QUIET_LEAD_IN_MS
         )
 
-    def planned_position_at(self, position_ms: int, speed: float = 1.0) -> float:
+    def planned_position_at(self, position_ms: int, speed: float = 1.0, *,
+                            max_intensity: int = FULL_INTENSITY) -> float:
         """Where the device is *planned* to be at *position_ms*, 0-100.
 
         The script's own motion through each dense cluster, the parked position
@@ -177,7 +181,7 @@ class Funscript:
             if prv is not None and position_ms - prv < PARK_SETTLE_MS:
                 # The drop out of a cluster is the driver's own park glide,
                 # drawn: a straight descent from the last action onto the rest.
-                return (self.paced_position_at(prv, speed)
+                return (self.paced_position_at(prv, speed, max_intensity=max_intensity)
                         * (1 - (position_ms - prv) / PARK_SETTLE_MS))
             return 0.0
         rising = (
@@ -185,11 +189,12 @@ class Funscript:
             and (prv is None or nxt - prv >= QUIET_LEAD_IN_MS)
         )
         if rising:
-            return self.paced_position_at(nxt, speed) * (1 - (nxt - position_ms) / _RISE_MS)
-        return self.paced_position_at(position_ms, speed)
+            return (self.paced_position_at(nxt, speed, max_intensity=max_intensity)
+                    * (1 - (nxt - position_ms) / _RISE_MS))
+        return self.paced_position_at(position_ms, speed, max_intensity=max_intensity)
 
     def planned_trace_window(self, start_ms: int, span_ms: int, count: int,
-                             speed: float = 1.0,
+                             speed: float = 1.0, *, max_intensity: int = FULL_INTENSITY,
                              ) -> tuple[tuple[float, ...], float]:
         """The device's plan as a picture: *count* + 1 knot samples covering
         *span_ms* from the knot at or before *start_ms*, as 0-1 heights, and how
@@ -215,7 +220,7 @@ class Funscript:
         samples = count + 1
         if step <= 0:
             return (0.0,) * samples, 0.0
-        grid = self._planned_grid(step, speed)
+        grid = self._planned_grid(step, speed, max_intensity)
         whole, frac = divmod(start_ms / step, 1)
         first = int(whole)
         return tuple(
@@ -223,15 +228,15 @@ class Funscript:
             for i in range(samples)
         ), frac
 
-    def _planned_grid(self, step_ms: float, speed: float) -> tuple[float, ...]:
+    def _planned_grid(self, step_ms: float, speed: float, max_intensity: int) -> tuple[float, ...]:
         """The whole plan at one sample every *step_ms*, from zero, memoized --
-        by the rate as well, the plan's depth being the rate's too."""
-        if self._planned_grid_key != (step_ms, speed):
+        by the rate and the max intensity as well, the plan's depth being theirs too."""
+        if self._planned_grid_key != (step_ms, speed, max_intensity):
             last = self.actions[-1][0]
             count = int(last / step_ms) + 2 if step_ms > 0 else 1
-            self._planned_grid_key = (step_ms, speed)
+            self._planned_grid_key = (step_ms, speed, max_intensity)
             self._planned_grid_values = tuple(
-                self.planned_position_at(round(i * step_ms), speed) / 100
+                self.planned_position_at(round(i * step_ms), speed, max_intensity=max_intensity) / 100
                 for i in range(count))
         return self._planned_grid_values
 
@@ -267,27 +272,31 @@ class Funscript:
             return float(p1)
         return p0 + (p1 - p0) * (position_ms - t0) / (t1 - t0)
 
-    def paced_position_at(self, position_ms: int, speed: float) -> float:
+    def paced_position_at(self, position_ms: int, speed: float, *,
+                          max_intensity: int = FULL_INTENSITY) -> float:
         """Where the script has the device at *position_ms* with the video
         playing at *speed*, 0-100 -- its own shape until the rate asks the
-        device to travel faster than it can, and from there the same shape
-        scaled toward the park.
+        device to travel faster than it can, or than *max_intensity* lets it, and
+        from there the same shape scaled toward the park.
         """
-        return self.position_at(position_ms) * self._depth_scale(position_ms, speed)
+        return toward_the_park(self.position_at(position_ms),
+                               self._depth_scale(position_ms, speed, max_intensity))
 
-    def _depth_scale(self, position_ms: int, speed: float) -> float:
+    def _depth_scale(self, position_ms: int, speed: float, max_intensity: int) -> float:
         """What fraction of its depth the script keeps at playback rate *speed*.
 
-        The allowance is never below what this stretch already asks for at 1x,
-        which is what makes normal speed and every slowed one a no-op rather
-        than something the caller has to remember to skip.
+        The device's own allowance is never below what this stretch already
+        asks for at 1x, which is what makes normal speed and every slowed one a
+        no-op rather than something the caller has to remember to skip.
         """
-        if speed <= 1.0 or not self._demand:
+        if not self._demand:
             return 1.0
         demand = self._demand_at(position_ms)
         if demand <= 0:
             return 1.0
-        return min(1.0, max(_MAX_TRAVEL_PER_SECOND / demand, 1.0) / speed)
+        reachable = 1.0 if speed <= 1.0 else min(
+            1.0, max(_MAX_TRAVEL_PER_SECOND / demand, 1.0) / speed)
+        return min(reachable, depth(demand * speed, max_intensity))
 
     def _demand_at(self, position_ms: int) -> float:
         """The neighborhood's fastest travel at *position_ms*, interpolated

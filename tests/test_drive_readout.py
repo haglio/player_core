@@ -13,8 +13,8 @@ from player_core.drive_layout import (
     SPEED,
 )
 from player_core.drive_readout import (
-    _DISABLED,
     _NEUTRAL_INK,
+    DISABLED_INK,
     DRIVEN_BY_AUTO,
     DRIVEN_BY_FUNSCRIPT,
     DRIVEN_BY_NEUTRAL,
@@ -35,6 +35,7 @@ from player_core.hud_panel import (
     load_font,
     text_width,
 )
+from player_core.robot_hand import amplitude_ceiling, speed_ceiling
 
 PAD = 10
 
@@ -190,6 +191,18 @@ class TestTracks:
         assert track_value(band, x - 400, y + h // 2) == 0
         assert track_value(band, x + w + 400, y + h // 2) == 100
 
+    def test_a_press_past_the_speed_the_max_intensity_leaves_asks_for_no_more_than_that(self):
+        band = self._band(_hud(speed=30, amplitude=20, max_intensity=5), SPEED)
+        x, y, w, h = band.rect
+
+        assert track_value(band, x + w - 1, y + h // 2) == speed_ceiling(5, 20)
+
+    def test_a_press_past_the_amplitude_the_max_intensity_leaves_asks_for_no_more_than_that(self):
+        band = self._band(_hud(speed=50, amplitude=20, center=50, max_intensity=5), AMPLITUDE)
+        x, y, w, _h = band.rect
+
+        assert track_value(band, x + w // 2, y) == amplitude_ceiling(5, 50)
+
     def test_a_press_posts_the_set_command_fun_time_already_routes(self):
         band = self._band(_hud(), SPEED)
         x, y, _w, h = band.rect
@@ -237,6 +250,48 @@ class TestReadout:
         assert ((bar[:, 2] > 150) & (bar[:, 0] < 120)).all()
 
 
+class TestTheStretchesTheMaxIntensityRulesOut:
+    @staticmethod
+    def _red(pixels: np.ndarray) -> np.ndarray:
+        return (pixels[..., 0] > 180) & (pixels[..., 1] < 120) & (pixels[..., 2] < 120)
+
+    def test_the_speed_bar_is_etched_red_past_the_fastest_the_max_intensity_leaves(self):
+        hud = _hud(speed=30, amplitude=20, max_intensity=5, waveform=())
+        rgb = _rendered(hud).astype(int)
+        x, y, w, h = next(t for t in tracks(PAD, PAD, hud) if t.axis == SPEED).rect
+        edge = x + round(speed_ceiling(5, 20) / 100 * w)
+
+        assert self._red(rgb[y:y + h, edge + 2:x + w]).any()
+        assert not self._red(rgb[y:y + h, x:edge - 1]).any()
+
+    def test_the_amplitude_bar_is_etched_red_beyond_the_widest_the_max_intensity_leaves(self):
+        hud = _hud(speed=50, amplitude=20, center=50, max_intensity=5, waveform=())
+        rgb = _rendered(hud).astype(int)
+        x, y, w, h = next(t for t in tracks(PAD, PAD, hud) if t.axis == AMPLITUDE).rect
+        reach = amplitude_ceiling(5, 50) / 100 * h / 2
+        upper, lower = round(y + h / 2 - reach), round(y + h / 2 + reach)
+
+        assert self._red(rgb[y:upper - 1, x:x + w]).any()
+        assert self._red(rgb[lower + 1:y + h, x:x + w]).any()
+        assert not self._red(rgb[upper + 1:lower - 1, x:x + w]).any()
+
+    def test_a_center_off_the_middle_etches_nothing_that_growing_the_amplitude_reaches(self):
+        hud = _hud(speed=50, amplitude=40, center=30, max_intensity=100, waveform=())
+        rgb = _rendered(hud).astype(int)
+        x, y, w, h = next(t for t in tracks(PAD, PAD, hud) if t.axis == AMPLITUDE).rect
+
+        assert not self._red(rgb[y:y + h, x:x + w]).any()
+
+    def test_below_full_the_etching_starts_where_the_widest_reach_carries_the_blue(self):
+        hud = _hud(speed=50, amplitude=20, center=10, max_intensity=10, waveform=())
+        rgb = _rendered(hud).astype(int)
+        x, y, w, h = next(t for t in tracks(PAD, PAD, hud) if t.axis == AMPLITUDE).rect
+        edge = y + round((1 - amplitude_ceiling(10, 50) / 100) * h)
+
+        assert self._red(rgb[y:edge - 2, x:x + w]).any()
+        assert not self._red(rgb[edge + 2:y + h, x:x + w]).any()
+
+
 class TestPublishing:
     """In video mode the readout is drawn by the main player, so Genau says it instead of drawing it."""
 
@@ -252,6 +307,21 @@ class TestPublishing:
         assert (read.shape, read.advance_interval) == ("sawtooth", 7)
         assert (read.spd_at_max, read.ctr_at_min) == (True, True)
         assert np.allclose(read.waveform, hud.waveform, atol=5e-4)
+
+    def test_the_max_intensity_the_wave_is_held_to_goes_over_the_wire(self, tmp_path):
+        path = tmp_path / "genau_drive.txt"
+        publish_drive(path, _hud(max_intensity=35))
+
+        assert read_drive(path).max_intensity == 35
+
+    def test_a_file_from_before_the_max_intensity_was_published_holds_nothing_down(self, tmp_path):
+        path = tmp_path / "genau_drive.txt"
+        publish_drive(path, _hud(max_intensity=35))
+        text = "\n".join(line for line in path.read_text(encoding="utf-8").splitlines()
+                         if not line.startswith("max_intensity="))
+        path.write_text(text + "\n", encoding="utf-8")
+
+        assert read_drive(path).max_intensity == DriveHud.max_intensity
 
     def test_the_knot_slide_and_the_edge_go_over_the_wire_too(self, tmp_path):
         """A trace read on knots (the learned motion's) is published with how
@@ -434,8 +504,8 @@ class TestDimmedForTheScript:
         top_middle = (y, x + w // 2)
 
         assert dimmed[top_middle][3] == 255              # opaque: nothing shines through
-        assert tuple(dimmed[top_middle][:3]) == _DISABLED[:3]
-        assert max(_DISABLED[:3]) < min(TEXT_MUTED)      # darker than muted ink
+        assert tuple(dimmed[top_middle][:3]) == DISABLED_INK[:3]
+        assert max(DISABLED_INK[:3]) < min(TEXT_MUTED)      # darker than muted ink
         assert tuple(live[top_middle][:3]) == TEXT_PRIMARY
 
 

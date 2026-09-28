@@ -217,3 +217,9 @@ def test_the_seconds_a_clip_holds_the_screen_are_said_too():
     advance = ClipAdvanceState(interval=25)
     assert "interval=25" in build_status_text(
         RobotHandState(), CruiseControlState(), clip_advance=advance)
+
+
+def test_the_status_says_the_max_intensity_the_hand_is_held_to():
+    text = build_status_text(RobotHandState(max_intensity=35), CruiseControlState())
+
+    assert "max_intensity=35\n" in text

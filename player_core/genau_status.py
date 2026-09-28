@@ -56,6 +56,7 @@ def build_status_text(
         f"hud={'1' if hud_active else '0'}\n"
         f"playing={'1' if hand.playing else '0'}\n"
         f"interval={advance.interval}\n"
+        f"max_intensity={hand.max_intensity}\n"
     )
 
 

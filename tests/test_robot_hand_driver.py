@@ -2,6 +2,12 @@ from __future__ import annotations
 
 import random
 
+from player_core import wave_stack
+from player_core.cruise_control import (
+    CruiseControlState,
+    enable_cruise_control,
+    tick_cruise_control,
+)
 from player_core.funscript import HANDOFF_RAMP_MS
 from player_core.learned_model import LearnedModel, Phrase, classify
 from player_core.learned_motion import (
@@ -9,7 +15,12 @@ from player_core.learned_motion import (
     enable_learned_motion,
     tick_learned_motion,
 )
-from player_core.robot_hand import RobotHandState, WaveformShape, bpm_for_speed
+from player_core.robot_hand import (
+    POSITION_MAX,
+    RobotHandState,
+    WaveformShape,
+    bpm_for_speed,
+)
 from player_core.robot_hand_driver import DeviceHandoff, RobotHandTCodeDriver
 from player_core.tcode import HANDOFF_MS
 
@@ -385,6 +396,19 @@ class TestSenderWithDirectState:
         sender = RobotHandTCodeDriver(sink, robot_hand=state, min_interval=0.0)
         sender.maybe_send(phase=0.5, now=1.0)
         assert sender.current_position() == 9999
+
+    def test_a_cruising_hand_held_down_by_its_max_intensity_is_sent_the_stack_it_leaves(self):
+        state = RobotHandState(playing=True, amplitude=100, speed=90, max_intensity=25)
+        cruise = CruiseControlState(rng=random.Random(3))
+        enable_cruise_control(cruise)
+        tick_cruise_control(state, cruise, now=10.0)
+        tick_cruise_control(state, cruise, now=10.05)
+        sender = RobotHandTCodeDriver(FakeTCodeSink(), robot_hand=state, cruise=cruise,
+                                      min_interval=0.0)
+
+        assert sender.current_position() == round(POSITION_MAX * wave_stack.position(
+            cruise.stack, cruise.clock, max_intensity=25) / 100)
+
 
 
 """The device changing hands, both directions.
