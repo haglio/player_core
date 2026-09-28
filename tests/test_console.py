@@ -26,7 +26,7 @@ from player_core.console import (
     tooltip_at,
 )
 from player_core.hud_button import Button
-from player_core.hud_marks import BROKER_ICON, MINIMIZE_ICON
+from player_core.hud_marks import BROKER_ICON, MINIMIZE_ICON, shared_mark
 from player_core.hud_placement import HudCorner, HudEdge
 from player_core.modes import MainMode, Osr2State
 
@@ -171,6 +171,12 @@ class TestLayout:
 
         assert hit_test(_placed(), x + 1, y + 1) == ""
         assert tooltip_at(_placed(), x + 1, y + 1) == "Nothing left to step to"
+
+    def test_a_button_wearing_a_mark_this_version_lacks_says_why_on_hover(self):
+        button = Button("auto", shared_mark("a_mark_from_another_version"),
+                        "Generate on its own")
+
+        assert tooltip_at(place_rows([[button]], x=0, y=0), 1, 1) == button.tooltip_on_hover
 
 
 class TestThePublishedConsoleIsWrittenWhereItIsRead:

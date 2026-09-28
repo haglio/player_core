@@ -66,7 +66,10 @@ from .satellite_hud import (
     CTRL_BAND_H,
     CTRL_BTN,
     ELLIPSIS_ROOM,
+    EXPAND_MARK,
     FAMILY_GAP,
+    FAVORITE_MARK,
+    LOOP_MARK,
     MAP_COLUMN_H,
     MAP_GAP,
     MAP_THUMB_H,
@@ -78,6 +81,7 @@ from .satellite_hud import (
     STATUS_INDENT,
     STATUS_TEXT_X,
     SUBTITLE_GAP,
+    WRONG_ACTION_MARK,
     WRONG_BTN,
     WRONG_GAP,
     HudCell,
@@ -131,15 +135,8 @@ _COUNT_LINE_H = 11  # line pitch of the axis counts in the map's top-left corner
 _SIZE_BODY = 11
 _SIZE_TINY = 8
 _ROW_LABEL_PT = 7
-# The family's own drawing rather than U+21BB: two arrows chasing each other
-# around a rounded rectangle, which says "around and around" where a single arc
-# says "back one step" -- and a single arc is what undo and reset already are.
-_LOOP_GLYPH = shared_mark("loop")
-# Drawn rather than typed: U+2194 is a hairline beside the solid arrowheads of
-# the transport buttons it shares a panel with, which made one control look like
-# a different class of thing from its neighbors.
-_EXPAND_GLYPH = shared_mark("expand_horizontal")
-_FAVORITE_GLYPH = shared_mark("star")
+_LOOP_GLYPH = shared_mark(LOOP_MARK)
+_EXPAND_GLYPH = shared_mark(EXPAND_MARK)
 # The filter mark, drawn rather than typed: Segoe UI Symbol — the face the other
 # buttons take their icons from — carries no funnel at any codepoint, and this is
 # the one button whose shape *is* its meaning, so a ".notdef" tofu would say
@@ -509,7 +506,7 @@ class HudRenderer:
         draw.text((name_x + STATUS_INDENT, line_y), under_status,
                   font=self._tiny, anchor="la", fill=(*TEXT_MUTED, 255))
         favorite = favorite_mark_rect(name_x, line_y, sum(self._tiny.getmetrics()))
-        draw_mark(image, shared_mark_name(_FAVORITE_GLYPH), favorite,
+        draw_mark(image, FAVORITE_MARK, favorite,
                   (*(GREEN if model.is_favorite else TEXT_MUTED), 255))
         return favorite
 
@@ -757,7 +754,7 @@ class HudRenderer:
         side sits in, and the act is relabeled out from under it.
         """
         self._button_square(draw, rect, on=False, ink=RED)
-        draw_mark(image, "cross", rect, (*RED, 255))
+        draw_mark(image, WRONG_ACTION_MARK, rect, (*RED, 255))
 
     def _draw_filter_buttons(self, draw, rects: list[tuple[Rect, str]],
                              model: HudModel) -> None:

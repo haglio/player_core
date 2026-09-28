@@ -108,6 +108,16 @@ def test_a_tooltip_that_fits_stays_on_one_line_beside_the_cursor():
     assert (x, y) > (40, 60)
 
 
+def test_a_tooltip_starts_a_new_line_wherever_its_text_does():
+    panel = HudPanel(300, 200)
+    font = load_font(8)
+
+    _x, _y, _w, h = draw_tooltip(panel.draw, font, "Next clip\nThen the one after it",
+                                 (40, 60), panel.image.size)
+
+    assert h == 2 * sum(font.getmetrics()) + 2 * TOOLTIP_PAD
+
+
 def _ink_center(size: int, paint) -> tuple[float, float]:
     """Where the ink *paint* leaves on a blank square actually sits."""
 

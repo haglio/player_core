@@ -23,6 +23,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol
 
+from shared_ui.icon_geometry import tooltip_for
 from shared_ui.spacing import (
     BUTTON_GAP,
     BUTTON_GROUP_GAP,
@@ -685,6 +686,10 @@ FILTER_TOOLTIP = "Filter to this action"
 EXPAND_TOOLTIP = "More seeds — widen the net"
 FAVORITE_TOOLTIP = "In the favorites"
 WRONG_ACTION_TOOLTIP = "Wrong action — strike it, and it gets asked about again"
+LOOP_MARK = "loop"
+EXPAND_MARK = "expand_horizontal"
+FAVORITE_MARK = "star"
+WRONG_ACTION_MARK = "cross"
 
 
 def _in(rect: Rect | None, px: int, py: int) -> bool:
@@ -700,20 +705,18 @@ def button_tooltip(targets: HudTargets, px: int, py: int) -> str:
     """
     button = button_at(targets.buttons, px, py)
     if button is not None:
-        return button.tooltip
+        return button.tooltip_on_hover
     loop = hit_test_targets(targets.loop, px, py)
     if loop:
-        return LOOP_TOOLTIPS.get(loop, "")
-    # The filter buttons all say the same thing — each one names the act beside it,
-    # so the tooltip only has to say what pressing it does.
+        return tooltip_for(LOOP_MARK, LOOP_TOOLTIPS.get(loop, ""))
     if _in(targets.wrong_action, px, py):
-        return WRONG_ACTION_TOOLTIP
+        return tooltip_for(WRONG_ACTION_MARK, WRONG_ACTION_TOOLTIP)
     if hit_test_targets(targets.filter, px, py):
         return FILTER_TOOLTIP
     if _in(targets.expand, px, py):
-        return EXPAND_TOOLTIP
+        return tooltip_for(EXPAND_MARK, EXPAND_TOOLTIP)
     if _in(targets.favorite, px, py):
-        return FAVORITE_TOOLTIP
+        return tooltip_for(FAVORITE_MARK, FAVORITE_TOOLTIP)
     return ""
 
 

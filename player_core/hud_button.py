@@ -10,7 +10,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, fields
 
+from shared_ui.icon_geometry import tooltip_for
 from shared_ui.spacing import BUTTON_SIZE_HUD
+
+from .hud_marks import SHARED_MARK, shared_mark_name
 
 __all__ = [
     "BUTTON",
@@ -58,6 +61,12 @@ class Button:
     remembered: bool = False
     group_break: bool = False
     host_value: str = ""
+
+    @property
+    def tooltip_on_hover(self) -> str:
+        if not self.glyph.startswith(SHARED_MARK):
+            return self.tooltip
+        return tooltip_for(shared_mark_name(self.glyph), self.tooltip)
 
 
 _FLAGS = tuple(f.name for f in fields(Button) if f.type == "bool")

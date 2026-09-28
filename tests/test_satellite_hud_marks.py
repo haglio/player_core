@@ -13,24 +13,18 @@ from PIL import Image, ImageDraw
 from shared_ui.icon_geometry import glyph_names
 from shared_ui.palette import TEXT_PRIMARY
 
-from player_core.hud_marks import SHARED_MARK, shared_mark_name
-from player_core.satellite_hud_paint import (
-    _EXPAND_GLYPH,
-    _FAVORITE_GLYPH,
-    _LOOP_GLYPH,
-    HudRenderer,
+from player_core.satellite_hud import (
+    EXPAND_MARK,
+    FAVORITE_MARK,
+    LOOP_MARK,
+    WRONG_ACTION_MARK,
 )
+from player_core.satellite_hud_paint import HudRenderer
 
 
 def _named() -> dict[str, str]:
-    """Every face the panel draws of its own that names a shared mark, by the
-    mark it names."""
-    faces = {"loop": _LOOP_GLYPH, "favorite": _FAVORITE_GLYPH, "expand": _EXPAND_GLYPH}
-    return {
-        key: shared_mark_name(face)
-        for key, face in faces.items()
-        if face.startswith(SHARED_MARK)
-    }
+    return {"loop": LOOP_MARK, "favorite": FAVORITE_MARK, "expand": EXPAND_MARK,
+            "wrong action": WRONG_ACTION_MARK}
 
 
 def test_the_loop_buttons_wear_the_circuit_rather_than_a_single_arc():
@@ -46,8 +40,6 @@ def test_the_favorite_mark_is_the_familys_star():
 
 
 def test_the_marks_the_hud_names_all_exist():
-    # A typo would be a KeyError raised inside a running video overlay rather
-    # than here, so the names are checked against the registry.
     missing = {key: name for key, name in _named().items() if name not in glyph_names()}
     assert not missing, f"HUD faces naming marks shared_ui does not have: {missing}"
 

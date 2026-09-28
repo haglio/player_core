@@ -223,14 +223,20 @@ _TOOLTIP_OFFSET = (14, 16)  # right of and below the cursor, clear of the pointe
 
 
 def _wrap(font: ImageFont.FreeTypeFont, text: str, available: int) -> list[str]:
-    """*text* broken on spaces into lines of at most *available* px.
+    return [line for paragraph in text.split("\n")
+            for line in _wrap_paragraph(font, paragraph, available)]
+
+
+def _wrap_paragraph(font: ImageFont.FreeTypeFont, paragraph: str,
+                    available: int) -> list[str]:
+    """*paragraph* broken on spaces into lines of at most *available* px.
 
     A word wider than *available* keeps its own line and overhangs — breaking
     mid-word would read as two words, and nothing named on these HUDs has one
     that long.
     """
     lines: list[str] = []
-    for word in text.split():
+    for word in paragraph.split():
         if lines and text_width(font, f"{lines[-1]} {word}") <= available:
             lines[-1] = f"{lines[-1]} {word}"
         else:
