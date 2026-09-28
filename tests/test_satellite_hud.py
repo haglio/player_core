@@ -4,10 +4,12 @@ from __future__ import annotations
 import json
 
 from satellite_rows import band, player_rows
+from shared_ui.icon_geometry import GLYPHS, tooltip_for
 from shared_ui.spacing import BUTTON_GAP, BUTTON_GROUP_GAP
 
 from player_core.console import OSR2_PARKED, VALUE_W
 from player_core.hud_button import Button
+from player_core.hud_marks import shared_mark
 from player_core.hud_placement import HudCorner, HudEdge
 from player_core.modes import Osr2State
 from player_core.satellite_hud import (
@@ -441,6 +443,28 @@ def test_button_tooltip_names_each_button():
         assert button_tooltip(targets, bx + 5, by + 5) == button.tooltip
     assert button_tooltip(targets, 305, 65) == "In the favorites"
     assert button_tooltip(targets, 400, 400) == ""
+
+
+def test_a_declared_button_wearing_a_mark_this_version_lacks_says_why_on_hover():
+    auto = Button("auto", shared_mark("a_mark_from_another_version"), "Generate on its own")
+
+    targets = _targets(buttons=_squares(0, 0, (auto,)))
+
+    assert button_tooltip(targets, 5, 5) == auto.tooltip_on_hover
+
+
+def test_the_map_s_own_controls_say_why_when_this_version_lacks_their_marks(monkeypatch):
+    for mark in ("loop", "cross", "expand_horizontal", "star"):
+        monkeypatch.delitem(GLYPHS, mark)
+    targets = _targets(loop=[((0, 0, 20, 20), "action")], wrong_action=(30, 0, 20, 20),
+                       expand=(60, 0, 20, 20), favorite=(90, 0, 20, 20))
+
+    assert [button_tooltip(targets, x + 5, 5) for x in (0, 30, 60, 90)] == [
+        tooltip_for("loop", "Loop this action column"),
+        tooltip_for("cross", "Wrong action — strike it, and it gets asked about again"),
+        tooltip_for("expand_horizontal", "More seeds — widen the net"),
+        tooltip_for("star", "In the favorites"),
+    ]
 
 
 def test_a_declared_row_is_laid_out_as_wide_as_each_button_says():

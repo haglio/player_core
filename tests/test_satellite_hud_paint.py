@@ -22,7 +22,7 @@ from player_core.drive_readout import (
 from player_core.geometry import Rect
 from player_core.hud_button import Button
 from player_core.hud_minimize import RESTORE_TOOLTIP, minimize_command
-from player_core.hud_panel import ACTIVE_DOT, ICON_GRIDS, SYMBOL_FONT, load_font
+from player_core.hud_panel import ACTIVE_DOT, ICON_GRIDS
 from player_core.hud_placement import HudCorner
 from player_core.hud_row import SCRUBBER, RowHud, row_part
 from player_core.modes import Osr2State
@@ -53,11 +53,7 @@ from player_core.satellite_hud import (
     map_row_width,
     slot_width,
 )
-from player_core.satellite_hud_paint import (
-    _EXPAND_GLYPH,
-    _LOOP_GLYPH,
-    HudRenderer,
-)
+from player_core.satellite_hud_paint import HudRenderer
 from player_core.volume import VolumeHud
 
 
@@ -1036,19 +1032,6 @@ def test_a_tooltip_longer_than_the_panel_is_wide_stays_on_the_panel(thumb):
 
     assert right < plain.shape[1] - 1  # it stopped short of the far edge
     assert lower - upper > short_lower - short_upper  # having wrapped to fit
-
-
-def test_the_button_glyphs_are_not_tofu():
-    """Segoe UI has no U+21BB, so drawing the loop button with the UI face gives a
-    ".notdef" tofu.  Qt fell back to Segoe UI Symbol silently; Pillow does not, so
-    the glyph font must cover the map's own two icons itself; the faces a source
-    declares are held to it where they are declared."""
-
-    glyph_font = load_font(11, SYMBOL_FONT)
-    notdef = glyph_font.getmask("").getbbox()
-
-    assert glyph_font.getmask(_LOOP_GLYPH).getbbox() != notdef
-    assert glyph_font.getmask(_EXPAND_GLYPH).getbbox() != notdef
 
 
 def test_the_reset_button_is_never_lit():

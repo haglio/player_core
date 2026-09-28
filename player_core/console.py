@@ -315,5 +315,5 @@ def tooltip_at(placed: list[tuple[Rect, Button]], px: int, py: int) -> str:
     knowing why it cannot be pressed is the point."""
     for (bx, by, bw, bh), button in placed:
         if bx <= px < bx + bw and by <= py < by + bh:
-            return button.tooltip
+            return button.tooltip_on_hover
     return ""
