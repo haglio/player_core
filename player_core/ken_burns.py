@@ -8,8 +8,6 @@ __all__: list[str] = []
 
 ZOOMED_IN = 1.10
 
-CLOSEST_AIM = 8.0
-
 
 @dataclass(frozen=True)
 class View:
@@ -72,44 +70,6 @@ class Moves:
         return self._rng.choice((-1.0, 1.0)), self._rng.choice((-1.0, 1.0))
 
 
-@dataclass(frozen=True)
-class Fit:
-    window: tuple[int, int]
-    shown: tuple[int, int]
-    tiles: int = 1
-
-    def framing(self, part: tuple[float, float, float, float]) -> View:
-        x0, y0, x1, y1 = (min(max(edge, 0.0), 1.0) for edge in part)
-        middle_tile = self.tiles // 2
-        x0, x1 = (middle_tile + x0) / self.tiles, (middle_tile + x1) / self.tiles
-        room_x, room_y = self._room()
-        zoom = min(CLOSEST_AIM, _fitting(room_x, x1 - x0), _fitting(room_y, y1 - y0))
-        return View(zoom, _align_centering((x0 + x1) / 2, room_x, zoom), _align_centering((y0 + y1) / 2, room_y, zoom))
-
-    def _room(self) -> tuple[float, float]:
-        fitted = self._fitted()
-        if fitted is None:
-            return 1.0, 1.0
-        return self.window[0] / fitted[0], self.window[1] / fitted[1]
-
-    def _fitted(self) -> tuple[float, float] | None:
-        (window_w, window_h), (shown_w, shown_h) = self.window, self.shown
-        if not (window_w and window_h and shown_w and shown_h):
-            return None
-        scale = min(window_w / shown_w, window_h / shown_h)
-        return shown_w * scale, shown_h * scale
-
-
-def _fitting(room: float, part: float) -> float:
-    return room / part if part > 0 else math.inf
-
-
-def _align_centering(middle: float, room: float, zoom: float) -> float:
-    if zoom <= room:
-        return 0.0
-    return max(-1.0, min(1.0, 2.0 * (room / 2.0 - middle * zoom) / (room - zoom) - 1.0))
-
-
 class RoomClock:
     def __init__(self) -> None:
         self._lost_s = 0.0
@@ -128,19 +88,6 @@ class RoomClock:
             self._frozen_at_s = None
 
 
-@dataclass(frozen=True)
-class Aim:
-    move: Move
-    started_s: float
-    seconds: float
-
-    def at(self, clock_s: float) -> View:
-        if clock_s >= self.started_s + self.seconds:
-            return self.move.end
-        done = (clock_s - self.started_s) / self.seconds
-        return self.move.at(done * done * (3.0 - 2.0 * done))
-
-
 class KenBurns:
     def __init__(self, moves: Moves | None = None) -> None:
         self._moves = moves or Moves()
@@ -150,7 +97,6 @@ class KenBurns:
         self._started_s = 0.0
         self._held_progress = 0.0
         self._looping = False
-        self._aim: Aim | None = None
 
     @property
     def pace_s(self) -> float:
@@ -170,7 +116,6 @@ class KenBurns:
             self._held_progress = reached
 
     def new_picture(self, now_s: float) -> None:
-        self._aim = None
         self._move = self._moves.deal() if self._pace_s else STANDSTILL
         self._started_s = self._clock.read(now_s)
         self._held_progress = 0.0
@@ -181,12 +126,7 @@ class KenBurns:
         else:
             self._clock.thaw(now_s)
 
-    def aim(self, target: View, seconds: float, now_s: float) -> None:
-        self._aim = Aim(Move(self.view(now_s), target), self._clock.read(now_s), seconds)
-
     def view(self, now_s: float) -> View:
-        if self._aim is not None:
-            return self._aim.at(self._clock.read(now_s))
         return self._move.at(self._progress(now_s))
 
     def ran_out(self, now_s: float) -> bool:

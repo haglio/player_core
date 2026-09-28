@@ -9,6 +9,20 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-09-28 — a frame swapped in carries the still's move, and the aim is gone
+
+`swap_still(path)` puts a picture up in place of the one on screen and carries
+on that one's move and its time: the move is not dealt afresh, and the swapped-in
+picture ends when the one it replaced would have -- onto the staged next clip, or
+as `eof` where nothing is staged. It is how a host shows the frames of a picture
+still being made with the same move every other picture gets.
+
+The aim leaves with the one feature that used it: `aim_still` on the players,
+`KenBurns.aim`, `Aim`, `Fit` and `CLOSEST_AIM` in `ken_burns`, and `AIM_STILL`,
+`aim_still` and `aim_of` in `player_verbs`, none of which was ever in `__all__`.
+The players stop reading their windows' size off Windows (`GetClientRect`), which
+only an aim needed.
+
 ## 2026-09-26 — a still makes one of three moves, and a host can aim one
 
 `push_still` no longer only creeps into the middle of a picture. Each picture

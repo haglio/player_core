@@ -17,10 +17,9 @@ import pytest
 from one_move import DRIFT, OneMove
 
 from player_core import audio_outputs
-from player_core.ken_burns import Fit, Move, zoom_in
+from player_core.ken_burns import Move, zoom_in
 from player_core.mpv_player import (
     TILES_SHADER,
-    _client_size,
     _MpvControl,
     _shared_options,
     tiles_across,
@@ -85,12 +84,11 @@ class Control(_MpvControl):
     """
 
     def __init__(self, mpv, now: float = 0.0, move: Move = CREEP,
-                 window: tuple[int, int] = (0, 0), deals: OneMove | None = None,
+                 deals: OneMove | None = None,
                  looping: bool = False) -> None:
         # the call gate every method here runs under
         super().__init__(deals or OneMove(move), looping=looping)
         self.now = now
-        self._window = window
         self._adopt(mpv)
 
     def _now(self) -> float:
@@ -460,7 +458,7 @@ def test_a_picture_is_drawn_closer_as_its_hold_runs_out():
 
 def test_a_clip_after_a_picture_is_drawn_as_it_comes():
     mpv = FakeMpv()
-    control = Control(mpv, now=100.0, move=DRIFT, window=WIDE)
+    control = Control(mpv, now=100.0, move=DRIFT)
     control.set_pace(4.0)
     show_a_picture(mpv)
     control.now = 101.0
@@ -507,7 +505,7 @@ def test_every_player_keeps_a_picture_centered_along_a_side_it_fits_inside():
 
 def test_a_zoom_about_the_middle_asks_mpv_for_the_zoom_alone():
     mpv = FakeMpv()
-    control = Control(mpv, now=100.0, window=WIDE)
+    control = Control(mpv, now=100.0)
     control.set_pace(4.0)
     show_a_picture(mpv)
     control.now = 102.0
@@ -519,7 +517,7 @@ def test_a_zoom_about_the_middle_asks_mpv_for_the_zoom_alone():
 
 def test_a_picture_that_has_not_moved_since_the_last_frame_asks_mpv_for_nothing():
     mpv = FakeMpv()
-    control = Control(mpv, now=100.0, move=DRIFT, window=WIDE)
+    control = Control(mpv, now=100.0, move=DRIFT)
     control.set_pace(4.0)
     show_a_picture(mpv)
     control.push_still()
@@ -528,21 +526,6 @@ def test_a_picture_that_has_not_moved_since_the_last_frame_asks_mpv_for_nothing(
     control.push_still()
 
     assert mpv.calls == asked
-
-
-def test_aiming_at_a_part_of_the_picture_brings_it_onto_the_part_in_the_time_given():
-    mpv = FakeMpv()
-    control = Control(mpv, now=100.0, move=DRIFT, window=WIDE)
-    control.set_pace(4.0)
-    show_a_picture(mpv)
-    part = (0.5, 0.0, 1.0, 0.5)
-
-    control.aim_still(part, seconds=1.5)
-    control.now = 101.5
-    control.push_still()
-
-    assert (mpv.video_zoom, mpv.video_align_x, mpv.video_align_y) == Fit(
-        WIDE, WIDE).framing(part).placement()
 
 
 def test_a_still_swapped_in_carries_on_the_move_of_the_picture_it_replaced():
@@ -734,17 +717,6 @@ def test_the_gap_between_two_files_is_dealt_no_move_of_its_own():
     mpv.report("path", "made-up-two.png")
 
     assert deals.dealt == 2
-
-
-def test_a_windows_size_is_read_off_windows_itself():
-    user32 = ctypes.windll.user32
-    screen = (user32.GetSystemMetrics(0), user32.GetSystemMetrics(1))  # SM_CXSCREEN, SM_CYSCREEN
-
-    assert _client_size(user32.GetDesktopWindow()) == screen
-
-
-def test_a_window_that_is_not_there_has_no_size():
-    assert _client_size(0) == (0, 0)
 
 
 def zoom_drawn_at(control: Control, mpv: FakeMpv, now: float) -> float:

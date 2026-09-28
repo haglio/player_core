@@ -25,7 +25,6 @@ hidden-desktop integration suite is what exercises that.
 from __future__ import annotations
 
 import ctypes
-import ctypes.wintypes
 import importlib
 import logging
 import math
@@ -37,7 +36,7 @@ from pathlib import Path
 import numpy as np
 
 from .audio_outputs import Output, pick_output
-from .ken_burns import Fit, KenBurns, Moves, View
+from .ken_burns import KenBurns, Moves, View
 from .libmpv_loader import add_libmpv_to_path, libmpv_dirs
 from .mpv_gate import CallGate, mpv_call
 
@@ -218,19 +217,6 @@ CLOSE_DRAIN_TIMEOUT_S = 10.0
 
 _APTTYPEQUALIFIER_IMPLICIT_MTA = 1
 
-_Corners = ctypes.wintypes.LONG * 4
-_user32 = ctypes.WinDLL("user32")
-_user32.GetClientRect.argtypes = (ctypes.wintypes.HWND, ctypes.POINTER(_Corners))
-_user32.GetClientRect.restype = ctypes.wintypes.BOOL
-
-
-def _client_size(hwnd: int) -> tuple[int, int]:
-    corners = _Corners()
-    if not _user32.GetClientRect(hwnd, ctypes.byref(corners)):
-        return 0, 0
-    x0, y0, x1, y1 = corners
-    return x1 - x0, y1 - y0
-
 
 def _holds_a_com_apartment() -> bool:
     kind, qualifier = ctypes.c_int(), ctypes.c_int()
@@ -286,7 +272,6 @@ class _MpvControl:
         self._ken_burns = KenBurns(moves)
         self._ken_burns.set_looping(looping)
         self._placed = (0.0, 0.0, 0.0)
-        self._window = (0, 0)
         self._path: str | None = None
         self._swapped_in: set[str] = set()
         self._ran_out = False
@@ -527,18 +512,6 @@ class _MpvControl:
         else:
             self._mpv.command("playlist-next")
 
-    def aim_still(self, part: tuple[float, float, float, float], seconds: float) -> None:
-        """Take the picture on screen, over *seconds*, onto the part of it from
-        (x0, y0) to (x1, y1) -- fractions of the picture from its top left -- as
-        close as the window fits it, and hold it there until the next file."""
-        self._ken_burns.aim(self._fit().framing(part), seconds, self._now())
-
-    def _fit(self) -> Fit:
-        return Fit(self._window_size(), self._video_dims, self._tiling[0])
-
-    def _window_size(self) -> tuple[int, int]:
-        return self._window
-
     @mpv_call()
     def set_loop_file(self, loop: bool) -> None:
         """Toggle infinite single-file looping at runtime.
@@ -688,8 +661,4 @@ class MpvPlayer(_MpvControl):
             vo="gpu",
             input_vo_keyboard=False,
         )
-        self._wid = int(wid)
         self._adopt(mpv.MPV(**options))
-
-    def _window_size(self) -> tuple[int, int]:
-        return _client_size(self._wid)

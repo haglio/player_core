@@ -1,4 +1,4 @@
-"""The move across a still while it holds the screen: a zoom in, a zoom out, a pan, an aim."""
+"""The move across a still while it holds the screen: a zoom in, a zoom out, a pan."""
 from __future__ import annotations
 
 import itertools
@@ -10,9 +10,7 @@ import pytest
 from one_move import CREEP, DRIFT, OneMove
 
 from player_core.ken_burns import (
-    CLOSEST_AIM,
     ZOOMED_IN,
-    Fit,
     KenBurns,
     Move,
     Moves,
@@ -200,63 +198,6 @@ def test_a_picture_held_since_it_came_up_sets_off_zooming_in_from_the_whole_pict
     assert_along(still.view(now_s=112.0), CREEP, 0.5)
 
 
-PART = View(3.0, 0.5, -0.5)
-
-
-def test_an_aim_sets_off_from_where_the_picture_was_and_holds_on_the_part_once_there():
-    still = paced()
-
-    still.aim(PART, seconds=2.0, now_s=102.0)
-
-    assert_along(still.view(now_s=102.0), DRIFT, 0.5)
-    assert still.view(now_s=104.0) == PART
-    assert still.view(now_s=110.0) == PART
-
-
-def test_an_aim_sets_off_gently_and_settles_gently_on_the_part():
-    still = paced()
-    still.aim(PART, seconds=2.0, now_s=102.0)
-    onto_the_part = Move(DRIFT.at(0.5), PART)
-
-    assert_along(still.view(now_s=102.5), onto_the_part, 0.15625)
-    assert_along(still.view(now_s=103.5), onto_the_part, 0.84375)
-
-
-def test_a_frozen_room_holds_an_aim_where_it_had_got_to():
-    still = paced()
-    still.aim(PART, seconds=2.0, now_s=102.0)
-
-    still.set_paused(True, now_s=103.0)
-
-    assert_along(still.view(now_s=110.0), Move(DRIFT.at(0.5), PART), 0.5)
-
-
-def test_a_quicker_pace_does_not_hurry_an_aim():
-    still = paced()
-    still.aim(PART, seconds=2.0, now_s=102.0)
-
-    still.set_pace(1.0, now_s=103.0)
-
-    assert_along(still.view(now_s=103.0), Move(DRIFT.at(0.5), PART), 0.5)
-
-
-def test_an_aim_given_no_time_is_on_the_part_at_once():
-    still = paced()
-
-    still.aim(PART, seconds=0.0, now_s=102.0)
-
-    assert still.view(now_s=102.0) == PART
-
-
-def test_the_next_picture_lets_go_of_the_aim_and_makes_its_own_move():
-    still = paced()
-    still.aim(PART, seconds=2.0, now_s=102.0)
-
-    still.new_picture(now_s=105.0)
-
-    assert_along(still.view(now_s=105.0), DRIFT, 0.0)
-
-
 def test_a_new_picture_is_dealt_its_own_move_from_the_start():
     deals = OneMove(DRIFT)
     still = paced(deals=deals)
@@ -335,11 +276,10 @@ def mpv_span(window: int, fitted: int, video_zoom: float, align: float) -> tuple
     return start, start + scaled
 
 
-def drawn(fit: Fit, view: View) -> list[tuple[int, int, int]]:
+def drawn(window: tuple[int, int], shown: tuple[int, int], view: View) -> list[tuple[int, int, int]]:
     video_zoom, *aligns = view.placement()
-    return [(window, *mpv_span(window, fitted, video_zoom, align))
-            for window, fitted, align in zip(fit.window, mpv_fitted(fit.window, fit.shown),
-                                             aligns, strict=True)]
+    return [(side, *mpv_span(side, fitted, video_zoom, align))
+            for side, fitted, align in zip(window, mpv_fitted(window, shown), aligns, strict=True)]
 
 
 SHAPES = [(1920, 1080), (832, 1216), (3000, 1000), (1024, 1024)]
@@ -350,11 +290,10 @@ CORNERS = [(-1.0, -1.0), (-1.0, 1.0), (1.0, -1.0), (1.0, 1.0)]
 @pytest.mark.parametrize("corner", CORNERS)
 @pytest.mark.parametrize("zoom", [1.01, ZOOMED_IN, 3.0, 8.0])
 def test_no_view_draws_an_edge_of_the_picture_inside_the_window(shown, corner, zoom):
-    fit = Fit(WIDE, shown)
-    centered = drawn(fit, View(zoom))
+    centered = drawn(WIDE, shown, View(zoom))
 
     for (window, start, end), (_, centered_start, _) in zip(
-            drawn(fit, View(zoom, *corner)), centered, strict=True):
+            drawn(WIDE, shown, View(zoom, *corner)), centered, strict=True):
         if start > 0 or end < window:
             assert start == centered_start
 
@@ -362,57 +301,6 @@ def test_no_view_draws_an_edge_of_the_picture_inside_the_window(shown, corner, z
 @pytest.mark.parametrize("shown", SHAPES)
 @pytest.mark.parametrize("corner", CORNERS)
 def test_a_view_at_the_end_of_its_reach_brings_the_pictures_edge_up_to_the_windows(shown, corner):
-    for window, start, end in drawn(Fit(WIDE, shown), View(8.0, *corner)):
+    for window, start, end in drawn(WIDE, shown, View(8.0, *corner)):
         assert start <= 0 and end >= window
         assert min(-start, end - window) == 0
-
-
-def part_drawn(fit: Fit, view: View, part: tuple[float, float, float, float]):
-    x0, y0, x1, y1 = part
-    return [(window, start + low * (end - start), start + high * (end - start))
-            for (window, start, end), (low, high) in zip(
-                drawn(fit, view), ((x0, x1), (y0, y1)), strict=True)]
-
-
-def test_aiming_at_a_part_fits_it_in_the_window_and_puts_it_in_the_middle():
-    fit = Fit(WIDE, WIDE)
-    part = (0.25, 0.25, 0.75, 0.75)
-
-    for window, start, end in part_drawn(fit, fit.framing(part), part):
-        assert start == pytest.approx(0, abs=2)
-        assert end == pytest.approx(window, abs=2)
-
-
-@pytest.mark.parametrize("shown", SHAPES)
-@pytest.mark.parametrize("part", [(0.75, 0.0, 1.0, 0.25), (0.0, 0.8, 0.3, 1.0), (0.4, 0.3, 0.6, 0.5)])
-def test_a_part_aimed_at_anywhere_in_the_picture_is_drawn_whole_inside_the_window(shown, part):
-    fit = Fit(WIDE, shown)
-
-    for window, start, end in part_drawn(fit, fit.framing(part), part):
-        assert start >= -1
-        assert end <= window + 1
-
-
-def test_aiming_at_a_sliver_comes_no_closer_than_an_aim_ever_comes():
-    fit = Fit(WIDE, WIDE)
-
-    assert fit.framing((0.5, 0.2, 0.5, 0.3)).zoom == CLOSEST_AIM
-
-
-def test_a_part_reaching_past_the_picture_is_aimed_at_what_of_it_lies_inside():
-    fit = Fit(WIDE, WIDE)
-
-    assert fit.framing((-0.5, 0.25, 0.5, 0.75)) == fit.framing((0.0, 0.25, 0.5, 0.75))
-
-
-def test_aiming_before_the_window_is_known_frames_the_part_as_if_it_had_the_pictures_shape():
-    part = (0.0, 0.0, 0.5, 0.5)
-
-    assert Fit((0, 0), WIDE).framing(part) == Fit(WIDE, WIDE).framing(part)
-
-
-def test_aiming_on_a_player_laying_the_picture_out_in_tiles_aims_at_the_middle_tile():
-    strip = (1920, 1080)
-
-    assert Fit(WIDE, strip, tiles=3).framing((0.25, 0.25, 0.75, 0.75)) == Fit(
-        WIDE, strip).framing((1.25 / 3, 0.25, 1.75 / 3, 0.75))
