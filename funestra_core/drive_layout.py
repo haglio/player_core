@@ -49,7 +49,7 @@ _AMP_LABEL_W = 25    # room for "Amp" down the right
 _WAVE_W = 120        # the trace, between the two axis columns
 
 SECTION_W = _CTR_LABEL_W + _GAP + _CTRL + _GAP + _WAVE_W + _GAP + _AMP_W + _GAP + _AMP_LABEL_W
-SECTION_H = _CTRL + _MARK_GAP + _WAVE_H + _GAP + _CTRL + 2 + _LABEL_H
+SECTION_H = _CTRL + _MARK_GAP + _WAVE_H + _MARK_GAP + _CTRL + 2 + _LABEL_H
 
 # How many points the trace is drawn from. Shared, because a funscript sampled
 # to take the trace over has to arrive at the same resolution as the motion it
@@ -132,7 +132,7 @@ def geometry(x: int, y: int, center_frac: float) -> Geometry:
     center_handle = (x, up_y, _CTR_LABEL_W + _GAP, label_h)
     amp_label = (amp_x + _AMP_W + _GAP, wave_y + (_WAVE_H - label_h) // 2, _AMP_LABEL_W, label_h)
 
-    speed_y = wave_lower + _GAP
+    speed_y = wave_lower + _MARK_GAP
     speed_up_x = wave_x + _WAVE_W - _CTRL
     bar_x = speed_up_x - _MARK_GAP - amp_bar_h
     speed_down = (bar_x - _MARK_GAP - _CTRL, speed_y, _CTRL, _CTRL)

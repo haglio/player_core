@@ -47,6 +47,12 @@ def test_the_speed_bar_is_as_wide_as_the_amplitude_bar_is_tall():
     assert g.speed_bar[2] == g.amp_bar[3]
 
 
+def test_the_amplitude_s_lower_mark_sits_level_with_the_speed_marks_beside_it():
+    g = layout.geometry(0, 0, 0.5)
+
+    assert g.amp_down[1] == g.speed_up[1] == g.speed_down[1]
+
+
 def _overlap(a, b) -> bool:
     ax, ay, aw, ah = a
     bx, by, bw, bh = b
