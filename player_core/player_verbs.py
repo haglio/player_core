@@ -31,6 +31,7 @@ __all__ = [
     "SEEK_BACK",
     "SEEK_FWD",
     "SET_F_MODE",
+    "SET_MAX_INTENSITY",
     "SET_PACE",
     "SET_SPEED",
     "SET_TCODE_ENABLED",
