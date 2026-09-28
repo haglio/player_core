@@ -15,7 +15,7 @@ from player_core.drive_layout import SECTION_W
 from player_core.drive_readout import DRIVEN_BY_ROBOT_HAND, DriveHud, section_size, tracks
 from player_core.geometry import Rect
 from player_core.hud_button import Button
-from player_core.hud_minimize import minimize_command
+from player_core.hud_minimize import RESTORE_TOOLTIP, minimize_command
 from player_core.hud_panel import ACTIVE_DOT, ICON_GRIDS, SYMBOL_FONT, load_font
 from player_core.hud_placement import HudCorner
 from player_core.hud_row import SCRUBBER, RowHud, row_part
@@ -1676,6 +1676,21 @@ def test_the_minimize_button_sits_opposite_the_edge_the_panel_is_justified_to(th
     assert x + w == left.bgra.shape[1] - PAD
     assert PAD <= y < PAD + STATUS_BAND_H
     assert _button_rect(right, "portrait_hud_minimize")[0] == PAD
+
+
+def test_the_pointer_on_a_minimized_panel_names_what_the_plus_does(thumb):
+    """It is the one control on the panel and every other control names itself
+    on hover, so the plus does too -- in the panel's own bitmap, since a HUD
+    painted into a video has no tooltip to fall back on."""
+    rendered = HudRenderer("portrait").render(
+        _model(hud_minimized=True, corner=HudCell(path="c.mp4", thumb=thumb)),
+        video="one.mp4", hover_tip=RESTORE_TOOLTIP, hover_pos=(CTRL_BTN // 2, CTRL_BTN // 2))
+    height, width = rendered.bgra.shape[:2]
+    (rect, button), = rendered.targets.buttons
+
+    assert (width, height) > (CTRL_BTN, CTRL_BTN)
+    assert rect == (0, 0, CTRL_BTN, CTRL_BTN)
+    assert button.command == "portrait_hud_restore"
 
 
 def test_a_minimized_panel_is_the_restore_button_and_nothing_else(thumb):

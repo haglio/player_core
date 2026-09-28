@@ -383,7 +383,7 @@ class ConsolePainter:
                clip_row: RowHud | None = None, heatmap=None) -> Image.Image:
         console, drive = hud.console, hud.drive
         if console.hud_minimized:
-            return self._paint_minimized(console.player, hover)
+            return self._paint_minimized(console.player, console.hud_corner, hover)
         # Held for the OSR2 pill: with a composed trace on the panel the pill
         # reads the trace's own answer to who has the device (see _osr2_state),
         # and the width helpers need it before the pill is drawn.
@@ -484,8 +484,10 @@ class ConsolePainter:
                 draw_tooltip(draw, self._tiny, tip, hover, (width, height))
         return panel.image
 
-    def _paint_minimized(self, player: str, hover: tuple[int, int] | None) -> Image.Image:
-        image, buttons = collapsed_button(player, hovered=hover is not None)
+    def _paint_minimized(self, player: str, corner: HudCorner,
+                         hover: tuple[int, int] | None) -> Image.Image:
+        image, buttons = collapsed_button(player, corner, hover=hover,
+                                          room_for_the_tooltip=self._width is not None)
         self.buttons, self.tracks, self.row_rect = buttons, [], None
         return image
 
