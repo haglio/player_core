@@ -14,12 +14,11 @@ LONG_TIP = ("Reset the browse: no filter, no lock, no loop, no F-Mode, and the "
 
 
 def console_rows(mode: str = "kino", *, locked: bool = False, favorites: bool = False,
-                 remembered: bool = False, cruise: bool = False,
+                 remembered: bool = False,
                  enhanced: bool | None = None,
                  recording: bool = False) -> tuple[tuple[Button, ...], ...]:
-    """The mode row with minimize riding it, the transport, a named read-out
-    between two arrows, and the motion's row -- the controls only a video has,
-    only in kino mode."""
+    """The mode row with minimize riding it, the transport, and a named read-out
+    between two arrows -- the controls only a video has, only in kino mode."""
     kino = mode == "kino"
     pace = "main_player_speed" if kino else "genau_clip_seconds"
     return (
@@ -46,8 +45,11 @@ def console_rows(mode: str = "kino", *, locked: bool = False, favorites: bool = 
          Button("", "", "", width=VALUE_W,
                 host_value="playback_speed" if kino else "advance_interval"),
          Button(f"{pace}_up", "+", "More")),
-        (Button("robot_hand_toggle_cruise", "cc", "Cruise control", lit=cruise),),
     )
+
+
+def motion_rows(*, cruise: bool = False) -> tuple[tuple[Button, ...], ...]:
+    return ((Button("robot_hand_toggle_cruise", "cc", "Cruise control", lit=cruise),),)
 
 
 def osr2_controls(*, broker: bool = True) -> tuple[Button, ...]:

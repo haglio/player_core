@@ -167,6 +167,7 @@ class ConsoleModel:
     # the OSR2 line: what each posts, its face, its tooltip and its state.  The
     # console draws nothing it was not handed.
     rows: tuple[tuple[Button, ...], ...] = ()
+    osr2_rows: tuple[tuple[Button, ...], ...] = ()
     osr2_controls: tuple[Button, ...] = ()
     has_osr2: bool = True
     max_intensity: int | None = None
@@ -215,6 +216,7 @@ def console_text(model: ConsoleModel) -> str:
         "osr2_control": model.osr2_control,
         "locked": model.locked,
         "rows": rows_raw(model.rows),
+        "osr2_rows": rows_raw(model.osr2_rows),
         "osr2_controls": buttons_raw(model.osr2_controls),
         "has_osr2": model.has_osr2,
         "max_intensity": model.max_intensity,
@@ -242,6 +244,7 @@ def parse_console(text: str) -> ConsoleModel | None:
         osr2_control=str(raw.get("osr2_control", "") or OSR2_CONTROL_UNANSWERED),
         locked=bool(raw.get("locked", True)),
         rows=rows_from_raw(raw.get("rows")),
+        osr2_rows=rows_from_raw(raw.get("osr2_rows")),
         osr2_controls=buttons_from_raw(raw.get("osr2_controls")),
         has_osr2=bool(raw.get("has_osr2", True)),
         max_intensity=max_intensity_from_raw(raw.get("max_intensity")),

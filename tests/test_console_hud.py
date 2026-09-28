@@ -5,9 +5,9 @@ from dataclasses import replace
 
 import numpy as np
 import pytest
-from console_rows import console_rows, osr2_controls
+from console_rows import console_rows, motion_rows, osr2_controls
 from shared_ui import colors
-from shared_ui.palette import BG_PRIMARY, BLUE, GREEN, MAGENTA, TEXT_MUTED, WHITE
+from shared_ui.palette import BG_PRIMARY, BLUE, BORDER_PANEL, GREEN, MAGENTA, TEXT_MUTED, WHITE
 
 from player_core.console import (
     BUTTON,
@@ -33,7 +33,9 @@ from player_core.drive_readout import (
     DRIVEN_BY_NEUTRAL,
     POSITION_MAX,
     DriveHud,
+    section_size,
     trace_ink,
+    tracks,
 )
 from player_core.geometry import Rect
 from player_core.hud_button import Button
@@ -387,7 +389,8 @@ class TestPainter:
         blue = BLUE
         shade, _pixels = self._busiest_shade(
             "robot_hand_toggle_cruise",
-            ConsoleModel(main_mode=MainMode.GENAU, rows=console_rows("genau", cruise=True)))
+            ConsoleModel(main_mode=MainMode.GENAU, rows=console_rows("genau"),
+                         osr2_rows=motion_rows(cruise=True)))
 
         assert shade == blue
 
@@ -764,6 +767,18 @@ class TestDeclaredRows:
 
         assert [button.command for _rect, button in _declared(painter)] == [
             "go_on", "", "slower", "wake_broker"]
+
+    def test_the_rows_that_aim_the_device_are_drawn_under_the_rest_and_over_its_line(self):
+        painter = ConsolePainter()
+        painter.bgra(ConsoleHud(console=ConsoleModel(
+            osr2=Osr2State.ROBOT_HAND,
+            rows=((Button("go_on", "⏭", "On to the next"),),),
+            osr2_rows=((Button("robot_hand_park", "P", "Parked"),),),
+            osr2_controls=(Button("broker_panel", BROKER_ICON, "Broker"),))))
+
+        assert (_button_rect(painter, "go_on")[1]
+                < _button_rect(painter, "robot_hand_park")[1]
+                < _button_rect(painter, "broker_panel")[1])
 
     def test_a_panel_that_declares_no_buttons_draws_none(self):
         """The buttons are the source's to declare; a panel naming none is the
@@ -1423,3 +1438,39 @@ class TestWhereTheConsoleSits:
 
         assert (x, y + BUTTON) == (0, height)
         assert width > BUTTON
+
+
+def _dividers(bgra) -> list[int]:
+    rgba = bgra[:, :, [2, 1, 0, 3]]
+    return [y for y in range(rgba.shape[0]) if (rgba[y] == (*BORDER_PANEL, 255)).all()]
+
+
+def _span(rects) -> tuple[int, int]:
+    rects = list(rects)
+    return min(y for _x, y, _w, _h in rects), max(y + h for _x, y, _w, h in rects)
+
+
+class TestEverySectionIsSetOffFromTheNextByALine:
+    def test_a_console_carrying_every_section_has_a_line_between_each_and_the_next(self):
+        painter = ConsolePainter()
+        drive = _drive()
+        bgra = painter.bgra(ConsoleHud(
+            modes=ModeHud(video="scene one"),
+            console=ConsoleModel(main_mode=MainMode.KINO, osr2=Osr2State.ROBOT_HAND,
+                                 rows=console_rows(), osr2_rows=motion_rows(),
+                                 osr2_controls=osr2_controls()),
+            drive=drive), clip_row=RowHud(duration_ms=60_000))
+        controls = _span(rect for rect, button in _declared(painter)
+                         if button.command.startswith(("main_", "genau_")))
+        readout_top = painter.tracks[0].rect[1] - tracks(0, 0, drive)[0].rect[1]
+        device = (_button_rect(painter, "robot_hand_toggle_cruise")[1],
+                  readout_top + section_size()[1])
+        _x, row_y, _w, row_h = painter.row_rect
+
+        lines = _dividers(bgra)
+
+        assert len(lines) == 3
+        assert lines[0] < controls[0]
+        assert controls[1] <= lines[1] < device[0]
+        assert device[1] <= lines[2] < row_y
+        assert (_rgb(bgra)[lines[0] + 1:controls[0], 1:-1] == BG_PRIMARY).all()

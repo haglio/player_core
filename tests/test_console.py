@@ -205,6 +205,14 @@ class TestThePublishedConsoleIsWrittenWhereItIsRead:
 
         assert parse_console(console_text(model)) == model
 
+    def test_the_rows_that_aim_the_device_survive_it_apart_from_the_rest(self):
+        aim = ((Button("robot_hand_park", "P", "Parked"),),)
+        model = ConsoleModel(rows=ROWS, osr2_rows=aim)
+
+        parsed = parse_console(console_text(model))
+
+        assert (parsed.rows, parsed.osr2_rows) == (ROWS, aim)
+
     def test_what_the_drawing_player_folds_in_is_not_published(self):
         """The playback rate and the clip pace are the drawing host's own --
         Fun Time neither sets them nor hears about them -- so the text does not
