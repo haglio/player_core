@@ -9,6 +9,20 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-09-28 — a HUD button whose mark is missing says so on hover
+
+shared_ui draws a stand-in, a rounded square with a question mark in it, for a
+mark its installed version does not have, where it used to raise `KeyError`
+inside the paint. `Button.tooltip_on_hover` is what a HUD shows for a button: the
+source's own `tooltip`, and when the button's face is one of the family's marks
+that shared_ui lacks, shared_ui's `tooltip_for` explanation on the lines under it.
+`console.tooltip_at` and `satellite_hud.button_tooltip` answer with it, and the
+satellite map's own loop, strike, expand and favorite controls ask `tooltip_for`
+with their marks, which now sit beside their tooltips in `satellite_hud`
+(`LOOP_MARK`, `EXPAND_MARK`, `FAVORITE_MARK`, `WRONG_ACTION_MARK`). A HUD tooltip
+starts a new line wherever its text does, where it used to fold a line break into
+a space.
+
 ## 2026-09-28 — a frame swapped in carries the still's move, and the aim is gone
 
 `swap_still(path)` puts a picture up in place of the one on screen and carries
