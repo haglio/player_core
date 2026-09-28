@@ -16,6 +16,11 @@ class Stacked:
     end: int
 
 
+def blocks_height(heights: Sequence[int], gap: int) -> int:
+    present = [height for height in heights if height]
+    return sum(present) + gap * max(0, len(present) - 1)
+
+
 def stack(top: int, heights: Sequence[int]) -> Stacked:
     tops: list[int] = []
     dividers: list[int] = []

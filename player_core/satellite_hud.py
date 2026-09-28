@@ -36,7 +36,7 @@ from .geometry import Rect, contains
 from .hud_button import Button, buttons_from_raw, buttons_raw, rows_from_raw, rows_raw
 from .hud_osr2 import HEIGHT as OSR2_H
 from .hud_placement import HudCorner, HudEdge
-from .hud_sections import stack
+from .hud_sections import blocks_height, stack
 from .hud_status import SEPARATOR
 from .modes import read_mode
 
@@ -223,14 +223,11 @@ def panel_width(player: str, name_width: int = 0, *, content_width: int = 0) -> 
                STATUS_TEXT_X + name_width + PAD, content_width)
 
 
-def _blocks_height(heights: Sequence[int]) -> int:
-    return sum(heights) + BLOCK_GAP * max(0, len(heights) - 1)
-
-
 def device_height(osr2: str, drive: DriveHud | None, drive_h: int,
                   osr2_rows: int = 0) -> int:
-    return _blocks_height([CTRL_BTN] * osr2_rows + ([OSR2_H] if osr2 else [])
-                + ([drive_h] if drive is not None else []))
+    return blocks_height([CTRL_BTN] * osr2_rows + [OSR2_H if osr2 else 0,
+                                                    drive_h if drive is not None else 0],
+                         BLOCK_GAP)
 
 
 @dataclass(frozen=True)
@@ -247,8 +244,8 @@ class PanelLayout:
 
 def panel_layout(*, status_h: int, bands: int = 0, speed: bool = False,
                  row_h: int = 0, device_h: int = 0, foot_h: int = 0) -> PanelLayout:
-    stacked = stack(PAD, [status_h, _blocks_height([CTRL_BTN] * (bands + speed)), row_h,
-                          device_h, foot_h, MAP_H])
+    stacked = stack(PAD, [status_h, blocks_height([CTRL_BTN] * (bands + speed), BLOCK_GAP),
+                          row_h, device_h, foot_h, MAP_H])
     _status, bands_top, row_top, device_top, foot_top, map_top = stacked.tops
     return PanelLayout(bands_top, bands_top + bands * CTRL_BAND_H, row_top, device_top,
                        foot_top, map_top, stacked.end + PAD, stacked.dividers)
