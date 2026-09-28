@@ -19,6 +19,7 @@ from enum import Enum
 from .tcode import POSITION_MAX
 
 __all__ = [
+    "FULL_INTENSITY",
     "MAX_SPEED",
     "MAX_TICK_SECONDS",
     "MIN_SPEED",
@@ -35,6 +36,8 @@ __all__ = [
     "position_fraction",
     "set_amplitude",
     "set_center",
+    "set_dials",
+    "set_max_intensity",
     "set_speed",
     "trace_window",
 ]
