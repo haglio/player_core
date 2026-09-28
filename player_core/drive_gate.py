@@ -33,6 +33,7 @@ from dataclasses import replace
 from .descent_latch import DescentLatch
 from .drive_readout import DriveHud
 from .drive_trace import drive_readout
+from .robot_hand import FULL_INTENSITY
 from .trace_grid import on_the_grid
 
 __all__ = ["DriveGate"]
@@ -91,7 +92,8 @@ class DriveGate:
 
     *session* is the player drawing the picture, read for where it is
     (``position_ms``), in what (``current_video``), with which script as it
-    will play it (``funscript_as_played``) and how fast (``speed``).
+    will play it (``funscript_as_played``), how fast (``speed``) and how hard
+    the OSR2 may work (``max_intensity``).
     """
 
     def __init__(self, session) -> None:
@@ -157,6 +159,7 @@ class DriveGate:
             position_ms=position,
             speed=self._session.speed,
             latch=self._latch,
+            max_intensity=getattr(self._session, "max_intensity", FULL_INTENSITY),
         )
 
     def handoff_touch(self) -> int | None:

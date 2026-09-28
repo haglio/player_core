@@ -19,11 +19,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from PIL import Image, ImageDraw
-from shared_ui.palette import BLUE, GREEN, MAGENTA, TEXT_MUTED, TEXT_PRIMARY, WHITE
+from shared_ui.palette import BLUE, GREEN, MAGENTA, RED, TEXT_MUTED, TEXT_PRIMARY, WHITE
 from shared_ui.spacing import BUTTON_RADIUS_HUD
 
 from . import drive_layout
 from .drive_layout import (
+    MAX_INTENSITY,
     TRACE_SAMPLES,  # noqa: F401 — re-exported: genau reads it from here
     DriveControl,
     DriveTrack,
@@ -40,7 +41,7 @@ from .hud_panel import (
     load_font,
     text_width,
 )
-from .robot_hand import POSITION_MAX
+from .robot_hand import FULL_INTENSITY, POSITION_MAX, amplitude_ceiling, speed_ceiling
 
 __all__ = [
     "CONTROL_TIPS",
@@ -91,6 +92,7 @@ _LABEL_H = drive_layout.LABEL_H
 _CTRL = drive_layout.CONTROL_SIZE
 _GAP = drive_layout.GAP
 _KEY_GAP = 6  # between a key and the value it names
+_ETCH_PITCH = 4  # between the red lines across a stretch a bar cannot reach
 
 # A disabled part's ink: a dark gray, laid down opaque.  While a funscript has
 # the device the controls stay put — removing them resized the panel, and the
@@ -98,7 +100,7 @@ _KEY_GAP = 6  # between a key and the value it names
 # unpressable is drawn in this instead.  Dark and opaque on purpose: over a
 # bright video a see-through pixel is a *brighter* pixel, so muted ink at part
 # alpha glows rather than dims.
-_DISABLED = (84, 84, 88, 255)
+DISABLED_INK = (84, 84, 88, 255)
 
 # The trace is drawn this many times larger and scaled back down, which is what
 # smooths it: Pillow's line has no antialiasing of its own, so drawn at panel
@@ -188,6 +190,7 @@ class DriveHud:
     # not the position it stopped at, and reconstructing the height downstream
     # from the console's laggy flip recorded the parked floor instead.
     let_go: float | None = None
+    max_intensity: int = FULL_INTENSITY
 
     @property
     def driving(self) -> bool:
@@ -238,13 +241,17 @@ def controls(x: int, y: int, hud: DriveHud) -> list[DriveControl]:
 def tracks(x: int, y: int, hud: DriveHud) -> list[DriveTrack]:
     """The readout's bands at ``(x, y)``, read off *hud* — the three you press to
     set a level outright instead of walking to it with the marks."""
-    return drive_layout.tracks(x, y, hud.center, dim=not hud.driving)
+    return drive_layout.tracks(
+        x, y, hud.center, dim=not hud.driving,
+        amplitude_ceiling=amplitude_ceiling(hud.max_intensity, hud.speed),
+        speed_ceiling=speed_ceiling(hud.max_intensity, hud.amplitude))
 
 
 def track_command(track: DriveTrack, px: int, py: int) -> str:
     """What a press at ``(px, py)`` on *track* posts — the numeric set command Fun
-    Time already routes to the Robot Hand."""
-    return f"robot_hand_{track.axis}_{track_value(track, px, py)}"
+    Time already routes to the Robot Hand, or to the OSR2 itself."""
+    owner = "" if track.axis == MAX_INTENSITY else "robot_hand_"
+    return f"{owner}{track.axis}_{track_value(track, px, py)}"
 
 
 # The readout draws its own marks, but a panel hosting it still has to know what
@@ -336,6 +343,13 @@ class TrackGrip:
         self._held, self._asked = None, ""
 
 
+def draw_level_bar(draw, rect: Rect, *, fill: float, color) -> None:
+    x, y, w, h = rect
+    draw.rectangle([x, y, x + w - 1, y + h - 1], fill=(*_TRACK, 255))
+    filled = max(1, round(fill * w))
+    draw.rectangle([x, y, x + filled - 1, y + h - 1], fill=color)
+
+
 class DriveSection:
     """The readout itself, drawn into whatever panel is hosting it."""
 
@@ -359,12 +373,13 @@ class DriveSection:
         # whether a funscript has the device or nothing does.  Never the
         # funscript's green: these are the hand's numbers, and a script driving
         # does not make them the script's.
-        level_ink = (*BLUE, 255) if hud.driving else _DISABLED
-        value_ink = (*TEXT_PRIMARY, 255) if hud.driving else _DISABLED
+        level_ink = (*BLUE, 255) if hud.driving else DISABLED_INK
+        value_ink = (*TEXT_PRIMARY, 255) if hud.driving else DISABLED_INK
 
         self._wave(image, g.wave, hud)
         self._amp_bar(draw, g.amp_bar, hud, color=level_ink)
-        self._bar(draw, g.speed_bar, fill=_fraction(hud.speed), color=level_ink)
+        draw_level_bar(draw, g.speed_bar, fill=_fraction(hud.speed), color=level_ink)
+        self._etch_what_the_max_intensity_rules_out(draw, g, hud)
         for control in controls(x, y, hud):
             self._draw_control(draw, control)
 
@@ -381,7 +396,7 @@ class DriveSection:
     def _draw_control(self, draw, control: DriveControl) -> None:
         """One integrated mark: an outline square with its glyph, dimmed at a limit."""
         x, y, w, h = control.rect
-        ink = _DISABLED if control.dim else (*TEXT_PRIMARY, 255)
+        ink = DISABLED_INK if control.dim else (*TEXT_PRIMARY, 255)
         draw.rounded_rectangle([x, y, x + w - 1, y + h - 1], radius=BUTTON_RADIUS_HUD,
                                outline=ink, width=1)
         draw_glyph(draw, x + w / 2, y + h / 2, control.glyph, self._glyph, ink)
@@ -409,12 +424,29 @@ class DriveSection:
         draw.text((value_x, y + _LABEL_H / 2), value, font=self._tiny, anchor="lm",
                   fill=ink)
 
+    def _etch_what_the_max_intensity_rules_out(self, draw, g: drive_layout.Geometry,
+                                               hud: DriveHud) -> None:
+        ink = (*RED, 255) if hud.driving else DISABLED_INK
+        sx, sy, sw, sh = g.speed_bar
+        fastest = _fraction(speed_ceiling(hud.max_intensity, hud.amplitude))
+        self._etch(draw, (sx + round(fastest * sw), sy, sx + sw, sy + sh), ink)
+        ax, ay, aw, ah = g.amp_bar
+        widest = amplitude_ceiling(hud.max_intensity, hud.speed)
+        center_at_the_widest = max(widest / 2, min(100 - widest / 2, hud.center))
+        reach = round(_fraction(widest) * ah)
+        top = ay + round((1 - _fraction(center_at_the_widest)) * ah - reach / 2)
+        self._etch(draw, (ax, ay, ax + aw, max(ay, top)), ink)
+        self._etch(draw, (ax, min(ay + ah, top + reach), ax + aw, ay + ah), ink)
+
     @staticmethod
-    def _bar(draw, rect: Rect, *, fill: float, color) -> None:
-        x, y, w, h = rect
-        draw.rectangle([x, y, x + w - 1, y + h - 1], fill=(*_TRACK, 255))
-        filled = max(1, round(fill * w))
-        draw.rectangle([x, y, x + filled - 1, y + h - 1], fill=color)
+    def _etch(draw, box: tuple[int, int, int, int], ink) -> None:
+        x0, y0, x1, y1 = box
+        width, height = x1 - x0, y1 - y0
+        for k in range(0, width + height - 1, _ETCH_PITCH):
+            first, last = max(0, k - (width - 1)), min(height - 1, k)
+            if first <= last:
+                draw.line([(x0 + k - first, y0 + first), (x0 + k - last, y0 + last)],
+                          fill=ink, width=1)
 
     def _wave(self, image: Image.Image, rect: Rect, hud: DriveHud) -> None:
         """The motion drawn as a trace, each stretch in the color of whoever
@@ -517,6 +549,7 @@ def drive_text(hud: DriveHud) -> str:
     lines.append(f"slide={hud.slide:.3f}")
     if hud.edge is not None:
         lines.append(f"edge={hud.edge:.3f}")
+    lines.append(f"max_intensity={hud.max_intensity}")
     lines.append("waveform=" + ",".join(f"{value:.3f}" for value in hud.waveform))
     return "\n".join(lines) + "\n"
 
@@ -552,6 +585,7 @@ def read_drive(path: Path) -> DriveHud | None:
         let_go=_let_go(values.get("let_go")),
         slide=_let_go(values.get("slide")) or 0.0,
         edge=_let_go(values.get("edge")),
+        max_intensity=_max_intensity(values.get("max_intensity", "")),
     )
 
 
@@ -573,6 +607,10 @@ def _seconds(raw: str) -> float:
         return float(raw)
     except ValueError:
         return DriveHud.trace_seconds
+
+
+def _max_intensity(raw: str) -> int:
+    return int(raw) if raw.strip().isdigit() else DriveHud.max_intensity
 
 
 def _waveform(raw: str) -> tuple[float, ...]:

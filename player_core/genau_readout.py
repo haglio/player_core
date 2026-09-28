@@ -200,6 +200,7 @@ class GenauReadout:
             waveform=tuple(waveform),
             slide=slide,
             edge=edge,
+            max_intensity=ds.max_intensity,
         )
 
     def _trace(self, display_seconds: float, start_phase: float,
@@ -222,7 +223,7 @@ class GenauReadout:
         elif self.cruise_control is not None and self.cruise_control.stack:
             heights, slide = wave_stack.trace_window(
                 self.cruise_control.stack, self.cruise_control.clock,
-                TRACE_SAMPLES, display_seconds)
+                TRACE_SAMPLES, display_seconds, max_intensity=self.robot_hand.max_intensity)
         else:
             ds = self.robot_hand
             heights, slide = trace_window(

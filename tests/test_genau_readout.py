@@ -14,12 +14,14 @@ from pathlib import Path
 
 import pytest
 
+from player_core import wave_stack
 from player_core.clip_advance import ClipAdvanceState
 from player_core.cruise_control import (
     CruiseControlState,
     enable_cruise_control,
     tick_cruise_control,
 )
+from player_core.drive_readout import TRACE_SAMPLES
 from player_core.flag import Flag
 from player_core.genau_controls import GenauControls
 from player_core.genau_readout import AutoMotion, GenauReadout
@@ -269,6 +271,32 @@ class TestTheTraceHoldsStillAndSlides:
 
         assert shown[-1].drive.waveform == pytest.approx(shown[-2].drive.waveform, abs=1e-4)
         assert shown[-1].drive.slide > shown[-2].drive.slide
+
+
+class TestTheTraceUnderTheMaxIntensity:
+    def test_the_readout_says_the_max_intensity_the_wave_is_held_to(self):
+        hand = RobotHandState(playing=True, speed=90, amplitude=100, max_intensity=40)
+        shown = []
+
+        _readout(controls=_controls(direct=hand), set_console=shown.append).update(1.0)
+
+        assert shown[-1].drive.max_intensity == 40
+
+    def test_a_stack_held_down_by_its_max_intensity_is_drawn_as_the_stack_it_leaves(self):
+        hand = RobotHandState(playing=True, speed=90, amplitude=100, max_intensity=40)
+        cruise = CruiseControlState(rng=random.Random(2))
+        enable_cruise_control(cruise)
+        tick_cruise_control(hand, cruise, now=1.0)
+        tick_cruise_control(hand, cruise, now=1.05)
+        shown = []
+
+        _readout(controls=_controls(direct=hand, cruise=cruise),
+                 set_console=shown.append).update(1.05)
+
+        drive = shown[-1].drive
+        heights, _slide = wave_stack.trace_window(
+            cruise.stack, cruise.clock, TRACE_SAMPLES, drive.trace_seconds, max_intensity=40)
+        assert drive.waveform == pytest.approx(tuple(heights[:TRACE_SAMPLES]))
 
 
 class TestTheTraceUnderTheLearnedMotion:

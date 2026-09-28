@@ -67,9 +67,11 @@ SPEED_UP = "SPEED_UP"
 SPEED_DOWN = "SPEED_DOWN"
 SET_SPEED = "SET_SPEED"
 
-# The sound (SET_VOLUME <0-100> [muted]) and the device (SET_TCODE_ENABLED 0|1).
+# The sound (SET_VOLUME <0-100> [muted]), the device (SET_TCODE_ENABLED 0|1), and
+# how hard the device may work (SET_MAX_INTENSITY <0-100>).
 SET_VOLUME = "SET_VOLUME"
 SET_TCODE_ENABLED = "SET_TCODE_ENABLED"
+SET_MAX_INTENSITY = "SET_MAX_INTENSITY"
 
 # What the source holds and the player cannot see: whether the list it was
 # handed is the narrowed one (SET_F_MODE 0|1), and whether the player owns its

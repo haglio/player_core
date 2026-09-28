@@ -453,10 +453,10 @@ class ConsolePainter:
         if console.has_osr2:
             y += _ROW_GAP
             osr2_line = self._osr2_line(console)
-            self.buttons.extend(self._osr2.draw(
-                panel.image, draw,
-                self._block_x(corner, width, self._osr2.width(osr2_line)),
-                y, osr2_line, hover=hover))
+            osr2_x = self._block_x(corner, width, self._osr2.width(osr2_line))
+            self.buttons.extend(self._osr2.draw(panel.image, draw, osr2_x, y, osr2_line,
+                                                hover=hover))
+            self.tracks.extend(self._osr2.bands(osr2_x, y, osr2_line))
             y += _OSR2_H
 
         if drive is not None:
@@ -468,8 +468,9 @@ class ConsolePainter:
             # The readout draws its own arrows and bands; the console only needs
             # them as hit targets, so they answer a press and name themselves on
             # hover.
-            targets, self.tracks = readout_targets(drive_x, y, drive)
+            targets, bands = readout_targets(drive_x, y, drive)
             self.buttons.extend(targets)
+            self.tracks.extend(bands)
 
         self.buttons.append(minimize)
         self.row_rect = None
@@ -507,7 +508,8 @@ class ConsolePainter:
     def _osr2_line(self, model: ConsoleModel) -> Osr2Line:
         """The device's line as the shared section takes it — the controls the
         source put on it, and this console's own answer to who has the OSR2."""
-        return Osr2Line(state=self._osr2_state(model), controls=model.osr2_controls)
+        return Osr2Line(state=self._osr2_state(model), controls=model.osr2_controls,
+                        max_intensity=model.max_intensity)
 
     def _osr2_width(self, model: ConsoleModel) -> int:
         return self._osr2.width(self._osr2_line(model))

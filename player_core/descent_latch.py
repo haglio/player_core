@@ -23,6 +23,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .drive_readout import DriveHud
+from .robot_hand import FULL_INTENSITY
 
 __all__: list[str] = []
 
@@ -34,23 +35,25 @@ _CROWDED = 16
 
 @dataclass(frozen=True)
 class DriveKey:
-    """The wave a choice was cut from, in the four fields that identify it.
+    """The wave a choice was cut from, in the five fields that identify it.
 
     Everything else about a publish moves every frame; these move only when
     the motion is really a different motion -- a control moved the floor, the
-    wave realigned after a resume, Genau handed the device over.  A choice
-    whose key still matches is a choice made about the wave still running.
+    max intensity held it down, the wave realigned after a resume, Genau handed
+    the device over.  A choice whose key still matches is a choice made about
+    the wave still running.
     """
 
     center: float
     amplitude: float
     speed: float
     let_go: float | None
+    max_intensity: int = FULL_INTENSITY
 
     @classmethod
     def cut_from(cls, published: DriveHud) -> DriveKey:
         return cls(published.center, published.amplitude,
-                   published.speed, published.let_go)
+                   published.speed, published.let_go, published.max_intensity)
 
 
 @dataclass(frozen=True)

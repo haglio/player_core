@@ -31,11 +31,15 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
+from .max_intensity import share
 from .robot_hand import (
+    FULL_INTENSITY,
     WaveformShape,
     bpm_for_speed,
     phase_advanced,
     position_fraction,
+    toward_the_park,
+    wave_travel,
 )
 
 __all__ = [
@@ -241,7 +245,7 @@ def fit(stack: WaveStack, now: float) -> Fit:
 
 
 def position(stack: WaveStack, now: float,
-             phases: list[float] | None = None) -> float:
+             phases: list[float] | None = None, *, max_intensity: int = FULL_INTENSITY) -> float:
     """Where the summed motion sits at *now*, 0-100.
 
     *phases* is where each wave is, defaulting to where they actually are — the
@@ -255,36 +259,44 @@ def position(stack: WaveStack, now: float,
         # position_fraction on its default dials is the bare waveform, 0-1.
         raw = position_fraction(phase, shape=shape_at(wave, now))
         total += landed.scale * wave.amplitude.at(now) * (raw - 0.5)
-    return min(100.0, max(0.0, total))
+    return toward_the_park(min(100.0, max(0.0, total)), _kept(stack, now, max_intensity))
 
 
-def advance(stack: WaveStack, now: float, dt_s: float) -> None:
+def _kept(stack: WaveStack, now: float, max_intensity: int) -> float:
+    scale = fit(stack, now).scale
+    return share(sum(wave_travel(scale * wave.amplitude.at(now),
+                                 bpm_for_speed(wave.speed.at(now)))
+                     for wave in stack.waves), max_intensity)
+
+
+def advance(stack: WaveStack, now: float, dt_s: float, *,
+            max_intensity: int = FULL_INTENSITY) -> None:
     """Carry every wave's phase forward by *dt_s* seconds of motion, ending at
     *now* -- at the speed each was running halfway through, which is what a
     ramping speed comes to over a tick, and what the readout's projection of
     the same stretch assumes."""
+    halfway = now - dt_s / 2
+    pace = _kept(stack, halfway, max_intensity)
     for wave in stack.waves:
         wave.phase = phase_advanced(
-            wave.phase, bpm_for_speed(wave.speed.at(now - dt_s / 2)), dt_s)
+            wave.phase, pace * bpm_for_speed(wave.speed.at(halfway)), dt_s)
 
 
-def position_ahead(stack: WaveStack, now: float, lead_s: float) -> float:
+def position_ahead(stack: WaveStack, now: float, lead_s: float, *,
+                   max_intensity: int = FULL_INTENSITY) -> float:
     """Where the sum will be *lead_s* from *now* — what a command aims at.
 
     Each wave's phase is projected rather than advanced (nothing here moves the
     stack), at the speed it will be running halfway through the lead, which is
     what a ramping speed comes to over so short a hop.
     """
-    phases = [
-        wave.phase
-        + lead_s * bpm_for_speed(wave.speed.at(now + lead_s / 2)) / 60.0
-        for wave in stack.waves
-    ]
-    return position(stack, now + lead_s, phases)
+    phases = _carried(stack, [wave.phase for wave in stack.waves], now + lead_s / 2,
+                      lead_s, max_intensity)
+    return position(stack, now + lead_s, phases, max_intensity=max_intensity)
 
 
-def trace_window(stack: WaveStack, now: float, samples: int, span_s: float,
-                 ) -> tuple[list[float], float]:
+def trace_window(stack: WaveStack, now: float, samples: int, span_s: float, *,
+                 max_intensity: int = FULL_INTENSITY) -> tuple[list[float], float]:
     """The sum as the readout draws it: *samples* + 1 heights on knots a fixed
     stretch of the motion's clock apart, the first at or before *now* and the
     last just past the far edge, and how far past the first knot *now* sits as
@@ -300,19 +312,21 @@ def trace_window(stack: WaveStack, now: float, samples: int, span_s: float,
     step = span_s / max(1, samples - 1)
     first = math.floor(now / step) * step
     back = now - first
-    phases = [
-        wave.phase - back * bpm_for_speed(wave.speed.at(now - back / 2)) / 60.0
-        for wave in stack.waves
-    ]
+    phases = _carried(stack, [wave.phase for wave in stack.waves], now - back / 2,
+                      -back, max_intensity)
     heights = []
     for i in range(samples + 1):
         at = first + i * step
-        heights.append(position(stack, at, phases) / 100.0)
-        phases = [
-            phase + step * bpm_for_speed(wave.speed.at(at + step / 2)) / 60.0
-            for wave, phase in zip(stack.waves, phases)
-        ]
+        heights.append(position(stack, at, phases, max_intensity=max_intensity) / 100.0)
+        phases = _carried(stack, phases, at + step / 2, step, max_intensity)
     return heights, back / step
+
+
+def _carried(stack: WaveStack, phases: list[float], halfway: float, seconds: float,
+             max_intensity: int) -> list[float]:
+    pace = _kept(stack, halfway, max_intensity)
+    return [phase + seconds * pace * bpm_for_speed(wave.speed.at(halfway)) / 60.0
+            for wave, phase in zip(stack.waves, phases)]
 
 
 def biggest(stack: WaveStack, now: float) -> Wave:

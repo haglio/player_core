@@ -214,6 +214,17 @@ class TestThePublishedConsoleIsWrittenWhereItIsRead:
     def test_a_console_another_player_took_the_osr2_from_says_so(self):
         assert parse_console(console_text(ConsoleModel(has_osr2=False))).has_osr2 is False
 
+    def test_the_max_intensity_a_session_holds_rides_the_panel(self):
+        assert parse_console(console_text(ConsoleModel(max_intensity=35))).max_intensity == 35
+
+    def test_a_panel_that_says_nothing_about_the_max_intensity_has_no_slider(self):
+        assert parse_console(json.dumps({"main_mode": MainMode.VIDEO})).max_intensity is None
+
+    def test_a_max_intensity_that_is_not_a_number_is_no_slider_rather_than_no_panel(self):
+        parsed = parse_console(json.dumps({"main_mode": MainMode.VIDEO, "max_intensity": "loud"}))
+
+        assert parsed is not None and parsed.max_intensity is None
+
     def test_a_panel_that_says_nothing_about_the_osr2_has_it(self):
         assert parse_console(json.dumps({"main_mode": MainMode.VIDEO})).has_osr2 is True
 

@@ -418,6 +418,20 @@ class TestALoopingPlayer:
         assert hud.segments == ((0, DRIVEN_BY_FUNSCRIPT),)
 
 
+class TestAPlayerHeldDownByTheMaxIntensity:
+    def test_its_script_is_drawn_as_shallow_as_it_is_sent(self):
+        swings = Funscript(actions=[(t, 0 if (t // 200) % 2 else 100)
+                                    for t in range(0, 20_001, 200)])
+        session = FakeSession()
+        session.funscript_as_played = swings
+        session.max_intensity = 30
+
+        hud = DriveGate(session).readout(_motion())
+
+        assert hud.waveform == swings.planned_trace_window(
+            0, round(SPAN_S * 1000), TRACE_SAMPLES, max_intensity=30)[0][:TRACE_SAMPLES]
+
+
 class TestAPlayerThatDoesNotSayHowItPlaysItsScript:
     def test_is_drawn_from_the_script_it_has(self):
         session = FakeSession()

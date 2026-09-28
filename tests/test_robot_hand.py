@@ -4,6 +4,7 @@ import pytest
 
 from player_core.robot_hand import (
     MAX_TICK_SECONDS,
+    MIN_SPEED,
     PARK_CENTER,
     POSITION_MAX,
     RETRACT_CENTER,
@@ -20,8 +21,12 @@ from player_core.robot_hand import (
     position_fraction,
     set_amplitude,
     set_center,
+    set_dials,
+    set_max_intensity,
     set_speed,
     trace_window,
+    travel_cap,
+    wave_travel,
 )
 
 
@@ -260,6 +265,118 @@ class TestSetAmplitude:
         set_amplitude(state, 100)
 
         assert state.center == 50  # forced to center for full amplitude
+
+
+class TestSetMaxIntensity:
+    @pytest.mark.parametrize(("asked", "kept"), [(120, 100), (-10, 0), (35, 35)])
+    def test_a_max_intensity_asked_for_is_kept_within_zero_and_full(self, asked, kept):
+        state = RobotHandState()
+
+        set_max_intensity(state, asked)
+
+        assert state.max_intensity == kept
+
+    def test_lowering_it_under_the_motion_pushes_amplitude_and_speed_down_alike_to_fit(self):
+        state = RobotHandState(amplitude=90, speed=70)
+
+        set_max_intensity(state, 10)
+
+        assert wave_travel(state.amplitude, state.bpm) == pytest.approx(travel_cap(10), rel=0.05)
+        assert wave_travel(state.amplitude, state.bpm) <= travel_cap(10)
+        assert state.amplitude / 90 == pytest.approx(state.speed / 70, abs=0.03)
+
+    def test_from_both_dials_at_the_top_it_leaves_both_at_the_level_it_stands_for(self):
+        state = RobotHandState(amplitude=100, speed=100)
+
+        set_max_intensity(state, 10)
+
+        assert (state.amplitude, state.speed) == (50, 50)
+
+    def test_lowering_it_settles_the_center_toward_the_park_as_far_as_the_amplitude_shrank(self):
+        state = RobotHandState(amplitude=40, speed=90, intended_center=70)
+
+        set_max_intensity(state, 5)
+
+        kept = state.amplitude / 40
+        assert state.center == pytest.approx(PARK_CENTER + (70 - PARK_CENTER) * kept, abs=1)
+        assert state.intended_center == state.center
+
+    @pytest.mark.parametrize(("amplitude", "speed"), [(100, 100), (60, 90), (80, 60), (10, 100)])
+    def test_dragging_it_down_a_level_at_a_time_ends_where_one_move_would(self, amplitude, speed):
+        jumped = RobotHandState(amplitude=amplitude, speed=speed, intended_center=50)
+        set_max_intensity(jumped, 10)
+        dragged = RobotHandState(amplitude=amplitude, speed=speed, intended_center=50)
+        for level in range(99, 9, -1):
+            set_max_intensity(dragged, level)
+
+        assert abs(dragged.amplitude - jumped.amplitude) <= 1
+        assert abs(dragged.speed - jumped.speed) <= 1
+        assert abs(dragged.center - jumped.center) <= 1
+
+    def test_at_zero_it_rests_a_moving_hand_on_the_park(self):
+        state = RobotHandState(amplitude=40, speed=90, intended_center=70)
+
+        set_max_intensity(state, 0)
+
+        assert (state.amplitude, state.center) == (0, PARK_CENTER)
+
+    def test_raising_it_again_leaves_the_dials_where_it_pushed_them(self):
+        state = RobotHandState(amplitude=90, speed=90, intended_center=60)
+        set_max_intensity(state, 20)
+        pushed = (state.amplitude, state.speed, state.center)
+
+        set_max_intensity(state, 100)
+
+        assert (state.amplitude, state.speed, state.center) == pushed
+
+    def test_a_motion_already_within_it_is_left_as_it_is(self):
+        state = RobotHandState(amplitude=30, speed=30, intended_center=60)
+
+        set_max_intensity(state, 60)
+
+        assert (state.amplitude, state.speed, state.center) == (30, 30, 60)
+
+
+class TestPuttingTheDialsBack:
+    def test_dials_put_back_under_a_lowered_max_intensity_are_pushed_as_lowering_it_pushes(self):
+        lowered = RobotHandState(amplitude=90, speed=90, intended_center=60)
+        set_max_intensity(lowered, 40)
+        held = RobotHandState(amplitude=0, speed=MIN_SPEED, intended_center=0)
+        set_max_intensity(held, 40)
+
+        set_dials(held, speed=90, amplitude=90, center=60)
+
+        assert (held.speed, held.amplitude, held.center) == (
+            lowered.speed, lowered.amplitude, lowered.center)
+
+
+class TestTheCeilingsAMaxIntensityLeaves:
+    def test_an_amplitude_asked_for_stops_at_the_widest_the_max_intensity_leaves_at_its_speed(self):
+        state = RobotHandState(amplitude=20, speed=50)
+        set_max_intensity(state, 5)
+
+        set_amplitude(state, 100)
+
+        assert wave_travel(state.amplitude, state.bpm) <= travel_cap(5)
+        assert wave_travel(state.amplitude + 1, state.bpm) > travel_cap(5)
+
+    def test_a_speed_asked_for_stops_at_the_fastest_the_max_intensity_leaves_at_its_amplitude(self):
+        state = RobotHandState(amplitude=20, speed=30)
+        set_max_intensity(state, 5)
+
+        set_speed(state, 100)
+
+        assert wave_travel(state.amplitude, state.bpm) <= travel_cap(5)
+        assert wave_travel(state.amplitude, bpm_for_speed(state.speed + 1)) > travel_cap(5)
+
+    def test_at_zero_neither_amplitude_nor_speed_can_rise_off_its_floor(self):
+        state = RobotHandState(amplitude=60, speed=60)
+        set_max_intensity(state, 0)
+
+        set_speed(state, 100)
+        set_amplitude(state, 100)
+
+        assert (state.amplitude, state.speed) == (0, MIN_SPEED)
 
 
 class TestAdjustAmplitude:

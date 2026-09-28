@@ -23,8 +23,11 @@ __all__ = [
     "Limits",
 ]
 
-# The three axes, named as the numeric set commands name them (``robot_hand_amp_57``).
+# The three axes, named as the numeric set commands name them (``robot_hand_amp_57``),
+# and the OSR2's max intensity, which is the device's rather than the motion's
+# (``max_intensity_57``).
 AMPLITUDE, CENTER, SPEED = "amp", "center", "speed"
+MAX_INTENSITY = "max_intensity"
 
 # One pair of marks for every axis: speed, amplitude and centre are the same
 # kind of control, so the same − and + step all three.
@@ -53,6 +56,7 @@ TRACE_SAMPLES = 80
 
 # What a painter needs to place its own text and marks beside these rects.
 LABEL_H = _LABEL_H
+BAR_H = _BAR_H
 CONTROL_SIZE = _CTRL
 GAP = _GAP
 
@@ -91,6 +95,7 @@ class DriveTrack:
     tooltip: str
     center: float = 0.5
     dim: bool = False
+    ceiling: int = 100
 
 
 @dataclass(frozen=True)
@@ -191,7 +196,8 @@ def controls(x: int, y: int, center: int, limits: Limits, *,
     ]
 
 
-def tracks(x: int, y: int, center: int, *, dim: bool = False) -> list[DriveTrack]:
+def tracks(x: int, y: int, center: int, *, dim: bool = False,
+           amplitude_ceiling: int = 100, speed_ceiling: int = 100) -> list[DriveTrack]:
     """The readout's bands at ``(x, y)`` — the three you press to set a level
     outright instead of walking to it with the marks.
 
@@ -204,15 +210,19 @@ def tracks(x: int, y: int, center: int, *, dim: bool = False) -> list[DriveTrack
     g = geometry(x, y, center_frac)
     return [
         DriveTrack(g.amp_bar, AMPLITUDE, "Set how far the motion reaches",
-                   center_frac, dim),
+                   center_frac, dim, amplitude_ceiling),
         DriveTrack(g.wave, CENTER, "Set where the motion is centered",
                    center_frac, dim),
         DriveTrack(g.speed_bar, SPEED, "Set how fast the motion goes",
-                   center_frac, dim),
+                   center_frac, dim, speed_ceiling),
     ]
 
 
 def track_value(track: DriveTrack, px: int, py: int) -> int:
+    return min(track.ceiling, _level_under(track, px, py))
+
+
+def _level_under(track: DriveTrack, px: int, py: int) -> int:
     """The 0-100 level a press at ``(px, py)`` asks *track* for.
 
     Read off the drawing rather than merely off the rect, so what you point at
@@ -226,7 +236,7 @@ def track_value(track: DriveTrack, px: int, py: int) -> int:
     the bar goes on setting it rather than stopping dead at the edge.
     """
     x, y, w, h = track.rect
-    if track.axis == SPEED:
+    if track.axis in (SPEED, MAX_INTENSITY):
         return percent((px - x) / max(1, w - 1))
     height = clamp01(1 - (py - y) / max(1, h - 1))
     if track.axis == CENTER:

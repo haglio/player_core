@@ -27,7 +27,9 @@ from shared_ui.palette import (
 )
 
 from .console import GAP, HELD_HEIGHT, OSR2_CONTROL_OFF, OSR2_PARKED, OSR2_RETRACTED
+from .drive_layout import BAR_H, MAX_INTENSITY, DriveTrack, fraction
 from .drive_readout import (
+    DISABLED_INK,
     DRIVEN_BY_AUTO,
     DRIVEN_BY_FUNSCRIPT,
     DRIVEN_BY_NEUTRAL,
@@ -35,11 +37,13 @@ from .drive_readout import (
     DRIVEN_BY_ROBOT_HAND,
     POSITION_MAX,
     DriveHud,
+    draw_level_bar,
 )
 from .geometry import Rect, contains
 from .hud_button import BUTTON, Button
 from .hud_panel import SYMBOL_FONT, draw_button, load_font, text_width
 from .modes import Osr2State
+from .robot_hand import FULL_INTENSITY
 
 # Package-internal: the two panels that draw this line are both in here, and a
 # host says what its line shows through the model it already hands over
@@ -56,6 +60,11 @@ _PILL_PAD = 10   # the room the state word keeps either side of itself
 
 _SIZE_BODY = 11
 _SIZE_TINY = 8
+
+MAX_INTENSITY_LABEL = "Max intensity"
+MAX_INTENSITY_TIP = ("Max intensity: all the way up puts no limit on the OSR2; lower, "
+                     "its motion gets shorter and slower; all the way down, it stops")
+_MAX_INTENSITY_W = 72
 
 # The pill's own word for a device that belongs to neither driver at the
 # playhead -- drawn, never published, so it is not one of the wire's states.
@@ -198,6 +207,7 @@ class Osr2Line:
 
     state: str = Osr2State.OFF
     controls: tuple[Button, ...] = ()
+    max_intensity: int | None = None
 
 
 class Osr2Section:
@@ -211,7 +221,8 @@ class Osr2Section:
         """How wide the line runs — a floor on the panel holding it."""
         return (self._controls_width(line.controls)
                 + text_width(self._tiny, LABEL) + _LABEL_GAP
-                + self._pill_width(line.state))
+                + self._pill_width(line.state)
+                + self._max_intensity_width(line))
 
     def draw(self, image: Image.Image, draw: ImageDraw.ImageDraw, x: int, y: int,
              line: Osr2Line, *, hover: tuple[int, int] | None = None,
@@ -238,7 +249,21 @@ class Osr2Section:
         # word beside two real buttons reads as a third one you can press.
         draw.text((pill_x + self._pill_width(line.state) / 2, y + HEIGHT / 2), state,
                   font=self._tiny, anchor="mm", fill=(*color, 255))
+        for band in self.bands(x, y, line):
+            self._draw_max_intensity(draw, band, line.max_intensity)
+            placed.append((band.rect, Button("", "", band.tooltip)))
         return placed
+
+    def _draw_max_intensity(self, draw: ImageDraw.ImageDraw, band: DriveTrack, max_intensity: int) -> None:
+        bx, by, bw, _bh = band.rect
+        mid = by + HEIGHT // 2
+        number_x = bx - _LABEL_GAP - self._widest_number
+        draw.text((number_x - _LABEL_GAP, mid), MAX_INTENSITY_LABEL, font=self._tiny, anchor="rm",
+                  fill=(*TEXT_MUTED, 255))
+        draw.text((number_x, mid), str(max_intensity), font=self._tiny, anchor="lm",
+                  fill=DISABLED_INK if band.dim else (*TEXT_PRIMARY, 255))
+        draw_level_bar(draw, (bx, mid - BAR_H // 2, bw, BAR_H), fill=fraction(max_intensity),
+                       color=DISABLED_INK if band.dim else (*BLUE, 255))
 
     @staticmethod
     def _controls_width(controls: tuple[Button, ...]) -> int:
@@ -247,6 +272,23 @@ class Osr2Section:
         if not controls:
             return 0
         return sum(b.width for b in controls) + GAP * (len(controls) - 1) + _GROUP_GAP
+
+    def bands(self, x: int, y: int, line: Osr2Line) -> list[DriveTrack]:
+        if line.max_intensity is None:
+            return []
+        return [DriveTrack(
+            (x + self.width(line) - _MAX_INTENSITY_W, y, _MAX_INTENSITY_W, HEIGHT), MAX_INTENSITY,
+            MAX_INTENSITY_TIP, dim=line.state == Osr2State.AUTO)]
+
+    def _max_intensity_width(self, line: Osr2Line) -> int:
+        if line.max_intensity is None:
+            return 0
+        return (_GROUP_GAP + text_width(self._tiny, MAX_INTENSITY_LABEL) + _LABEL_GAP
+                + self._widest_number + _LABEL_GAP + _MAX_INTENSITY_W)
+
+    @property
+    def _widest_number(self) -> int:
+        return text_width(self._tiny, str(FULL_INTENSITY))
 
     def _pill_width(self, state: str) -> int:
         return text_width(self._tiny, LABELS.get(state, state)) + _PILL_PAD

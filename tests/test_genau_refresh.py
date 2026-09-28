@@ -1213,6 +1213,8 @@ def test_toggle_learned_command_via_refresh():
     assert learned.active is True
 
 
+
+
 def test_the_learned_motion_ticks_during_refresh(tmp_path):
     """Once armed, a refresh lays its phrases out ahead of the clock, so the
     sender and the readout have motion to read from the very same tick."""

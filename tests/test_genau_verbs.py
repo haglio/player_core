@@ -18,6 +18,7 @@ from player_core.genau_controls import (
 )
 from player_core.learned_model import LearnedModel
 from player_core.learned_motion import LearnedMotionState
+from player_core.player_verbs import SET_MAX_INTENSITY
 from player_core.robot_hand import RobotHandState, WaveformShape
 from player_core.robot_hand_beat import BeatEngine
 
@@ -458,6 +459,20 @@ class TestApplyRuntimeCommand:
 
         assert handled is True
         assert ds.speed == 30
+
+    def test_the_max_intensity_is_the_hands_to_keep_under(self):
+        hand = RobotHandState(playing=True)
+
+        handled = _answered(
+            f"{SET_MAX_INTENSITY} 40",
+            engine=BeatEngine(phase=0.0, last_tick=0.0),
+            paused=Flag(),
+            step_clip=lambda _step: None,
+            robot_hand=hand,
+        )
+
+        assert handled is True
+        assert hand.max_intensity == 40
 
     def test_numeric_commands_ignored_without_direct_state(self):
         engine = BeatEngine(phase=0.0, last_tick=0.0)

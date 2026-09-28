@@ -4,12 +4,13 @@ from __future__ import annotations
 import numpy as np
 from shared_ui.palette import BLUE, GREEN, RED, TEXT_MUTED
 
-from player_core.drive_readout import DriveHud
+from player_core.drive_readout import DriveHud, track_command
 from player_core.hud_button import Button
 from player_core.hud_osr2 import (
     BUFFER,
     HEIGHT,
     LABELS,
+    MAX_INTENSITY_TIP,
     Osr2Line,
     Osr2Section,
     driving_at_the_playhead,
@@ -66,6 +67,63 @@ class TestTheControlsOnIt:
         assert [button for _rect, button in placed] == [park]
         (x, y, w, h), _button = placed[0]
         assert (x, y, w, h) == (10, 10, park.width, HEIGHT)
+
+
+class TestTheMaxIntensityOnIt:
+    def test_a_line_carrying_the_max_intensity_is_wider_by_its_slider(self):
+        bare = Osr2Line(state=Osr2State.ROBOT_HAND)
+        assert Osr2Section().width(bare) < Osr2Section().width(
+            Osr2Line(state=Osr2State.ROBOT_HAND, max_intensity=60))
+
+
+    def test_a_press_along_the_slider_asks_for_the_max_intensity_under_it(self):
+        line = Osr2Line(state=Osr2State.ROBOT_HAND, max_intensity=60)
+        (band,) = Osr2Section().bands(10, 10, line)
+        x, y, w, h = band.rect
+
+        assert track_command(band, x, y + h // 2) == "max_intensity_0"
+        assert track_command(band, x + w - 1, y + h // 2) == "max_intensity_100"
+        assert 10 + Osr2Section().width(Osr2Line(state=Osr2State.ROBOT_HAND)) < x
+        assert (y, h) == (10, HEIGHT)
+
+    def test_a_line_with_no_max_intensity_has_no_slider_to_press(self):
+        assert Osr2Section().bands(10, 10, Osr2Line(state=Osr2State.ROBOT_HAND)) == []
+
+
+    def test_the_slider_is_filled_in_blue_as_far_as_the_max_intensity_goes(self):
+        def filled(max_intensity: int) -> int:
+            line = Osr2Line(state=Osr2State.ROBOT_HAND, max_intensity=max_intensity)
+            panel, _ = _drawn(line)
+            (band,) = Osr2Section().bands(10, 10, line)
+            x, y, w, h = band.rect
+            pixels = np.array(panel.image.convert("RGB"))[y:y + h, x:x + w]
+            return int((pixels == np.array(BLUE)).all(axis=-1).sum())
+
+        assert 0 < filled(20) < filled(80)
+
+    def test_the_slider_says_its_level_as_a_number_beside_it(self):
+        def left_of_the_bar(max_intensity: int) -> np.ndarray:
+            line = Osr2Line(state=Osr2State.ROBOT_HAND, max_intensity=max_intensity)
+            panel, _ = _drawn(line)
+            (band,) = Osr2Section().bands(10, 10, line)
+            x, y, _w, h = band.rect
+            return np.array(panel.image.convert("RGB"))[y:y + h, :x]
+
+        assert (left_of_the_bar(23) > 200).all(axis=-1).any()
+        assert not np.array_equal(left_of_the_bar(23), left_of_the_bar(87))
+
+    def test_the_slider_names_itself_where_it_was_drawn(self):
+        line = Osr2Line(state=Osr2State.ROBOT_HAND, max_intensity=60)
+        _panel, placed = _drawn(line)
+        (band,) = Osr2Section().bands(10, 10, line)
+
+        assert (band.rect, Button("", "", MAX_INTENSITY_TIP)) in placed
+
+
+    def test_the_device_running_itself_leaves_nothing_for_the_max_intensity_to_hold(self):
+        (band,) = Osr2Section().bands(10, 10, Osr2Line(state=Osr2State.AUTO, max_intensity=60))
+
+        assert band.dim is True
 
 
 def _park() -> Button:

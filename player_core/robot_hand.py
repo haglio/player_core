@@ -13,7 +13,7 @@ Pure arithmetic: no toolkit, no device, no clock.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 from .tcode import POSITION_MAX
@@ -49,6 +49,7 @@ MIN_BPM = 5.0
 MAX_BPM = 200.0
 MIN_SPEED = 5
 MAX_SPEED = 100
+FULL_INTENSITY = 100
 
 # The two ends a still motion is held at, on the same 0-100 axis the center runs
 # on: home, and as far from the user as the travel goes.  Named here because
@@ -60,11 +61,68 @@ RETRACT_CENTER = 100
 # :func:`phase_advanced`.
 MAX_TICK_SECONDS = 0.1
 
+# How far a float may fall short of a whole dial step and still be that step:
+# a ceiling worked out exactly on a step comes back a hair under it.
+_ROUNDING = 1e-9
+_HALVINGS = 40
+_BEND = 80
+
 
 def bpm_for_speed(speed: int) -> float:
     """Map speed MIN_SPEED-MAX_SPEED to BPM using exponential curve."""
     t = (speed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED)
     return MIN_BPM * (MAX_BPM / MIN_BPM) ** t
+
+
+def wave_travel(amplitude: float, bpm: float) -> float:
+    return 2 * amplitude * bpm / 60
+
+
+def travel_cap(max_intensity: int) -> float | None:
+    if max_intensity >= FULL_INTENSITY:
+        return None
+    level = dial_level_for(max_intensity)
+    return wave_travel(level, bpm_for_speed(level))
+
+
+def dial_level_for(max_intensity: int) -> float:
+    return FULL_INTENSITY * math.log1p(_BEND * max_intensity / FULL_INTENSITY) / math.log1p(_BEND)
+
+
+def amplitude_ceiling(max_intensity: int, speed: int) -> int:
+    cap = travel_cap(max_intensity)
+    if cap is None:
+        return 100
+    return min(100, math.floor(cap / wave_travel(1, bpm_for_speed(speed)) + _ROUNDING))
+
+
+def speed_ceiling(max_intensity: int, amplitude: int) -> int:
+    cap = travel_cap(max_intensity)
+    if cap is None:
+        return MAX_SPEED
+    return _fastest_speed_within(cap / wave_travel(max(1, amplitude), 1))
+
+
+def _fastest_speed_within(bpm: float) -> int:
+    if bpm <= MIN_BPM:
+        return MIN_SPEED
+    dial = MIN_SPEED + (MAX_SPEED - MIN_SPEED) * math.log(bpm / MIN_BPM) / math.log(MAX_BPM / MIN_BPM)
+    return min(MAX_SPEED, math.floor(dial + _ROUNDING))
+
+
+def _share_of_the_dials_within(cap: float, amplitude: int, speed: int) -> float:
+    fits, too_much = 0.0, 1.0
+    for _ in range(_HALVINGS):
+        share = (fits + too_much) / 2
+        if wave_travel(amplitude * share, bpm_for_speed(speed * share)) <= cap:
+            fits = share
+        else:
+            too_much = share
+    return fits
+
+
+def toward_the_park(height: float, kept: float) -> float:
+    return PARK_CENTER + (height - PARK_CENTER) * kept
 
 
 @dataclass
@@ -76,6 +134,9 @@ class RobotHandState:
     center: int = 50
     intended_center: int = 50
     shape: WaveformShape = WaveformShape.SINE
+    max_intensity: int = FULL_INTENSITY
+    exact_dials: tuple[float, float, float] | None = field(default=None, compare=False,
+                                                           repr=False)
 
     def __post_init__(self) -> None:
         if self.bpm == 0.0:
@@ -84,7 +145,7 @@ class RobotHandState:
 
 
 def set_speed(state: RobotHandState, speed: int) -> None:
-    speed = max(MIN_SPEED, min(MAX_SPEED, speed))
+    speed = max(MIN_SPEED, min(speed_ceiling(state.max_intensity, state.amplitude), speed))
     state.speed = speed
     state.bpm = bpm_for_speed(speed)
 
@@ -99,8 +160,49 @@ def _recompute_center(state: RobotHandState) -> None:
     state.center = max(half, min(100 - half, state.intended_center))
 
 
+def set_max_intensity(state: RobotHandState, value: int) -> None:
+    state.max_intensity = max(0, min(FULL_INTENSITY, value))
+    _push_within_the_max_intensity(state)
+
+
+def set_dials(state: RobotHandState, *, speed: int, amplitude: int, center: int) -> None:
+    state.speed = max(MIN_SPEED, min(MAX_SPEED, speed))
+    state.bpm = bpm_for_speed(state.speed)
+    state.amplitude = max(0, min(100, amplitude))
+    state.intended_center = max(0, min(100, center))
+    _recompute_center(state)
+    _push_within_the_max_intensity(state)
+
+
+def _push_within_the_max_intensity(state: RobotHandState) -> None:
+    cap = travel_cap(state.max_intensity)
+    if cap is None or wave_travel(state.amplitude, state.bpm) <= cap:
+        return
+    amplitude, speed, center = _the_dials_before_rounding(state)
+    kept = _share_of_the_dials_within(cap, amplitude, speed)
+    state.exact_dials = (amplitude * kept, speed * kept, toward_the_park(center, kept))
+    state.amplitude, state.speed, state.intended_center = _rounded(state.exact_dials)
+    state.bpm = bpm_for_speed(state.speed)
+    state.amplitude = min(state.amplitude, amplitude_ceiling(state.max_intensity, state.speed))
+    _recompute_center(state)
+
+
+def _the_dials_before_rounding(state: RobotHandState) -> tuple[float, float, float]:
+    shown = (state.amplitude, state.speed, state.intended_center)
+    if state.exact_dials is not None and _rounded(state.exact_dials) == shown:
+        return state.exact_dials
+    return float(state.amplitude), float(state.speed), float(state.center)
+
+
+def _rounded(dials: tuple[float, float, float]) -> tuple[int, int, int]:
+    amplitude, speed, center = dials
+    return (math.floor(amplitude + _ROUNDING),
+            max(MIN_SPEED, math.floor(speed + _ROUNDING)),
+            round(center))
+
+
 def set_amplitude(state: RobotHandState, value: int) -> None:
-    state.amplitude = max(0, min(100, value))
+    state.amplitude = max(0, min(amplitude_ceiling(state.max_intensity, state.speed), value))
     _recompute_center(state)
 
 
@@ -291,10 +393,10 @@ def control_limits(hand: RobotHandState) -> ControlLimits:
     # each end.
     half = hand.amplitude // 2
     return ControlLimits(
-        amp_at_max=hand.amplitude >= 100,
+        amp_at_max=hand.amplitude >= amplitude_ceiling(hand.max_intensity, hand.speed),
         amp_at_min=hand.amplitude <= 0,
         ctr_at_max=hand.center >= 100 - half,
         ctr_at_min=hand.center <= half,
-        spd_at_max=hand.speed >= MAX_SPEED,
+        spd_at_max=hand.speed >= speed_ceiling(hand.max_intensity, hand.amplitude),
         spd_at_min=hand.speed <= MIN_SPEED,
     )

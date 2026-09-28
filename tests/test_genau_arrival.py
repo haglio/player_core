@@ -93,10 +93,11 @@ class _Room:
 
     def says(self, *, clip: Path = ONE, playing: bool = True, cruise: bool = False,
              learned: bool = False, locked: bool = True, interval: int = 20,
-             drive: DriveHud | None = None) -> None:
+             max_intensity: int = 100, drive: DriveHud | None = None) -> None:
         self.status_file.write_text(
             f"cruise={int(cruise)}\nlearned={int(learned)}\nlocked={int(locked)}\n"
-            f"clip={clip}\nshape=sine\nplaying={int(playing)}\ninterval={interval}\n",
+            f"clip={clip}\nshape=sine\nplaying={int(playing)}\ninterval={interval}\n"
+            f"max_intensity={max_intensity}\n",
             encoding="utf-8")
         publish_drive(self.drive_file, drive or DriveHud(speed=50, amplitude=100, center=50))
 
@@ -157,6 +158,11 @@ class TestFollowingTheMotion:
         room.arrival.follow()
         advance = room.controls.clip_advance_state
         assert (advance.locked, advance.interval) == (False, 33)
+
+    def test_it_takes_the_max_intensity_the_room_is_held_to(self, room):
+        room.says(max_intensity=30)
+        room.arrival.follow()
+        assert room.controls.robot_hand.max_intensity == 30
 
     def test_a_room_that_has_said_nothing_moves_nothing(self, room):
         before = replace(room.controls.robot_hand)

@@ -9,6 +9,7 @@ measure how far things actually move, not merely that they moved.
 """
 from __future__ import annotations
 
+import copy
 import random
 
 import pytest
@@ -349,6 +350,18 @@ class TestPausing:
         tick_cruise_control(direct, cc, now + 3600)
 
         assert cc.clock - held == pytest.approx(MAX_TICK_SECONDS)
+
+
+def test_a_hand_held_down_by_its_max_intensity_carries_its_waves_at_the_pace_it_leaves_them():
+    direct, cc = _cruising(4, amplitude=100, speed=90, max_intensity=25)
+    now = _run(direct, cc, 1.0)
+    expected = copy.deepcopy(cc.stack)
+    wave_stack.advance(expected, cc.clock + 0.05, 0.05, max_intensity=25)
+
+    tick_cruise_control(direct, cc, now + 0.05)
+
+    assert [wave.phase for wave in cc.stack.waves] == pytest.approx(
+        [wave.phase for wave in expected.waves])
 
 
 class TestAHandOnTheDials:

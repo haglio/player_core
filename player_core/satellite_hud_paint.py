@@ -302,7 +302,7 @@ class HudRenderer:
         osr2_line = Osr2Line(
             state=state_for(model.osr2, model.osr2_control,
                             driving=driving_at_the_playhead(composed, model.osr2)),
-            controls=model.osr2_controls)
+            controls=model.osr2_controls, max_intensity=model.max_intensity)
         drive_w, drive_h = section_size() if model.drive is not None else (0, 0)
         device_w = max(self._osr2.width(osr2_line) if model.osr2 else 0, drive_w)
         foot_w, foot_h = model.foot.size() if model.foot is not None else (0, 0)
@@ -465,11 +465,13 @@ class HudRenderer:
                             row_label=index == 0)
             buttons.extend(placed)
             y += CTRL_BAND_H
+        max_intensity_bands: list[DriveTrack] = []
         if model.osr2:
             y += BLOCK_GAP
             osr2_x = self._block_x(model, width, self._osr2.width(osr2_line))
             buttons.extend(self._osr2.draw(image, draw, osr2_x, y, osr2_line,
                                            hover=self._pointer))
+            max_intensity_bands = self._osr2.bands(osr2_x, y, osr2_line)
             y += OSR2_H
         if model.drive is not None:
             y += BLOCK_GAP
@@ -479,7 +481,7 @@ class HudRenderer:
             self._drive.draw(image, drive_x, y, model.drive)
             drive_targets, bands = readout_targets(drive_x, y, model.drive)
             buttons.extend(drive_targets)
-        return buttons, bands
+        return buttons, bands + max_intensity_bands
 
     def _button_width(self, button: Button) -> int:
         """A declared button's width: its own, or -- asking to fit its word --

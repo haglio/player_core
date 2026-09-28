@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 
 from . import learned_motion, wave_stack
 from .funscript import HANDOFF_RAMP_MS
-from .robot_hand import POSITION_MAX, phase_to_position
+from .robot_hand import FULL_INTENSITY, POSITION_MAX, phase_to_position
 from .tcode import HandoffGlide, TCodeSink, format_tcode_command
 
 __all__ = [
@@ -152,7 +152,7 @@ class RobotHandTCodeDriver:
                 self._learned, self._robot_hand) / 100)
         if self._cruise is not None and self._cruise.stack:
             return round(POSITION_MAX * wave_stack.position(
-                self._cruise.stack, self._cruise.clock) / 100)
+                self._cruise.stack, self._cruise.clock, max_intensity=self._max_intensity) / 100)
         if self._robot_hand is not None:
             return phase_to_position(
                 self._motion_phase,
@@ -161,6 +161,10 @@ class RobotHandTCodeDriver:
                 center=self._robot_hand.center,
             )
         return phase_to_position(self._motion_phase)
+
+    @property
+    def _max_intensity(self) -> int:
+        return FULL_INTENSITY if self._robot_hand is None else self._robot_hand.max_intensity
 
     def current_position(self) -> int:
         """Where the device is being sent right now — scaled by the rise while

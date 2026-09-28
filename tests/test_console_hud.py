@@ -28,7 +28,7 @@ from player_core.console_hud import (
     with_playback_speed,
 )
 from player_core.console_hud import _PAD as PAD
-from player_core.drive_layout import AMPLITUDE, CENTER, SPEED
+from player_core.drive_layout import AMPLITUDE, CENTER, MAX_INTENSITY, SPEED
 from player_core.drive_readout import (
     DRIVEN_BY_NEUTRAL,
     POSITION_MAX,
@@ -649,7 +649,7 @@ class TestDrags:
         """
         x, y, w, h = track.rect
         left, top = hud_xy()
-        if track.axis == SPEED:
+        if track.axis in (SPEED, MAX_INTENSITY):
             return left + x + round(along * (w - 1)), top + y + h // 2
         return left + x + w // 2, top + y + round((1 - along) * (h - 1))
 
@@ -719,6 +719,17 @@ class TestDrags:
         point = self._at(self._band(painter, SPEED), 1.0)
         assert painter.press_at(*point) == ""
         assert painter.holding is False
+
+    def test_a_press_along_the_max_intensity_sets_it_and_the_drag_goes_on_setting_it(self):
+        painter = ConsolePainter()
+        painter.bgra(ConsoleHud(
+            console=ConsoleModel(main_mode=MainMode.VIDEO, osr2=Osr2State.ROBOT_HAND,
+                                 max_intensity=50),
+            drive=_drive()))
+        max_intensity = self._band(painter, MAX_INTENSITY)
+
+        assert painter.press_at(*self._at(max_intensity, 1.0)) == "max_intensity_100"
+        assert painter.drag_to(*self._at(max_intensity, 0.0)) == "max_intensity_0"
 
     def test_there_are_no_bars_at_all_where_nothing_is_driving(self):
         """With nothing driving, the readout is not drawn, so its bands must not linger as
@@ -1371,6 +1382,18 @@ class TestWhereTheConsoleSits:
 
         assert painter.press_at(left + x + w // 2, top + y + h // 2) == button.command
         assert painter.press_at(x + w // 2, y + h // 2) == ""
+
+    def test_the_max_intensity_moves_with_its_line(self):
+        def slider_past_broker(painter) -> int:
+            (max_intensity,) = [band for band in painter.tracks if band.axis == MAX_INTENSITY]
+            return max_intensity.rect[0] - _button_rect(painter, "broker_panel")[0]
+
+        left = self._painted(HudCorner.UPPER_LEFT, max_intensity=35)
+        right = self._painted(HudCorner.UPPER_RIGHT, max_intensity=35)
+
+        assert (_button_rect(right, "broker_panel")[0]
+                > _button_rect(left, "broker_panel")[0]), "the line did not move"
+        assert slider_past_broker(right) == slider_past_broker(left)
 
     def test_the_minimize_button_sits_opposite_the_edge_the_console_is_justified_to(self):
         left = self._painted(HudCorner.UPPER_LEFT)

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from player_core.funscript import (
     PARK_SETTLE_MS,
     QUIET_LEAD_IN_MS,
@@ -9,6 +11,7 @@ from player_core.funscript import (
     load,
     snap_loop,
 )
+from player_core.max_intensity import depth
 
 
 class TestLoad:
@@ -498,6 +501,30 @@ class TestDepthAtSpeed:
 
         assert max(full) == 1.0
         assert max(paced) == 0.5
+
+
+class TestDepthUnderTheMaxIntensity:
+    def _steady(self):
+        # A full cycle every two seconds: a hundred units a second.
+        return Funscript(actions=[(0, 0), (1000, 100), (2000, 0), (3000, 100), (4000, 0)])
+
+    def test_a_script_past_the_max_intensity_keeps_the_share_of_its_depth_it_leaves(self):
+        assert self._steady().paced_position_at(1000, 1.0, max_intensity=30) == pytest.approx(
+            100 * depth(100.0, 30))
+
+
+    def test_the_plan_gives_up_the_same_depth_the_device_is_given(self):
+        fs = self._steady()
+
+        assert fs.planned_position_at(1000, 1.0, max_intensity=30) == pytest.approx(
+            fs.paced_position_at(1000, 1.0, max_intensity=30))
+
+    def test_the_drawn_plan_gives_it_up_too(self):
+        fs = self._steady()
+
+        drawn, _ = fs.planned_trace_window(0, 3000, 4, speed=1.0, max_intensity=30)
+
+        assert max(drawn) == pytest.approx(depth(100.0, 30))
 
 
 class TestPlayedOnALoop:
