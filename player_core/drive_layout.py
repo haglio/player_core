@@ -19,7 +19,9 @@ from dataclasses import dataclass
 from .geometry import Rect
 
 __all__ = [
+    "MAX_INTENSITY",
     "TRACE_SAMPLES",
+    "DriveTrack",
     "Limits",
 ]
 
