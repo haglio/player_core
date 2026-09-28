@@ -114,9 +114,8 @@ class Geometry:
     amp_down: Rect
     center_up: Rect
     center_down: Rect
-    center_label_right: int
-    amp_label_left: int
-    axis_label_y: int
+    center_label: Rect
+    amp_label: Rect
     speed_label_y: int
     speed_label_x: int
 
@@ -140,6 +139,9 @@ def geometry(x: int, y: int, center_frac: float) -> Geometry:
     up_y = min(max(wave_y, center_y - _CTRL - _MARK_GAP // 2), wave_lower - 2 * _CTRL - _MARK_GAP)
     center_up = (ctr_ctrl_x, up_y, _CTRL, _CTRL)
     center_down = (ctr_ctrl_x, up_y + _CTRL + _MARK_GAP, _CTRL, _CTRL)
+    label_h = 2 * _CTRL + _MARK_GAP
+    center_label = (x, up_y, _CTR_LABEL_W, label_h)
+    amp_label = (amp_x + _AMP_W + _GAP, wave_y + (_WAVE_H - label_h) // 2, _AMP_LABEL_W, label_h)
 
     speed_y = wave_lower + _GAP
     speed_up_x = wave_x + _WAVE_W - _CTRL
@@ -152,9 +154,7 @@ def geometry(x: int, y: int, center_frac: float) -> Geometry:
         wave=wave, speed_bar=speed_bar, speed_down=speed_down, speed_up=speed_up,
         amp_bar=amp_bar, amp_up=amp_up, amp_down=amp_down,
         center_up=center_up, center_down=center_down,
-        center_label_right=x + _CTR_LABEL_W,
-        amp_label_left=amp_x + _AMP_W + _GAP,
-        axis_label_y=wave_y + (_WAVE_H - 2 * _LABEL_H) // 2,
+        center_label=center_label, amp_label=amp_label,
         speed_label_y=speed_y + _CTRL + 2,
         speed_label_x=bar_x + amp_bar_h // 2,
     )

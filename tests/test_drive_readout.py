@@ -112,6 +112,24 @@ class TestControls:
                 assert y >= PAD and y + h <= PAD + SECTION_H
 
 
+class TestTheCenterLabel:
+    @staticmethod
+    def _ink_rows_left_of_the_center_marks(hud: DriveHud) -> tuple[list[int], tuple]:
+        marks = {c.command: c.rect for c in controls(PAD, PAD, hud)}
+        up, down = marks["robot_hand_center_up"], marks["robot_hand_center_down"]
+        column = _rendered(hud).astype(int)[PAD:PAD + SECTION_H, PAD:up[0], :3]
+        rows = np.flatnonzero((column.max(axis=2) > 90).any(axis=1))
+        return [PAD + int(row) for row in rows], (up[1], down[1] + down[3])
+
+    @pytest.mark.parametrize("center", [0, 20, 50, 80, 100])
+    def test_the_word_and_its_number_ride_beside_the_center_marks(self, center):
+        rows, (marks_top, marks_bottom) = self._ink_rows_left_of_the_center_marks(
+            _hud(center=center))
+
+        assert rows
+        assert marks_top <= rows[0] and rows[-1] < marks_bottom
+
+
 class TestTracks:
     """The bands themselves take a level from where you press in them, so a bar
     is set outright instead of walked to with the marks beside it."""
@@ -502,8 +520,8 @@ class TestSwitchedOff:
         nowhere, and a dot still moving is the last thing on a stopped readout
         claiming to be live."""
         off = _rendered(_hud(driven=DRIVEN_BY_NOTHING, waveform=()))
-        # The marker straddles the trace's left edge, which nothing else touches.
-        edge = off.astype(int)[:, PAD - 3:PAD - 1, :3]
+        trace_x = next(t.rect for t in tracks(PAD, PAD, _hud()) if t.axis == CENTER)[0]
+        edge = off.astype(int)[:, trace_x - 3:trace_x - 1, :3]
 
         assert not (edge > 200).all(axis=2).any()
 

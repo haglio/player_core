@@ -383,13 +383,10 @@ class DriveSection:
         for control in controls(x, y, hud):
             self._draw_control(draw, control)
 
-        # Each number beside the controls that move it: centre out to the left,
-        # amplitude out to the right, speed under its own row.  The two side
-        # labels stack — word over number — so the columns cost half the width.
-        self._stacked(draw, g.axis_label_y, "Center", str(hud.center),
-                      right=g.center_label_right, ink=value_ink)
-        self._stacked(draw, g.axis_label_y, "Amp", str(hud.amplitude),
-                      left=g.amp_label_left, ink=value_ink)
+        self._stacked(draw, g.center_label, "Center", str(hud.center),
+                      anchor="rm", ink=value_ink)
+        self._stacked(draw, g.amp_label, "Amp", str(hud.amplitude),
+                      anchor="lm", ink=value_ink)
         self._value(draw, g.speed_label_y, "Speed", str(hud.speed),
                     center=g.speed_label_x, ink=value_ink)
 
@@ -401,18 +398,12 @@ class DriveSection:
                                outline=ink, width=1)
         draw_glyph(draw, x + w / 2, y + h / 2, control.glyph, self._glyph, ink)
 
-    def _stacked(self, draw, y: int, key: str, value: str, *,
-                 left: int | None = None, right: int | None = None,
-                 ink=(*TEXT_PRIMARY, 255)) -> None:
-        """A muted word with its number under it, in one narrow column.
-
-        The pair side by side cost the width of both plus a gap on each flank of
-        the trace; stacked, each column is only as wide as the wider of the two.
-        """
-        for line_no, (text, fill) in enumerate(((key, (*TEXT_MUTED, 255)), (value, ink))):
-            x = left if left is not None else (right or 0) - text_width(self._tiny, text)
-            draw.text((x, y + line_no * _LABEL_H + _LABEL_H / 2), text, font=self._tiny,
-                      anchor="lm", fill=fill)
+    def _stacked(self, draw, rect: Rect, key: str, value: str, *, anchor: str, ink) -> None:
+        x, y, w, h = rect
+        text_x = x + w if anchor.startswith("r") else x
+        for text, middle, fill in ((key, y + _CTRL / 2, (*TEXT_MUTED, 255)),
+                                   (value, y + h - _CTRL / 2, ink)):
+            draw.text((text_x, middle), text, font=self._tiny, anchor=anchor, fill=fill)
 
     def _value(self, draw, y: int, key: str, value: str, *,
                center: int, ink=(*TEXT_PRIMARY, 255)) -> None:
