@@ -247,7 +247,7 @@ def tracks(x: int, y: int, hud: DriveHud) -> list[DriveTrack]:
         speed_ceiling=speed_ceiling(hud.max_intensity, hud.amplitude))
 
 
-def track_command(track: DriveTrack, px: int, py: int) -> str:
+def track_command(track: DriveTrack, px: int, py: float) -> str:
     """What a press at ``(px, py)`` on *track* posts — the numeric set command Fun
     Time already routes to the Robot Hand, or to the OSR2 itself."""
     owner = "" if track.axis == MAX_INTENSITY else "robot_hand_"
@@ -274,15 +274,16 @@ def readout_targets(x: int, y: int, hud: DriveHud,
     nothing else on a HUD in a video says a bar can be dragged — and comes back
     beside them so the press can take hold of it (:class:`TrackGrip`).
     """
-    bands = tracks(x, y, hud)
+    grabbable = [*tracks(x, y, hud),
+                 drive_layout.center_handle(x, y, hud.center, dim=not hud.driving)]
     targets = [
         (control.rect,
          Button(control.command, "", CONTROL_TIPS.get(control.command, ""),
                 dim=control.dim))
         for control in controls(x, y, hud)
     ]
-    targets += [(band.rect, Button("", "", band.tooltip)) for band in bands]
-    return targets, bands
+    targets += [(part.rect, Button("", "", part.tooltip)) for part in grabbable]
+    return targets, grabbable
 
 
 class TrackGrip:
@@ -298,6 +299,7 @@ class TrackGrip:
         # Which band a press took hold of, and what it last asked for, so a drag
         # keeps setting the one it started on and only speaks when the value moves.
         self._held: DriveTrack | None = None
+        self._offset = 0.0
         self._asked = ""
 
     @property
@@ -308,18 +310,11 @@ class TrackGrip:
         return self._held is not None
 
     def grab(self, bands: list[DriveTrack], px: int, py: int) -> str:
-        """Take hold of the band under ``(px, py)`` and say what that press asks
-        of it; "" over none, holding nothing.
-
-        A dimmed band is passed over the way a dimmed button is: the readout is
-        dimmed whole while a funscript has the device, and a press that could do
-        nothing is not offered.
-        """
         for track in bands:
             if not track.dim and contains(track.rect, px, py):
-                self._held = track
-                self._asked = track_command(track, px, py)
-                return self._asked
+                self._held, self._offset = drive_layout.held_band(track, py)
+                self._asked = self._command_at(px, py)
+                return "" if track.handle_of else self._asked
         return ""
 
     def drag_to(self, px: int, py: int) -> str:
@@ -332,7 +327,7 @@ class TrackGrip:
         """
         if self._held is None:
             return ""
-        command = track_command(self._held, px, py)
+        command = self._command_at(px, py)
         if command == self._asked:
             return ""
         self._asked = command
@@ -340,7 +335,10 @@ class TrackGrip:
 
     def release(self) -> None:
         """Let go of whichever band a press took hold of."""
-        self._held, self._asked = None, ""
+        self._held, self._offset, self._asked = None, 0.0, ""
+
+    def _command_at(self, px: int, py: int) -> str:
+        return track_command(self._held, px, py - self._offset)
 
 
 def draw_level_bar(draw, rect: Rect, *, fill: float, color) -> None:

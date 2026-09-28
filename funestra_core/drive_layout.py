@@ -14,7 +14,7 @@ showing the readout is a thin painter over one tested layout.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from .geometry import Rect
 
@@ -78,26 +78,13 @@ class DriveControl:
 
 @dataclass(frozen=True)
 class DriveTrack:
-    """A band of the readout that takes its value from where you press in it.
-
-    The marks beside each axis step it; these are the axis itself, and each band
-    is already the picture of its own value — so a press reads straight off what
-    is drawn. Along the speed bar for the rate, up the amplitude bar for how far
-    the motion reaches, anywhere in the trace for the height it swings about.
-
-    ``center`` is where the motion sits as a 0-1 height, which the amplitude
-    band mirrors about: the bar is drawn out from there in both directions, so
-    grabbing either end and pulling sets how far the motion has to reach.
-    ``dim`` is the whole readout being unpressable — something else has the
-    device — the same state the marks wear, and for the same reason.
-    """
-
     rect: Rect
     axis: str
     tooltip: str
     center: float = 0.5
     dim: bool = False
     ceiling: int = 100
+    handle_of: Rect | None = None
 
 
 @dataclass(frozen=True)
@@ -115,6 +102,7 @@ class Geometry:
     center_up: Rect
     center_down: Rect
     center_label: Rect
+    center_handle: Rect
     amp_label: Rect
     speed_label_y: int
     speed_label_x: int
@@ -141,6 +129,7 @@ def geometry(x: int, y: int, center_frac: float) -> Geometry:
     center_down = (ctr_ctrl_x, up_y + _CTRL + _MARK_GAP, _CTRL, _CTRL)
     label_h = 2 * _CTRL + _MARK_GAP
     center_label = (x, up_y, _CTR_LABEL_W, label_h)
+    center_handle = (x, up_y, _CTR_LABEL_W + _GAP, label_h)
     amp_label = (amp_x + _AMP_W + _GAP, wave_y + (_WAVE_H - label_h) // 2, _AMP_LABEL_W, label_h)
 
     speed_y = wave_lower + _GAP
@@ -154,7 +143,7 @@ def geometry(x: int, y: int, center_frac: float) -> Geometry:
         wave=wave, speed_bar=speed_bar, speed_down=speed_down, speed_up=speed_up,
         amp_bar=amp_bar, amp_up=amp_up, amp_down=amp_down,
         center_up=center_up, center_down=center_down,
-        center_label=center_label, amp_label=amp_label,
+        center_label=center_label, center_handle=center_handle, amp_label=amp_label,
         speed_label_y=speed_y + _CTRL + 2,
         speed_label_x=bar_x + amp_bar_h // 2,
     )
@@ -222,11 +211,26 @@ def tracks(x: int, y: int, center: int, *, dim: bool = False,
     ]
 
 
-def track_value(track: DriveTrack, px: int, py: int) -> int:
+def center_handle(x: int, y: int, center: int, *, dim: bool = False) -> DriveTrack:
+    center_frac = fraction(center)
+    g = geometry(x, y, center_frac)
+    return DriveTrack(g.center_handle, CENTER, "Drag to move where the motion is centered",
+                      center_frac, dim, handle_of=g.wave)
+
+
+def held_band(track: DriveTrack, py: float) -> tuple[DriveTrack, float]:
+    if track.handle_of is None:
+        return track, 0.0
+    band = replace(track, rect=track.handle_of, handle_of=None)
+    _x, y, _w, h = band.rect
+    return band, py - (y + (1 - band.center) * (h - 1))
+
+
+def track_value(track: DriveTrack, px: int, py: float) -> int:
     return min(track.ceiling, _level_under(track, px, py))
 
 
-def _level_under(track: DriveTrack, px: int, py: int) -> int:
+def _level_under(track: DriveTrack, px: int, py: float) -> int:
     """The 0-100 level a press at ``(px, py)`` asks *track* for.
 
     Read off the drawing rather than merely off the rect, so what you point at
