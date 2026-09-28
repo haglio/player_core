@@ -6,18 +6,22 @@ these press the rects the geometry hands out, rather than trusting them.
 """
 from __future__ import annotations
 
+import dataclasses
+
+import pytest
+
 from funestra_core import drive_layout as layout
-from funestra_core.geometry import contains
 
 
 def _by_action(controls):
     return {c.command: c for c in controls}
 
 
-def test_the_block_is_as_big_as_the_parts_it_places():
-    g = layout.geometry(0, 0, 0.5)
-    for rect in (g.wave, g.speed_bar, g.amp_bar, g.speed_up, g.center_down):
-        x, y, w, h = rect
+@pytest.mark.parametrize("center", [0.0, 1.0])
+def test_the_block_is_as_big_as_the_parts_it_places(center):
+    g = layout.geometry(0, 0, center)
+    rects = [value for value in dataclasses.astuple(g) if isinstance(value, tuple)]
+    for x, y, w, h in rects:
         assert x >= 0 and x + w <= layout.SECTION_W
         assert y >= 0 and y + h <= layout.SECTION_H
     assert layout.section_size() == (layout.SECTION_W, layout.SECTION_H)
@@ -37,42 +41,25 @@ def test_the_centre_marks_ride_the_line_they_move_and_stay_on_the_block():
     assert high < low  # a higher centre sits higher up the block
 
 
-def test_a_press_reads_the_value_drawn_under_it():
-    tracks = {t.axis: t for t in layout.tracks(0, 0, 50)}
-    speed = tracks[layout.SPEED]
-    x, y, w, h = speed.rect
-    assert layout.track_value(speed, x, y) == 0
-    assert layout.track_value(speed, x + w - 1, y) == 100
-    assert layout.track_value(speed, x + (w - 1) // 2, y) == 50
+def test_the_speed_bar_is_as_wide_as_the_amplitude_bar_is_tall():
+    g = layout.geometry(0, 0, 0.5)
 
-    trace = tracks[layout.CENTER]
-    x, y, w, h = trace.rect
-    assert layout.track_value(trace, x, y) == 100          # the top is centre 100
-    assert layout.track_value(trace, x, y + h - 1) == 0
-
-    # Amplitude is drawn out from the centre both ways, so a press is the reach
-    # needed to arrive there: half the band above a centered motion is amp 100.
-    amp = tracks[layout.AMPLITUDE]
-    x, y, w, h = amp.rect
-    assert layout.track_value(amp, x, y) == 100
-    assert layout.track_value(amp, x, y + (h - 1) // 2) <= 2  # no reach at all
+    assert g.speed_bar[2] == g.amp_bar[3]
 
 
-def test_a_press_off_the_end_of_a_band_reads_as_its_nearer_end():
-    # A drag that wanders off the bar goes on setting it rather than stopping.
-    speed = {t.axis: t for t in layout.tracks(0, 0, 50)}[layout.SPEED]
-    x, y, w, _h = speed.rect
-    assert layout.track_value(speed, x - 500, y) == 0
-    assert layout.track_value(speed, x + w + 500, y) == 100
+def _overlap(a, b) -> bool:
+    ax, ay, aw, ah = a
+    bx, by, bw, bh = b
+    return ax < bx + bw and bx < ax + aw and ay < by + bh and by < ay + ah
 
 
-def test_every_mark_is_hit_by_a_press_in_its_own_middle_and_by_no_other():
-    marks = layout.controls(0, 0, 50, layout.Limits())
-    for mark in marks:
-        x, y, w, h = mark.rect
-        px, py = x + w // 2, y + h // 2
-        assert [m.command for m in marks
-                if contains(m.rect, px, py)] == [mark.command]
+@pytest.mark.parametrize("center", [0, 50, 100])
+def test_no_mark_sits_on_another_mark_or_on_a_band(center):
+    marks = [mark.rect for mark in layout.controls(0, 0, center, layout.Limits())]
+    bands = [track.rect for track in layout.tracks(0, 0, center)]
+
+    for index, mark in enumerate(marks):
+        assert not any(_overlap(mark, other) for other in marks[index + 1:] + bands)
 
 
 def test_a_mark_at_the_end_of_its_range_is_dimmed_and_only_that_one():

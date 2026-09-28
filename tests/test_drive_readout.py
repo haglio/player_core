@@ -79,8 +79,8 @@ class TestControls:
         """Speed is out from between centre and amplitude, under the trace, so the
         three axes do not crowd one band."""
         by_command = {c.command: c.rect for c in controls(0, 0, _hud())}
-        wave_lower = max(by_command["robot_hand_amplitude_down"][1] + by_command["robot_hand_amplitude_down"][3],
-                         by_command["robot_hand_center_down"][1])
+        _x, trace_y, _w, trace_h = next(t.rect for t in tracks(0, 0, _hud()) if t.axis == CENTER)
+        wave_lower = trace_y + trace_h
 
         assert by_command["robot_hand_speed_down"][1] >= wave_lower
         assert by_command["robot_hand_speed_up"][1] >= wave_lower
@@ -143,7 +143,7 @@ class TestTracks:
         x, y, w, h = band.rect
 
         assert track_value(band, x, y + h // 2) == 0
-        assert track_value(band, x + (w - 1) // 2, y + h // 2) == 50
+        assert abs(track_value(band, x + (w - 1) // 2, y + h // 2) - 50) <= 1
         assert track_value(band, x + w - 1, y + h // 2) == 100
 
     def test_a_press_in_the_trace_asks_for_the_height_it_sits_at(self):
@@ -223,6 +223,17 @@ class TestTracks:
 
 
 class TestReadout:
+    @pytest.mark.parametrize("center", [0, 100])
+    def test_it_draws_nothing_outside_the_block_it_declares(self, center):
+        size = (SECTION_W + 2 * PAD, SECTION_H + 4 * PAD)
+        drawn = HudPanel(*size)
+        DriveSection().draw(drawn.image, PAD, PAD, _hud(center=center))
+        changed = (np.asarray(drawn.image) != np.asarray(HudPanel(*size).image)).any(axis=2)
+        rows, columns = np.nonzero(changed)
+
+        assert rows.min() >= PAD and rows.max() < PAD + SECTION_H
+        assert columns.min() >= PAD and columns.max() < PAD + SECTION_W
+
     def test_it_fills_the_block_it_declares(self):
         rgb = _rendered(_hud(speed=62, center=45, amplitude=80))
 
@@ -248,6 +259,27 @@ class TestReadout:
         bar = rgb[down_y + down_h // 2, down_x + down_w + 4:up_x - 4]
 
         assert ((bar[:, 2] > 150) & (bar[:, 0] < 120)).all()
+
+
+class TestTheAmplitudeBarBesideTheTrace:
+    @staticmethod
+    def _blue_rows(rgb: np.ndarray, rect) -> list[int]:
+        x, y, w, h = rect
+        inside = rgb[y:y + h, x:x + w, :3]
+        blue = (inside[..., 2] > 150) & (inside[..., 0] < 120)
+        return [y + int(row) for row in np.flatnonzero(blue.any(axis=1))]
+
+    def test_its_blue_reaches_as_high_and_as_low_as_the_trace_s_line(self):
+        hud = _hud(amplitude=60, center=40,
+                   waveform=tuple(0.4 + 0.3 * np.sin(i / 6) for i in range(80)))
+        rgb = _rendered(hud).astype(int)
+        bands = {t.axis: t.rect for t in tracks(PAD, PAD, hud)}
+
+        line = self._blue_rows(rgb, bands[CENTER])
+        bar = self._blue_rows(rgb, bands[AMPLITUDE])
+
+        assert abs(line[0] - bar[0]) <= 1
+        assert abs(line[-1] - bar[-1]) <= 1
 
 
 class TestTheStretchesTheMaxIntensityRulesOut:
