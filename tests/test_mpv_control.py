@@ -545,6 +545,184 @@ def test_aiming_at_a_part_of_the_picture_brings_it_onto_the_part_in_the_time_giv
         WIDE, WIDE).framing(part).placement()
 
 
+def test_a_still_swapped_in_carries_on_the_move_of_the_picture_it_replaced():
+    mpv = FakeMpv()
+    deals = OneMove(CREEP)
+    control = Control(mpv, now=100.0, deals=deals)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+    control.now = 102.0
+
+    control.swap_still(Path("made-up-frame.png"))
+    mpv.report("path", "made-up-frame.png")
+    control.push_still()
+
+    assert deals.dealt == 1
+    assert mpv.video_zoom == pytest.approx(math.log2(CREEP.at(0.5).zoom))
+
+
+def swapped_in(mpv: FakeMpv, control: Control, at: float, name: str = "made-up-frame.png") -> None:
+    control.now = at
+    control.swap_still(Path(name))
+    mpv.report("path", name)
+
+
+def test_mpv_leaves_a_swapped_in_still_up_rather_than_ending_it_on_a_clock_of_its_own():
+    mpv = FakeMpv()
+    control = Control(mpv, now=100.0)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+
+    swapped_in(mpv, control, at=102.0)
+
+    assert mpv.image_display_duration == "inf"
+
+
+def test_a_swapped_in_still_runs_out_when_the_picture_it_replaced_would_have():
+    mpv = FakeMpv()
+    mpv.eof_reached = False
+    control = Control(mpv, now=100.0)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+    swapped_in(mpv, control, at=102.0)
+
+    ran_out = []
+    for now in (103.9, 104.05):
+        control.now = now
+        control.push_still()
+        ran_out.append(control.eof)
+
+    assert ran_out == [False, True]
+
+
+def test_a_still_swapped_in_keeps_the_next_clip_staged_after_it():
+    mpv = FakeMpv()
+    control = Control(mpv, now=100.0)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+    control.stage_next(Path("made-up-next.png"))
+    mpv.calls.clear()
+
+    control.swap_still(Path("made-up-frame.png"))
+
+    assert mpv.calls == [("play", "made-up-frame.png"), ("clear",),
+                         ("loadfile", "made-up-next.png", "append")]
+
+
+def test_a_still_swapped_in_after_the_player_rolled_onto_its_staged_clip_stages_nothing():
+    mpv = FakeMpv()
+    control = Control(mpv, now=100.0)
+    control.set_pace(4.0)
+    control.stage_next(Path("made-up-next.png"))
+    control.drop_consumed()
+    mpv.calls.clear()
+
+    control.swap_still(Path("made-up-frame.png"))
+
+    assert mpv.calls == [("play", "made-up-frame.png"), ("clear",)]
+
+
+def test_a_swapped_in_still_that_runs_out_moves_on_to_the_staged_clip_at_the_pace():
+    mpv = FakeMpv()
+    control = Control(mpv, now=100.0)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+    control.stage_next(Path("made-up-next.png"))
+    swapped_in(mpv, control, at=102.0)
+    mpv.calls.clear()
+
+    control.now = 104.05
+    control.push_still()
+
+    assert mpv.image_display_duration == 4.0
+    assert [call for call in mpv.calls if call[0] == "command"] == [("command", "playlist-next")]
+
+
+def test_a_file_opened_after_a_swapped_in_still_holds_for_the_pace_again():
+    mpv = FakeMpv()
+    control = Control(mpv, now=100.0)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+    swapped_in(mpv, control, at=102.0)
+
+    control.load(Path("made-up-next.png"))
+
+    assert mpv.image_display_duration == 4.0
+
+
+def ran_out_on_a_swapped_in_still(mpv: FakeMpv) -> Control:
+    mpv.eof_reached = False
+    control = Control(mpv, now=100.0)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+    swapped_in(mpv, control, at=102.0)
+    control.now = 104.05
+    control.push_still()
+    return control
+
+
+def test_a_file_opened_after_a_swapped_in_still_ran_out_has_not():
+    mpv = FakeMpv()
+    control = ran_out_on_a_swapped_in_still(mpv)
+
+    control.load(Path("made-up-next.png"))
+
+    assert control.eof is False
+
+
+def test_a_pace_set_while_a_still_is_swapped_in_leaves_mpv_holding_it():
+    mpv = FakeMpv()
+    control = Control(mpv, now=100.0)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+    swapped_in(mpv, control, at=102.0)
+
+    control.set_pace(6.0)
+
+    assert mpv.image_display_duration == "inf"
+
+
+def test_a_file_opened_is_dealt_a_move_of_its_own_though_it_was_once_swapped_in():
+    mpv = FakeMpv()
+    deals = OneMove(CREEP)
+    control = Control(mpv, now=100.0, deals=deals)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+    swapped_in(mpv, control, at=101.0, name="made-up-scene.png")
+
+    control.load(Path("made-up-scene.png"))
+    mpv.report("path", "made-up-scene.png")
+
+    assert deals.dealt == 2
+
+
+def test_a_still_swapped_in_on_a_locked_player_never_runs_out():
+    mpv = FakeMpv()
+    mpv.eof_reached = False
+    control = Control(mpv, now=100.0, looping=True)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+    swapped_in(mpv, control, at=102.0)
+
+    control.now = 110.0
+    control.push_still()
+
+    assert control.eof is False
+
+
+def test_a_still_swapped_in_after_the_player_let_go_of_its_file_stages_nothing():
+    mpv = FakeMpv()
+    control = Control(mpv, now=100.0)
+    control.set_pace(4.0)
+    control.stage_next(Path("made-up-next.png"))
+    control.stop()
+    mpv.calls.clear()
+
+    control.swap_still(Path("made-up-frame.png"))
+
+    assert mpv.calls == [("play", "made-up-frame.png"), ("clear",)]
+
+
 def test_the_gap_between_two_files_is_dealt_no_move_of_its_own():
     mpv = FakeMpv()
     deals = OneMove(DRIFT)
