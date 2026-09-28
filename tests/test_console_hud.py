@@ -1,8 +1,6 @@
 """The main console painter: the top line, the controls, and the readout."""
 from __future__ import annotations
 
-from dataclasses import replace
-
 import numpy as np
 import pytest
 from console_rows import console_rows, motion_rows, osr2_controls
@@ -1007,7 +1005,7 @@ class TestControlOff:
         not the room's, and wins over a let-go (see the auto readout's tests)."""
         painter = ConsolePainter()
         for mode in MainMode:
-            for osr2 in ("robot_hand", "funscript", "off"):
+            for osr2 in ("robot_hand", "funscript"):
                 hud = self._hud(mode, osr2, OSR2_CONTROL_OFF)
                 painter.rgba(hud)
                 assert painter._osr2_state(hud.console) == OSR2_CONTROL_OFF, (mode, osr2)
@@ -1081,7 +1079,7 @@ class TestHolds:
         painter = ConsolePainter()
         for control in (OSR2_PARKED, OSR2_RETRACTED):
             for mode in MainMode:
-                for osr2 in ("robot_hand", "funscript", "off"):
+                for osr2 in ("robot_hand", "funscript"):
                     hud = self._hud(mode, osr2, control)
                     painter.rgba(hud)
                     assert painter._osr2_state(hud.console) == control, (mode, osr2)
@@ -1119,43 +1117,61 @@ class TestHolds:
 
 
 class TestNothingDriving:
-    """With the OSR2 off there is nothing being sent, so there is no motion to
+    """With the OSR2 switched off nothing reaches it, so there is no motion to
     trace — and a trace scrolling on in the middle of a readout whose every
-    control is dead is the one part still claiming to be live.
+    control is dead is the one part still claiming to be live."""
 
-    Genau's own mode, where the readout is a picture of one waveform and
-    nothing else.  Kino mode is the exception, below: there the readout is a
-    picture of a handoff, and the gaps are part of what it draws.
-    """
+    _HANDOFF = ((0, "funscript"), (40, "robot_hand"))
 
     @staticmethod
-    def _scroll(painter: ConsolePainter, offset: float) -> None:
-        painter.bgra(ConsoleHud(
-            console=ConsoleModel(main_mode=MainMode.GENAU, osr2=Osr2State.OFF),
-            drive=_drive(offset)))
+    def _off(mode: MainMode, offset: float, control: str = OSR2_DRIVING,
+             **drive) -> ConsoleHud:
+        return ConsoleHud(
+            console=ConsoleModel(main_mode=mode, osr2=Osr2State.OFF, osr2_control=control),
+            drive=_drive(offset, **drive))
 
-    def test_the_trace_stops_where_it_was_when_the_device_went_quiet(self):
+    @pytest.mark.parametrize("mode", list(MainMode))
+    def test_the_trace_stops_where_it_was_when_the_device_went_quiet(self, mode):
         painter = ConsolePainter()
-        self._scroll(painter, 0.0)
-        first = painter.bgra(ConsoleHud(
-            console=ConsoleModel(main_mode=MainMode.GENAU, osr2=Osr2State.OFF), drive=_drive(0.0))).copy()
+        first = painter.bgra(self._off(mode, 0.0)).copy()
 
-        self._scroll(painter, 3.0)
-
-        assert np.array_equal(painter.bgra(ConsoleHud(
-            console=ConsoleModel(main_mode=MainMode.GENAU, osr2=Osr2State.OFF),
-            drive=_drive(3.0))), first)
+        assert np.array_equal(painter.bgra(self._off(mode, 3.0)), first)
 
     def test_it_moves_again_the_moment_something_is_driving(self):
         painter = ConsolePainter()
-        self._scroll(painter, 0.0)
-        still = painter.bgra(ConsoleHud(
-            console=ConsoleModel(main_mode=MainMode.GENAU, osr2=Osr2State.OFF), drive=_drive(0.0))).copy()
+        still = painter.bgra(self._off(MainMode.GENAU, 0.0)).copy()
 
         moving = painter.bgra(ConsoleHud(
             console=ConsoleModel(main_mode=MainMode.GENAU, osr2=Osr2State.ROBOT_HAND), drive=_drive(3.0)))
 
         assert not np.array_equal(moving, still)
+
+    def test_a_videos_composed_trace_holds_still_in_gray_with_the_device_off(self):
+        painter = ConsolePainter()
+        first = painter.bgra(self._off(
+            MainMode.KINO, 0.0, driven="funscript", segments=self._HANDOFF)).copy()
+
+        later = painter.bgra(self._off(
+            MainMode.KINO, 3.0, driven="funscript", segments=self._HANDOFF))
+
+        assert {who for _start, _end, who in painter._painted[0].drive.runs} == {"nothing"}
+        assert np.array_equal(later, first)
+
+    def test_the_pill_says_off_whoever_a_videos_composed_trace_has_driving(self):
+        painter = ConsolePainter()
+        hud = self._off(MainMode.KINO, 0.0, driven="funscript", segments=self._HANDOFF)
+        painter.rgba(hud)
+
+        assert painter._osr2_state(hud.console) == "off"
+
+    @pytest.mark.parametrize("control", [OSR2_PARKED, OSR2_RETRACTED])
+    def test_a_switched_off_device_is_not_drawn_held_at_an_end(self, control):
+        painter = ConsolePainter()
+        hud = self._off(MainMode.GENAU, 0.0, control=control)
+        painter.rgba(hud)
+
+        assert painter._osr2_state(hud.console) == "off"
+        assert painter._painted[0].drive.driven == "nothing"
 
 
 class TestTheDeviceRunningItselfKeepsMoving:
@@ -1190,33 +1206,32 @@ class TestTheDeviceRunningItselfKeepsMoving:
 
 
 class TestTheHandoffKeepsMoving:
-    """In kino mode the readout draws the device changing hands, and between the
-    two drivers is a gap where nothing is being sent at all — the OSR2 stops
-    answering on the wire and reads "off" for a moment.  Held still there, the
-    whole trace froze into one flat grey at every handoff and came back only
-    once something was driving again, which is what he kept watching happen as
-    the funscript's turn came up."""
+    """In kino mode the readout draws the device changing hands, with a gap
+    between the two drivers where nothing is being sent at all.  Held still
+    there, the whole trace froze into one flat gray at every handoff and came
+    back only once something was driving again, which is what he kept watching
+    happen as the funscript's turn came up."""
+
+    _GAP = ((0, "robot_hand"), (40, "neutral"))
+
+    def _in_the_gap(self, offset: float) -> ConsoleHud:
+        return ConsoleHud(
+            console=ConsoleModel(main_mode=MainMode.KINO, osr2=Osr2State.FUNSCRIPT),
+            drive=_drive(offset, driven="neutral", segments=self._GAP))
 
     def test_the_trace_goes_on_sliding_through_the_gap(self):
         painter = ConsolePainter()
-        first = painter.bgra(ConsoleHud(
-            console=ConsoleModel(main_mode=MainMode.KINO, osr2=Osr2State.OFF), drive=_drive(0.0))).copy()
+        first = painter.bgra(self._in_the_gap(0.0)).copy()
 
-        later = painter.bgra(ConsoleHud(
-            console=ConsoleModel(main_mode=MainMode.KINO, osr2=Osr2State.OFF), drive=_drive(3.0)))
+        later = painter.bgra(self._in_the_gap(3.0))
 
         assert not np.array_equal(later, first)
 
     def test_the_line_keeps_the_colors_the_model_gave_it(self):
-        """Blanked segments fall back to one flat colour for the whole line —
-        the grey he saw.  The model says where the device changes hands, and
+        """Blanked segments fall back to one flat color for the whole line —
+        the gray he saw.  The model says where the device changes hands, and
         that has to survive the gap."""
-        painter = ConsolePainter()
-        hud = ConsoleHud(
-            console=ConsoleModel(main_mode=MainMode.KINO, osr2=Osr2State.OFF),
-            drive=replace(_drive(0.0), segments=((0, "genau"), (40, "neutral"))))
-
-        assert painter._resolve(hud).drive.segments == ((0, "genau"), (40, "neutral"))
+        assert ConsolePainter()._resolve(self._in_the_gap(0.0)).drive.segments == self._GAP
 
 
 class TestTheLockIsGreen:

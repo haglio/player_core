@@ -95,17 +95,8 @@ COLORS = {
 
 def state_for(osr2: str, control: str, *, driving: str = "") -> str:
     """Who the pill names, given what the wire says has the device (*osr2*) and
-    what this app is doing to it (*control*).
-
-    One precedence wherever the line is drawn.  The device running its own
-    firmware wins over everything the room does to it: no hold, no let-go and no
-    handoff reaches it.  Then a hold or a let-go, because there is nobody
-    driving to name and what the reader needs is why.  Only then the driver —
-    *driving* where the panel has a better answer than the round-tripped one
-    (the main console reads it off the trace it actually drew), the wire's
-    otherwise.
-    """
-    if osr2 == Osr2State.AUTO:
+    what this app is doing to it (*control*)."""
+    if osr2 in (Osr2State.AUTO, Osr2State.OFF):
         return osr2
     if control in (OSR2_CONTROL_OFF, OSR2_PARKED, OSR2_RETRACTED):
         return control
@@ -152,12 +143,15 @@ class ReadoutResolver:
         # since the round trip lags the arbiter, and the arbiter itself decides
         # seconds before the device is done riding the blue.
         held = HELD_HEIGHT.get(control)
+        nothing_reaches_it = osr2 == Osr2State.OFF or control == OSR2_CONTROL_OFF
         if osr2 == Osr2State.AUTO:
             # The device is running its own firmware, and that wins over
             # everything the room does to it: a hold, a let-go, a handoff
             # between two drivers.  None of those reaches it, so none is the
             # picture — one line, the device's own, in its own color.
             drive = replace(drive, driven=DRIVEN_BY_AUTO, segments=())
+        elif nothing_reaches_it:
+            drive = replace(drive, driven=DRIVEN_BY_NOTHING, segments=())
         elif held is not None:
             # The device is being kept at one end, so that is the picture: a
             # flat line there with the dot on it, in the gray of a device nobody
@@ -167,24 +161,9 @@ class ReadoutResolver:
                 drive, waveform=(held,) * len(drive.waveform or (0.0,)),
                 position=round(held * POSITION_MAX), segments=(), slide=0.0,
                 edge=None, let_go=None, driven=DRIVEN_BY_NEUTRAL)
-        elif control == OSR2_CONTROL_OFF:
-            # Nothing is going out, so nobody has the device — whatever the
-            # round trip or the composed trace last said had it.  The trace's own
-            # names go with it: a kino-mode plan says who has the device at each
-            # knot, and kept, they drew the line in the script's green under a
-            # word that read "control off".
-            drive = replace(drive, driven=DRIVEN_BY_NOTHING, segments=())
         elif not (composed and drive.segments):
             drive = replace(drive, driven=_DRIVEN_BY_OSR2.get(osr2, DRIVEN_BY_NOTHING))
-        # A composed trace is the script's plan, computed fresh per frame from
-        # the playhead: it keeps sliding through every rest and every handoff
-        # whatever the OSR2 state says, because the rests ARE part of what it
-        # draws — freezing it on the round-tripped "off" was the picture that
-        # stopped scrolling for the length of each gap.  Anything else is
-        # Genau's own resampled motion, which goes on moving while nobody is
-        # sending it, and the slide freezes with it or the "still" trace would
-        # go on creeping left a fraction of a sample at a time.
-        if not drive.live and (control == OSR2_CONTROL_OFF or not composed):
+        if not drive.live and (nothing_reaches_it or not composed):
             if self._still is None:
                 self._still = (drive.waveform, drive.position, drive.slide, drive.edge)
             waveform, position, slide, edge = self._still
