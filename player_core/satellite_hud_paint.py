@@ -238,6 +238,7 @@ class HudRenderer:
         hover_loop: str = "",
         hover_tip: str = "",
         hover_pos: tuple[int, int] = (0, 0),
+        may_grow_on_hover: bool = True,
     ) -> RenderedHud:
         """The panel as a BGRA bitmap plus the rects its controls occupy.
 
@@ -268,7 +269,8 @@ class HudRenderer:
         self._pointer = hover_pos if hover_tip else None
         if model.hud_minimized:
             bgra, buttons = collapsed_panel(
-                model.player, hovered=self._pointer is not None)
+                model.player, model.hud_corner, hover=self._pointer,
+                room_for_the_tooltip=not may_grow_on_hover)
             return RenderedHud(bgra, HudTargets(click=[], loop=[], filter=[], expand=None,
                                                 buttons=buttons))
         model = replace(model, drive=self._readout.resolve(

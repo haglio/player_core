@@ -1384,7 +1384,19 @@ class TestWhereTheConsoleSits:
 
     def test_a_minimized_console_is_the_restore_button_and_nothing_else(self):
         painter = self._painted(HudCorner.LOWER_LEFT, hud_minimized=True)
+        (rect, button), = painter.buttons
 
-        assert painter._image.size == (BUTTON, BUTTON)
-        assert [button.command for _rect, button in painter.buttons] == ["main_hud_restore"]
+        assert rect[2:] == (BUTTON, BUTTON)
+        assert button.command == "main_hud_restore"
         assert painter.tracks == []
+
+    def test_a_minimized_console_keeps_the_plus_in_its_own_corner(self):
+        """The room's corner still pins it, so the plus is where the panel was:
+        the bitmap holds room for the tooltip beside it, and the plus sits at
+        the corner of that room the panel is justified to."""
+        painter = self._painted(HudCorner.LOWER_LEFT, hud_minimized=True)
+        (x, y, _w, _h), _button = painter.buttons[0]
+        width, height = painter._image.size
+
+        assert (x, y + BUTTON) == (0, height)
+        assert width > BUTTON
