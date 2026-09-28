@@ -22,10 +22,12 @@ from funestra_core.drive_readout import (
     DRIVEN_BY_ROBOT_HAND,
     DriveHud,
     DriveSection,
+    TrackGrip,
     controls,
     label_pair_x,
     publish_drive,
     read_drive,
+    readout_targets,
     track_command,
     track_value,
     tracks,
@@ -128,6 +130,33 @@ class TestTheCenterLabel:
 
         assert rows
         assert marks_top <= rows[0] and rows[-1] < marks_bottom
+
+    @staticmethod
+    def _on_the_word(hud: DriveHud) -> tuple[int, int]:
+        x, y, _w, h = next(c.rect for c in controls(PAD, PAD, hud)
+                           if c.command == "robot_hand_center_up")
+        return x - 10, y + h // 2
+
+    def test_a_press_on_the_word_takes_hold_of_the_center_without_moving_it(self):
+        hud = _hud(center=50)
+        grip = TrackGrip()
+
+        _buttons, grabbable = readout_targets(PAD, PAD, hud)
+
+        assert grip.grab(grabbable, *self._on_the_word(hud)) == ""
+        assert grip.holding
+
+    def test_dragging_the_word_moves_the_center_as_far_as_the_pointer_travels(self):
+        hud = _hud(center=50)
+        grip = TrackGrip()
+        px, py = self._on_the_word(hud)
+        grip.grab(readout_targets(PAD, PAD, hud)[1], px, py)
+        trace_h = next(t.rect for t in tracks(PAD, PAD, hud) if t.axis == CENTER)[3]
+        rows_per_ten = (trace_h - 1) / 10
+
+        assert grip.drag_to(px, py) == ""
+        assert grip.drag_to(px, py - round(2 * rows_per_ten)) == "robot_hand_center_70"
+        assert grip.drag_to(px, py + round(4 * rows_per_ten)) == "robot_hand_center_10"
 
 
 class TestTracks:

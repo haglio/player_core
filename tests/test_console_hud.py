@@ -886,7 +886,8 @@ class TestTraceSources:
     def test_genau_driving_leaves_the_readout_pressable(self):
         painter = self._painted(MainMode.KINO, Osr2State.ROBOT_HAND)
 
-        assert [t.dim for t in painter.tracks] == [False, False, False]
+        assert painter.tracks
+        assert not any(t.dim for t in painter.tracks)
 
     def test_a_funscript_driving_dims_every_control_but_keeps_the_trace(self):
         """A motion Genau is not sending cannot be adjusted; the picture of the
