@@ -9,6 +9,23 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-10-08 — a HUD is divided into sections, and the console's device rows ride apart
+
+Both painters lay their panel down as a stack of sections with a line across
+the slab between each (`hud_sections.stack`, `HudPanel.divide`). A player's
+panel stacks its status, its declared buttons with the speed row, the clip's
+row, the device, the source's foot block and the map; the main console stacks
+its status, its declared buttons, the device and the clip's row.
+`satellite_hud.FAMILY_GAP` is gone, `panel_layout` takes the status section's
+height as `status_h` and a foot's as a plain `foot_h`, and the console's
+`_ROW_GAP` is `_BLOCK_GAP`, the gap between the device's own parts.
+
+`ConsoleModel.osr2_rows` is new and published as `osr2_rows`: the rows that aim
+the device, drawn at the head of the device's section as `HudModel.osr2_rows`
+already were. A console older than this one drops the key, so a source that
+publishes its aim row there waits until every app drawing its console runs
+this version.
+
 ## 2026-10-08 — the Funestra draws the main slot's console, and everything else the Main Player drew
 
 Everything Fun Time's Main Player painted over its video is the Funestra's drawing
