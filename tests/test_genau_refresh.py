@@ -9,6 +9,7 @@ import pytest
 
 from player_core.broker_feed import BrokerFeed
 from player_core.clip_advance import ClipAdvanceState
+from player_core.clip_flip import ClipFlip
 from player_core.crossing import Crossing, follow_channel
 from player_core.cruise_control import CruiseControlState
 from player_core.device_walk import BROKER_HOLD_DELAY_MS
@@ -166,6 +167,7 @@ def _build_controller(
     now_source=None,
     arriving: bool = False,
     let_go=None,
+    clip_flip: ClipFlip | None = None,
 ):
     loading_texts: list[str | None] = []
     consoles: list = []
@@ -204,6 +206,7 @@ def _build_controller(
         # orchestrator's, and refusing it would put an unhandled verb on the log
         # every time the room's volume moved.
         set_volume=lambda _level, _muted: None,
+        clip_flip=clip_flip if clip_flip is not None else ClipFlip(),
     )
     controller = GenauRefreshController(
         controls=controls,
@@ -1235,13 +1238,26 @@ def test_the_learned_motion_ticks_during_refresh(tmp_path):
 
 class TestAFlippedClip:
     @staticmethod
-    def _clip(tmp_path, *, flipped: bool = True) -> Path:
-        clip = tmp_path / "clips" / "scene one.mp4"
-        clip.parent.mkdir()
+    def _metadata_root(tmp_path) -> Path:
+        return tmp_path / "videos" / "metadata"
+
+    @classmethod
+    def _record(cls, tmp_path) -> Path:
+        return cls._metadata_root(tmp_path) / "genau" / "clips" / "scene one.json"
+
+    @classmethod
+    def _clip(cls, tmp_path, *, flipped: bool = True) -> Path:
+        clip = tmp_path / "videos" / "genau" / "clips" / "scene one.mp4"
+        clip.parent.mkdir(parents=True)
         clip.touch()
         if flipped:
-            (tmp_path / "flipped.txt").write_text("scene one.mp4\n", encoding="utf-8")
+            cls._record(tmp_path).parent.mkdir(parents=True)
+            cls._record(tmp_path).write_text('{"genau": {"flipped": true}}', encoding="utf-8")
         return clip
+
+    @classmethod
+    def _flip(cls, tmp_path) -> ClipFlip:
+        return ClipFlip(cls._metadata_root(tmp_path))
 
     def test_the_frame_shown_is_half_a_loop_over_from_where_the_device_is(self, tmp_path):
         tcode = FakeTCodeSender()
@@ -1250,6 +1266,7 @@ class TestAFlippedClip:
             path=str(self._clip(tmp_path)),
             entry={"frames": [object() for _ in range(8)]},
             robot_hand=RobotHandState(playing=True, bpm=120.0), tcode_sender=tcode,
+            clip_flip=self._flip(tmp_path),
         )
 
         built["controller"].refresh()
@@ -1262,6 +1279,7 @@ class TestAFlippedClip:
             broker=BrokerFeed(auto_active=True, raw_bpm=120.0),
             entry={"frames": [object() for _ in range(8)]},
             robot_hand=RobotHandState(playing=False, bpm=60.0),
+            clip_flip=self._flip(tmp_path),
         )
 
         built["controller"].refresh()
@@ -1276,12 +1294,13 @@ class TestAFlippedClip:
             path=str(clip), command="FLIP_ENDS",
             entry={"frames": [object() for _ in range(8)]},
             robot_hand=RobotHandState(playing=True, bpm=120.0), tcode_sender=tcode,
+            clip_flip=self._flip(tmp_path),
         )
 
         built["controller"].refresh()
 
         assert built["renderer"].display_calls == [1]
-        assert (tmp_path / "flipped.txt").read_text(encoding="utf-8") == "scene one.mp4\n"
+        assert '"flipped": true' in self._record(tmp_path).read_text(encoding="utf-8")
 
     def test_its_bar_starts_where_its_own_first_frame_puts_the_device(self, tmp_path):
         built = _build_controller(
@@ -1289,6 +1308,7 @@ class TestAFlippedClip:
             entry={"frames": [object()] * 20},
             robot_hand=RobotHandState(playing=True, speed=50, bpm=60.0),
             tcode_sender=FakeTCodeSender(),
+            clip_flip=self._flip(tmp_path),
         )
         controller = built["controller"]
         controller.refresh()
@@ -1308,6 +1328,7 @@ class TestAFlippedClip:
             robot_hand=RobotHandState(playing=True, bpm=120.0),
             tcode_sender=FakeTCodeSender(), cruise_control=CruiseControlState(),
             status_file=tmp_path / "genau_status.txt",
+            clip_flip=self._flip(tmp_path),
         )
 
         built["controller"].refresh()
