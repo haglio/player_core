@@ -9,6 +9,25 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-10-07 — Genau plays a clip it is named, keeps a flip in the clip's record, and decodes every clip itself
+
+`PLAY_FILE <clip>` puts a named clip up in Genau the way it does in every other
+player: jumped to where the clip is in the order, or spliced in after the clip on
+screen when it is not, and refused when the file is not on disk. Hosts wire it
+as `GenauControls.play_file`, which `ClipSelectionController.play` answers.
+Genau's drain now folds only a line's keyword to upper case, so a path arrives
+as it was written.
+
+`ClipFlip(metadata_root)` keeps a flip as `genau.flipped` in the clip's own
+metadata record, under the record's lock, in place of `flipped.txt` beside the
+clips folder; `flipped_record_for_clips_folder` is gone. A host that names no
+metadata folder gets a flip that lasts the session and a log line saying so.
+
+`load_clip_frames` no longer reads `.rhcache` frame caches: ffmpeg decodes a
+clip three to six times faster than the caches load, and nothing has written
+one since April. Its second argument and `cache_dir_for_clips_folder` stay
+until no branch of genau or fun_time still passes or imports them.
+
 ## 2026-10-06 — the Robot Hand's Amp, Speed and Center are bars, not dials
 
 The console draws them as bars, and the code called them dials, a word the
