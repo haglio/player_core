@@ -71,6 +71,12 @@ class ClipSequenceController:
         self._index = index
         return True
 
+    def play(self, clip: Path) -> Path:
+        if not self.move_to(clip):
+            self._index += 1
+            self._clips.insert(self._index, clip)
+        return self.current_path
+
     def step(self, delta: int) -> Path:
         self._index = (self._index + delta) % len(self._clips)
         return self.current_path

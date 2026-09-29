@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import threading
 from contextlib import contextmanager
+from pathlib import Path
 
 import pytest
 
@@ -740,6 +741,48 @@ class TestFlipEndsCommand:
         )
 
         assert (handled, flip.on) == (True, True)
+
+
+class TestPlayFileCommand:
+    def _asked(self, command, **collaborators) -> tuple[bool, list[Path]]:
+        played: list[Path] = []
+        handled = _answered(
+            command,
+            engine=BeatEngine(phase=0.0, last_tick=0.0),
+            paused=Flag(),
+            step_clip=lambda _step: None,
+            play_file=played.append,
+            **collaborators,
+        )
+        return handled, played
+
+    def test_it_plays_the_clip_the_line_names(self, tmp_path):
+        clip = tmp_path / "Scene One.mp4"
+        clip.touch()
+
+        assert self._asked(f"PLAY_FILE {clip}") == (True, [clip])
+
+    def test_a_funscript_after_the_clip_is_left_to_the_players_that_drive_by_one(self, tmp_path):
+        clip = tmp_path / "scene one.mp4"
+        clip.touch()
+
+        assert self._asked(f"PLAY_FILE {clip}\t{tmp_path / 'scene one.funscript'}") == (True, [clip])
+
+    def test_a_clip_that_is_not_on_disk_is_refused(self, tmp_path):
+        assert self._asked(f"PLAY_FILE {tmp_path / 'gone.mp4'}") == (False, [])
+
+    def test_a_genau_that_cannot_play_a_named_clip_does_not_answer_it(self, tmp_path):
+        clip = tmp_path / "scene one.mp4"
+        clip.touch()
+
+        handled = _answered(
+            f"PLAY_FILE {clip}",
+            engine=BeatEngine(phase=0.0, last_tick=0.0),
+            paused=Flag(),
+            step_clip=lambda _step: None,
+        )
+
+        assert handled is False
 
 
 class TestBrowseOrderCommands:

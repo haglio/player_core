@@ -22,6 +22,7 @@ import logging
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from .clip_advance import (
     ClipAdvanceState,
@@ -49,6 +50,7 @@ from .player_verbs import (
     LOCK_OFF,
     LOCK_ON,
     NEXT,
+    PLAY_FILE,
     PREV,
     QUIT,
     SET_MAX_INTENSITY,
@@ -58,6 +60,7 @@ from .player_verbs import (
     SPEED_UP,
     TOGGLE_LOCK,
 )
+from .playlist import item_from_line
 from .robot_hand import (
     RobotHandState,
     adjust_amplitude,
@@ -99,6 +102,7 @@ class GenauControls:
     set_volume: Callable[[int, bool], None] | None = None
     reorder_clips: Callable[[bool], None] | None = None
     keep_shapes: Callable[[bool, bool], None] | None = None
+    play_file: Callable[[Path], None] | None = None
     clip_flip: ClipFlip = field(default_factory=ClipFlip)
     room_hold: RoomHold = field(default_factory=RoomHold)
 
@@ -265,6 +269,14 @@ def _step_clip(step: int) -> Act:
 
 def _condemn(controls: GenauControls, _value: str) -> bool:
     controls.condemn_clip()
+    return True
+
+
+def _play_file(controls: GenauControls, value: str) -> bool:
+    item = item_from_line(value)
+    if item is None or not item.path.is_file():
+        return False
+    controls.play_file(item.path)
     return True
 
 
@@ -450,6 +462,11 @@ CONTROLS: tuple[Control, ...] = (
         name="condemn",
         needs=("condemn_clip",),
         verbs=(Verb("WEIRD", _condemn),),
+    ),
+    Control(
+        name="play_file",
+        needs=("play_file",),
+        verbs=(Verb(PLAY_FILE, _play_file, takes_a_value=True),),
     ),
     Control(
         name="flip_ends",

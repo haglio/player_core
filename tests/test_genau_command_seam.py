@@ -76,6 +76,10 @@ class Seam:
         self.volumes: list[tuple[int, bool]] = []
         self.reorders: list[bool] = []
         self.kept_shapes: list[tuple[bool, bool]] = []
+        self.played: list[Path] = []
+        self.picked = tmp_path / "clips" / "Picked Scene.mp4"
+        self.picked.parent.mkdir(exist_ok=True)
+        self.picked.touch()
         self.stop_event = _Stop()
         self.command_file = tmp_path / "genau_cmd.txt"
 
@@ -97,6 +101,7 @@ class Seam:
                 reorder_clips=self.reorders.append,
                 keep_shapes=lambda plays_vr, plays_flat: self.kept_shapes.append(
                     (plays_vr, plays_flat)),
+                play_file=self.played.append,
             ),
             broker=BrokerFeed(),
             loader=FakeLoader(),
@@ -117,6 +122,7 @@ class Seam:
 
     def send(self, line: str) -> None:
         """Write one line where Fun Time writes it, then run one tick."""
+        line = line.replace(PICKED, str(self.picked))
         self.command_file.write_text(line + "\n", encoding="utf-8")
         self.controller.refresh()
 
@@ -140,6 +146,7 @@ class Seam:
             "held_at": self.controller.room_hold.height,
             "reorders": tuple(self.reorders),
             "kept_shapes": tuple(self.kept_shapes),
+            "played": tuple(path.name for path in self.played),
             "volumes": tuple(self.volumes),
             "max_intensity": self.direct.max_intensity,
             "hud": self.hud.on,
@@ -160,6 +167,8 @@ class _Stop:
     def is_set(self) -> bool:
         return self._set
 
+
+PICKED = "<picked clip>"
 
 # verb, what it starts from, and the ONLY keys it may move.
 SEAM = [
@@ -202,7 +211,8 @@ SEAM = [
     ("CLIP_SECONDS_UP", {}, {"interval": 21}),
     ("HUD_ON", {}, {"hud": True}),
     ("HUD_OFF", {"hud": True}, {"hud": False}),
-    # The seven that carry a value.
+    # The ones that carry a value -- a path among them, whose case has to survive.
+    (f"PLAY_FILE {PICKED}", {}, {"played": ("Picked Scene.mp4",)}),
     ("AMP 80", {}, {"amplitude": 80}),
     ("CENTER 65", {}, {"center": 65, "intended_center": 65}),
     ("SPEED 90", {}, {"speed": 90}),
