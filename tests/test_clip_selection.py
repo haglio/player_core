@@ -335,3 +335,29 @@ class TestFollowingAnotherGenausClip:
 
         assert loader.load_requests == []
         assert renderer.current_clip_path is None
+
+
+class TestPlayingAPickedClip:
+    def test_the_pick_takes_the_screen_at_once_and_decodes_there(self):
+        controller, _store, loader, renderer, notifier = _build_controller("a.mp4", "b.mp4")
+        controller.set_current_clip(Path("a.mp4"))
+        notifier.clip_notifications.clear()
+
+        controller.play(Path("picked.mp4"))
+
+        assert renderer.current_clip_path == Path("picked.mp4")
+        assert notifier.clip_notifications == [Path("picked.mp4")]
+        assert loader.load_requests[-1] == Path("picked.mp4")
+        assert controller.current_path == Path("picked.mp4")
+
+    def test_a_step_still_waiting_to_load_gives_way_to_the_pick(self):
+        controller, clip_store, _loader, renderer, _notifier = _build_controller(
+            "a.mp4", "b.mp4", "c.mp4")
+        controller.set_current_clip(Path("a.mp4"))
+        controller.step(1)
+
+        controller.play(Path("c.mp4"))
+        clip_store.clip_cache[Path("b.mp4")] = {"frames": ["f0"]}
+
+        assert controller.adopt_pending_clip() is False
+        assert renderer.current_clip_path == Path("c.mp4")

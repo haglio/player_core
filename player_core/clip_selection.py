@@ -66,6 +66,9 @@ class ClipSelectionController:
         self.set_current_clip(self.sequence.current_path)
         return True
 
+    def play(self, clip: Path) -> None:
+        self.set_current_clip(self.sequence.play(clip))
+
     def reorder(self, clips: list[Path]) -> None:
         """Browse *clips* — the folder rescanned in a new order — from the top.
 

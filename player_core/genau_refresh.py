@@ -8,6 +8,7 @@ what happens inside a turn is the same wherever Genau is drawn.
 from __future__ import annotations
 
 import time
+from functools import partial
 from pathlib import Path
 
 from .broker_feed import snapshot
@@ -32,6 +33,9 @@ __all__ = [
     "GenauRefreshController",
 ]
 
+consume_command_keeping_its_case = partial(consume_command_file, uppercase=False)
+
+
 class GenauRefreshController:
     def __init__(
         self,
@@ -50,7 +54,7 @@ class GenauRefreshController:
         set_loading_text,
         logger,
         now_source=time.monotonic,
-        consume_command=consume_command_file,
+        consume_command=consume_command_keeping_its_case,
         read_paused_state=None,
         tcode_sender=None,
         status_file: Path | None = None,

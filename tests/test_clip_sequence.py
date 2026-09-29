@@ -152,3 +152,25 @@ class TestMovingToAClip:
 
         assert controller.move_to(Path("elsewhere.mp4")) is False
         assert controller.current_path == Path("b.mp4")
+
+
+class TestPlayingAPickedClip:
+    def test_a_clip_it_holds_is_jumped_to_and_the_order_goes_on_from_there(self):
+        controller = ClipSequenceController(_paths())
+
+        assert controller.play(Path("c.mp4")) == Path("c.mp4")
+        assert controller.step(1) == Path("a.mp4")
+
+    def test_a_clip_it_does_not_hold_is_spliced_in_after_the_one_up(self):
+        controller = ClipSequenceController(_paths(), start_at=Path("b.mp4"))
+
+        assert controller.play(Path("new.mp4")) == Path("new.mp4")
+        assert controller.count == 4
+        assert controller.step(1) == Path("c.mp4")
+        assert controller.step(-2) == Path("b.mp4")
+
+    def test_a_clip_it_holds_is_found_whatever_its_case(self):
+        controller = ClipSequenceController(_paths())
+
+        assert controller.play(Path("C.MP4")) == Path("c.mp4")
+        assert controller.count == 3
