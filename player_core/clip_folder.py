@@ -1,11 +1,8 @@
-"""The clips folder, and what sits beside it.
+"""The clips folder, and the pile beside it a condemned clip is moved to.
 
-A clips folder has two siblings: ``frames/``, where the decoded frame caches
-live, and ``weird/``, the pile a condemned clip is moved to.  Condemning does the
-least it can — one file move.  A clip's other traces (its ``.rhcache``, the
-clipper session it was cut from, the source video's metadata) stay where they
-are, for Evolver to reconcile against the pile later.  Which clip was condemned
-is the whole of the state this leaves, and the filename carries it.
+Condemning does the least it can — one file move.  A clip's other traces (its
+metadata record, the clipper session it was cut from) stay where they are, and
+the filename carries which clip it was.
 """
 from __future__ import annotations
 
@@ -67,7 +64,6 @@ def cache_dir_for_clips_folder(folder: Path) -> Path:
 
 
 def weird_dir_for_clips_folder(folder: Path) -> Path:
-    """The condemned pile beside a clips folder, as ``frames/`` sits beside it."""
     return folder.parent / "weird"
 
 

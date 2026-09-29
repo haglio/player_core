@@ -1,74 +1,72 @@
 from __future__ import annotations
 
-from unittest.mock import patch
+import io
+from pathlib import Path
 
 import numpy as np
-from rhcache_fixtures import write_rhcache
+import pytest
 
-from player_core.clip_decode import (
-    load_clip_frames,
-    read_rhcache_all_frames,
-    read_rhcache_meta,
-)
+from player_core import clip_decode
+from player_core.clip_decode import load_clip_frames
 
-
-def _make_frames(count: int, width: int = 8, height: int = 6) -> list[np.ndarray]:
-    return [np.random.randint(0, 256, (height, width, 3), dtype=np.uint8) for _ in range(count)]
+WIDTH, HEIGHT = 4, 2
 
 
-def test_write_and_read_meta(tmp_path):
-    frames = _make_frames(5, width=16, height=12)
-    cache_path = tmp_path / "clip.rhcache"
+class _FakeFfmpeg:
+    def __init__(self, raw: bytes, *, returncode: int = 0, stderr: bytes = b""):
+        self.stdout = io.BytesIO(raw)
+        self.stderr = io.BytesIO(stderr)
+        self._returncode = returncode
 
-    write_rhcache(frames, cache_path, source_name="clip.mp4")
-
-    meta = read_rhcache_meta(cache_path)
-    assert meta["width"] == 16
-    assert meta["height"] == 12
-    assert meta["frame_count"] == 5
-    assert meta["source"] == "clip.mp4"
+    def wait(self) -> int:
+        return self._returncode
 
 
-def test_read_all_frames_lossless(tmp_path):
-    frames = _make_frames(4, width=10, height=8)
-    cache_path = tmp_path / "clip.rhcache"
-    write_rhcache(frames, cache_path, source_name="clip.mp4", lossless=True)
-
-    all_frames = read_rhcache_all_frames(cache_path)
-    assert len(all_frames) == 4
-    for i, recovered in enumerate(all_frames):
-        np.testing.assert_array_equal(recovered, frames[i])
-
-
-def test_load_clip_frames_from_cache(tmp_path):
-    video_path = tmp_path / "clip.mp4"
-    video_path.touch()
-    cache_dir = tmp_path / ".rhcache"
-    cache_dir.mkdir()
-
-    frames_np = _make_frames(4, width=10, height=8)
-    write_rhcache(frames_np, cache_dir / "clip.rhcache", source_name="clip.mp4", lossless=True)
-
-    result = load_clip_frames(video_path, cache_dir)
-    assert len(result) == 4
-    for frame in result:
-        assert isinstance(frame, np.ndarray)
-        assert frame.shape == (8, 10, 3)
+@pytest.fixture
+def ffmpeg(monkeypatch):
+    def install(raw: bytes, **kwargs):
+        monkeypatch.setattr(clip_decode.subprocess, "check_output",
+                            lambda *_args, **_kw: f"{WIDTH}x{HEIGHT}\n")
+        monkeypatch.setattr(clip_decode.subprocess, "Popen",
+                            lambda *_args, **_kw: _FakeFfmpeg(raw, **kwargs))
+    return install
 
 
-def test_load_clip_frames_falls_back_to_ffmpeg(tmp_path):
-    video_path = tmp_path / "clip.mp4"
-    video_path.touch()
-    cache_dir = tmp_path / ".rhcache"
+def _frame_bytes(value: int) -> bytes:
+    return bytes([value]) * (WIDTH * HEIGHT * 3)
 
-    fake_frames = _make_frames(3)
 
-    with patch(
-        "player_core.clip_decode.decode_video_to_numpy_frames",
-        return_value=fake_frames,
-    ):
-        result = load_clip_frames(video_path, cache_dir)
+def test_every_frame_of_the_clip_comes_back_as_a_picture_of_its_size(ffmpeg):
+    ffmpeg(_frame_bytes(10) + _frame_bytes(20) + _frame_bytes(30))
 
-    assert len(result) == 3
-    for frame in result:
-        assert isinstance(frame, np.ndarray)
+    frames = load_clip_frames(Path("scene one.mp4"))
+
+    assert [frame.shape for frame in frames] == [(HEIGHT, WIDTH, 3)] * 3
+    assert [int(frame[0, 0, 0]) for frame in frames] == [10, 20, 30]
+    assert all(isinstance(frame, np.ndarray) for frame in frames)
+
+
+def test_a_torn_last_frame_is_left_off(ffmpeg):
+    ffmpeg(_frame_bytes(10) + _frame_bytes(20)[:5])
+
+    assert len(load_clip_frames(Path("scene one.mp4"))) == 1
+
+
+def test_a_failed_decode_says_what_ffmpeg_said(ffmpeg):
+    ffmpeg(b"", returncode=1, stderr=b"moov atom not found")
+
+    with pytest.raises(RuntimeError, match="moov atom not found"):
+        load_clip_frames(Path("scene one.mp4"))
+
+
+def test_a_clip_with_no_frames_is_refused(ffmpeg):
+    ffmpeg(b"")
+
+    with pytest.raises(RuntimeError, match="No frames"):
+        load_clip_frames(Path("scene one.mp4"))
+
+
+def test_a_caller_still_naming_the_old_frame_cache_folder_gets_the_clip_decoded(ffmpeg, tmp_path):
+    ffmpeg(_frame_bytes(10))
+
+    assert len(load_clip_frames(Path("scene one.mp4"), tmp_path / "frames")) == 1
