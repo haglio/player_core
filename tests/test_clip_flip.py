@@ -1,21 +1,34 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from player_core import clip_flip
 from player_core.clip_flip import ClipFlip
 
 
+def _metadata_root(tmp_path: Path) -> Path:
+    return tmp_path / "videos" / "metadata"
+
+
 def _clip(tmp_path: Path, name: str = "scene one.mp4") -> Path:
-    folder = tmp_path / "clips"
-    folder.mkdir(exist_ok=True)
+    folder = tmp_path / "videos" / "genau" / "clips"
+    folder.mkdir(parents=True, exist_ok=True)
     clip = folder / name
     clip.touch()
     return clip
 
 
+def _record(tmp_path: Path, name: str = "scene one") -> Path:
+    return _metadata_root(tmp_path) / "genau" / "clips" / f"{name}.json"
+
+
+def _flip(tmp_path: Path) -> ClipFlip:
+    return ClipFlip(_metadata_root(tmp_path))
+
+
 def test_a_clip_nobody_flipped_is_shown_as_it_is(tmp_path):
-    flip = ClipFlip()
+    flip = _flip(tmp_path)
 
     flip.follow(_clip(tmp_path))
 
@@ -23,7 +36,7 @@ def test_a_clip_nobody_flipped_is_shown_as_it_is(tmp_path):
 
 
 def test_flipping_the_clip_on_screen_turns_it_over(tmp_path):
-    flip = ClipFlip()
+    flip = _flip(tmp_path)
     flip.follow(_clip(tmp_path))
 
     flip.toggle()
@@ -33,11 +46,11 @@ def test_flipping_the_clip_on_screen_turns_it_over(tmp_path):
 
 def test_a_flipped_clip_is_still_flipped_in_the_next_session(tmp_path):
     clip = _clip(tmp_path)
-    this_session = ClipFlip()
+    this_session = _flip(tmp_path)
     this_session.follow(clip)
     this_session.toggle()
 
-    next_session = ClipFlip()
+    next_session = _flip(tmp_path)
     next_session.follow(clip)
 
     assert next_session.on is True
@@ -45,20 +58,46 @@ def test_a_flipped_clip_is_still_flipped_in_the_next_session(tmp_path):
 
 def test_flipping_it_again_puts_it_back_for_good(tmp_path):
     clip = _clip(tmp_path)
-    this_session = ClipFlip()
+    this_session = _flip(tmp_path)
     this_session.follow(clip)
     this_session.toggle()
     this_session.toggle()
 
-    next_session = ClipFlip()
+    next_session = _flip(tmp_path)
     next_session.follow(clip)
 
     assert (this_session.on, next_session.on) == (False, False)
 
 
+def test_the_flip_is_kept_in_the_clips_own_record_beside_everything_else_known_about_it(tmp_path):
+    record = _record(tmp_path)
+    record.parent.mkdir(parents=True)
+    record.write_text(json.dumps({"video": {"type": "genau_clip"}}), encoding="utf-8")
+    flip = _flip(tmp_path)
+    flip.follow(_clip(tmp_path))
+
+    flip.toggle()
+
+    assert json.loads(record.read_text(encoding="utf-8")) == {
+        "video": {"type": "genau_clip"}, "genau": {"flipped": True}}
+
+
+def test_a_clip_turned_back_leaves_no_trace_of_the_flip_in_its_record(tmp_path):
+    record = _record(tmp_path)
+    record.parent.mkdir(parents=True)
+    record.write_text(json.dumps({"video": {"type": "genau_clip"}}), encoding="utf-8")
+    flip = _flip(tmp_path)
+    flip.follow(_clip(tmp_path))
+
+    flip.toggle()
+    flip.toggle()
+
+    assert json.loads(record.read_text(encoding="utf-8")) == {"video": {"type": "genau_clip"}}
+
+
 def test_the_flip_belongs_to_the_one_clip(tmp_path):
     flipped, other = _clip(tmp_path, "scene one.mp4"), _clip(tmp_path, "scene two.mp4")
-    flip = ClipFlip()
+    flip = _flip(tmp_path)
     flip.follow(flipped)
     flip.toggle()
 
@@ -69,27 +108,26 @@ def test_the_flip_belongs_to_the_one_clip(tmp_path):
     assert (shown_after_moving_on, flip.on) == (False, True)
 
 
-def test_a_flip_another_session_saved_survives_this_one_flipping(tmp_path):
-    first, second = _clip(tmp_path, "scene one.mp4"), _clip(tmp_path, "scene two.mp4")
-    headset, desktop = ClipFlip(), ClipFlip()
-    headset.follow(first)
-    desktop.follow(second)
-
+def test_a_toggle_turns_over_what_the_record_says_now(tmp_path):
+    clip = _clip(tmp_path)
+    headset, desktop = _flip(tmp_path), _flip(tmp_path)
+    headset.follow(clip)
+    desktop.follow(clip)
     headset.toggle()
+
     desktop.toggle()
 
-    later = ClipFlip()
-    later.follow(first)
-    assert later.on is True
+    later = _flip(tmp_path)
+    later.follow(clip)
+    assert (desktop.on, later.on) == (False, False)
 
 
 def test_the_record_is_read_when_the_clip_changes_not_every_frame(tmp_path, monkeypatch):
     reads: list[Path] = []
-    read = clip_flip._flipped_names
-    monkeypatch.setattr(clip_flip, "_flipped_names",
-                        lambda record: reads.append(record) or read(record))
+    read = clip_flip.read_json
+    monkeypatch.setattr(clip_flip, "read_json", lambda record: reads.append(record) or read(record))
     clip = _clip(tmp_path)
-    flip = ClipFlip()
+    flip = _flip(tmp_path)
 
     for _frame in range(120):
         flip.follow(clip)
@@ -98,8 +136,11 @@ def test_the_record_is_read_when_the_clip_changes_not_every_frame(tmp_path, monk
 
 
 def test_a_flip_that_could_not_be_saved_still_shows_and_says_so(tmp_path, monkeypatch, caplog):
-    monkeypatch.setattr(clip_flip, "publish_whole", lambda _record, _text: False)
-    flip = ClipFlip()
+    def refused(_record, _mutate):
+        raise TimeoutError("held")
+
+    monkeypatch.setattr(clip_flip, "locked_update", refused)
+    flip = _flip(tmp_path)
     flip.follow(_clip(tmp_path))
 
     flip.toggle()
@@ -108,8 +149,47 @@ def test_a_flip_that_could_not_be_saved_still_shows_and_says_so(tmp_path, monkey
     assert "scene one.mp4" in caplog.text
 
 
-def test_with_no_clip_on_screen_there_is_nothing_to_flip(tmp_path):
+def test_a_record_that_cannot_be_read_is_never_written_over(tmp_path, caplog):
+    record = _record(tmp_path)
+    record.parent.mkdir(parents=True)
+    record.write_text("{not json", encoding="utf-8")
+    flip = _flip(tmp_path)
+    flip.follow(_clip(tmp_path))
+
+    flip.toggle()
+
+    assert (flip.on, record.read_text(encoding="utf-8")) == (True, "{not json")
+    assert "scene one.mp4" in caplog.text
+
+
+def test_a_genau_told_of_no_metadata_folder_flips_for_the_session_and_says_it_cannot_keep_it(
+        tmp_path, caplog):
     flip = ClipFlip()
+    flip.follow(_clip(tmp_path))
+
+    flip.toggle()
+
+    assert flip.on is True
+    assert not (tmp_path / "videos" / "metadata").exists()
+    assert "scene one.mp4" in caplog.text
+
+
+def test_a_clip_outside_the_library_flips_for_the_session_and_says_it_cannot_keep_it(
+        tmp_path, caplog):
+    outside = tmp_path / "elsewhere" / "scene one.mp4"
+    outside.parent.mkdir()
+    outside.touch()
+    flip = ClipFlip(tmp_path / "library" / "videos" / "metadata")
+    flip.follow(outside)
+
+    flip.toggle()
+
+    assert flip.on is True
+    assert "scene one.mp4" in caplog.text
+
+
+def test_with_no_clip_on_screen_there_is_nothing_to_flip(tmp_path):
+    flip = _flip(tmp_path)
 
     flip.toggle()
 
@@ -118,7 +198,7 @@ def test_with_no_clip_on_screen_there_is_nothing_to_flip(tmp_path):
 
 
 def test_a_flipped_clip_is_shown_half_a_loop_over(tmp_path):
-    flip = ClipFlip()
+    flip = _flip(tmp_path)
     flip.follow(_clip(tmp_path))
     as_it_is = flip.applied_to(0.25)
     flip.toggle()
