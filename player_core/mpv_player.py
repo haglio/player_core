@@ -273,6 +273,7 @@ class _MpvControl:
         self._ken_burns.set_looping(looping)
         self._placed = (0.0, 0.0, 0.0)
         self._path: str | None = None
+        self._reopened: str | None = None
         self._swapped_in: set[str] = set()
         self._ran_out = False
         self._staged: str | None = None
@@ -301,7 +302,10 @@ class _MpvControl:
 
     def _note_file(self, _name: str, path) -> None:
         self._path = path
-        if path and path not in self._swapped_in:
+        if not path:
+            return
+        dealt_on_reopening, self._reopened = path == self._reopened, None
+        if not dealt_on_reopening and path not in self._swapped_in:
             self._swapped_in.clear()
             self._ken_burns.new_picture(self._now())
 
@@ -372,6 +376,9 @@ class _MpvControl:
         self._ran_out = False
         self._swapped_in.clear()
         self._hold_pictures_for_the_pace()
+        self._reopened = str(path) if str(path) == self._path else None
+        if self._reopened:
+            self._ken_burns.new_picture(self._now())
         self._mpv.play(str(path))
         # Reset to just this file: drop any entry the previous clip had staged as
         # its prefetched next, so the caller stages a fresh one from a clean base.
