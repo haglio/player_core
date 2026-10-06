@@ -1,8 +1,13 @@
 """The playlist file: one item per line, written and read back through one module."""
 from __future__ import annotations
 
+import threading
+from contextlib import contextmanager
 from pathlib import Path
 
+import pytest
+
+import player_core.playlist
 from player_core.playlist import (
     PlaylistItem,
     item_from_line,
@@ -118,3 +123,32 @@ class TestWritePlaylist:
 
         assert [item.path for item in read_playlist(playlist)] == [Path("C:/vids/c.mp4")]
         assert not (tmp_path / "playlist.tmp").exists()
+
+    def test_a_playlist_lands_though_a_player_is_partway_through_reading_it(self, tmp_path):
+        playlist = tmp_path / "portrait_playlist.tsv"
+        write_playlist(playlist, [PlaylistItem(Path("C:/vids/before.mp4"))])
+
+        with _held_open_for(playlist, 0.1):
+            write_playlist(playlist, [PlaylistItem(Path("C:/vids/after.mp4"))])
+
+        assert [item.path for item in read_playlist(playlist)] == [Path("C:/vids/after.mp4")]
+
+    def test_a_playlist_a_player_keeps_open_past_the_budget_is_refused_out_loud(
+            self, tmp_path, monkeypatch):
+        playlist = tmp_path / "portrait_playlist.tsv"
+        write_playlist(playlist, [PlaylistItem(Path("C:/vids/before.mp4"))])
+        monkeypatch.setattr(player_core.playlist, "READER_HOLD_BUDGET_S", 0.05)
+
+        with _held_open_for(playlist, 0.5), pytest.raises(OSError, match="portrait_playlist"):
+            write_playlist(playlist, [PlaylistItem(Path("C:/vids/after.mp4"))])
+
+
+@contextmanager
+def _held_open_for(path: Path, seconds: float):
+    reader = path.open(encoding="utf-8")
+    release = threading.Timer(seconds, reader.close)
+    release.start()
+    try:
+        yield
+    finally:
+        release.join()
