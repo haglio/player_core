@@ -9,6 +9,16 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `funestra_core/` (until 2026-10-10 `player_core/`) and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-10-10 — the console makes room for a block its host paints
+
+`ConsolePainter.rgba` and `bgra` take a `host_block`: anything with a `height`,
+a `least_width` and a `draw(image, rect)`, compared by value. The console widens
+to its `least_width`, gives its `height` a section of its own at its foot, under
+the clip's row, has it draw itself there before any tooltip, and says where in
+`host_block_rect`, which the host reads to place a press. A control only one
+host has goes inside that host's one panel this way, rather than on a second
+panel beside it: FunTimeVR's projection list and angle bar are the first.
+
 ## 2026-10-10 — a flick's track runs its time on screen, a dial beside it goes round with the loop, and the row is one line
 
 A flick has two senses of time, and its row at the console's foot showed the
