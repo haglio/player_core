@@ -479,7 +479,7 @@ class TestLearnedMotionOnTheWire:
 
     def _learned(self, *, playing: bool = True):
         phrase = Phrase(tuple((500, 80 if i % 2 == 0 else 20) for i in range(16)))
-        # Scripts at the wave's own resting pace, so at the dial's 50 the
+        # Scripts at the wave's own resting pace, so at the bar's 50 the
         # phrases play as written.
         model = LearnedModel(phrases={classify(phrase): [phrase]}, seen={classify(phrase): 1},
                              native_cycle_ms=60_000 / bpm_for_speed(50))

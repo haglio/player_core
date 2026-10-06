@@ -65,7 +65,7 @@ def test_a_ramp_picked_up_by_hand_carries_on_from_there():
 
 def test_one_wave_is_the_plain_single_motion():
     # The stack is not a different kind of motion — with one wave it is exactly
-    # the wave the dials have always described.
+    # the wave the bars have always described.
     stack = WaveStack(waves=[Wave(shape=WaveformShape.TRIANGLE, phase=0.3,
                                   amplitude=Ramp(60.0, 60.0),
                                   center=Ramp(40.0, 40.0))])
@@ -115,11 +115,11 @@ def test_every_wave_carries_its_own_center():
     slow = Wave(amplitude=Ramp(20.0, 20.0), center=Ramp(20.0, 20.0))
     main = Wave(amplitude=Ramp(30.0, 30.0), center=Ramp(30.0, 30.0), phase=0.25)
     stack = WaveStack(waves=[slow, main])
-    assert wave_stack.dials(stack, 0.0).center == 50.0
+    assert wave_stack.bars(stack, 0.0).center == 50.0
     was = wave_stack.position(stack, 0.0)
 
     slow.center = Ramp(35.0, 35.0)
-    assert wave_stack.dials(stack, 0.0).center == 65.0
+    assert wave_stack.bars(stack, 0.0).center == 65.0
     assert wave_stack.position(stack, 0.0) == pytest.approx(was + 15.0)
     assert main.center.at(0.0) == 30.0  # the other wave never moved
 
@@ -194,10 +194,10 @@ def test_the_console_is_told_the_whole_motion_and_the_wave_you_can_feel():
         Wave(shape=WaveformShape.TRIANGLE, speed=Ramp(70.0, 70.0),
              amplitude=Ramp(50.0, 50.0), center=Ramp(30.0, 30.0)),
     ])
-    dials = wave_stack.dials(stack, 0.0)
-    assert (dials.travel, dials.center) == (64.0, 44.0)   # what they came to
-    assert dials.speed == 30.0                            # the main wave's
-    assert dials.shape is WaveformShape.SAWTOOTH
+    bars = wave_stack.bars(stack, 0.0)
+    assert (bars.travel, bars.center) == (64.0, 44.0)   # what they came to
+    assert bars.speed == 30.0                            # the main wave's
+    assert bars.shape is WaveformShape.SAWTOOTH
     # and the wave the device is mostly following is still the bigger one
     assert wave_stack.biggest(stack, 0.0) is stack.waves[1]
 
@@ -270,7 +270,7 @@ class TestARampWithTheNextChainedOn:
         assert ramp.at(30.0) == 60.0
         assert ramp.last().end == 60.0
 
-    def test_a_hand_on_the_dial_keeps_what_follows(self):
+    def test_a_hand_on_the_bar_keeps_what_follows(self):
         ramp = Ramp(10.0, 20.0, begun=0.0, seconds=10.0,
                     then=Ramp(20.0, 60.0, begun=10.0, seconds=10.0))
 

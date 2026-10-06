@@ -1,23 +1,23 @@
 """Motion learned from real scripts -- the Robot Hand's learned mode, shared.
 
 It lives beside :mod:`player_core.cruise_control` and is the other thing that
-can take the motion over from the dials.  Where cruise control varies the
+can take the motion over from the bars.  Where cruise control varies the
 waveform, this replaces it: the device follows phrases of real scripting, drawn
 one after another from a :mod:`player_core.learned_model`, each phrase joined
 to the last where it ended, so the motion is an endless script that no video
 was written for.
 
-The dials are the envelope rather than the motion.  Amplitude and center say
-the range the phrases play inside, and the speed dial says how many cycles a
+The bars are the envelope rather than the motion.  Amplitude and center say
+the range the phrases play inside, and the Speed bar says how many cycles a
 minute the motion makes, exactly as it does for the wave: the scripts' own
 pace (:attr:`~player_core.learned_model.LearnedModel.native_cycle_ms`) is
-scaled to the dial's rate, so a dial at 50 cycles about as often as the wave
+scaled to the bar's rate, so a bar at 50 cycles about as often as the wave
 does at 50.  Cruise control and this are never on together: switching one on
 switches the other off, which :mod:`player_core.genau_controls` sees to.
 
 The motion has a clock of its own, in script seconds: it advances only while
-the motion is running, and faster or slower than the wall as the speed dial
-says, so a pause freezes it where it stood and a turn of the dial changes the
+the motion is running, and faster or slower than the wall as the Speed bar
+says, so a pause freezes it where it stood and a move of the bar changes the
 pace from here on without a step.
 """
 from __future__ import annotations
@@ -163,7 +163,7 @@ def rest_at_floor(state: LearnedMotionState) -> None:
 
 
 def _pace(state: LearnedMotionState, robot_hand: RobotHandState | None) -> float:
-    """Script seconds per wall second: the dial's cycles a minute over the
+    """Script seconds per wall second: the bar's cycles a minute over the
     cycles a minute the scripts were written at."""
     if robot_hand is None or state.model is None:
         return 1.0

@@ -64,7 +64,7 @@ RETRACT_CENTER = 100
 # :func:`phase_advanced`.
 MAX_TICK_SECONDS = 0.1
 
-# How far a float may fall short of a whole dial step and still be that step:
+# How far a float may fall short of a whole bar step and still be that step:
 # a ceiling worked out exactly on a step comes back a hair under it.
 _ROUNDING = 1e-9
 _HALVINGS = 40
@@ -84,11 +84,11 @@ def wave_travel(amplitude: float, bpm: float) -> float:
 def travel_cap(max_intensity: int) -> float | None:
     if max_intensity >= FULL_INTENSITY:
         return None
-    level = dial_level_for(max_intensity)
+    level = bar_level_for(max_intensity)
     return wave_travel(level, bpm_for_speed(level))
 
 
-def dial_level_for(max_intensity: int) -> float:
+def bar_level_for(max_intensity: int) -> float:
     return FULL_INTENSITY * math.log1p(_BEND * max_intensity / FULL_INTENSITY) / math.log1p(_BEND)
 
 
@@ -109,11 +109,11 @@ def speed_ceiling(max_intensity: int, amplitude: int) -> int:
 def _fastest_speed_within(bpm: float) -> int:
     if bpm <= MIN_BPM:
         return MIN_SPEED
-    dial = MIN_SPEED + (MAX_SPEED - MIN_SPEED) * math.log(bpm / MIN_BPM) / math.log(MAX_BPM / MIN_BPM)
-    return min(MAX_SPEED, math.floor(dial + _ROUNDING))
+    speed = MIN_SPEED + (MAX_SPEED - MIN_SPEED) * math.log(bpm / MIN_BPM) / math.log(MAX_BPM / MIN_BPM)
+    return min(MAX_SPEED, math.floor(speed + _ROUNDING))
 
 
-def _share_of_the_dials_within(cap: float, amplitude: int, speed: int) -> float:
+def _share_of_the_bars_within(cap: float, amplitude: int, speed: int) -> float:
     fits, too_much = 0.0, 1.0
     for _ in range(_HALVINGS):
         share = (fits + too_much) / 2
@@ -138,7 +138,7 @@ class RobotHandState:
     intended_center: int = 50
     shape: WaveformShape = WaveformShape.SINE
     max_intensity: int = FULL_INTENSITY
-    exact_dials: tuple[float, float, float] | None = field(default=None, compare=False,
+    exact_bars: tuple[float, float, float] | None = field(default=None, compare=False,
                                                            repr=False)
 
     def __post_init__(self) -> None:
@@ -181,24 +181,24 @@ def _push_within_the_max_intensity(state: RobotHandState) -> None:
     cap = travel_cap(state.max_intensity)
     if cap is None or wave_travel(state.amplitude, state.bpm) <= cap:
         return
-    amplitude, speed, center = _the_dials_before_rounding(state)
-    kept = _share_of_the_dials_within(cap, amplitude, speed)
-    state.exact_dials = (amplitude * kept, speed * kept, toward_the_park(center, kept))
-    state.amplitude, state.speed, state.intended_center = _rounded(state.exact_dials)
+    amplitude, speed, center = _the_bars_before_rounding(state)
+    kept = _share_of_the_bars_within(cap, amplitude, speed)
+    state.exact_bars = (amplitude * kept, speed * kept, toward_the_park(center, kept))
+    state.amplitude, state.speed, state.intended_center = _rounded(state.exact_bars)
     state.bpm = bpm_for_speed(state.speed)
     state.amplitude = min(state.amplitude, amplitude_ceiling(state.max_intensity, state.speed))
     _recompute_center(state)
 
 
-def _the_dials_before_rounding(state: RobotHandState) -> tuple[float, float, float]:
+def _the_bars_before_rounding(state: RobotHandState) -> tuple[float, float, float]:
     shown = (state.amplitude, state.speed, state.intended_center)
-    if state.exact_dials is not None and _rounded(state.exact_dials) == shown:
-        return state.exact_dials
+    if state.exact_bars is not None and _rounded(state.exact_bars) == shown:
+        return state.exact_bars
     return float(state.amplitude), float(state.speed), float(state.center)
 
 
-def _rounded(dials: tuple[float, float, float]) -> tuple[int, int, int]:
-    amplitude, speed, center = dials
+def _rounded(bars: tuple[float, float, float]) -> tuple[int, int, int]:
+    amplitude, speed, center = bars
     return (math.floor(amplitude + _ROUNDING),
             max(MIN_SPEED, math.floor(speed + _ROUNDING)),
             round(center))

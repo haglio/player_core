@@ -67,7 +67,7 @@ class GenauArrival:
         drive = self._the_rooms_drive()
         self._follow_the_clip(said.get("clip", "").strip())
         if drive is not None:
-            self._follow_the_dials(drive)
+            self._follow_the_bars(drive)
         self._follow_the_switches(said)
         self._crossing.in_step(self._in_step(said, drive))
 
@@ -103,7 +103,7 @@ class GenauArrival:
         showing = self._renderer.current_clip_path
         return "" if showing is None else str(showing)
 
-    def _follow_the_dials(self, drive: DriveHud) -> None:
+    def _follow_the_bars(self, drive: DriveHud) -> None:
         hand = self._controls.robot_hand
         for verb, value, has in ((HAND_SPEED, drive.speed, hand.speed),
                                  (HAND_AMP, drive.amplitude, hand.amplitude),

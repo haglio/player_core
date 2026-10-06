@@ -130,7 +130,7 @@ class TestFollowingTheClip:
 
 
 class TestFollowingTheMotion:
-    def test_it_takes_the_rooms_dials(self, room):
+    def test_it_takes_the_rooms_bars(self, room):
         room.says(drive=DriveHud(speed=80, amplitude=40, center=30, shape="triangle"))
         room.arrival.follow()
         hand = room.controls.robot_hand

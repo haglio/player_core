@@ -33,9 +33,9 @@ from player_core.robot_hand import (
 )
 
 
-def _cruising(seed, **dials):
+def _cruising(seed, **bars):
     """A motion running under cruise control, one tick in."""
-    direct = RobotHandState(playing=True, **dials)
+    direct = RobotHandState(playing=True, **bars)
     cc = CruiseControlState(rng=random.Random(seed))
     enable_cruise_control(cc)
     tick_cruise_control(direct, cc, now=1000.0)
@@ -68,7 +68,7 @@ class TestArming:
         assert cc.active is False
 
     def test_arming_alone_moves_nothing(self):
-        # The waves are drawn on the first tick, from whatever the dials say
+        # The waves are drawn on the first tick, from whatever the bars say
         # then — so arming against a parked device cannot change the motion.
         direct = RobotHandState(speed=50, amplitude=80, intended_center=50)
         cc = CruiseControlState(rng=random.Random(42))
@@ -87,9 +87,9 @@ class TestArming:
 
 class TestTakingTheMotionOver:
     def test_the_takeover_cannot_be_felt(self):
-        # The dial's travel is divided among the waves in the shares they keep,
+        # The bar's travel is divided among the waves in the shares they keep,
         # its center evenly, and every ramp is born already arrived, so the sum
-        # is the dials to the point — and with every wave at the phase the
+        # is the bars to the point — and with every wave at the phase the
         # motion is already at and running the same speed, the sum is the single
         # wave. Anything else is a step on the wire the device has to lurch
         # through.
@@ -120,9 +120,9 @@ def _single_wave_fraction(phase, amplitude, center):
 
 
 class TestTheMotionItMakes:
-    @pytest.mark.parametrize("dial", [100, 70, 40])
-    def test_the_travel_it_settles_at_is_most_of_the_travel_you_set(self, dial):
-        # What the dial says is the top of the band, not a starting point the
+    @pytest.mark.parametrize("bar", [100, 70, 40])
+    def test_the_travel_it_settles_at_is_most_of_the_travel_you_set(self, bar):
+        # What the bar says is the top of the band, not a starting point the
         # dice wander away from: the whole motion's travel is drawn as a
         # fraction of it, so a session asking for 100 gets four fifths of 100
         # rather than the 55 an unanchored draw from the axis averaged whatever
@@ -138,9 +138,9 @@ class TestTheMotionItMakes:
         # Ten sessions of ten minutes: the center ramps are slow enough that a
         # shorter sample is mostly noise rather than the average asked after.
         for seed in range(10):
-            direct, cc = _cruising(seed, amplitude=dial)
+            direct, cc = _cruising(seed, amplitude=bar)
             _run(direct, cc, seconds=600, watch=watch)
-        middle_of_the_band = dial * (_TRAVEL_BAND[0] + 1.0) / 2
+        middle_of_the_band = bar * (_TRAVEL_BAND[0] + 1.0) / 2
         assert sum(travels) / len(travels) == pytest.approx(
             middle_of_the_band, rel=0.1)
         assert sum(centers) / len(centers) == pytest.approx(50, abs=3)
@@ -166,7 +166,7 @@ class TestTheMotionItMakes:
         # the main wave runs far slower than it, so what it adds is the motion
         # being carried from base to tip and back while the motion goes on.
         #
-        # How much slower a swell can get is the floor of the dial's to say: a
+        # How much slower a swell can get is the floor of the bar's to say: a
         # motion at 50 is only four times the slowest the device will run, so
         # the swells under it pile up on MIN_SPEED. There is room to spare at
         # the speeds the complaint was about.
@@ -182,7 +182,7 @@ class TestTheMotionItMakes:
             direct, cc = _cruising(seed, speed=speed)
             if len(cc.stack.waves) < 2:
                 continue
-            # Past the takeover first: every wave starts at the pace the dial
+            # Past the takeover first: every wave starts at the pace the bar
             # was set to, because that is what makes taking over unfeelable, and
             # the ramp that carries the swells down under it takes its time.
             now = _run(direct, cc, seconds=60, dt=0.25)
@@ -190,9 +190,9 @@ class TestTheMotionItMakes:
         assert min(ratios) > slowest
         assert sum(ratios) / len(ratios) > 5.0
 
-    def test_the_wave_the_dial_names_keeps_the_travel(self):
+    def test_the_wave_the_bar_names_keeps_the_travel(self):
         # The swell used to be as often the bigger wave, which meant the pace
-        # the pace the speed dial read had a minority of the travel under it,
+        # the pace the Speed bar read had a minority of the travel under it,
         # so the swing you felt was a third of the one you asked for and
         # turning cruise off at the same numbers doubled the motion on the
         # spot. The first wave is the motion; the swells only carry it.
@@ -210,13 +210,13 @@ class TestTheMotionItMakes:
         assert min(shares) > 0.5
         assert sum(shares) / len(shares) > 0.65
 
-    def test_the_dials_move_far_enough_to_notice(self):
+    def test_the_bars_move_far_enough_to_notice(self):
         # The complaint this is tuned against: ramps that are there in the code
         # and cannot be felt on the device. Over a few minutes the motion has to
         # open and close a good part of its travel, walk from base to tip, and
         # speed up and slow down by more than a nudge. The travel now swings the
         # width of its band rather than the width of the axis, because the band
-        # is measured off the dial — the old fifty points were bought by
+        # is measured off the bar — the old fifty points were bought by
         # forgetting what was asked for.
         for seed in range(4):
             direct, cc = _cruising(seed)
@@ -232,8 +232,8 @@ class TestTheMotionItMakes:
             assert max(centers) - min(centers) > 15
             assert max(bpms) / min(bpms) > 2.0
 
-    def test_every_dial_it_claims_to_move_moves(self):
-        # It moved only speed for years: a tick stepped a dial by a twentieth of
+    def test_every_bar_it_claims_to_move_moves(self):
+        # It moved only speed for years: a tick stepped a bar by a twentieth of
         # the gap to its target and the result was snapped to fives, so any
         # target nearer than about fifty points rounded back to where it
         # started.
@@ -241,8 +241,8 @@ class TestTheMotionItMakes:
                 "shape": set()}
 
         def watch(direct, cc):
-            for dial in seen:
-                seen[dial].add(getattr(direct, dial))
+            for bar in seen:
+                seen[bar].add(getattr(direct, bar))
 
         direct, cc = _cruising(5)
         _run(direct, cc, seconds=300, watch=watch)
@@ -258,14 +258,14 @@ class TestAnHourOfIt:
     """The complaint this class exists for: cruise control left on wanders off.
 
     The motion an hour in used to be nothing like the one that was asked for —
-    the pace had walked to half the dial and stayed there, and the travel had
-    settled at a number drawn from the axis rather than from the dial. Every
+    the pace had walked to half the bar and stayed there, and the travel had
+    settled at a number drawn from the axis rather than from the bar. Every
     range here is measured off an anchor now, so the tenth minute is drawn from
     the same ranges as the first and the hour has no direction to drift in.
     """
 
     def test_the_pace_stays_within_sight_of_the_one_you_set(self):
-        # The base used to be a free random walk over the whole dial: started
+        # The base used to be a free random walk over the whole bar: started
         # at the top it could only come down, and an hour of it landed at half
         # the pace asked for with no way back short of switching cruise off.
         for seed in range(6):
@@ -364,8 +364,8 @@ def test_a_hand_held_down_by_its_max_intensity_carries_its_waves_at_the_pace_it_
         [wave.phase for wave in expected.waves])
 
 
-class TestAHandOnTheDials:
-    def test_a_dial_moved_by_hand_is_carried_on_from_not_yanked_back(self):
+class TestAHandOnTheBars:
+    def test_a_bar_moved_by_hand_is_carried_on_from_not_yanked_back(self):
         direct, cc = _cruising(5)
         _run(direct, cc, seconds=20)
         speeds = [wave.speed.at(cc.clock) for wave in cc.stack.waves]
@@ -415,9 +415,9 @@ class TestAHandOnTheDials:
         assert sum(travels) / len(travels) > cc.anchor_travel * _TRAVEL_BAND[0]
 
 
-class TestTheDialsStayInRange:
+class TestTheBarsStayInRange:
     @pytest.mark.parametrize("seed", range(4))
-    def test_nothing_leaves_the_axis_or_the_dial(self, seed):
+    def test_nothing_leaves_the_axis_or_the_bar(self, seed):
         direct, cc = _cruising(seed)
 
         def watch(direct, cc):
