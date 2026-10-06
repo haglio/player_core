@@ -1,13 +1,13 @@
 """The playlist a content source hands a player: one item per line.
 
-Fun Time owns video discovery and its filters; it writes this file, tells the
-player to RELOAD_PLAYLIST, and the player reads it back.  Each line names one
+The source -- Fun Time, or an Origenerator show it hosts -- writes this file,
+tells the player to RELOAD_PLAYLIST, and the player reads it back.  Each line names one
 item, with a TAB and its funscript after it when it has one; blank lines and
 #-comments are ignored.  The same line is what PLAY_FILE carries, so a source
 naming an item to jump to spells it exactly as the file does.
 
 Written and read here, in one module, because more than one player reads the
-one shape Fun Time writes: the main player drives the OSR2 from the funscript
+one shape the sources write: the main player drives the OSR2 from the funscript
 column, and every player colors its scrubber with it.
 """
 from __future__ import annotations
@@ -71,6 +71,12 @@ def read_playlist(path: Path) -> list[PlaylistItem]:
     return items
 
 
+READER_HOLD_BUDGET_S = 1.0
+_RETRY_SPACING_S = 0.005
+
+
 def write_playlist(path: Path, items: Iterable[PlaylistItem]) -> None:
     """Write *items* as the file :func:`read_playlist` reads back, whole or not at all."""
-    write_whole(path, "".join(f"{item_line(item)}\n" for item in items))
+    write_whole(path, "".join(f"{item_line(item)}\n" for item in items),
+                attempts=round(READER_HOLD_BUDGET_S / _RETRY_SPACING_S),
+                delay_s=_RETRY_SPACING_S)
