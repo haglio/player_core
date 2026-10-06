@@ -39,6 +39,7 @@ class FakeMpv:
         self.playlist_count = count
         self.calls: list[tuple] = []
         self.observers: dict[str, object] = {}
+        self.heard: dict[str, object] = {}
         self.audio_device_list: list[dict] = []
         self.audio_device = "auto"
 
@@ -46,6 +47,9 @@ class FakeMpv:
         self.observers[name] = handler
 
     def report(self, name: str, value) -> None:
+        if name in self.heard and self.heard[name] == value:
+            return
+        self.heard[name] = value
         self.observers[name](name, value)
 
     def playlist_clear(self) -> None:
@@ -677,6 +681,48 @@ def test_a_file_opened_is_dealt_a_move_of_its_own_though_it_was_once_swapped_in(
     mpv.report("path", "made-up-scene.png")
 
     assert deals.dealt == 2
+
+
+def test_a_picture_opened_again_after_its_hold_makes_its_move_again():
+    mpv = FakeMpv()
+    control = Control(mpv, now=100.0)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+
+    control.now = 104.5
+    control.load(Path("made-up-scene.png"))
+    mpv.report("path", "made-up-scene.png")
+
+    assert zoom_drawn_at(control, mpv, 106.5) == pytest.approx(math.log2(CREEP.at(0.5).zoom))
+
+
+def test_a_picture_opened_again_is_dealt_one_move_though_mpv_reports_the_gap_between():
+    mpv = FakeMpv()
+    deals = OneMove(CREEP)
+    control = Control(mpv, now=100.0, deals=deals)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+
+    control.load(Path("made-up-scene.png"))
+    mpv.report("path", None)
+    mpv.report("path", "made-up-scene.png")
+
+    assert deals.dealt == 2
+
+
+def test_a_reopening_mpv_said_nothing_about_costs_no_later_opening_its_move():
+    mpv = FakeMpv()
+    deals = OneMove(CREEP)
+    control = Control(mpv, now=100.0, deals=deals)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+    control.load(Path("made-up-scene.png"))
+    mpv.report("path", None)
+
+    control.load(Path("made-up-scene.png"))
+    mpv.report("path", "made-up-scene.png")
+
+    assert deals.dealt == 3
 
 
 def test_a_still_swapped_in_on_a_locked_player_never_runs_out():
