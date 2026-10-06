@@ -1,7 +1,7 @@
 """The motion as a sum of waves, each of them always on its way somewhere.
 
 One wave is one shape at one speed, and a minute of it is the same sentence over
-and over. Several make a motion: the main wave at the pace the dial is set to,
+and over. Several make a motion: the main wave at the pace the bar is set to,
 and under it a much slower swell of its own size, so the place the motion is
 working drifts from base to tip and back while the motion goes on. Nothing
 inside a wave holds still either — its speed, its travel and its center are all
@@ -97,7 +97,7 @@ class Ramp:
         return ramp
 
     def resumed(self, value: float, now: float) -> Ramp:
-        """This ramp carried on from *value* — a hand on the dial mid-glide.
+        """This ramp carried on from *value* — a hand on the bar mid-glide.
 
         Same destination, and the time that was left to reach it, but starting
         from where the hand put it rather than snapping back to where the glide
@@ -108,7 +108,7 @@ class Ramp:
 
     def shifted(self, delta: float) -> Ramp:
         """This ramp and every one chained on with both ends moved by *delta*,
-        keeping their schedule — a dial nudged by hand while cruise control is
+        keeping their schedule — a bar nudged by hand while cruise control is
         steering it."""
         return Ramp(self.start + delta, self.end + delta, self.begun, self.seconds,
                     then=None if self.then is None else self.then.shifted(delta),
@@ -167,8 +167,8 @@ class Wave:
 class WaveStack:
     """The waves that are summed to make the motion.
 
-    The first is the motion's own pace — the one the speed dial is set to and
-    the one a hand on that dial is turning. The ones after it run slower, and
+    The first is the motion's own pace — the one the Speed bar is set to and
+    the one a hand on that bar is turning. The ones after it run slower, and
     are the swells that carry it about (:mod:`player_core.cruise_control` is what
     makes that so, and the console's speed and shape name that first wave
     because of it).
@@ -194,7 +194,7 @@ class Fit:
 
 
 @dataclass
-class Dials:
+class Bars:
     """The stack as the three numbers and the shape a console can show."""
 
     travel: float
@@ -220,7 +220,7 @@ def room(travel: float, center: float) -> float:
     """*center*, moved in far enough that a swing of *travel* still fits.
 
     A motion 90 wide cannot sit at 25 — a quarter of it would be under the floor
-    — so the center gives way, the same way it gives way on the dials when the
+    — so the center gives way, the same way it gives way on the bars when the
     amplitude opens past it. Here it gives way continuously, because every ramp
     under it moves on its own schedule and none waits for the others.
     """
@@ -256,7 +256,7 @@ def position(stack: WaveStack, now: float,
     landed = fit(stack, now)
     total = landed.center
     for wave, phase in zip(stack.waves, phases):
-        # position_fraction on its default dials is the bare waveform, 0-1.
+        # position_fraction on its default bars is the bare waveform, 0-1.
         raw = position_fraction(phase, shape=shape_at(wave, now))
         total += landed.scale * wave.amplitude.at(now) * (raw - 0.5)
     return toward_the_park(min(100.0, max(0.0, total)), _kept(stack, now, max_intensity))
@@ -335,7 +335,7 @@ def biggest(stack: WaveStack, now: float) -> Wave:
     return max(stack.waves, key=lambda wave: wave.amplitude.at(now))
 
 
-def dials(stack: WaveStack, now: float) -> Dials:
+def bars(stack: WaveStack, now: float) -> Bars:
     """What the console reads while the stack has the motion.
 
     The travel and the center are read off the sum, so the readout's bar and its
@@ -348,8 +348,11 @@ def dials(stack: WaveStack, now: float) -> Dials:
     """
     landed = fit(stack, now)
     lead = stack.waves[0]
-    return Dials(travel=landed.travel, center=landed.center,
-                 speed=lead.speed.at(now), shape=shape_at(lead, now))
+    return Bars(travel=landed.travel, center=landed.center,
+                speed=lead.speed.at(now), shape=shape_at(lead, now))
+
+
+dials = bars
 
 
 def rest_at_floor(stack: WaveStack) -> None:

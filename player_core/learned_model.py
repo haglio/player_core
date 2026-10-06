@@ -70,7 +70,7 @@ class LearnedModel:
     # How many phrases of each class the training saw, kept or not.
     seen: dict[Class, int] = field(default_factory=dict)
     # The cycle -- up and back down -- the scripts mostly keep, in ms: what the
-    # speed dial's rate is measured against when the phrases are played.
+    # Speed bar's rate is measured against when the phrases are played.
     native_cycle_ms: float = 600.0
 
     def __bool__(self) -> bool:

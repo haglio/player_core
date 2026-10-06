@@ -31,7 +31,7 @@ from player_core.robot_hand import (
 
 
 class TestBpmForSpeed:
-    def test_the_slowest_dial_setting_moves_at_the_slowest_pace(self):
+    def test_the_slowest_bar_setting_moves_at_the_slowest_pace(self):
         assert bpm_for_speed(5) == pytest.approx(5.0)
 
     def test_speed_100_returns_maximum_bpm(self):
@@ -285,7 +285,7 @@ class TestSetMaxIntensity:
         assert wave_travel(state.amplitude, state.bpm) <= travel_cap(10)
         assert state.amplitude / 90 == pytest.approx(state.speed / 70, abs=0.03)
 
-    def test_from_both_dials_at_the_top_it_leaves_both_at_the_level_it_stands_for(self):
+    def test_from_both_bars_at_the_top_it_leaves_both_at_the_level_it_stands_for(self):
         state = RobotHandState(amplitude=100, speed=100)
 
         set_max_intensity(state, 10)
@@ -320,7 +320,7 @@ class TestSetMaxIntensity:
 
         assert (state.amplitude, state.center) == (0, PARK_CENTER)
 
-    def test_raising_it_again_leaves_the_dials_where_it_pushed_them(self):
+    def test_raising_it_again_leaves_the_bars_where_it_pushed_them(self):
         state = RobotHandState(amplitude=90, speed=90, intended_center=60)
         set_max_intensity(state, 20)
         pushed = (state.amplitude, state.speed, state.center)
@@ -654,7 +654,7 @@ class TestTheWaveTracedOnKnots:
         assert slide == pytest.approx(0.2)
 
     @pytest.mark.parametrize("shape", list(WaveformShape))
-    def test_every_shape_stays_on_the_axis_and_inside_the_dials(self, shape):
+    def test_every_shape_stays_on_the_axis_and_inside_the_bars(self, shape):
         heights, _ = trace_window(shape, 50, 50, phase=0.7, bpm=45.0, samples=60, span_s=12.0)
 
         assert len(heights) == 61

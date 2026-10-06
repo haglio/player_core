@@ -5,8 +5,8 @@ import pytest
 from player_core.max_intensity import depth, share
 from player_core.robot_hand import (
     FULL_INTENSITY,
+    bar_level_for,
     bpm_for_speed,
-    dial_level_for,
     travel_cap,
     wave_travel,
 )
@@ -20,7 +20,7 @@ def test_max_intensity_at_zero_allows_no_travel_at_all():
     assert travel_cap(0) == 0
 
 
-def test_a_tenth_of_the_way_up_holds_the_travel_to_both_dials_at_half():
+def test_a_tenth_of_the_way_up_holds_the_travel_to_both_bars_at_half():
     assert travel_cap(10) == pytest.approx(wave_travel(50, bpm_for_speed(50)))
 
 
@@ -29,17 +29,17 @@ def test_a_wave_travels_its_amplitude_up_and_back_every_cycle():
 
 
 @pytest.mark.parametrize("max_intensity", [10, 60, 99])
-def test_a_max_intensity_caps_the_travel_at_both_dials_at_the_level_it_stands_for(max_intensity):
-    level = dial_level_for(max_intensity)
+def test_a_max_intensity_caps_the_travel_at_both_bars_at_the_level_it_stands_for(max_intensity):
+    level = bar_level_for(max_intensity)
     assert travel_cap(max_intensity) == pytest.approx(wave_travel(level, bpm_for_speed(level)))
 
 
-def test_the_slider_stands_for_the_dials_from_nothing_to_full():
-    assert (dial_level_for(0), dial_level_for(FULL_INTENSITY)) == (0, pytest.approx(FULL_INTENSITY))
+def test_the_slider_stands_for_the_bars_from_nothing_to_full():
+    assert (bar_level_for(0), bar_level_for(FULL_INTENSITY)) == (0, pytest.approx(FULL_INTENSITY))
 
 
-def test_a_step_near_the_top_moves_the_dials_less_than_a_step_near_the_bottom():
-    assert dial_level_for(100) - dial_level_for(90) < dial_level_for(20) - dial_level_for(10)
+def test_a_step_near_the_top_moves_the_bars_less_than_a_step_near_the_bottom():
+    assert bar_level_for(100) - bar_level_for(90) < bar_level_for(20) - bar_level_for(10)
 
 
 def test_a_motion_past_the_max_intensity_gives_up_reach_and_pace_alike_to_meet_it():

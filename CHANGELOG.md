@@ -9,6 +9,17 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-10-06 — the Robot Hand's Amp, Speed and Center are bars, not dials
+
+The console draws them as bars, and the code called them dials, a word the
+screen never shows. So
+`wave_stack.bars` and `wave_stack.Bars` are what `wave_stack.dials` and
+`wave_stack.Dials` were, `RobotHandState.exact_bars` is `exact_dials`, and the
+internal names and the prose follow. `wave_stack.dials` stays as a second name
+for `bars` until Origenerator's tests, the one consumer reaching it, have moved,
+and `robot_hand.set_dials` stays until Origenerator's hold stops calling it;
+both go then.
+
 ## 2026-09-28 — a HUD button whose mark is missing says so on hover
 
 shared_ui draws a stand-in, a rounded square with a question mark in it, for a
