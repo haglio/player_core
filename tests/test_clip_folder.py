@@ -7,9 +7,12 @@ from pathlib import Path
 import pytest
 
 from player_core.clip_folder import (
+    flat_clips_in,
     move_clip_to_weird,
     scan_clips,
+    vr_clips_in,
     weird_dir_for_clips_folder,
+    weird_folder_for,
 )
 
 # ---------------------------------------------------------------------------
@@ -43,6 +46,16 @@ class TestScanClips:
         (tmp_path / "subdir").mkdir()
         result = scan_clips(tmp_path, shuffle_on_load=False)
         assert len(result) == 1
+
+    def test_finds_the_clips_in_the_folders_inside_it(self, tmp_path: Path):
+        for place in ("AI/a.mp4", "non_AI/b.mp4", "c.mp4"):
+            (tmp_path / place).parent.mkdir(parents=True, exist_ok=True)
+            (tmp_path / place).touch()
+
+        result = scan_clips(tmp_path, shuffle_on_load=False)
+
+        assert sorted(result) == [tmp_path / "AI" / "a.mp4", tmp_path / "c.mp4",
+                                  tmp_path / "non_AI" / "b.mp4"]
 
     def test_raises_when_folder_empty(self, tmp_path: Path):
         with pytest.raises(RuntimeError, match="No video clips found"):
@@ -159,6 +172,28 @@ class TestLatestOrder:
 
 def test_weird_dir_sits_beside_the_clips_folder():
     assert weird_dir_for_clips_folder(Path("C:/videos/genau/clips")) == Path(
+        "C:/videos/genau/weird"
+    )
+
+
+def test_the_clips_folder_forks_into_the_2d_clips_and_the_vr_clips():
+    clips = Path("C:/videos/genau/clips")
+
+    assert (flat_clips_in(clips), vr_clips_in(clips)) == (clips / "2D", clips / "VR")
+
+
+def test_a_clip_goes_to_its_own_place_in_the_weird_pile():
+    clips = Path("C:/videos/genau/clips")
+
+    assert weird_folder_for(clips / "2D" / "AI" / "loop one.mp4", clips) == Path(
+        "C:/videos/genau/weird/2D/AI"
+    )
+
+
+def test_a_clip_from_outside_the_clips_folder_goes_to_the_top_of_the_weird_pile():
+    clips = Path("C:/videos/genau/clips")
+
+    assert weird_folder_for(Path("D:/elsewhere/loop one.mp4"), clips) == Path(
         "C:/videos/genau/weird"
     )
 

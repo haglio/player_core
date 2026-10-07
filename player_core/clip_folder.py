@@ -1,4 +1,5 @@
-"""The clips folder, and the pile beside it a condemned clip is moved to.
+"""The clips folder, its 2D and VR folders, and the pile beside it a condemned
+clip is moved to, laid out the same way.
 
 Condemning does the least it can — one file move.  A clip's other traces (its
 metadata record, the clipper session it was cut from) stay where they are, and
@@ -32,7 +33,7 @@ def scan_clips(
     folders: Path | Iterable[Path], *, shuffle_on_load: bool = True, recent: bool = False,
     shuffle=random.shuffle,
 ) -> list[Path]:
-    """Every clip in *folders* -- one folder, or several browsed as one
+    """Every clip under *folders* -- one folder, or several browsed as one
     sequence -- in the browse order asked for.
 
     *recent* is Latest — newest-first across every folder, so the clips that
@@ -47,7 +48,7 @@ def scan_clips(
     running it until a different order comes out.
     """
     folders = (Path(folders),) if isinstance(folders, (str, Path)) else tuple(Path(f) for f in folders)
-    files = [path for folder in folders for path in folder.iterdir()
+    files = [path for folder in folders for path in sorted(folder.rglob("*"))
              if path.is_file() and path.suffix.lower() in SUPPORTED_VIDEO_EXTS]
     if not files:
         raise RuntimeError(f"No video clips found in: {', '.join(str(f) for f in folders)}")
@@ -58,12 +59,28 @@ def scan_clips(
     return files
 
 
+def flat_clips_in(clips_folder: Path) -> Path:
+    return clips_folder / "2D"
+
+
+def vr_clips_in(clips_folder: Path) -> Path:
+    return clips_folder / "VR"
+
+
 def cache_dir_for_clips_folder(folder: Path) -> Path:
     return folder.parent / "frames"
 
 
 def weird_dir_for_clips_folder(folder: Path) -> Path:
     return folder.parent / "weird"
+
+
+def weird_folder_for(clip: Path, clips_folder: Path) -> Path:
+    weird = weird_dir_for_clips_folder(clips_folder)
+    try:
+        return weird / clip.parent.relative_to(clips_folder)
+    except ValueError:
+        return weird
 
 
 def move_clip_to_weird(clip_path: Path, weird_dir: Path) -> Path | None:
