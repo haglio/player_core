@@ -6,7 +6,7 @@ from pathlib import Path
 from app_support.json_store import locked_update, read_json
 from app_support.mirrored_tree import library_roots_beside, mirrored_path
 
-__all__: list[str] = []
+__all__ = ["ClipFlip"]
 
 logger = logging.getLogger(__name__)
 
