@@ -9,6 +9,15 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-10-07 — Genau's clips folder forks into 2D and VR, and the weird pile follows it
+
+`scan_clips` walks into the folders inside the ones it is given, so a 2D folder
+split into `AI` and `non_AI` plays as one. `flat_clips_in` and `vr_clips_in`
+name the `2D` and `VR` folders inside Genau's clips folder, and
+`weird_folder_for` is where a condemned clip goes: the same place in the weird
+pile beside the clips folder that it had in the clips folder. The three are
+declared in `__all__` once an app that imports them has landed.
+
 ## 2026-10-07 — Genau plays a clip it is named, keeps a flip in the clip's record, and decodes every clip itself
 
 `PLAY_FILE <clip>` puts a named clip up in Genau the way it does in every other
