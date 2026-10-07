@@ -13,9 +13,12 @@ from pathlib import Path
 
 __all__ = [
     "SUPPORTED_VIDEO_EXTS",
+    "flat_clips_in",
     "move_clip_to_weird",
     "scan_clips",
+    "vr_clips_in",
     "weird_dir_for_clips_folder",
+    "weird_folder_for",
 ]
 
 SUPPORTED_VIDEO_EXTS = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v"}
