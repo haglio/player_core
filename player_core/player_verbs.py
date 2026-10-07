@@ -19,6 +19,7 @@ import math
 from .playlist import PlaylistItem, item_line
 
 __all__ = [
+    "CLEAR_FRAME",
     "DISPLAY_OFF",
     "DISPLAY_ON",
     "LOCK_OFF",
@@ -36,6 +37,7 @@ __all__ = [
     "SET_SPEED",
     "SET_TCODE_ENABLED",
     "SET_VOLUME",
+    "SHOW_FRAME",
     "SPEED_DOWN",
     "SPEED_UP",
     "TOGGLE_LOCK",
