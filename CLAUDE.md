@@ -53,6 +53,15 @@ install -- so a worktree of this repo needs nothing copied in. A checkout's own
   needs. `StatusWriter` takes a `fields` callable rather than hardcoding either
   player's keys for exactly this reason.
 
+- **A Player IS a Funestra; nothing runs *on* a Player.** A Funestra is a
+  window of Fun Time (`funestra.Funestra`): it plays what it is handed and
+  draws the HUD. The Main, Portrait and Landscape Players are Funestras, and
+  Kino (Fun Time's Video mode), Genau and an Origenerator Slideshow are what
+  runs on them. Saying a Player "runs on" or "has" a Funestra puts a layer
+  between the window and what he watches that does not exist, and he has had
+  to correct it. The near miss that still counts: "the satellites run on a
+  Funestra" -- the satellite program is the window, so each satellite is one.
+
 ## Changing this repo changes three apps
 
 - A change here reaches an app when that app moves its pin, not before: each
