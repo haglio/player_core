@@ -39,7 +39,10 @@ from .hud_marks import APP_MARK, MINIMIZE_ICON, SHARED_MARK, app_mark_letter, sh
 
 __all__ = [
     "SYMBOL_FONT",
+    "draw_button",
+    "fit_text",
     "load_font",
+    "text_width",
 ]
 
 # Segoe UI Bold — every label on these HUDs is bold, because they are read at a
