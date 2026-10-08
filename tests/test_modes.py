@@ -30,6 +30,11 @@ def test_each_entry_is_spelled_as_its_word_on_the_wire(enum):
     assert {entry.value for entry in enum} == _WIRE_WORDS[enum]
 
 
+@pytest.mark.parametrize("enum", [MainMode, SatellitesMode])
+def test_a_branch_from_before_the_rename_still_finds_kino_under_its_old_name(enum):
+    assert enum.VIDEO is enum.KINO
+
+
 @pytest.mark.parametrize("enum", list(_WIRE_WORDS))
 def test_an_entry_is_its_wire_word_wherever_a_string_is_wanted(enum):
     """A comparison against the bare word still holds, and a JSON writer that
