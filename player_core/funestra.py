@@ -11,7 +11,7 @@ from .drive_gate import DriveGate
 from .file_channel import consume_command_file, read_paused_state
 from .funestra_controls import FunestraControls, apply_command
 from .funestra_status import status_fields
-from .heatmap import build_heatmap
+from .heatmap import ScriptColors
 from .hud_overlay import HudOverlay
 from .mpv_player import MpvPlayer
 from .play_points import PlayPoints
@@ -101,6 +101,7 @@ class Funestra:
         )
         self._volume_painter = VolumeHudPainter()
         self._readout_painter = PlayheadHudPainter()
+        self._scrubber_colors = ScriptColors()
 
     @classmethod
     def on_window(cls, wid: int, *, channels: Channels, playlist: list[PlaylistItem],
@@ -160,9 +161,8 @@ class Funestra:
             player.remove_overlay(self.SCRUBBER_OVERLAY_ID)
         else:
             x0, x1 = bar_track_x(win_w)
-            script = playback.current_funscript
-            colors = [] if script is None else build_heatmap(
-                script, x1 - x0, start_ms=0, end_ms=playback.duration_ms)
+            colors = self._scrubber_colors.across(
+                playback.current_video, playback.current_funscript, playback.duration_ms, x1 - x0)
             bar = progress_bar_bgra(playback.position_ms, playback.duration_ms, None, win_w,
                                     heatmap=colors)
             player.overlay(self.SCRUBBER_OVERLAY_ID, 0, win_h - bar.shape[0], bar)
