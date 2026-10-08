@@ -17,7 +17,13 @@ import numpy as np
 from player_core.volume import SLOT_W as _VOLUME_SLOT_W
 
 __all__ = [
+    "BAR_BORDER",
+    "BAR_EDGE",
+    "BAR_FILL",
     "BAR_INSET_Y",
+    "BORDER_W",
+    "CURSOR",
+    "CURSOR_W",
     "TIMELINE_HEIGHT",
     "bar_track_x",
     "bar_x",
