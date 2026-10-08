@@ -1,0 +1,281 @@
+"""What a Funestra is playing: the list it was handed, the item on screen, and how it is being played.
+
+Auto-advance is the one move mpv makes itself: the item after the one on
+screen is staged as mpv's prefetch entry, mpv rolls onto it at end-of-file,
+and each tick :meth:`Playback.advance` notices the roll, moves the index onto
+it and stages the item after that.  A deliberate step still cold-loads.
+"""
+from __future__ import annotations
+
+import logging
+from collections.abc import Iterable, Mapping
+from pathlib import Path
+
+from .funscript import Funscript
+from .funscript import load as load_funscript
+from .play_points import PlayPoints
+from .playback_rate import clamp_rate
+from .playlist import PlaylistItem
+from .scripted_device import REWIND_MS, ScriptedDevice
+from .seeking import OwedSeek, seek_if_taken
+
+__all__: list[str] = []
+
+logger = logging.getLogger(__name__)
+
+
+def funscripts_of(items: Iterable[PlaylistItem]) -> dict[Path, Path]:
+    return {item.path: item.funscript for item in items if item.funscript is not None}
+
+
+class Playback:
+    def __init__(
+        self,
+        playlist: list[Path],
+        *,
+        player,
+        start_paused: bool = False,
+        play_points: PlayPoints | None = None,
+        funscripts: Mapping[Path, Path] | None = None,
+        tcode=None,
+    ) -> None:
+        if not playlist:
+            raise ValueError("playlist must not be empty")
+        self._device = ScriptedDevice(tcode, enabled=False)
+        self._last_pos_ms = 0.0
+        self._playlist = list(playlist)
+        self._funscripts = dict(funscripts or {})
+        self._loaded_funscript: tuple[Path | None, Funscript | None] = (None, None)
+        self._player = player
+        self._paused = start_paused
+        self._locked = False
+        self._speed = 1.0
+        self._index = 0
+        self._play_points = play_points or PlayPoints(None)
+        self._resume = OwedSeek()
+        self._versions: dict[Path, Path] = {}
+        self._switching_versions = False
+        self.load(0)
+
+    @property
+    def is_paused(self) -> bool:
+        return self._paused
+
+    @property
+    def is_locked(self) -> bool:
+        return self._locked
+
+    @property
+    def current_video(self) -> Path:
+        return self._playlist[self._index]
+
+    @property
+    def current_funscript(self) -> Funscript | None:
+        path = self._funscripts.get(self.current_video)
+        if path != self._loaded_funscript[0]:
+            self._loaded_funscript = (path, None if path is None else load_funscript(path))
+        return self._loaded_funscript[1]
+
+    @property
+    def funscript_as_played(self) -> Funscript | None:
+        script = self.current_funscript
+        if script is None or not self._locked:
+            return script
+        return script.looped(0, round(self._player.duration_ms))
+
+    @property
+    def has_funscript(self) -> bool:
+        return self.current_funscript is not None
+
+    @property
+    def funscript_resting(self) -> bool:
+        script = self.funscript_as_played
+        return script is not None and script.is_resting_at(int(self.position_ms))
+
+    def set_tcode_enabled(self, enabled: bool) -> None:
+        self._device.set_enabled(enabled)
+
+    @property
+    def max_intensity(self) -> int:
+        return self._device.max_intensity
+
+    def set_max_intensity(self, max_intensity: int) -> None:
+        self._device.set_max_intensity(max_intensity)
+
+    @property
+    def showing(self) -> Path:
+        return self._versions.get(self.current_video, self.current_video)
+
+    def step_version(self, versions: list[Path], delta: int) -> None:
+        showing = self.showing
+        if len(versions) < 2 or showing not in versions:
+            return
+        target = versions[(versions.index(showing) + delta) % len(versions)]
+        clip = self.current_video
+        if target == clip:
+            self._versions.pop(clip, None)
+        else:
+            self._versions[clip] = target
+        self.load(self._index)
+        self._switching_versions = True
+
+    @property
+    def name_on_screen(self) -> str:
+        name = self.current_video.stem
+        if not self._switching_versions and self.showing == self.current_video:
+            return name
+        return f"{name} ({self.showing.name})"
+
+    @property
+    def playlist(self) -> list[Path]:
+        return list(self._playlist)
+
+    @property
+    def playlist_length(self) -> int:
+        return len(self._playlist)
+
+    @property
+    def position_ms(self) -> float:
+        return self._player.position_ms
+
+    @property
+    def duration_ms(self) -> float:
+        return self._player.duration_ms
+
+    @property
+    def showing_picture(self) -> bool:
+        return self._picture_put_up or self._player.showing_picture
+
+    def step(self, delta: int) -> None:
+        self.load(self._index + delta)
+
+    def seek_to(self, ms: float) -> bool:
+        taken = seek_if_taken(self._player, ms)
+        if taken:
+            self._device.take_over()
+        return taken
+
+    def set_paused(self, paused: bool) -> None:
+        if paused == self._paused:
+            return
+        self._paused = paused
+        self._player.set_paused(paused)
+        if not paused:
+            self._device.take_over()
+
+    @property
+    def speed(self) -> float:
+        return self._speed
+
+    def set_speed(self, speed: float) -> None:
+        self._speed = clamp_rate(speed)
+        self._player.set_speed(self._speed)
+        self._device.take_over()
+
+    def set_pace(self, seconds: float) -> None:
+        self._player.set_pace(seconds)
+
+    def show_frame(self, frame: Path) -> None:
+        self._frame_on_screen = frame
+        self._picture_put_up = True
+        self._player.swap_still(frame)
+
+    def clear_frame(self) -> None:
+        if self._frame_on_screen is not None:
+            self._frame_on_screen = None
+            self._player.swap_still(self.showing)
+
+    def set_locked(self, locked: bool) -> None:
+        self._locked = locked
+        self._player.set_loop_file(locked)
+        if locked:
+            self._player.clear_next()
+        else:
+            self._stage_next()
+
+    def advance(self) -> None:
+        self._resume.pay(self._player, self.seek_to)
+        position_ms = self._player.position_ms
+        self._play_points.observe(self.current_video, position_ms, self._player.duration_ms)
+        if self._paused:
+            return
+        if not self._locked and self._player.advanced_to_next:
+            self._play_points.ended()
+            self._frame_on_screen = None
+            self._picture_put_up = False
+            self._index = (self._index + 1) % len(self._playlist)
+            self._player.drop_consumed()
+            self._stage_next()
+            self._resume.owe(self._play_points.point_for(self.current_video) or None)
+            self._device.take_over()
+        elif position_ms + REWIND_MS < self._last_pos_ms:
+            self._device.take_over()
+        self._last_pos_ms = position_ms
+        self._device.drive(position_ms, self.funscript_as_played, speed=self._speed)
+
+    def discard(self) -> None:
+        if len(self._playlist) <= 1:
+            return
+        self._versions.pop(self._playlist.pop(self._index), None)
+        self.load(self._index)
+
+    def play_file(self, video: Path, funscript: Path | None = None) -> None:
+        if funscript is not None:
+            self._funscripts[video] = funscript
+        for i, path in enumerate(self._playlist):
+            if path == video:
+                self.load(i)
+                return
+        self._playlist.insert(self._index + 1, video)
+        self.load(self._index + 1)
+
+    def replace_playlist(
+        self, playlist: list[Path], funscripts: Mapping[Path, Path] | None = None,
+    ) -> None:
+        if not playlist:
+            raise ValueError("playlist must not be empty")
+        current = self.current_video
+        chosen = self._versions.get(current)
+        self._playlist = list(playlist)
+        self._funscripts = dict(funscripts or {})
+        self._versions = {} if chosen is None else {current: chosen}
+        for i, path in enumerate(self._playlist):
+            if path == current:
+                self._index = i
+                self._stage_next()
+                return
+        if self._frame_on_screen in self._playlist:
+            self._index = self._playlist.index(self._frame_on_screen)
+            self._frame_on_screen = None
+            self._versions = {}
+            self._stage_next()
+            return
+        self._versions = {}
+        self.load(0)
+
+    def load(self, index: int) -> None:
+        self._play_points.leave()
+        self._switching_versions = False
+        self._frame_on_screen = None
+        self._picture_put_up = False
+        self._index = index % len(self._playlist)
+        clip = self._playlist[self._index]
+        video = self._versions.get(clip, clip)
+        logger.info("Loading: %s", video.name)
+        self._player.load(video)
+        self._player.set_paused(self._paused)
+        self._stage_next()
+        self._resume.owe(self._play_points.point_for(clip) or None)
+        self._device.take_over()
+        self._last_pos_ms = 0.0
+
+    def _stage_next(self) -> None:
+        if self._locked:
+            return
+        nxt = self._playlist[(self._index + 1) % len(self._playlist)]
+        self._player.stage_next(self._versions.get(nxt, nxt))
+
+    def close(self) -> None:
+        self._play_points.leave()
+        self._device.close()
+        self._player.close()
