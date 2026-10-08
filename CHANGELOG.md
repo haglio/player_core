@@ -19,6 +19,11 @@ at every reader the family has, so an app still pinned to an older release
 reads a new file right; and a file still saying `video` reads as kino here, the
 same way.
 
+`VIDEO` stays on both as a second name for `KINO` until no Fun Time branch names
+it. The machine's one venv runs every open branch, and 38 Fun Time worktrees
+still said `MainMode.VIDEO` the day this shipped: without the second name each
+of them would die on import the moment that venv took this release.
+
 ## 2026-10-07 — a Funestra: the window that draws its own HUD, and the gate on who else draws one
 
 `funestra.Funestra` is the satellite program's run loop moved here without its

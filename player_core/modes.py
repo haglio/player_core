@@ -31,6 +31,7 @@ class MainMode(StrEnum):
 
     KINO = "kino"
     GENAU = "genau"
+    VIDEO = KINO
 
 
 class SatellitesMode(StrEnum):
@@ -39,6 +40,7 @@ class SatellitesMode(StrEnum):
 
     KINO = "kino"
     ORIGENERATOR = "origenerator"
+    VIDEO = KINO
 
 
 class LoopState(StrEnum):
