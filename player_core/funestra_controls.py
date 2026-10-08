@@ -21,6 +21,8 @@ from .player_verbs import (
     PREV_VERSION,
     QUIT,
     RELOAD_PLAYLIST,
+    SEEK_BACK,
+    SEEK_FWD,
     SET_MAX_INTENSITY,
     SET_PACE,
     SET_SPEED,
@@ -41,6 +43,8 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
+_SEEK_STEP_MS = 10_000
+
 
 @dataclass
 class FunestraControls:
@@ -58,6 +62,13 @@ Act = Callable[[FunestraControls, str], bool]
 def _stepper(step: int) -> Act:
     def act(controls: FunestraControls, _value: str) -> bool:
         controls.playback.step(step)
+        return True
+    return act
+
+
+def _seeker(delta_ms: int) -> Act:
+    def act(controls: FunestraControls, _value: str) -> bool:
+        controls.playback.seek_by(delta_ms)
         return True
     return act
 
@@ -154,6 +165,10 @@ CONTROLS: tuple[Control, ...] = (
     Control(
         name="playlist_position",
         verbs=(Verb(NEXT, _stepper(1)), Verb(PREV, _stepper(-1))),
+    ),
+    Control(
+        name="playhead",
+        verbs=(Verb(SEEK_FWD, _seeker(_SEEK_STEP_MS)), Verb(SEEK_BACK, _seeker(-_SEEK_STEP_MS))),
     ),
     Control(
         name="lock",

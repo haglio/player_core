@@ -19,6 +19,8 @@ from player_core.player_verbs import (
     PREV_VERSION,
     QUIT,
     RELOAD_PLAYLIST,
+    SEEK_BACK,
+    SEEK_FWD,
     SET_MAX_INTENSITY,
     SET_PACE,
     SET_SPEED,
@@ -161,6 +163,17 @@ class TestApplyCommand:
         assert apply_command(f"{NEXT} 5", controls) is False
         assert controls.playback.current_video.name == "v0.mp4"
 
+    def test_seek_fwd_and_back_move_ten_seconds_through_the_clip_on_screen(self, tmp_path):
+        playback, player = make_playback(tmp_path, entries=2, duration_ms=60_000.0)
+        controls = FunestraControls(playback, reload_playlist=_never_reloads)
+        player.position_ms = 20_000.0
+
+        assert apply_command(SEEK_FWD, controls) is True
+        assert player.position_ms == 30_000.0
+        assert apply_command(SEEK_BACK, controls) is True
+        assert player.position_ms == 20_000.0
+        assert playback.current_video.name == "v0.mp4"
+
     def test_speed_up_and_down_move_the_rate_a_step_at_a_time(self, tmp_path):
         controls = _controls(tmp_path)
 
@@ -226,7 +239,8 @@ def _one_stroke(path):
 
 def test_every_verb_a_funestra_answers_is_spelled_in_the_familys_vocabulary():
     assert set(VERBS) == {
-        NEXT, PREV, LOCK_ON, LOCK_OFF, TRASH, NEXT_VERSION, PREV_VERSION, SPEED_UP,
+        NEXT, PREV, SEEK_FWD, SEEK_BACK, LOCK_ON, LOCK_OFF, TRASH, NEXT_VERSION,
+        PREV_VERSION, SPEED_UP,
         SPEED_DOWN, SET_SPEED, PLAY_FILE, RELOAD_PLAYLIST, SET_PACE, SHOW_FRAME,
         CLEAR_FRAME, QUIT, SET_TCODE_ENABLED, SET_MAX_INTENSITY,
     }
