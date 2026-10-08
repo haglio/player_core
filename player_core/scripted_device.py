@@ -3,10 +3,7 @@ from __future__ import annotations
 
 from .robot_hand import FULL_INTENSITY
 
-__all__ = [
-    "REWIND_MS",
-    "ScriptedDevice",
-]
+__all__ = ["REWIND_MS"]
 
 REWIND_MS = 50
 

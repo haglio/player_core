@@ -42,6 +42,7 @@ from .player_verbs import (
 from .playlist import item_from_line
 
 __all__ = [
+    "SEEK_STEP_MS",
     "FunestraControls",
     "apply_command",
 ]
