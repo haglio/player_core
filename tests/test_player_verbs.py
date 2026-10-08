@@ -11,7 +11,7 @@ from player_core.playlist import PlaylistItem, item_from_line
 
 def _spellings() -> dict[str, str]:
     return {name: value for name, value in vars(player_verbs).items()
-            if name.isupper() and isinstance(value, str)}
+            if name.isupper() and not name.startswith("_") and isinstance(value, str)}
 
 
 def test_every_verb_is_spelled_as_a_registry_looks_it_up():
@@ -48,3 +48,22 @@ def test_a_pace_is_read_as_the_seconds_it_names():
 @pytest.mark.parametrize("value", ["-1", "soon", "", "inf", "nan"])
 def test_a_value_that_names_no_pace_is_refused(value):
     assert player_verbs.pace_seconds(value) is None
+
+
+class TestAStepToAnotherVersionOfTheItemOnScreen:
+    def test_a_step_forward_carries_the_family_in_the_sources_order(self):
+        versions = [Path("C:/vids/clip_topaz.mp4"), Path("C:/vids/clip.mp4")]
+
+        line = player_verbs.step_version(1, versions)
+
+        keyword, _, value = line.partition(" ")
+        assert keyword == player_verbs.NEXT_VERSION
+        assert player_verbs.version_files(value) == versions
+
+    def test_a_step_back_is_the_other_verb(self):
+        line = player_verbs.step_version(-1, [Path("C:/vids/clip_topaz.mp4"), Path("C:/vids/clip.mp4")])
+
+        assert line.partition(" ")[0] == player_verbs.PREV_VERSION
+
+    def test_a_value_naming_nothing_carries_no_versions(self):
+        assert player_verbs.version_files("") == []

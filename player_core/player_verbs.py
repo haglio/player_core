@@ -15,6 +15,8 @@ spelled beside its registry.
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
+from pathlib import Path
 
 from .playlist import PlaylistItem, item_line
 
@@ -91,6 +93,12 @@ SET_PACE = "SET_PACE"
 SHOW_FRAME = "SHOW_FRAME"
 CLEAR_FRAME = "CLEAR_FRAME"
 
+# Another version of the item on screen (NEXT_VERSION a|b|c): the whole family
+# every time, so the player steps from the file it has up.
+NEXT_VERSION = "NEXT_VERSION"
+PREV_VERSION = "PREV_VERSION"
+_VERSIONS_SEPARATOR = "|"
+
 QUIT = "QUIT"
 
 
@@ -105,3 +113,12 @@ def pace_seconds(value: str) -> float | None:
     except ValueError:
         return None
     return seconds if math.isfinite(seconds) and seconds >= 0 else None
+
+
+def step_version(delta: int, versions: Sequence[str | Path]) -> str:
+    verb = NEXT_VERSION if delta >= 0 else PREV_VERSION
+    return f"{verb} {_VERSIONS_SEPARATOR.join(str(version) for version in versions)}"
+
+
+def version_files(value: str) -> list[Path]:
+    return [Path(part) for part in value.split(_VERSIONS_SEPARATOR) if part.strip()]
