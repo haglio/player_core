@@ -19,7 +19,10 @@ from .playlist import PlaylistItem
 from .scripted_device import REWIND_MS, ScriptedDevice
 from .seeking import OwedSeek, seek_if_taken
 
-__all__: list[str] = []
+__all__ = [
+    "Playback",
+    "funscripts_of",
+]
 
 logger = logging.getLogger(__name__)
 

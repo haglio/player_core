@@ -4,7 +4,9 @@ from __future__ import annotations
 from .status import PlayerStatus
 from .status import status_fields as player_status_fields
 
-__all__: list[str] = []
+__all__ = [
+    "status_fields",
+]
 
 
 def status_fields(playback, handoff_touch_ms: int | None) -> dict[str, str]:

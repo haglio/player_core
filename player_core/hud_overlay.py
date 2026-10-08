@@ -23,7 +23,9 @@ from .satellite_hud import (
 from .satellite_hud_paint import HudRenderer
 from .timeline import TIMELINE_HEIGHT
 
-__all__: list[str] = []
+__all__ = [
+    "HudOverlay",
+]
 
 logger = logging.getLogger(__name__)
 
