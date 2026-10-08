@@ -44,6 +44,9 @@ if TYPE_CHECKING:
     from PIL import Image
 
 __all__ = [
+    "BLOCK_GAP",
+    "CTRL_BTN",
+    "MAP_THUMB_H",
     "MARGIN",
     "HudCell",
     "HudClicks",
