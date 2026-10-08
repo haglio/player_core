@@ -55,12 +55,22 @@ class TestStatusFields:
             speed = 1.0
             has_funscript = False
             funscript_resting = False
+            portrait = None
 
         assert list(status_fields(Stub(), None)) == [
             "video", "position_ms", "duration_ms", "paused", "locked",
             "speed", "picture", "read_at", "playlist_length",
-            "has_funscript", "funscript_resting", "handoff_touch_ms",
+            "has_funscript", "funscript_resting", "handoff_touch_ms", "portrait",
         ]
+
+    def test_the_shape_of_the_item_is_published_once_the_player_has_measured_it(self, tmp_path):
+        playback, player = make_playback(tmp_path)
+
+        assert status_fields(playback, None)["portrait"] == ""
+        player.source_dims = (1080, 1920)
+        assert status_fields(playback, None)["portrait"] == "1"
+        player.source_dims = (1920, 1080)
+        assert status_fields(playback, None)["portrait"] == "0"
 
     def test_publishes_its_clips_script_and_where_its_trace_hands_the_device_over(self, tmp_path):
         script = tmp_path / "v0.funscript"

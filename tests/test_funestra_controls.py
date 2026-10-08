@@ -7,9 +7,12 @@ from pathlib import Path
 from funestra_fakes import FakeTCode, make_playback
 
 from player_core import player_verbs
+from player_core.display import Display
 from player_core.funestra_controls import VERBS, FunestraControls, apply_command
 from player_core.player_verbs import (
     CLEAR_FRAME,
+    DISPLAY_OFF,
+    DISPLAY_ON,
     LOCK_OFF,
     LOCK_ON,
     NEXT,
@@ -25,12 +28,15 @@ from player_core.player_verbs import (
     SET_PACE,
     SET_SPEED,
     SET_TCODE_ENABLED,
+    SET_VOLUME,
     SHOW_FRAME,
     SPEED_DOWN,
     SPEED_UP,
+    TOGGLE_LOCK,
     TRASH,
     step_version,
 )
+from player_core.volume_control import RoomVolume
 
 
 def _never_reloads() -> None:
@@ -237,11 +243,78 @@ def _one_stroke(path):
     return path
 
 
+class TestTheLock:
+    def test_the_toggle_flips_it_both_ways(self, tmp_path):
+        controls = _controls(tmp_path)
+
+        assert apply_command(TOGGLE_LOCK, controls) is True
+        assert controls.playback.is_locked is True
+        assert apply_command(TOGGLE_LOCK, controls) is True
+        assert controls.playback.is_locked is False
+
+
+class TestTheRoomsLevel:
+    def _controls(self, tmp_path):
+        playback, player = make_playback(tmp_path)
+        volume = RoomVolume(player, dashboard_cmd_file=None, live=True)
+        return FunestraControls(playback, reload_playlist=_never_reloads, room_volume=volume), player, volume
+
+    def test_set_volume_plays_and_shows_the_level(self, tmp_path):
+        controls, player, volume = self._controls(tmp_path)
+
+        assert apply_command(f"{SET_VOLUME} 70 0", controls) is True
+
+        assert (player.volume, volume.hud.volume, volume.hud.muted) == (70, 70, False)
+
+    def test_a_mute_plays_silent_but_the_chip_still_shows_where_it_was_set(self, tmp_path):
+        controls, player, volume = self._controls(tmp_path)
+
+        assert apply_command(f"{SET_VOLUME} 70 1", controls) is True
+
+        assert (player.volume, volume.hud.volume, volume.hud.muted) == (0, 70, True)
+
+    def test_without_a_mute_flag_the_level_is_not_muted(self, tmp_path):
+        controls, player, volume = self._controls(tmp_path)
+
+        assert apply_command(f"{SET_VOLUME} 40", controls) is True
+
+        assert (player.volume, volume.hud.muted) == (40, False)
+
+    def test_a_level_it_cannot_read_leaves_the_sound_alone(self, tmp_path):
+        controls, player, _volume = self._controls(tmp_path)
+
+        assert apply_command(f"{SET_VOLUME} loud", controls) is False
+        assert apply_command(SET_VOLUME, controls) is False
+        assert player.volume == 100
+
+    def test_a_funestra_whose_sound_is_its_own_refuses_the_rooms_level(self, tmp_path):
+        controls = _controls(tmp_path)
+
+        assert apply_command(f"{SET_VOLUME} 40", controls) is False
+
+
+class TestTheDisplay:
+    def test_off_and_on_reach_the_display(self, tmp_path):
+        playback, player = make_playback(tmp_path)
+        display = Display(player, ())
+        controls = FunestraControls(playback, reload_playlist=_never_reloads, display=display)
+
+        assert apply_command(DISPLAY_OFF, controls) is True
+        assert display.active is False
+        assert apply_command(DISPLAY_ON, controls) is True
+        assert display.active is True
+
+    def test_a_build_with_no_display_switch_refuses_them(self, tmp_path):
+        controls = _controls(tmp_path)
+
+        assert apply_command(DISPLAY_OFF, controls) is False
+
+
 def test_every_verb_a_funestra_answers_is_spelled_in_the_familys_vocabulary():
     assert set(VERBS) == {
-        NEXT, PREV, SEEK_FWD, SEEK_BACK, LOCK_ON, LOCK_OFF, TRASH, NEXT_VERSION,
-        PREV_VERSION, SPEED_UP,
-        SPEED_DOWN, SET_SPEED, PLAY_FILE, RELOAD_PLAYLIST, SET_PACE, SHOW_FRAME,
-        CLEAR_FRAME, QUIT, SET_TCODE_ENABLED, SET_MAX_INTENSITY,
+        NEXT, PREV, LOCK_ON, LOCK_OFF, TOGGLE_LOCK, TRASH, NEXT_VERSION, PREV_VERSION,
+        SEEK_FWD, SEEK_BACK, SPEED_UP, SPEED_DOWN, SET_SPEED, PLAY_FILE, RELOAD_PLAYLIST,
+        SET_PACE, SHOW_FRAME, CLEAR_FRAME, QUIT, SET_TCODE_ENABLED, SET_MAX_INTENSITY,
+        SET_VOLUME, DISPLAY_ON, DISPLAY_OFF,
     }
     assert all(getattr(player_verbs, verb) == verb for verb in VERBS)

@@ -38,6 +38,7 @@ class Playback:
         *,
         player,
         start_paused: bool = False,
+        locked: bool = False,
         play_points: PlayPoints | None = None,
         funscripts: Mapping[Path, Path] | None = None,
         tcode=None,
@@ -51,13 +52,18 @@ class Playback:
         self._loaded_funscript: tuple[Path | None, Funscript | None] = (None, None)
         self._player = player
         self._paused = start_paused
-        self._locked = False
+        self._locked = locked
         self._speed = 1.0
         self._index = 0
+        self._loads = 0
         self._play_points = play_points or PlayPoints(None)
-        self._resume = OwedSeek()
+        self._owed_seek = OwedSeek()
         self._versions: dict[Path, Path] = {}
         self._switching_versions = False
+        self._mark: int | None = None
+        self._ab_loop: tuple[int, int] | None = None
+        if locked:
+            player.set_loop_file(True)
         self.load(0)
 
     @property
@@ -73,6 +79,26 @@ class Playback:
         return self._playlist[self._index]
 
     @property
+    def index(self) -> int:
+        return self._index
+
+    @property
+    def loads(self) -> int:
+        return self._loads
+
+    @property
+    def switching_versions(self) -> bool:
+        return self._switching_versions
+
+    @property
+    def portrait(self) -> bool | None:
+        width, height = self._player.source_dims
+        return height > width if width and height else None
+
+    def funscript_of(self, video: Path) -> Path | None:
+        return self._funscripts.get(video)
+
+    @property
     def current_funscript(self) -> Funscript | None:
         path = self._funscripts.get(self.current_video)
         if path != self._loaded_funscript[0]:
@@ -82,9 +108,13 @@ class Playback:
     @property
     def funscript_as_played(self) -> Funscript | None:
         script = self.current_funscript
-        if script is None or not self._locked:
-            return script
-        return script.looped(0, round(self._player.duration_ms))
+        if script is None:
+            return None
+        if self._ab_loop is not None:
+            return script.looped(*self._ab_loop)
+        if self._locked:
+            return script.looped(0, round(self._player.duration_ms))
+        return script
 
     @property
     def has_funscript(self) -> bool:
@@ -97,6 +127,9 @@ class Playback:
 
     def set_tcode_enabled(self, enabled: bool) -> None:
         self._device.set_enabled(enabled)
+
+    def take_the_device_over(self) -> None:
+        self._device.take_over()
 
     @property
     def max_intensity(self) -> int:
@@ -153,13 +186,40 @@ class Playback:
         self.load(self._index + delta)
 
     def seek_by(self, delta_ms: float) -> None:
-        self.seek_to(max(0.0, min(self._player.duration_ms, self._player.position_ms + delta_ms)))
+        self.seek_to(self._player.position_ms + delta_ms)
 
-    def seek_to(self, ms: float) -> bool:
-        taken = seek_if_taken(self._player, ms)
+    def seek_to(self, ms: float) -> None:
+        self._owed_seek.owe(ms)
+        self._owed_seek.pay(self._player, self._seek_now)
+
+    def _seek_now(self, ms: float) -> bool:
+        floor = 0.0 if self._mark is None else float(self._mark)
+        target = max(floor, min(self._player.duration_ms, ms))
+        taken = seek_if_taken(self._player, target)
         if taken:
             self._device.take_over()
         return taken
+
+    @property
+    def mark(self) -> int | None:
+        return self._mark
+
+    def set_mark(self, in_ms: int | None) -> None:
+        self._mark = in_ms
+
+    @property
+    def ab_loop(self) -> tuple[int, int] | None:
+        return self._ab_loop
+
+    def set_ab_loop(self, in_ms: int, out_ms: int) -> None:
+        self._mark = None
+        self._ab_loop = (in_ms, out_ms)
+        self._player.set_ab_loop(in_ms, out_ms)
+
+    def clear_ab_loop(self) -> None:
+        self._mark = None
+        self._ab_loop = None
+        self._player.clear_ab_loop()
 
     def set_paused(self, paused: bool) -> None:
         if paused == self._paused:
@@ -200,7 +260,7 @@ class Playback:
             self._stage_next()
 
     def advance(self) -> None:
-        self._resume.pay(self._player, self.seek_to)
+        self._owed_seek.pay(self._player, self._seek_now)
         position_ms = self._player.position_ms
         self._play_points.observe(self.current_video, position_ms, self._player.duration_ms)
         if self._paused:
@@ -209,10 +269,13 @@ class Playback:
             self._play_points.ended()
             self._frame_on_screen = None
             self._picture_put_up = False
+            self._mark = None
+            self._ab_loop = None
             self._index = (self._index + 1) % len(self._playlist)
+            self._loads += 1
             self._player.drop_consumed()
             self._stage_next()
-            self._resume.owe(self._play_points.point_for(self.current_video) or None)
+            self._owed_seek.owe(self._play_points.point_for(self.current_video) or None)
             self._device.take_over()
         elif position_ms + REWIND_MS < self._last_pos_ms:
             self._device.take_over()
@@ -234,6 +297,16 @@ class Playback:
                 return
         self._playlist.insert(self._index + 1, video)
         self.load(self._index + 1)
+
+    def load_playlist(
+        self, playlist: list[Path], funscripts: Mapping[Path, Path] | None = None,
+    ) -> None:
+        if not playlist:
+            raise ValueError("playlist must not be empty")
+        self._playlist = list(playlist)
+        self._funscripts = dict(funscripts or {})
+        self._versions = {}
+        self.load(0)
 
     def replace_playlist(
         self, playlist: list[Path], funscripts: Mapping[Path, Path] | None = None,
@@ -265,13 +338,15 @@ class Playback:
         self._frame_on_screen = None
         self._picture_put_up = False
         self._index = index % len(self._playlist)
+        self._loads += 1
         clip = self._playlist[self._index]
         video = self._versions.get(clip, clip)
         logger.info("Loading: %s", video.name)
+        self.clear_ab_loop()
         self._player.load(video)
         self._player.set_paused(self._paused)
         self._stage_next()
-        self._resume.owe(self._play_points.point_for(clip) or None)
+        self._owed_seek.owe(self._play_points.point_for(clip) or None)
         self._device.take_over()
         self._last_pos_ms = 0.0
 

@@ -9,6 +9,33 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-10-08 — the Funestra draws the main slot's console, and everything else the Main Player drew
+
+Everything Fun Time's Main Player painted over its video is the Funestra's drawing
+now, so the Main Player can become the Main Funestra in the fun_time landing that
+follows: the console the room publishes for the main slot (`console_overlay`,
+read off the console file and the drive file the same way the satellite panel is,
+its presses and the drive readout's drags posted on the dashboard's channel), the
+scrubber with a scripted item's colors, the zoom while a stretch is marked and the
+two frames of a running A/B range (`scrubber`, which is the Main Player's
+`overlay` module moved here whole), the room's volume chip beside a Funestra's own
+(`volume_control.RoomVolume`), and the black a Funestra shows when the room gives
+its rectangle to another window (`display`).
+
+`Playback` carries what every User of a Funestra shares and the Main Player kept
+to itself: it can open holding its item, seek by a step, owe a seek mpv will not
+take yet, keep a mark no seek may rewind before and an A/B range mpv goes round
+(the loop *recording* stays with Kino; these are the stretches it marks and
+repeats), say where in the list it is, whether its item is portrait, and how
+many items it has opened.  The Funestra answers TOGGLE_LOCK, SET_VOLUME (when
+its sound is the room's) and DISPLAY_ON/DISPLAY_OFF, names its ten-second seek
+step `SEEK_STEP_MS` for the players that have to seek alike, publishes
+`portrait`, and takes a `User` that runs on it in the same process: its verbs are
+asked before the Funestra's own, it takes a pass of its own each frame before
+the playback advances, its lines ride in the status file and it heads the
+console.  New names stay undeclared until fun_time imports them; the follow-up
+declares them.  `heatmap.ScriptColors` went: the strip does its job.
+
 ## 2026-10-08 — `wave_stack.bars` is declared, and the dials are no longer offered
 
 Origenerator now reads the Robot Hand's Amp, Speed and Center as

@@ -1,13 +1,12 @@
 """The published panel kept on the picture: polled, rendered when it changes, composited, pressed."""
 from __future__ import annotations
 
-import logging
 import time
 from dataclasses import replace
 from pathlib import Path
 
+from .dashboard import ask
 from .drive_readout import DriveHud, read_drive
-from .file_channel import append_command
 from .hud_placement import HudCorner, HudEdge, hud_origin
 from .modes import Osr2State
 from .playhead import lower_edge_height
@@ -26,8 +25,6 @@ from .timeline import TIMELINE_HEIGHT
 __all__ = [
     "HudOverlay",
 ]
-
-logger = logging.getLogger(__name__)
 
 HUD_OVERLAY_ID = 10
 
@@ -206,5 +203,4 @@ class HudOverlay:
         self._shown = True
 
     def _post(self, command: str) -> None:
-        if not append_command(self._command_file, command):
-            logger.warning("Dropped HUD command (command file locked): %s", command)
+        ask(self._command_file, command)
