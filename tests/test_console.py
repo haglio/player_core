@@ -33,7 +33,7 @@ from player_core.modes import MainMode, Osr2State
 # A source's rows, made up: a mode pair with minimize standing apart, and a
 # named read-out between two arrows.
 ROWS = (
-    (Button("go_video", "Video", "Video mode", width=40, lit=True),
+    (Button("go_kino", "Kino", "Kino mode", width=40, lit=True),
      Button("go_other", "Other", "The other mode", width=40),
      Button("park", MINIMIZE_ICON, "Park the window", group_break=True)),
     (Button("", "Playback speed", "", width=ROW_LABEL_W),
@@ -81,8 +81,8 @@ class TestTheDeviceRunningItself:
 
 
 class TestModePredicates:
-    def test_main_player_displays_covers_video_mode_alone(self):
-        assert main_player_displays(MainMode.VIDEO)
+    def test_main_player_displays_covers_kino_mode_alone(self):
+        assert main_player_displays(MainMode.KINO)
         assert not main_player_displays(MainMode.GENAU)
 
 
@@ -90,13 +90,13 @@ class TestReadConsole:
     def test_it_reads_back_what_fun_time_published(self, tmp_path: Path):
         path = tmp_path / "main_player_console.json"
         path.write_text(json.dumps({
-            "main_mode": MainMode.VIDEO, "active": True, "osr2": Osr2State.ROBOT_HAND,
+            "main_mode": MainMode.KINO, "active": True, "osr2": Osr2State.ROBOT_HAND,
             "osr2_control": OSR2_RETRACTED, "locked": False, "latest": True,
         }), encoding="utf-8")
 
         model = read_console(path)
 
-        assert model == ConsoleModel(main_mode=MainMode.VIDEO, active=True,
+        assert model == ConsoleModel(main_mode=MainMode.KINO, active=True,
                                      osr2=Osr2State.ROBOT_HAND,
                                      osr2_control=OSR2_RETRACTED, locked=False,
                                      latest=True)
@@ -105,7 +105,7 @@ class TestReadConsole:
         """Which is where both players open, and what a Fun Time too old to
         publish the flag is still describing."""
         path = tmp_path / "main_player_console.json"
-        path.write_text(json.dumps({"main_mode": MainMode.VIDEO}), encoding="utf-8")
+        path.write_text(json.dumps({"main_mode": MainMode.KINO}), encoding="utf-8")
 
         assert read_console(path).locked is True
         assert ConsoleModel().locked is True
@@ -114,9 +114,12 @@ class TestReadConsole:
         """Fun Time publishes the flag every tick; a file that says nothing
         about it is from a host with no browse order to name."""
         path = tmp_path / "main_player_console.json"
-        path.write_text(json.dumps({"main_mode": MainMode.VIDEO}), encoding="utf-8")
+        path.write_text(json.dumps({"main_mode": MainMode.KINO}), encoding="utf-8")
 
         assert read_console(path).latest is None
+
+    def test_a_panel_from_a_fun_time_that_still_says_video_reads_as_kino(self):
+        assert parse_console(json.dumps({"main_mode": "video"})).main_mode is MainMode.KINO
 
     def test_a_key_the_panel_no_longer_carries_is_passed_over(self):
         """The switches the console's buttons were once lit from still come
@@ -133,7 +136,7 @@ class TestReadConsole:
         path = tmp_path / "main_player_console.json"
         assert read_console(path) is None
 
-        path.write_text('{"main_mode": "video"', encoding="utf-8")
+        path.write_text('{"main_mode": "kino"', encoding="utf-8")
         assert read_console(path) is None
 
 
@@ -146,9 +149,9 @@ class TestLayout:
         assert rows_height([list(row) for row in ROWS]) == _rect("slower")[1] + BUTTON
 
     def test_a_group_break_opens_the_wider_gap_and_nothing_else_does(self):
-        go_video, go_other, park = _rect("go_video"), _rect("go_other"), _rect("park")
+        go_kino, go_other, park = _rect("go_kino"), _rect("go_other"), _rect("park")
 
-        assert go_other[0] - (go_video[0] + go_video[2]) == GAP
+        assert go_other[0] - (go_kino[0] + go_kino[2]) == GAP
         assert park[0] - (go_other[0] + go_other[2]) == GROUP_GAP
 
     def test_a_press_finds_the_button_under_it(self):
@@ -224,18 +227,18 @@ class TestThePublishedConsoleIsWrittenWhereItIsRead:
         assert parse_console(console_text(ConsoleModel(max_intensity=35))).max_intensity == 35
 
     def test_a_panel_that_says_nothing_about_the_max_intensity_has_no_slider(self):
-        assert parse_console(json.dumps({"main_mode": MainMode.VIDEO})).max_intensity is None
+        assert parse_console(json.dumps({"main_mode": MainMode.KINO})).max_intensity is None
 
     def test_a_max_intensity_that_is_not_a_number_is_no_slider_rather_than_no_panel(self):
-        parsed = parse_console(json.dumps({"main_mode": MainMode.VIDEO, "max_intensity": "loud"}))
+        parsed = parse_console(json.dumps({"main_mode": MainMode.KINO, "max_intensity": "loud"}))
 
         assert parsed is not None and parsed.max_intensity is None
 
     def test_a_panel_that_says_nothing_about_the_osr2_has_it(self):
-        assert parse_console(json.dumps({"main_mode": MainMode.VIDEO})).has_osr2 is True
+        assert parse_console(json.dumps({"main_mode": MainMode.KINO})).has_osr2 is True
 
     def test_a_torn_read_is_no_panel(self):
-        assert parse_console('{"main_mode": "video"') is None
+        assert parse_console('{"main_mode": "kino"') is None
         assert parse_console("") is None
 
 

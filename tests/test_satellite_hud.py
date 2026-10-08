@@ -472,7 +472,7 @@ def test_a_declared_row_is_laid_out_as_wide_as_each_button_says():
     word, handed in here because this module is font-free; and the wider gap
     opens before a button that says it starts a group."""
     rects = button_row_rects(10, 40, (
-        Button("go_video", "Video", "Video mode", width=0),
+        Button("go_kino", "Kino", "Kino mode", width=0),
         Button("go_shows", "Origenerator", "Origenerator mode", width=0),
         Button("park", "\x00minimize", "Park it", group_break=True),
     ), [52, 90, CTRL_BTN])
@@ -682,7 +682,7 @@ def test_pressing_the_filter_button_of_a_two_word_action_slugs_it():
 def test_a_player_less_command_is_posted_verbatim():
     """The mode pair's commands belong to the whole satellite side, so they
     carry no player of their own and none is added."""
-    mode_pair = player_rows(mode="video")[0]
+    mode_pair = player_rows(mode="kino")[0]
     targets = _targets(buttons=button_row_rects(0, 0, mode_pair, [60, 90, CTRL_BTN]))
 
     assert HudClicks("portrait").press(targets, 65, 5, now=0.0) == "origenerator_activate"

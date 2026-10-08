@@ -1,7 +1,7 @@
 """The main console — the HUD the player on the main slot draws.
 
 The same console is drawn whichever player holds the slot: the main player over its video in
-video mode, Genau into its own window in genau mode.  So the mode switch and the
+kino mode, Genau into its own window in genau mode.  So the mode switch and the
 drive controls keep their places as you flip between modes — only the transport
 changes, because it steps the main player's video in one and Genau's clips in the other.
 
@@ -135,7 +135,7 @@ class ConsoleHud:
     """Everything on the main console: the top line, the room's controls, and
     the Robot Hand's drive readout.
 
-    *modes* is drawn only where it applies (video mode); *console* is what Fun
+    *modes* is drawn only where it applies (kino mode); *console* is what Fun
     Time published; *drive* is the live readout, present once the Robot Hand has
     published one.
     """
@@ -193,7 +193,7 @@ class ConsoleHud:
             LATEST_LABEL if self.console.latest else SHUFFLE_LABEL)
         # The pace an unheld Genau clip moves on at, after the order rather than in
         # place of it: the order says which clip is next, the pace says when.  Only
-        # while Genau is the one showing — video mode draws the drive readout too, but
+        # while Genau is the one showing — kino mode draws the drive readout too, but
         # an unlocked main player there plays through a playlist rather than on a timer —
         # and only unheld, since nothing is going to move a held clip.
         if not main_player_displays(self.console.main_mode) and not self.console.locked and self.advance_interval:
@@ -223,7 +223,7 @@ class ConsolePainter:
         """*width* holds every panel to one width, whatever is on it.  A console
         hanging in a scene as a screen of its own (FunTimeVR's) otherwise changes
         size with its contents — the genau-mode rows are narrower than the
-        video-mode ones, and a long title widens the panel — and a screen that
+        kino-mode ones, and a long title widens the panel — and a screen that
         grows and shrinks is a screen that moves.  The rows, the readout and
         the OSR2 line must fit, so a width narrower than them is widened, never
         clipped; the two text lines give way instead, elided to fit.  None

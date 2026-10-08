@@ -13,21 +13,21 @@ LONG_TIP = ("Reset the browse: no filter, no lock, no loop, no F-Mode, and the "
             "whole library shuffled again from the top")
 
 
-def console_rows(mode: str = "video", *, locked: bool = False, favorites: bool = False,
+def console_rows(mode: str = "kino", *, locked: bool = False, favorites: bool = False,
                  remembered: bool = False, cruise: bool = False,
                  enhanced: bool | None = None,
                  recording: bool = False) -> tuple[tuple[Button, ...], ...]:
     """The mode row with minimize riding it, the transport, a named read-out
-    between two arrows, and the motion's row -- the video-only controls only in
-    video mode."""
-    video = mode == "video"
-    pace = "main_player_speed" if video else "genau_clip_seconds"
+    between two arrows, and the motion's row -- the controls only a video has,
+    only in kino mode."""
+    kino = mode == "kino"
+    pace = "main_player_speed" if kino else "genau_clip_seconds"
     return (
-        (Button("main_video_activate", "Video", "Video mode", width=BUTTON_WORD_W, lit=video),
-         Button("genau_activate", "Genau", "Genau mode", width=BUTTON_WORD_W, lit=not video),
+        (Button("main_kino_activate", "Kino", "Kino mode", width=BUTTON_WORD_W, lit=kino),
+         Button("genau_activate", "Genau", "Genau mode", width=BUTTON_WORD_W, lit=not kino),
          Button("main_minimize", MINIMIZE_ICON, "Minimize", group_break=True),
          *((Button("main_player_record_tap", "⏺", "Record a loop", warn=recording,
-                   group_break=True),) if video else ())),
+                   group_break=True),) if kino else ())),
         (Button("main_prev", "⏮", "Previous"),
          Button("main_next", "⏭", "Next"),
          Button("main_lock", "🔒", "Lock", lit=locked, favorite=True, group_break=True),
@@ -40,11 +40,11 @@ def console_rows(mode: str = "video", *, locked: bool = False, favorites: bool =
                 lit=not remembered, remembered=remembered, group_break=True),
          *((Button("main_player_cycle_version", shared_mark("versions"),
                    "Another version (none for this one)", dim=True, group_break=True),)
-           if video else ())),
-        (Button("", "Playback speed" if video else "Clip seconds", "", width=ROW_LABEL_W),
+           if kino else ())),
+        (Button("", "Playback speed" if kino else "Clip seconds", "", width=ROW_LABEL_W),
          Button(f"{pace}_down", "−", "Less", group_break=True),
          Button("", "", "", width=VALUE_W,
-                host_value="playback_speed" if video else "advance_interval"),
+                host_value="playback_speed" if kino else "advance_interval"),
          Button(f"{pace}_up", "+", "More")),
         (Button("robot_hand_toggle_cruise", "cc", "Cruise control", lit=cruise),),
     )

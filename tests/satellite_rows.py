@@ -38,8 +38,8 @@ def player_rows(player: str = "portrait", *, mode: str = "",
     if not mode:
         return (band(player, **state),)
     pair = (
-        Button("satellites_video_activate", "Video", "Video mode",
-               width=FIT_THE_WORD, lit=mode == "video"),
+        Button("satellites_kino_activate", "Kino", "Kino mode",
+               width=FIT_THE_WORD, lit=mode == "kino"),
         Button("origenerator_activate", "Origenerator", "Origenerator mode",
                width=FIT_THE_WORD, lit=mode == "origenerator"),
         Button(f"{player}_minimize", MINIMIZE_ICON, "minimize tip", group_break=True),

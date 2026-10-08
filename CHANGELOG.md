@@ -9,6 +9,16 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-10-07 — the mode called Video is Kino
+
+`MainMode.KINO` and `SatellitesMode.KINO` replace the two `VIDEO` entries, and
+the word they put on the wire is `kino`. "Video" stays the word for a video
+file; only the mode was renamed, so that its name can mean nothing else. A
+reader that does not know `kino` falls back on its default, which is this mode
+at every reader the family has, so an app still pinned to an older release
+reads a new file right; and a file still saying `video` reads as kino here, the
+same way.
+
 ## 2026-10-07 — a Funestra: the window that draws its own HUD, and the gate on who else draws one
 
 `funestra.Funestra` is the satellite program's run loop moved here without its

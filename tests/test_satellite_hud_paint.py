@@ -1071,10 +1071,10 @@ def test_the_mode_pair_renders_and_is_pressable(thumb):
     # targets, and a press posts the other mode's activation verbatim.
     rendered = HudRenderer("portrait").render(
         _model(corner=HudCell(path="c.mp4", thumb=thumb),
-               rows=player_rows("portrait", mode="video"))
+               rows=player_rows("portrait", mode="kino"))
     )
 
-    assert _names(rendered)[:2] == ["satellites_video_activate", "origenerator_activate"]
+    assert _names(rendered)[:2] == ["satellites_kino_activate", "origenerator_activate"]
     clicks = HudClicks("portrait")
     rect = _rects(rendered)["origenerator_activate"]
     assert clicks.press(rendered.targets, rect[0] + 2, rect[1] + 2,
@@ -1087,11 +1087,11 @@ def test_the_mode_row_leads_and_minimize_rides_it(thumb):
     rides that row rather than sitting among the transport."""
     rendered = HudRenderer("portrait").render(
         _model(corner=HudCell(path="c.mp4", thumb=thumb),
-               rows=player_rows("portrait", mode="video"))
+               rows=player_rows("portrait", mode="kino"))
     )
 
     by_name = _rects(rendered)
-    mode_y = by_name["satellites_video_activate"][1]
+    mode_y = by_name["satellites_kino_activate"][1]
     # Minimize shares the mode row, to the right of the pair.
     assert by_name["minimize"][1] == mode_y
     assert by_name["minimize"][0] > by_name["origenerator_activate"][0]
@@ -1131,7 +1131,7 @@ def test_the_unlit_mode_keeps_its_ordinary_ink(thumb):
         corner=HudCell(path="c.mp4", thumb=thumb),
         rows=player_rows("portrait", mode="origenerator"),
     ))
-    rect = _rects(rendered)["satellites_video_activate"]
+    rect = _rects(rendered)["satellites_kino_activate"]
     x, y, w, h = rect
     rgb = _rgb(rendered.bgra)[y:y + h, x:x + w].astype(int)
 

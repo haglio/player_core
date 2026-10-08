@@ -116,37 +116,37 @@ class TestHowOftenTheReadoutGoesOut:
 class TestHowOftenTheConsoleIsReRead:
     def test_the_first_tick_reads_it(self, tmp_path):
         console = tmp_path / "console.txt"
-        _publish(console, "video")
+        _publish(console, "kino")
         shown = []
         readout = _readout(console_file=console, set_console=shown.append)
 
         readout.update(1.0)
 
-        assert shown[-1].console.main_mode is MainMode.VIDEO
+        assert shown[-1].console.main_mode is MainMode.KINO
 
     def test_a_tick_too_soon_after_it_keeps_the_model_it_had(self, tmp_path):
         console = tmp_path / "console.txt"
-        _publish(console, "video")
+        _publish(console, "kino")
         shown = []
         readout = _readout(console_file=console, set_console=shown.append)
         readout.update(1.0)
 
-        _publish(console, "video")
+        _publish(console, "kino")
         readout.update(1.0 + JUST_UNDER_CONSOLE)
 
-        assert shown[-1].console.main_mode is MainMode.VIDEO
+        assert shown[-1].console.main_mode is MainMode.KINO
 
     def test_a_tick_far_enough_after_it_takes_the_new_one(self, tmp_path):
         console = tmp_path / "console.txt"
-        _publish(console, "video")
+        _publish(console, "kino")
         shown = []
         readout = _readout(console_file=console, set_console=shown.append)
         readout.update(1.0)
 
-        _publish(console, "video")
+        _publish(console, "kino")
         readout.update(1.0 + JUST_OVER_CONSOLE)
 
-        assert shown[-1].console.main_mode is MainMode.VIDEO
+        assert shown[-1].console.main_mode is MainMode.KINO
 
     def test_a_standalone_genau_names_itself(self, tmp_path):
         """No file backing it, and the panel still draws sensibly."""
@@ -160,7 +160,7 @@ class TestHowOftenTheConsoleIsReRead:
         """Fun Time replaces this file while Genau polls it, so a lost race must
         not empty the panel for a frame."""
         console = tmp_path / "console.txt"
-        _publish(console, "video")
+        _publish(console, "kino")
         shown = []
         readout = _readout(console_file=console, set_console=shown.append)
         readout.update(1.0)
@@ -168,7 +168,7 @@ class TestHowOftenTheConsoleIsReRead:
         console.write_text("{\"mo", encoding="utf-8")   # caught mid-replace
         readout.update(1.0 + JUST_OVER_CONSOLE)
 
-        assert shown[-1].console.main_mode is MainMode.VIDEO
+        assert shown[-1].console.main_mode is MainMode.KINO
 
 
 class TestWhatThePanelIsToldEachTime:

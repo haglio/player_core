@@ -1,9 +1,9 @@
 """The controls on the main console, and where they sit.
 
-Whichever player holds the main slot draws it: the main player in video mode, Genau in
+Whichever player holds the main slot draws it: the main player in kino mode, Genau in
 genau mode.  The console is the same in both, so the mode switch and the drive
 controls do not move as you flip between them; only the transport changes,
-because prev/next step the main player's video in video mode and Genau's clips in genau.
+because prev/next step the main player's video in kino mode and Genau's clips in genau.
 
 Kept free of Pillow, as :mod:`player_core.satellite_hud` is, so the
 geometry and the hit-testing are testable without a font.  :mod:`player_core.console_hud` paints them; the
@@ -129,7 +129,7 @@ class ConsoleModel:
     ``playback_speed``, which is the main player's own and folded in by whoever is drawing.
     """
 
-    main_mode: MainMode = MainMode.VIDEO
+    main_mode: MainMode = MainMode.KINO
     player: str = "main"
     hud_corner: HudCorner = HudCorner.UPPER_LEFT
     hud_edge: HudEdge = HudEdge.LOWER
@@ -146,7 +146,7 @@ class ConsoleModel:
     # always the one it is about.
     osr2_control: str = OSR2_CONTROL_UNANSWERED
     # Whether the player on the main slot is holding what is on screen rather
-    # than letting it move on -- the main player's video in video mode, Genau's
+    # than letting it move on -- the main player's video in kino mode, Genau's
     # clip in genau.  On is where both players open, so it is the default here
     # too: a console drawn before the first panel arrives must not show the lock
     # off when it is not.
@@ -230,7 +230,7 @@ def parse_console(text: str) -> ConsoleModel | None:
     if not isinstance(raw, dict) or "main_mode" not in raw:
         return None
     return ConsoleModel(
-        main_mode=read_mode(MainMode, raw.get("main_mode"), MainMode.VIDEO),
+        main_mode=read_mode(MainMode, raw.get("main_mode"), MainMode.KINO),
         player=str(raw.get("player", "") or "main"),
         hud_corner=read_mode(HudCorner, raw.get("hud_corner"), HudCorner.UPPER_LEFT),
         hud_edge=read_mode(HudEdge, raw.get("hud_edge"), HudEdge.LOWER),
@@ -256,8 +256,8 @@ def max_intensity_from_raw(raw) -> int | None:
 
 
 def main_player_displays(main_mode: MainMode) -> bool:
-    """Whether the main player's video is on the main slot — video mode."""
-    return main_mode == MainMode.VIDEO
+    """Whether the main player's video is on the main slot — kino mode."""
+    return main_mode == MainMode.KINO
 
 
 def place_rows(rows: list[list[Button]], *, x: int, y: int,

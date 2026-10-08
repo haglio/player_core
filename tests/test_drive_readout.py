@@ -293,7 +293,7 @@ class TestTheStretchesTheMaxIntensityRulesOut:
 
 
 class TestPublishing:
-    """In video mode the readout is drawn by the main player, so Genau says it instead of drawing it."""
+    """In kino mode the readout is drawn by the main player, so Genau says it instead of drawing it."""
 
     def test_a_published_readout_reads_back_whole_including_its_limits(self, tmp_path):
         hud = _hud(shape="sawtooth", advance_interval=7,

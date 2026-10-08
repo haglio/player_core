@@ -47,7 +47,7 @@ class TestPlacement:
     def test_a_player_with_no_scrubber_puts_the_chip_where_one_with_a_scrubber_does(self):
         """Genau draws no timeline, but its window IS the primary display in genau
         mode — so reaching for the sound must not find the control somewhere other
-        than where the same session shows it in video mode, which is the row
+        than where the same session shows it in kino mode, which is the row
         The main player draws.  Measuring its own margin off the lower edge instead put it
         nine pixels above that."""
         assert chip_xy(win_w=1200, win_h=900, timeline_h=0) == chip_xy(
