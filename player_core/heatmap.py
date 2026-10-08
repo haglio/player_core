@@ -51,3 +51,18 @@ def build_heatmap(
 ) -> list[tuple[int, int, int]]:
     return [_speed_to_color(speed)
             for speed in bin_speeds(fs, buckets, start_ms=start_ms, end_ms=end_ms)]
+
+
+class ScriptColors:
+    def __init__(self) -> None:
+        self._key: tuple | None = None
+        self._colors: list[tuple[int, int, int]] = []
+
+    def across(self, video, funscript: Funscript | None, duration_ms: float,
+               track_width: int) -> list[tuple[int, int, int]]:
+        key = (video, duration_ms, track_width)
+        if key != self._key:
+            self._key = key
+            self._colors = [] if funscript is None else build_heatmap(
+                funscript, track_width, start_ms=0, end_ms=duration_ms)
+        return self._colors

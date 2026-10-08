@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from player_core.funscript import Funscript
-from player_core.heatmap import _speed_to_color, bin_speeds, build_heatmap
+from player_core.heatmap import ScriptColors, _speed_to_color, bin_speeds, build_heatmap
 
 
 class TestSpeedToColor:
@@ -96,3 +96,36 @@ class TestAWindowInsideTheVideo:
         fs = Funscript(actions=[(500, 0), (1500, 100)])
 
         assert bin_speeds(fs, 1, start_ms=1000, end_ms=2000) == [50]
+
+
+class TestTheColorsAcrossTheTrack:
+    def _script(self):
+        return Funscript(actions=[(0, 0), (1000, 100), (2000, 0)])
+
+    def test_are_the_scripts_colors_over_the_whole_length_at_the_tracks_width(self):
+        colors = ScriptColors()
+
+        across = colors.across("v0", self._script(), 2000, 100)
+
+        assert across == build_heatmap(self._script(), 100, start_ms=0, end_ms=2000)
+
+    def test_are_nothing_for_an_unscripted_item(self):
+        assert ScriptColors().across("v0", None, 2000, 100) == []
+
+    def test_are_built_once_while_the_item_its_length_and_the_width_hold_still(self):
+        colors = ScriptColors()
+        script = self._script()
+
+        first = colors.across("v0", script, 2000, 100)
+        again = colors.across("v0", script, 2000, 100)
+
+        assert again is first
+
+    def test_are_rebuilt_when_the_item_the_length_or_the_width_changes(self):
+        colors = ScriptColors()
+        script = self._script()
+        first = colors.across("v0", script, 2000, 100)
+
+        assert colors.across("v1", script, 2000, 100) is not first
+        assert colors.across("v1", script, 3000, 100) is not colors.across("v1", script, 2000, 100)
+        assert len(colors.across("v1", script, 3000, 50)) == 50
