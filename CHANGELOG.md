@@ -9,6 +9,18 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-10-08 — `wave_stack.bars` is declared, and the dials are no longer offered
+
+Origenerator now reads the Robot Hand's Amp, Speed and Center as
+`wave_stack.bars`, and its hold no longer puts them back through
+`robot_hand.set_dials`, so `bars` joins `wave_stack.__all__` in place of
+`dials`, and `set_dials` leaves `robot_hand.__all__`.
+
+Both old names stay defined, `dials` as a second name for `bars`, until no
+Origenerator branch names them: the machine's one venv runs every open branch,
+and branches made before the rename still import `set_dials` and read
+`wave_stack.dials`.
+
 ## 2026-10-07 — the mode called Video is Kino
 
 `MainMode.KINO` and `SatellitesMode.KINO` replace the two `VIDEO` entries, and

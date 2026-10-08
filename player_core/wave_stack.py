@@ -43,7 +43,7 @@ from .robot_hand import (
 )
 
 __all__ = [
-    "dials",
+    "bars",
     "position",
     "position_ahead",
     "trace_window",
