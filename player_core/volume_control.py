@@ -5,6 +5,10 @@ draws.  One whose sound is the room's -- the Main Funestra, whose mpv is one of
 two sinks the room drives -- shows the level the room publishes and asks the
 room for a new one; the ask shows at once so the slider does not trail the
 pointer, and the room's answer overwrites it either way.
+
+The chip is a part of the row the panel draws, so the panel is what places a
+press on it (:class:`player_core.hud_row.RowPress`): both controls answer the
+same two verbs, and neither hit-tests a window of its own any more.
 """
 from __future__ import annotations
 
@@ -12,14 +16,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from .dashboard import ask
-from .volume import (
-    MAX_VOLUME,
-    MIN_VOLUME,
-    VolumeHud,
-    chip_local,
-    hit_part,
-    volume_at,
-)
+from .volume import MAX_VOLUME, MIN_VOLUME, VolumeHud
 
 __all__ = [
     "VolumeControl",
@@ -36,20 +33,6 @@ class VolumeControl:
     def hud(self) -> VolumeHud:
         return self._hud
 
-    def press_at(self, mx: int, my: int, *,
-                 win_w: int, win_h: int, timeline_h: int) -> bool:
-        cx, cy = chip_local(mx, my, win_w=win_w, win_h=win_h, timeline_h=timeline_h)
-        part = hit_part(cx, cy)
-        if part and self._live:
-            self._apply(part, cx)
-        return bool(part)
-
-    def drag_at(self, mx: int, my: int, *,
-                win_w: int, win_h: int, timeline_h: int) -> None:
-        cx, cy = chip_local(mx, my, win_w=win_w, win_h=win_h, timeline_h=timeline_h)
-        if self._live and hit_part(cx, cy) == "track":
-            self._apply("track", cx)
-
     def toggle_mute(self) -> None:
         if self._live:
             self._set(replace(self._hud, muted=not self._hud.muted))
@@ -57,12 +40,6 @@ class VolumeControl:
     def set_level(self, volume: int) -> None:
         if self._live:
             self._set(VolumeHud(volume=volume, muted=False))
-
-    def _apply(self, part: str, cx: int) -> None:
-        if part == "mute":
-            self.toggle_mute()
-        else:
-            self.set_level(volume_at(cx))
 
     def _set(self, hud: VolumeHud) -> None:
         self._hud = hud
@@ -87,24 +64,10 @@ class RoomVolume:
         self._hud = VolumeHud(volume=level, muted=muted)
         self._player.set_volume(0 if muted else level)
 
-    def press_at(self, mx: int, my: int, *,
-                 win_w: int, win_h: int, timeline_h: int) -> bool:
-        return self._press(*chip_local(mx, my, win_w=win_w, win_h=win_h,
-                                       timeline_h=timeline_h))
+    def toggle_mute(self) -> None:
+        self._hud = replace(self._hud, muted=not self._hud.muted)
+        ask(self._dashboard_cmd_file, "audio_mute" if self._hud.muted else "audio_unmute")
 
-    def drag_at(self, mx: int, my: int, *,
-                win_w: int, win_h: int, timeline_h: int) -> None:
-        cx, cy = chip_local(mx, my, win_w=win_w, win_h=win_h, timeline_h=timeline_h)
-        if hit_part(cx, cy) == "track":
-            self._press(cx, cy)
-
-    def _press(self, cx: int, cy: int) -> bool:
-        part = hit_part(cx, cy)
-        if part == "mute":
-            self._hud = replace(self._hud, muted=not self._hud.muted)
-            ask(self._dashboard_cmd_file, "audio_unmute" if not self._hud.muted else "audio_mute")
-        elif part == "track":
-            level = volume_at(cx)
-            self._hud = VolumeHud(volume=level, muted=False)
-            ask(self._dashboard_cmd_file, f"audio_set_volume|{level}")
-        return bool(part)
+    def set_level(self, level: int) -> None:
+        self._hud = VolumeHud(volume=level, muted=False)
+        ask(self._dashboard_cmd_file, f"audio_set_volume|{level}")

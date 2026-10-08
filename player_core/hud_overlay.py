@@ -8,8 +8,8 @@ from pathlib import Path
 from .dashboard import ask
 from .drive_readout import DriveHud, read_drive
 from .hud_placement import HudCorner, HudEdge, hud_origin
+from .hud_row import RowHud, RowPress, track_on_screen
 from .modes import Osr2State
-from .playhead import lower_edge_height
 from .satellite_hud import (
     MARGIN,
     HudClicks,
@@ -20,7 +20,6 @@ from .satellite_hud import (
     parse_hud,
 )
 from .satellite_hud_paint import HudRenderer
-from .timeline import TIMELINE_HEIGHT
 
 __all__ = [
     "HudOverlay",
@@ -43,6 +42,9 @@ class HudOverlay:
         drive_file: Path | None = None,
         drive_gate=None,
         over_the_video: bool = True,
+        seek=None,
+        set_volume=None,
+        toggle_mute=None,
     ) -> None:
         self._hud_file = Path(hud_file)
         self._drive_file = None if drive_file is None else Path(drive_file)
@@ -60,6 +62,10 @@ class HudOverlay:
         self._model: HudModel | None = None
         self._video = ""
         self._playback_speed: float | None = None
+        self._clip_row: RowHud | None = None
+        self._heatmap = None
+        # The panel draws the clip's row, so it places a press on it too.
+        self._row = RowPress(seek=seek, set_volume=set_volume, toggle_mute=toggle_mute)
         self._hover_loop = ""
         self._hover_tip = ""
         self._hover_pos = (0, 0)
@@ -78,13 +84,16 @@ class HudOverlay:
         return self._clicks.active_loop if self._clicks is not None else ""
 
     def tick(self, video: str = "", playback_speed: float | None = None,
-             window: tuple[int, int] | None = None) -> None:
+             window: tuple[int, int] | None = None,
+             clip_row: RowHud | None = None, heatmap=None) -> None:
         text = self._read()
         redraw = (video != self._video or playback_speed != self._playback_speed
-                  or window != self._window)
+                  or window != self._window
+                  or clip_row != self._clip_row or heatmap is not self._heatmap)
         self._video = video
         self._playback_speed = playback_speed
         self._window = window
+        self._clip_row, self._heatmap = clip_row, heatmap
         if text is not None and text != self._published:
             self._published = text
             model = parse_hud(text) if text else None
@@ -110,23 +119,53 @@ class HudOverlay:
     def press(self, x: int, y: int) -> bool:
         if self._clicks is None or not self._covers(x, y):
             return False
+        if self._row.press(*self._local(x, y), rect=self.targets.row,
+                           duration_ms=self._track_duration()):
+            return True
         command = self._clicks.press(self.targets, *self._local(x, y), now=self._clock())
         if command:
             self._post(command)
             self._draw()
         return True
 
+    def _track_duration(self) -> float:
+        """How long the track spans -- the clip, or the window a loop being
+        recorded has zoomed it to, which is what the row was drawn from."""
+        return 0.0 if self._clip_row is None else self._clip_row.duration_ms
+
+    @property
+    def row_rect(self) -> tuple[int, int, int, int] | None:
+        """Where the clip's row landed in this panel, for a host measuring the
+        track it is to fill."""
+        return self.targets.row
+
+    @property
+    def row_track(self) -> tuple[int, int, int] | None:
+        """The row's track in the window's coordinates, for a host hanging the
+        loop's frames under it."""
+        return track_on_screen(
+            self.targets.row, origin=self._origin,
+            panel_height=0 if self._panel_size is None else self._panel_size[1])
+
     @property
     def holding(self) -> bool:
-        return self._clicks is not None and self._clicks.holding
+        return self._row.holding or (
+            self._clicks is not None and self._clicks.holding)
 
     def drag_to(self, x: int, y: int) -> str:
+        """The pointer held down and moving: the row goes on being set, and past
+        the row, whatever the panel itself took hold of."""
+        if self._row.drag_to(*self._local(x, y), rect=self.targets.row,
+                             duration_ms=self._track_duration()):
+            return ""
         command = self._clicks.drag_to(*self._local(x, y)) if self._clicks is not None else ""
         if command:
             self._post(command)
         return command
 
     def release(self) -> None:
+        """Let go of whichever part of the row, or of the panel, a press took."""
+        self._row.release()
         if self._clicks is not None:
             self._clicks.release()
 
@@ -159,9 +198,7 @@ class HudOverlay:
     def _place(self, corner: HudCorner, size: tuple[int, int]) -> tuple[int, int]:
         if self._window is None:
             return MARGIN, MARGIN
-        width, _height = self._window
-        return hud_origin(corner, panel=size, window=self._window, margin=MARGIN,
-                          lower_edge=lower_edge_height(width, timeline_h=TIMELINE_HEIGHT))
+        return hud_origin(corner, panel=size, window=self._window, margin=MARGIN)
 
     def _read(self) -> str | None:
         """The published panel's text, "" when there is none to show, or None
@@ -194,6 +231,7 @@ class HudOverlay:
             video=self._video, hover_loop=self._hover_loop,
             hover_tip=self._hover_tip, hover_pos=self._hover_pos,
             may_grow_on_hover=self._over_the_video,
+            clip_row=self._clip_row, heatmap=self._heatmap,
         )
         self.targets = rendered.targets
         height, width = rendered.bgra.shape[:2]

@@ -1,6 +1,8 @@
 """The scrubber, the volume chip and the playhead readout, drawn on a panel."""
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 from PIL import Image
@@ -10,6 +12,7 @@ from player_core.hud_row import (
     SCRUBBER,
     VOLUME,
     RowHud,
+    RowPress,
     RowSection,
     row_part,
     scrub_to,
@@ -151,3 +154,94 @@ class TestWhatAPressOnTheRowIsOn:
 
         assert volume_to(chip_x + SPEAKER_W, chip_y, width=self.WIDTH) == MIN_VOLUME
         assert volume_to(chip_x + CHIP_W, chip_y, width=self.WIDTH) == MAX_VOLUME
+
+
+class TestWhatAPressOnTheRowAsksFor:
+    """One placement for every panel that hosts the row, so the track, the
+    slider and the speaker answer the same way wherever the row is drawn."""
+
+    WIDTH = 400
+    RECT = (10, 40, WIDTH, RowSection().size(WIDTH)[1])
+    DURATION_MS = 10_000.0
+
+    def _press(self):
+        asked = SimpleNamespace(seeks=[], levels=[], mutes=0)
+        press = RowPress(seek=asked.seeks.append, set_volume=asked.levels.append,
+                         toggle_mute=lambda: setattr(asked, "mutes", asked.mutes + 1))
+        return press, asked
+
+    def _at(self, part: str, along: int = 0) -> tuple[int, int]:
+        x, y, width, height = self.RECT
+        if part == "track":
+            x0, x1 = bar_track_x(width)
+            return x + (along or (x0 + x1) // 2), y + height - 4
+        cx, cy = chip_xy(win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT)
+        across = 4 if part == "speaker" else CHIP_W - 6
+        return x + cx + across, y + cy + CHIP_H // 2
+
+    def _squeeze(self, press, point):
+        return press.press(*point, rect=self.RECT, duration_ms=self.DURATION_MS)
+
+    def test_a_press_along_the_track_runs_the_clip_there(self):
+        press, asked = self._press()
+
+        assert self._squeeze(press, self._at("track")) is True
+        assert asked.seeks[-1] == pytest.approx(self.DURATION_MS / 2, abs=200)
+
+    def test_a_press_along_the_slider_sets_the_level(self):
+        press, asked = self._press()
+
+        assert self._squeeze(press, self._at("slider")) is True
+        assert asked.levels == [100]
+
+    def test_a_press_on_the_speaker_mutes(self):
+        press, asked = self._press()
+
+        assert self._squeeze(press, self._at("speaker")) is True
+        assert asked.mutes == 1
+
+    def test_a_press_beside_the_row_is_not_taken(self):
+        press, asked = self._press()
+        x, y, _width, _height = self.RECT
+
+        assert self._squeeze(press, (x - 5, y + 2)) is False
+        assert (asked.seeks, asked.levels, asked.mutes) == ([], [], 0)
+
+    def test_a_row_the_panel_never_drew_takes_nothing(self):
+        press, _asked = self._press()
+
+        assert press.press(20, 50, rect=None, duration_ms=self.DURATION_MS) is False
+
+    def test_a_drag_along_the_track_keeps_running_the_clip(self):
+        press, asked = self._press()
+        self._squeeze(press, self._at("track", along=bar_track_x(self.WIDTH)[0]))
+
+        assert press.drag_to(*self._at("track"), rect=self.RECT,
+                             duration_ms=self.DURATION_MS) is True
+        assert asked.seeks[-1] == pytest.approx(self.DURATION_MS / 2, abs=200)
+
+    def test_a_drag_across_the_speaker_does_not_flip_the_mute(self):
+        """The mute is a press, so a pointer on its way along the slider must
+        not toggle it as it passes."""
+        press, asked = self._press()
+        self._squeeze(press, self._at("slider"))
+
+        press.drag_to(*self._at("speaker"), rect=self.RECT, duration_ms=self.DURATION_MS)
+
+        assert asked.mutes == 0
+
+    def test_a_drag_that_began_elsewhere_is_not_the_rows(self):
+        press, asked = self._press()
+
+        assert press.drag_to(*self._at("track"), rect=self.RECT,
+                             duration_ms=self.DURATION_MS) is False
+        assert asked.seeks == []
+
+    def test_letting_go_ends_the_hold(self):
+        press, _asked = self._press()
+        self._squeeze(press, self._at("track"))
+        assert press.holding is True
+
+        press.release()
+
+        assert press.holding is False

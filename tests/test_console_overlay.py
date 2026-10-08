@@ -17,7 +17,6 @@ from player_core.hud_placement import HudCorner
 from player_core.modes import LengthMode, MainMode, Osr2State
 
 WINDOW = (1000, 600)
-LOWER_EDGE = 24
 GENAU_MODE, KINO_MODE = "genau", "kino"
 
 
@@ -57,7 +56,7 @@ def _overlay(tmp_path: Path, *, top_block=None, gate=None, drive: bool = True) -
 
 
 def _tick(overlay: ConsoleOverlay, speed: float = 1.0) -> None:
-    overlay.tick(playback_speed=speed, window=WINDOW, lower_edge=LOWER_EDGE)
+    overlay.tick(playback_speed=speed, window=WINDOW)
 
 
 def _asked(tmp_path: Path) -> list[str]:
@@ -216,7 +215,7 @@ class TestWhereTheConsoleIsDrawn:
         panel_w, panel_h = overlay._painter._image.size
 
         x, y, _bgra = player.overlays[HUD_OVERLAY_ID]
-        assert (x, y) == (WINDOW[0] - _MARGIN - panel_w, WINDOW[1] - LOWER_EDGE - _MARGIN - panel_h)
+        assert (x, y) == (WINDOW[0] - _MARGIN - panel_w, WINDOW[1] - _MARGIN - panel_h)
 
     def test_closing_takes_the_panel_down(self, tmp_path):
         overlay = _published(tmp_path)

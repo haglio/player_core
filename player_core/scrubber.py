@@ -92,6 +92,11 @@ class HeatmapStrip:
         else:
             self._zoom = None
         self._duration_ms = duration_ms
+        if width <= 0:
+            # No host has measured a track yet, so there is nothing to measure
+            # the colors across.  The first row goes up plain.
+            self._key, self._colors = None, []
+            return
         key = (video_key, width, self.window)
         if key == self._key:
             return
@@ -164,8 +169,13 @@ def loop_thumbnail_xys(
     *,
     track: tuple[int, int],
     win_w: int,
-    win_h: int,
+    top: int,
 ) -> tuple[tuple[int, int] | None, tuple[int, int] | None]:
+    """Where the loop's in and out frames go: ``(in_xy, out_xy)``, either None
+    until that frame has been grabbed.  Each hangs at *top*, lined up with its
+    own mark on the inset *track*, kept on screen and stepped apart where they
+    would overlap.
+    """
     start_ms, end_ms = heatmap.window
     tx0, tx1 = track
     track_w = tx1 - tx0
@@ -178,10 +188,9 @@ def loop_thumbnail_xys(
         out_t.shape[1] if out_t is not None else 1,
         win_w,
     )
-    above = win_h - timeline_height(heatmap) - 2
     return (
-        (ix, above - in_t.shape[0]) if in_t is not None else None,
-        (ox, above - out_t.shape[0]) if out_t is not None else None,
+        (ix, top) if in_t is not None else None,
+        (ox, top) if out_t is not None else None,
     )
 
 

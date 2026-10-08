@@ -1,30 +1,18 @@
-"""Where a press on a Funestra's window lands: the chip, the readout, the scrubber, the HUD, or the picture."""
+"""Where a press on a Funestra's window lands: the panel, or the picture under it.
+
+The track, the time and the volume are a block of the panel, which places a
+press on them itself (test_hud_overlay.py), so nothing over the picture takes
+one any more.
+"""
 from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-from funestra_fakes import make_playback
-
-from player_core.playhead import readout_xy
 from player_core.pointer import OMNIPAUSE_TOGGLE, Pointer
-from player_core.timeline import TIMELINE_HEIGHT, bar_track_x
-from player_core.volume import CHIP_H, chip_xy
-from player_core.volume_control import VolumeControl
 
 WIN_W, WIN_H = 640, 480
-DURATION_MS = 5_000.0
-
-_VX, _VY = chip_xy(win_w=WIN_W, win_h=WIN_H, timeline_h=TIMELINE_HEIGHT)
-SPEAKER = (_VX + 7, _VY + CHIP_H // 2)
-CHIP_HALFWAY = (_VX + 66, _VY + CHIP_H // 2)
-
-_BAR_X0, _BAR_X1 = bar_track_x(WIN_W)
-BAR_MIDPOINT = ((_BAR_X0 + _BAR_X1) // 2, WIN_H - 4)
-ONE_BAR_PIXEL_MS = DURATION_MS / (_BAR_X1 - _BAR_X0)
-PAST_BAR_END = (_BAR_X1 + 4, WIN_H - 4)
-BAR_START = (_BAR_X0, WIN_H - 4)
 ON_THE_VIDEO = (300, 200)
+LOWER_EDGE = (300, WIN_H - 4)
 
 
 class _StubHud:
@@ -67,11 +55,9 @@ def _asked(tmp_path) -> list[str]:
 
 def _pointer(tmp_path, *, hud: bool = True,
              hud_takes: bool = True, in_a_session: bool = True):
-    playback, player = make_playback(tmp_path, duration_ms=DURATION_MS)
-    volume = VolumeControl(player)
     stub = _StubHud(takes=hud_takes) if hud else None
-    return Pointer(playback=playback, volume=volume, hud=stub,
-                   dashboard_cmd_file=_asks(tmp_path) if in_a_session else None), player, stub
+    return Pointer(hud=stub,
+                   dashboard_cmd_file=_asks(tmp_path) if in_a_session else None), stub
 
 
 def _press(pointer, point) -> None:
@@ -82,183 +68,80 @@ def _motion(pointer, point, *, held: bool) -> None:
     pointer.motion(*point, held=held, win_w=WIN_W, win_h=WIN_H)
 
 
-class TestTheScrubber:
-    def test_a_press_halfway_along_the_track_seeks_to_the_middle(self, tmp_path):
-        pointer, player, _hud = _pointer(tmp_path)
-
-        _press(pointer, BAR_MIDPOINT)
-
-        assert player.seeks == [pytest.approx(DURATION_MS / 2, abs=ONE_BAR_PIXEL_MS)]
-
-    def test_a_press_at_the_track_s_start_seeks_to_the_beginning(self, tmp_path):
-        pointer, player, _hud = _pointer(tmp_path)
-
-        _press(pointer, BAR_START)
-
-        assert player.seeks == [0.0]
-
-    def test_a_press_past_the_track_s_end_saturates_at_the_end(self, tmp_path):
-        pointer, player, _hud = _pointer(tmp_path)
-
-        _press(pointer, PAST_BAR_END)
-
-        assert player.seeks == [DURATION_MS]
-
-    def test_a_press_mpv_will_not_take_leaves_the_player_playing(self, tmp_path):
-        pointer, player, _hud = _pointer(tmp_path)
-        player.refuse_seeks(1)
-
-        _press(pointer, BAR_MIDPOINT)
-
-        assert (player.seeks, player.refused) == ([], 1)
-
-    def test_under_a_picture_the_bottom_row_is_the_picture_and_seeks_nothing(self, tmp_path):
-        pointer, player, _hud = _pointer(tmp_path, hud_takes=False)
-        player.showing_picture = True
-
-        _press(pointer, BAR_MIDPOINT)
-
-        assert player.seeks == []
-        assert _asked(tmp_path) == [OMNIPAUSE_TOGGLE]
-
-    def test_a_press_on_the_video_seeks_nothing_and_reaches_the_hud(self, tmp_path):
-        pointer, player, hud = _pointer(tmp_path)
-
-        _press(pointer, ON_THE_VIDEO)
-
-        assert player.seeks == []
-        assert hud.presses == [ON_THE_VIDEO]
-
-    def test_a_player_with_no_hud_still_seeks(self, tmp_path):
-        pointer, player, _hud = _pointer(tmp_path, hud=False)
-
-        _press(pointer, BAR_MIDPOINT)
-        _press(pointer, ON_THE_VIDEO)
-
-        assert player.seeks == [pytest.approx(DURATION_MS / 2, abs=ONE_BAR_PIXEL_MS)]
-
-    def test_a_press_on_the_readout_neither_seeks_nor_pauses_the_room(self, tmp_path):
-        pointer, player, hud = _pointer(tmp_path, hud_takes=False)
-
-        _press(pointer, (_BAR_X0 // 2, WIN_H - 4))
-
-        assert player.seeks == []
-        assert hud.presses == []
-        assert _asked(tmp_path) == []
-
-    def test_above_a_row_too_narrow_to_share_the_readout_is_not_the_picture(self, tmp_path):
-        """400 across leaves the readout a line of its own above the row, over the
-        picture: a press on it neither seeks nor asks the room to pause."""
-        pointer, player, hud = _pointer(tmp_path, hud_takes=False)
-        x, y = readout_xy(131, win_w=400, win_h=WIN_H, timeline_h=TIMELINE_HEIGHT)
-
-        pointer.press(x + 20, y + CHIP_H // 2, win_w=400, win_h=WIN_H)
-
-        assert player.seeks == []
-        assert hud.presses == []
-        assert _asked(tmp_path) == []
-
-
 class TestThePicture:
     """A Funestra has no pause of its own to give — its paused state is the
     room's flag file, re-read every pass — so a press on the picture asks
     the session to pause or resume the whole room, and asks it off again."""
 
-    def test_a_press_the_hud_refused_asks_the_room_to_pause(self, tmp_path):
-        pointer, player, hud = _pointer(tmp_path, hud_takes=False)
+    def test_a_press_the_panel_refused_asks_the_room_to_pause(self, tmp_path):
+        pointer, hud = _pointer(tmp_path, hud_takes=False)
 
         _press(pointer, ON_THE_VIDEO)
 
         assert hud.presses == [ON_THE_VIDEO]
-        assert player.seeks == []
         assert _asked(tmp_path) == [OMNIPAUSE_TOGGLE]
 
-    def test_a_player_with_no_hud_asks_from_the_whole_picture(self, tmp_path):
-        pointer, _player, _hud = _pointer(tmp_path, hud=False)
+    def test_a_window_with_no_panel_asks_from_the_whole_picture(self, tmp_path):
+        pointer, _hud = _pointer(tmp_path, hud=False)
 
         _press(pointer, ON_THE_VIDEO)
 
         assert _asked(tmp_path) == [OMNIPAUSE_TOGGLE]
 
-    def test_a_press_the_hud_took_asks_for_nothing(self, tmp_path):
-        pointer, _player, _hud = _pointer(tmp_path)
+    def test_a_press_the_panel_took_asks_for_nothing(self, tmp_path):
+        pointer, _hud = _pointer(tmp_path)
 
         _press(pointer, ON_THE_VIDEO)
 
         assert _asked(tmp_path) == []
 
-    def test_neither_the_scrubber_nor_the_chip_is_the_picture(self, tmp_path):
-        pointer, _player, _hud = _pointer(tmp_path, hud_takes=False)
+    def test_the_lower_edge_is_the_picture_now_that_no_row_is_drawn_there(self, tmp_path):
+        """The track used to span it; a press there is a press on the picture."""
+        pointer, _hud = _pointer(tmp_path, hud_takes=False)
 
-        _press(pointer, BAR_MIDPOINT)
-        _press(pointer, CHIP_HALFWAY)
+        _press(pointer, LOWER_EDGE)
 
-        assert _asked(tmp_path) == []
+        assert _asked(tmp_path) == [OMNIPAUSE_TOGGLE]
 
-    def test_a_player_with_no_session_to_ask_does_nothing(self, tmp_path):
-        pointer, player, _hud = _pointer(tmp_path, hud_takes=False, in_a_session=False)
+    def test_a_window_with_no_session_to_ask_does_nothing(self, tmp_path):
+        pointer, _hud = _pointer(tmp_path, hud_takes=False, in_a_session=False)
 
         _press(pointer, ON_THE_VIDEO)
 
-        assert player.seeks == []
         assert _asked(tmp_path) == []
-
-
-class TestTheChip:
-    def test_a_press_on_the_chip_sets_the_volume_and_does_not_seek(self, tmp_path):
-        pointer, player, _hud = _pointer(tmp_path)
-
-        _press(pointer, CHIP_HALFWAY)
-
-        assert player.volume == 50
-        assert player.seeks == []
-
-    def test_a_press_on_the_speaker_unmutes_and_does_not_seek(self, tmp_path):
-        pointer, player, _hud = _pointer(tmp_path)
-
-        _press(pointer, SPEAKER)
-
-        assert player.muted is False
-        assert player.seeks == []
 
 
 class TestDragging:
-    def test_a_held_pointer_on_the_track_keeps_setting_the_level(self, tmp_path):
-        pointer, player, _hud = _pointer(tmp_path)
+    """Everything a held pointer can set is on the panel, so this is only about
+    telling the panel where the pointer went and letting go of what it took."""
 
-        _motion(pointer, CHIP_HALFWAY, held=True)
-
-        assert player.volume == 50
-
-    def test_an_unheld_pointer_sets_nothing(self, tmp_path):
-        pointer, player, _hud = _pointer(tmp_path)
-
-        _motion(pointer, CHIP_HALFWAY, held=False)
-
-        assert player.volume == 100
-        assert player.muted is True
-
-    def test_the_hud_is_told_where_the_pointer_went_either_way(self, tmp_path):
-        pointer, _player, hud = _pointer(tmp_path)
+    def test_the_panel_is_told_where_the_pointer_went_either_way(self, tmp_path):
+        pointer, hud = _pointer(tmp_path)
 
         _motion(pointer, ON_THE_VIDEO, held=False)
-        _motion(pointer, CHIP_HALFWAY, held=True)
+        _motion(pointer, LOWER_EDGE, held=True)
 
-        assert hud.motions == [ON_THE_VIDEO, CHIP_HALFWAY]
+        assert hud.motions == [ON_THE_VIDEO, LOWER_EDGE]
 
-    def test_a_band_the_hud_took_hold_of_keeps_the_drag_over_the_chip(self, tmp_path):
-        pointer, player, hud = _pointer(tmp_path)
+    def test_what_the_panel_took_hold_of_keeps_the_drag(self, tmp_path):
+        pointer, hud = _pointer(tmp_path)
         hud.holding = True
 
-        _motion(pointer, CHIP_HALFWAY, held=True)
+        _motion(pointer, LOWER_EDGE, held=True)
 
-        assert hud.drags == [CHIP_HALFWAY]
-        assert player.volume == 100
+        assert hud.drags == [LOWER_EDGE]
 
-    def test_the_button_coming_up_lets_the_band_go(self, tmp_path):
-        pointer, _player, hud = _pointer(tmp_path)
+    def test_the_button_coming_up_lets_go_of_what_it_took(self, tmp_path):
+        pointer, hud = _pointer(tmp_path)
         hud.holding = True
 
         _motion(pointer, ON_THE_VIDEO, held=False)
 
         assert hud.holding is False
+
+    def test_a_window_with_no_panel_has_nothing_to_tell(self, tmp_path):
+        pointer, _hud = _pointer(tmp_path, hud=False)
+
+        _motion(pointer, LOWER_EDGE, held=True)
+
+        assert _asked(tmp_path) == []

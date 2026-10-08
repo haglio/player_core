@@ -13,9 +13,10 @@ from shared_ui.spacing import BUTTON_SIZE_HUD
 from player_core.drive_readout import DriveHud, publish_drive
 from player_core.hud_overlay import HudOverlay
 from player_core.hud_placement import HudEdge
-from player_core.playhead import lower_edge_height
+from player_core.hud_row import UNDER_THE_PANEL_GAP, RowHud
 from player_core.satellite_hud import MARGIN, PAD
-from player_core.timeline import TIMELINE_HEIGHT
+from player_core.timeline import TIMELINE_HEIGHT, bar_track_x
+from player_core.volume import CHIP_H, CHIP_W, SPEAKER_W, VolumeHud, chip_xy
 
 
 @pytest.fixture
@@ -46,6 +47,145 @@ def _commands(tmp_path: Path) -> list[str]:
     if not path.exists():
         return []
     return [line for line in path.read_text(encoding="utf-8").splitlines() if line]
+
+
+
+
+def _colors_across(row_rect) -> list[tuple[int, int, int]]:
+    """One color per pixel of the track the panel drew, which is what a host
+    hands back for the next one to be filled with."""
+    x0, x1 = bar_track_x(row_rect[2])
+    return [(200, 40, 40)] * (x1 - x0)
+
+
+class TestTheClipsRowAtItsFoot:
+    """The track, the time and the volume a window laid along the lower edge of
+    its video ride on this panel: one panel on screen rather than two, and in
+    the headset a wrapped video smears such a row round the nadir."""
+
+    _ROW = RowHud(position_ms=0.0, duration_ms=10_000.0,
+                  volume=VolumeHud(volume=80, muted=False))
+
+    def test_a_window_handed_a_row_draws_it_on_the_panel(self, tmp_path, panel):
+        player = FakePlayer()
+        overlay = _overlay(tmp_path, panel, player)
+
+        overlay.tick(clip_row=self._ROW)
+
+        assert overlay.targets.row is not None
+
+    def test_a_picture_puts_no_row_on_the_panel(self, tmp_path, panel):
+        player = FakePlayer()
+        overlay = _overlay(tmp_path, panel, player)
+
+        overlay.tick(clip_row=None)
+
+        assert overlay.targets.row is None
+
+    def _on_the_row(self, overlay, px, py):
+        x, y, _width, _height = overlay.targets.row
+        return MARGIN + x + px, MARGIN + y + py
+
+    def test_a_press_along_the_track_runs_the_clip_there(self, tmp_path, panel):
+        seeks: list[float] = []
+        overlay = HudOverlay(
+            hud_file=panel, command_file=tmp_path / "dashboard_cmd.txt",
+            player=FakePlayer(), clock=lambda: 0.0, seek=seeks.append,
+        )
+        overlay.tick(clip_row=self._ROW)
+        _x, _y, width, height = overlay.targets.row
+        x0, x1 = bar_track_x(width)
+
+        overlay.press(*self._on_the_row(overlay, (x0 + x1) // 2,
+                                        height - TIMELINE_HEIGHT // 2))
+
+        assert seeks == [pytest.approx(5_000.0, abs=200)]
+
+    def test_a_drag_along_the_track_keeps_running_the_clip(self, tmp_path, panel):
+        seeks: list[float] = []
+        overlay = HudOverlay(
+            hud_file=panel, command_file=tmp_path / "dashboard_cmd.txt",
+            player=FakePlayer(), clock=lambda: 0.0, seek=seeks.append,
+        )
+        overlay.tick(clip_row=self._ROW)
+        _x, _y, width, height = overlay.targets.row
+        x0, x1 = bar_track_x(width)
+        along = height - TIMELINE_HEIGHT // 2
+
+        overlay.press(*self._on_the_row(overlay, x0, along))
+        overlay.drag_to(*self._on_the_row(overlay, (x0 + x1) // 2, along))
+
+        assert seeks[-1] == pytest.approx(5_000.0, abs=200)
+
+    def test_a_press_on_the_speaker_mutes_and_a_drag_across_it_does_not(self, tmp_path, panel):
+        mutes: list[int] = []
+        levels: list[int] = []
+        overlay = HudOverlay(
+            hud_file=panel, command_file=tmp_path / "dashboard_cmd.txt",
+            player=FakePlayer(), clock=lambda: 0.0,
+            set_volume=levels.append, toggle_mute=lambda: mutes.append(1),
+        )
+        overlay.tick(clip_row=self._ROW)
+        _x, _y, width, height = overlay.targets.row
+        cx, cy = chip_xy(win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT)
+
+        overlay.press(*self._on_the_row(overlay, cx + SPEAKER_W // 2, cy + CHIP_H // 2))
+        overlay.drag_to(*self._on_the_row(overlay, cx + CHIP_W - 2, cy + CHIP_H // 2))
+
+        assert mutes == [1]
+        assert levels == []
+
+    def test_a_scripted_clip_colors_its_track(self, tmp_path, panel):
+        """The host measures the track the panel drew and builds the script's
+        colors across it; the panel fills the next one with them."""
+        plain, scripted = FakePlayer(), FakePlayer()
+        _overlay(tmp_path, panel, plain).tick(clip_row=self._ROW)
+        colored = _overlay(tmp_path, panel, scripted)
+        colored.tick(clip_row=self._ROW)
+        colored.tick(clip_row=self._ROW, heatmap=_colors_across(colored.row_rect))
+
+        (_x, _y, bare), = plain.overlays.values()
+        (_x, _y, filled), = scripted.overlays.values()
+        assert bare.shape == filled.shape
+        assert not (bare == filled).all()
+
+    def test_a_fill_measured_across_some_other_track_is_dropped(self, tmp_path, panel):
+        """A panel is as wide as what is on it, so a host measures one panel and
+        fills the next, and between the two the panel can change width.  The
+        wrong length raises out of the track painter rather than stretching --
+        which took the window's drawing down with it and left the main player
+        showing no picture at all."""
+        plain, mismatched = FakePlayer(), FakePlayer()
+        _overlay(tmp_path, panel, plain).tick(clip_row=self._ROW)
+        overlay = _overlay(tmp_path, panel, mismatched)
+        overlay.tick(clip_row=self._ROW)
+        overlay.tick(clip_row=self._ROW, heatmap=[(255, 0, 0)] * 7)
+
+        (_x, _y, bare), = plain.overlays.values()
+        (_x, _y, drawn), = mismatched.overlays.values()
+        assert (bare == drawn).all()
+
+    def test_the_host_is_told_where_the_row_landed(self, tmp_path, panel):
+        """Its width is what the colors must cover, and under it is where the
+        loop's two frames hang."""
+        overlay = _overlay(tmp_path, panel, FakePlayer())
+
+        overlay.tick(clip_row=self._ROW)
+
+        x, _y, width, _height = overlay.row_rect
+        x0, x1 = bar_track_x(width)
+        left, top, _w, _h = (MARGIN, MARGIN, 0, 0)
+        panel_h = overlay._player.overlays[overlay.overlay_id][2].shape[0]
+        assert overlay.row_track == (left + x + x0, left + x + x1,
+                                     top + panel_h + UNDER_THE_PANEL_GAP)
+
+    def test_a_picture_leaves_nothing_for_the_frames_to_hang_under(self, tmp_path, panel):
+        overlay = _overlay(tmp_path, panel, FakePlayer())
+
+        overlay.tick(clip_row=None)
+
+        assert overlay.row_rect is None
+        assert overlay.row_track is None
 
 
 def test_tick_composites_the_panel_at_the_hud_inset(tmp_path: Path, panel: Path):
@@ -421,6 +561,9 @@ def _panel_at(tmp_path: Path, panel_path: Path, player, **panel_changes):
 
 def test_the_panel_is_composited_in_the_corner_the_session_moved_it_to(
         tmp_path: Path, panel: Path):
+    """Its own margin from the edges and nothing else: the track that used to
+    run along the lower edge is a block of this panel now, so there is nothing
+    down there to clear."""
     player = FakePlayer()
 
     _panel_at(tmp_path, panel, player, hud_corner="lower_right")
@@ -428,7 +571,7 @@ def test_the_panel_is_composited_in_the_corner_the_session_moved_it_to(
     (x, y, bgra), = player.overlays.values()
     height, width = bgra.shape[:2]
     assert x == 1200 - MARGIN - width
-    assert y == 800 - lower_edge_height(1200, timeline_h=TIMELINE_HEIGHT) - MARGIN - height
+    assert y == 800 - MARGIN - height
 
 
 def test_a_press_in_a_lower_corner_reaches_the_button_drawn_there(

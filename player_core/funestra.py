@@ -18,25 +18,18 @@ from .file_channel import consume_command_file, read_paused_state
 from .funestra_controls import VERBS, FunestraControls
 from .funestra_status import status_fields
 from .hud_overlay import HUD_OVERLAY_ID, HudOverlay
+from .hud_row import RowHud
 from .mpv_player import MpvPlayer
 from .play_points import PlayPoints
 from .playback import Playback, funscripts_of
-from .playhead import PlayheadHudPainter, readout_xy, video_playhead
+from .playhead import video_playhead
 from .playlist import PlaylistItem, read_playlist
 from .pointer import Pointer
-from .scrubber import (
-    HeatmapStrip,
-    LoopThumbCapture,
-    loop_thumbnail_xys,
-    timeline_bgra,
-    timeline_height,
-)
+from .scrubber import HeatmapStrip, LoopThumbCapture, loop_thumbnail_xys
 from .session_quit import quit_gesture
 from .status import StatusWriter
 from .tcode import UdpTCodeSink
 from .tcode_driver import FunscriptTCodeDriver
-from .timeline import bar_track_x
-from .volume import VolumeHudPainter, chip_xy
 from .volume_control import RoomVolume, VolumeControl
 
 __all__ = [
@@ -102,11 +95,7 @@ class Funestra:
     IN_FRAME_OVERLAY_ID = 8
     OUT_FRAME_OVERLAY_ID = 9
     PANEL_OVERLAY_ID = HUD_OVERLAY_ID
-    SCRUBBER_OVERLAY_ID = 11
-    VOLUME_OVERLAY_ID = 12
-    READOUT_OVERLAY_ID = 13
-    OVERLAY_IDS = (IN_FRAME_OVERLAY_ID, OUT_FRAME_OVERLAY_ID, PANEL_OVERLAY_ID,
-                   SCRUBBER_OVERLAY_ID, VOLUME_OVERLAY_ID, READOUT_OVERLAY_ID)
+    OVERLAY_IDS = (IN_FRAME_OVERLAY_ID, OUT_FRAME_OVERLAY_ID, PANEL_OVERLAY_ID)
 
     def __init__(
         self,
@@ -134,15 +123,14 @@ class Funestra:
         )
         self._user: User = _Nobody() if user is None else user(self.playback)
         self._drive_gate = DriveGate(self.playback)
-        self._panel = self._panel_for(channels, player)
+        self._strip = HeatmapStrip()
         self._volume = (
             RoomVolume(player, dashboard_cmd_file=channels.dashboard_cmd, live=audible)
             if sound_is_the_rooms else VolumeControl(player, live=audible)
         )
+        self._panel = self._panel_for(channels, player)
         self._display = Display(player, self.OVERLAY_IDS)
-        self._strip = HeatmapStrip()
-        self._pointer = Pointer(playback=self.playback, volume=self._volume, hud=self._panel,
-                                strip=self._strip, dashboard_cmd_file=channels.dashboard_cmd)
+        self._pointer = Pointer(hud=self._panel, dashboard_cmd_file=channels.dashboard_cmd)
         self._controls = FunestraControls(
             self.playback, stop_event=self._stop, reload_playlist=self._reload_playlist,
             room_volume=self._volume if sound_is_the_rooms else None, display=self._display)
@@ -152,11 +140,14 @@ class Funestra:
                 **self._user.status_fields()})
             if channels.status else None
         )
-        self._volume_painter = VolumeHudPainter()
-        self._readout_painter = PlayheadHudPainter()
         self._loop_frames = LoopThumbCapture()
 
     def _panel_for(self, channels: Channels, player) -> HudOverlay | ConsoleOverlay | None:
+        """The one panel this window wears, which carries the clip's row: the
+        room's console on the main slot, else the published HUD.  Both place a
+        press on the row themselves, so each is handed what it asks of the
+        window when one lands.
+        """
         if channels.dashboard_cmd is None:
             return None
         if channels.console is not None:
@@ -164,13 +155,23 @@ class Funestra:
                 console_file=channels.console, drive_file=channels.drive,
                 command_file=channels.dashboard_cmd, player=player,
                 drive_gate=self._drive_gate, top_block=self._user.top_block,
+                seek=self._seek_along_the_track, set_volume=self._volume.set_level,
+                toggle_mute=self._volume.toggle_mute,
             )
         if channels.hud is not None:
             return HudOverlay(
                 hud_file=channels.hud, command_file=channels.dashboard_cmd, player=player,
                 drive_file=channels.drive, drive_gate=self._drive_gate,
+                seek=self._seek_along_the_track, set_volume=self._volume.set_level,
+                toggle_mute=self._volume.toggle_mute,
             )
         return None
+
+    def _seek_along_the_track(self, ms: float) -> None:
+        """A press on the track names a time in the stretch the track spans,
+        which is the whole clip until a loop being recorded zooms it in."""
+        start_ms, _end_ms = self._strip.window
+        self.playback.seek_to(start_ms + ms)
 
     @classmethod
     def on_window(cls, wid: int, *, channels: Channels, playlist: list[PlaylistItem],
@@ -237,49 +238,71 @@ class Funestra:
             self.playback.replace_playlist([item.path for item in items], funscripts_of(items))
 
     def _paint(self, window: tuple[int, int]) -> None:
-        win_w, win_h = window
-        playback, player = self.playback, self._player
-        self._strip.update(playback.showing, playback.current_funscript, playback.duration_ms,
-                           win_w, mark_in_ms=playback.mark, position_ms=playback.position_ms)
-        row_h = timeline_height(self._strip)
-        if playback.showing_picture:
-            player.remove_overlay(self.SCRUBBER_OVERLAY_ID)
-        else:
-            bar = timeline_bgra(self._strip, playback.position_ms, playback.ab_loop, win_w,
-                                record_in_ms=playback.mark)
-            player.overlay(self.SCRUBBER_OVERLAY_ID, 0, win_h - bar.shape[0], bar)
-        readout = video_playhead(playback.position_ms, playback.duration_ms, player.frame_rate)
-        if readout is None:
-            player.remove_overlay(self.READOUT_OVERLAY_ID)
-        else:
-            pill = self._readout_painter.bgra(readout)
-            player.overlay(self.READOUT_OVERLAY_ID, *readout_xy(
-                pill.shape[1], win_w=win_w, win_h=win_h, timeline_h=row_h), pill)
-        self._paint_panel(window, row_h)
-        vx, vy = chip_xy(win_w=win_w, win_h=win_h, timeline_h=row_h)
-        player.overlay(self.VOLUME_OVERLAY_ID, vx, vy, self._volume_painter.bgra(self._volume.hud))
+        self._paint_panel(window, self.clip_row())
         self._paint_loop_frames(window)
 
-    def _paint_panel(self, window: tuple[int, int], row_h: int) -> None:
+    def clip_row(self) -> RowHud | None:
+        """Where the clip has got to, how long it runs, how loud it is and where
+        its loop ends -- the row the panel carries at its foot, or None on a
+        picture, which has nothing to run through.  Timed against the stretch
+        the track spans, which is the whole clip until a loop being recorded
+        zooms it in.
+        """
+        playback, player = self.playback, self._player
+        self._strip.update(playback.showing, playback.current_funscript,
+                           playback.duration_ms, self._track_width(),
+                           mark_in_ms=playback.mark, position_ms=playback.position_ms)
+        if playback.showing_picture:
+            return None
+        start_ms, end_ms = self._strip.window
+        bounds = playback.ab_loop
+        return RowHud(
+            position_ms=playback.position_ms - start_ms,
+            duration_ms=end_ms - start_ms,
+            volume=self._volume.hud,
+            playhead=video_playhead(playback.position_ms, playback.duration_ms,
+                                    player.frame_rate),
+            loop_bounds=None if bounds is None else (bounds[0] - start_ms,
+                                                     bounds[1] - start_ms),
+            record_in_ms=None if playback.mark is None else playback.mark - start_ms,
+        )
+
+    def _track_width(self) -> int:
+        """How wide the panel drew the track last frame, which is what the
+        colors have to cover.  A panel is as wide as what is on it, so there is
+        no answer until one has been drawn: 0 leaves the first row plain.
+        """
+        rect = None if self._panel is None else self._panel.row_rect
+        return 0 if rect is None else rect[2]
+
+    def _paint_panel(self, window: tuple[int, int], row: RowHud | None) -> None:
+        if self._panel is None:
+            return
+        colors = self._strip.colors if row is not None else None
         if isinstance(self._panel, ConsoleOverlay):
-            self._panel.tick(playback_speed=self.playback.speed, window=window, lower_edge=row_h)
-        elif self._panel is not None:
+            self._panel.tick(playback_speed=self.playback.speed, window=window,
+                             clip_row=row, heatmap=colors)
+        else:
             self._panel.tick(video=self.playback.name_on_screen,
-                             playback_speed=self.playback.speed, window=window)
+                             playback_speed=self.playback.speed, window=window,
+                             clip_row=row, heatmap=colors)
 
     def _paint_loop_frames(self, window: tuple[int, int]) -> None:
-        win_w, win_h = window
+        """The loop's in and out frames, each hanging under the panel below its
+        own mark on the track."""
         playback, player, frames = self.playback, self._player, self._loop_frames
         which = frames.needed(playback.ab_loop, playback.position_ms)
         if which is not None:
             frames.set(which, player.screenshot_bgra())
-        if playback.ab_loop is None:
+        track = None if self._panel is None else self._panel.row_track
+        if playback.ab_loop is None or track is None:
             player.remove_overlay(self.IN_FRAME_OVERLAY_ID)
             player.remove_overlay(self.OUT_FRAME_OVERLAY_ID)
             return
+        x0, x1, top = track
         in_at, out_at = loop_thumbnail_xys(
             self._strip, frames, playback.ab_loop,
-            track=bar_track_x(win_w), win_w=win_w, win_h=win_h)
+            track=(x0, x1), win_w=window[0], top=top)
         if in_at is not None:
             player.overlay(self.IN_FRAME_OVERLAY_ID, *in_at, frames.in_thumb)
         if out_at is not None:
