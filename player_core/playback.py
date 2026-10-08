@@ -152,6 +152,9 @@ class Playback:
     def step(self, delta: int) -> None:
         self.load(self._index + delta)
 
+    def seek_by(self, delta_ms: float) -> None:
+        self.seek_to(max(0.0, min(self._player.duration_ms, self._player.position_ms + delta_ms)))
+
     def seek_to(self, ms: float) -> bool:
         taken = seek_if_taken(self._player, ms)
         if taken:

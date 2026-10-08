@@ -49,6 +49,16 @@ class TestSeeking:
 
         assert player.seeks == [1_500.0]
 
+    def test_a_step_through_the_clip_stops_at_either_end_of_it(self, tmp_path):
+        playback, player = _make_playback(tmp_path, duration_ms=30_000.0)
+
+        player.position_ms = 4_000.0
+        playback.seek_by(-10_000)
+        player.position_ms = 26_000.0
+        playback.seek_by(10_000)
+
+        assert player.seeks == [0.0, 30_000.0]
+
     def test_a_seek_leaves_the_playlist_and_the_prefetch_where_they_are(self, tmp_path):
         playback, player = _make_playback(tmp_path, entries=3)
 
