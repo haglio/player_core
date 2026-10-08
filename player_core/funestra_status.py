@@ -24,4 +24,5 @@ def status_fields(playback, handoff_touch_ms: int | None) -> dict[str, str]:
         "has_funscript": "1" if playback.has_funscript else "0",
         "funscript_resting": "1" if playback.funscript_resting else "0",
         "handoff_touch_ms": "" if handoff_touch_ms is None else str(int(handoff_touch_ms)),
+        "portrait": "" if playback.portrait is None else "1" if playback.portrait else "0",
     }

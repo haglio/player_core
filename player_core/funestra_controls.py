@@ -6,12 +6,15 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from .control_registry import Control, Verb, bind, look_up
 from .playback import Playback
 from .playback_rate import RATE_STEP, parse_rate
 from .player_verbs import (
     CLEAR_FRAME,
+    DISPLAY_OFF,
+    DISPLAY_ON,
     LOCK_OFF,
     LOCK_ON,
     NEXT,
@@ -27,9 +30,11 @@ from .player_verbs import (
     SET_PACE,
     SET_SPEED,
     SET_TCODE_ENABLED,
+    SET_VOLUME,
     SHOW_FRAME,
     SPEED_DOWN,
     SPEED_UP,
+    TOGGLE_LOCK,
     TRASH,
     pace_seconds,
     version_files,
@@ -43,7 +48,7 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
-_SEEK_STEP_MS = 10_000
+SEEK_STEP_MS = 10_000
 
 
 @dataclass
@@ -54,6 +59,8 @@ class FunestraControls:
     playback: Playback
     stop_event: threading.Event | None = None
     reload_playlist: Callable[[], None] | None = None
+    room_volume: Any = None
+    display: Any = None
 
 
 Act = Callable[[FunestraControls, str], bool]
@@ -76,6 +83,28 @@ def _seeker(delta_ms: int) -> Act:
 def _lock_set(locked: bool) -> Act:
     def act(controls: FunestraControls, _value: str) -> bool:
         controls.playback.set_locked(locked)
+        return True
+    return act
+
+
+def _toggle_lock(controls: FunestraControls, _value: str) -> bool:
+    controls.playback.set_locked(not controls.playback.is_locked)
+    return True
+
+
+def _set_volume(controls: FunestraControls, value: str) -> bool:
+    level, _, muted_arg = value.partition(" ")
+    try:
+        volume = int(level)
+    except ValueError:
+        return False
+    controls.room_volume.set(volume, muted_arg.strip() not in ("", "0"))
+    return True
+
+
+def _display_set(active: bool) -> Act:
+    def act(controls: FunestraControls, _value: str) -> bool:
+        controls.display.set_active(active)
         return True
     return act
 
@@ -168,11 +197,12 @@ CONTROLS: tuple[Control, ...] = (
     ),
     Control(
         name="playhead",
-        verbs=(Verb(SEEK_FWD, _seeker(_SEEK_STEP_MS)), Verb(SEEK_BACK, _seeker(-_SEEK_STEP_MS))),
+        verbs=(Verb(SEEK_FWD, _seeker(SEEK_STEP_MS)), Verb(SEEK_BACK, _seeker(-SEEK_STEP_MS))),
     ),
     Control(
         name="lock",
-        verbs=(Verb(LOCK_ON, _lock_set(True)), Verb(LOCK_OFF, _lock_set(False))),
+        verbs=(Verb(TOGGLE_LOCK, _toggle_lock), Verb(LOCK_ON, _lock_set(True)),
+               Verb(LOCK_OFF, _lock_set(False))),
     ),
     Control(name="clip", verbs=(Verb(TRASH, _discard),)),
     Control(
@@ -204,6 +234,16 @@ CONTROLS: tuple[Control, ...] = (
         name="device",
         verbs=(Verb(SET_TCODE_ENABLED, _set_tcode_enabled, takes_a_value=True),
                Verb(SET_MAX_INTENSITY, _set_max_intensity, takes_a_value=True)),
+    ),
+    Control(
+        name="volume",
+        needs=("room_volume",),
+        verbs=(Verb(SET_VOLUME, _set_volume, takes_a_value=True),),
+    ),
+    Control(
+        name="display",
+        needs=("display",),
+        verbs=(Verb(DISPLAY_ON, _display_set(True)), Verb(DISPLAY_OFF, _display_set(False))),
     ),
     Control(
         name="playlist",

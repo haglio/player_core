@@ -2,16 +2,21 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
+from console_rows import console_rows
 from funestra_fakes import FakePlayer
 
+from player_core.console import ConsoleModel, ModeHud, console_text
+from player_core.display import BLACK_OVERLAY_ID
 from player_core.funestra import Channels, Funestra
 from player_core.funscript import load as load_funscript
 from player_core.heatmap import build_heatmap
 from player_core.hud_overlay import HUD_OVERLAY_ID
+from player_core.modes import LengthMode, MainMode, Osr2State
 from player_core.playhead import PlayheadHudPainter, readout_xy, video_playhead
 from player_core.playlist import read_playlist
 from player_core.session_quit import SESSION_QUIT
@@ -54,6 +59,11 @@ def _funestra(tmp_path: Path, lines: list[str], *, audible: bool = True, tiles: 
 
 def _status(tmp_path: Path) -> str:
     return (tmp_path / "status.txt").read_text(encoding="utf-8")
+
+
+def _asked(tmp_path: Path) -> list[str]:
+    path = tmp_path / "dashboard_cmd.txt"
+    return path.read_text(encoding="utf-8").split() if path.exists() else []
 
 
 def test_one_pass_plays_publishes_and_paints_then_quit_stops_it(tmp_path):
@@ -155,7 +165,7 @@ class TestTheWindowsClose:
         funestra.close_requested()
 
         assert funestra.stopped is False
-        assert (tmp_path / "dashboard_cmd.txt").read_text(encoding="utf-8").split() == [SESSION_QUIT]
+        assert _asked(tmp_path) == [SESSION_QUIT]
 
     def test_with_no_session_to_ask_it_ends_this_player(self, tmp_path):
         funestra, _player = _funestra(tmp_path, [str(clip) for clip in _clips(tmp_path, "v0")],
@@ -247,3 +257,283 @@ def test_on_a_window_the_way_of_playing_is_mpv_opened_on_that_window(tmp_path):
 
     mpv.assert_called_once_with(4242, muted=True, loop_file=False, prefetch=True)
     assert funestra.playback.current_video == clips[0]
+
+
+def _console_channels(tmp_path: Path, lines: list[str], *, commands: str = "") -> Channels:
+    channels = _channels(tmp_path, lines, commands=commands, in_a_session=True)
+    return replace(channels, console=tmp_path / "console.json", drive=tmp_path / "drive.txt")
+
+
+def _publish_console(tmp_path: Path, **over) -> None:
+    model = ConsoleModel(main_mode=MainMode.KINO, rows=console_rows(), osr2=Osr2State.ROBOT_HAND, **over)
+    (tmp_path / "console.json").write_text(console_text(model), encoding="utf-8")
+
+
+class Kino:
+    """What runs on a Funestra, as the Funestra sees it: its own verbs, a pass
+    of its own each frame, lines in the status file, and the console's top block."""
+
+    def __init__(self, playback) -> None:
+        self.playback = playback
+        self.commands: list[str] = []
+        self.ticks: list[tuple[int, float]] = []
+        self.video = "Jane Doe - scene one"
+
+    def apply_command(self, command: str) -> bool:
+        self.commands.append(command)
+        return command.startswith("KINO_")
+
+    def tick(self) -> None:
+        self.ticks.append((self.playback.loads, self.playback.position_ms))
+
+    def status_fields(self) -> dict[str, str]:
+        return {"length_mode": "shorts", "compilation": "Vol 3"}
+
+    def top_block(self) -> ModeHud:
+        return ModeHud(video=self.video, length_mode=LengthMode.SHORTS)
+
+
+def _main(tmp_path: Path, *, commands: str = "", user=Kino) -> tuple[Funestra, FakePlayer, Kino]:
+    channels = _console_channels(tmp_path, [str(clip) for clip in _clips(tmp_path, "v0", "v1")],
+                                 commands=commands)
+    _publish_console(tmp_path)
+    player = FakePlayer()
+    made: list[Kino] = []
+
+    def make(playback):
+        made.append(user(playback))
+        return made[-1]
+
+    funestra = Funestra(player, channels=channels, playlist=read_playlist(channels.playlist),
+                        locked=True, sound_is_the_rooms=True, user=make)
+    return funestra, player, made[0]
+
+
+class TestTheMainFunestra:
+    """A Funestra handed a console file draws the room's console in place of a
+    satellite panel, opens holding its item, and leaves its sound to the room."""
+
+    def test_it_opens_holding_its_item(self, tmp_path):
+        funestra, player, _kino = _main(tmp_path)
+
+        assert funestra.playback.is_locked is True
+        assert player.loop_file is True
+
+    def test_it_draws_the_console_the_room_published(self, tmp_path):
+        funestra, player, _kino = _main(tmp_path)
+
+        funestra.tick(window=WINDOW)
+
+        assert HUD_OVERLAY_ID in player.overlays
+        assert len(player.overlays) == 4
+
+    def test_the_console_leads_with_what_runs_on_the_funestra_says_it_is_playing(self, tmp_path):
+        funestra, player, kino = _main(tmp_path)
+        funestra.tick(window=WINDOW)
+        before = player.overlays[HUD_OVERLAY_ID][2]
+
+        kino.video = "Ann Bly - scene two"
+        funestra.tick(window=WINDOW)
+
+        assert player.overlays[HUD_OVERLAY_ID][2] is not before
+
+    def test_a_press_on_a_console_button_asks_the_room_and_never_pauses_it(self, tmp_path):
+        funestra, player, _kino = _main(tmp_path)
+        funestra.tick(window=WINDOW)
+        left, top, _bgra = player.overlays[HUD_OVERLAY_ID]
+        (x, y, w, h), button = funestra._panel._painter.buttons[0]
+
+        funestra.press(left + x + w // 2, top + y + h // 2, window=WINDOW)
+
+        assert _asked(tmp_path) == [button.command]
+
+    def test_a_press_on_the_slab_between_buttons_asks_for_nothing(self, tmp_path):
+        funestra, player, _kino = _main(tmp_path)
+        funestra.tick(window=WINDOW)
+        left, top, bgra = player.overlays[HUD_OVERLAY_ID]
+
+        funestra.press(left + bgra.shape[1] - 2, top + bgra.shape[0] - 2, window=WINDOW)
+
+        assert _asked(tmp_path) == []
+
+    def test_its_sound_is_the_rooms_so_the_chip_asks_rather_than_sets(self, tmp_path):
+        funestra, player, _kino = _main(tmp_path)
+        vx, vy = chip_xy(win_w=640, win_h=480, timeline_h=TIMELINE_HEIGHT)
+
+        funestra.press(vx + 66, vy + 11, window=WINDOW)
+
+        assert _asked(tmp_path) == ["audio_set_volume|50"]
+        assert player.volume == 100
+
+    def test_the_rooms_level_reaches_the_player_through_the_command_file(self, tmp_path):
+        funestra, player, _kino = _main(tmp_path, commands="SET_VOLUME 40 0\n")
+
+        funestra.tick(window=WINDOW)
+
+        assert player.volume == 40
+
+    def test_it_opens_unmuted_so_the_rooms_level_is_heard(self, tmp_path):
+        _funestra, player, _kino = _main(tmp_path)
+
+        assert player.muted is False
+
+    def test_a_held_band_is_let_go_when_the_button_comes_up(self, tmp_path):
+        funestra, player, _kino = _main(tmp_path)
+        _publish_console(tmp_path, max_intensity=50)
+        funestra.tick(window=WINDOW)
+        left, top, _bgra = player.overlays[HUD_OVERLAY_ID]
+        x, y, _w, h = funestra._panel._painter.tracks[0].rect
+        funestra.press(left + x, top + y + h // 2, window=WINDOW)
+        assert funestra._panel.holding is True
+
+        funestra.release()
+
+        assert funestra._panel.holding is False
+
+
+class TestWhatRunsOnTheFunestra:
+    def test_it_is_handed_the_playback_it_runs_on(self, tmp_path):
+        funestra, _player, kino = _main(tmp_path)
+
+        assert kino.playback is funestra.playback
+
+    def test_its_verbs_are_asked_before_the_funestras_own(self, tmp_path):
+        funestra, _player, kino = _main(tmp_path, commands="KINO_THING\nNEXT\n")
+
+        funestra.tick(window=WINDOW)
+
+        assert kino.commands == ["KINO_THING", "NEXT"]
+        assert funestra.playback.index == 1
+
+    def test_a_verb_neither_answers_is_named_on_the_log(self, tmp_path, caplog):
+        funestra, _player, _kino = _main(tmp_path, commands="FLOOP\n")
+
+        with caplog.at_level("WARNING", logger="player_core.funestra"):
+            funestra.tick(window=WINDOW)
+
+        assert "FLOOP" in caplog.text
+
+    def test_it_takes_a_pass_of_its_own_each_frame_before_the_playback_advances(self, tmp_path):
+        funestra, player, kino = _main(tmp_path, commands="NEXT\n")
+        funestra.playback.set_locked(False)
+        player.position_ms = 1_000.0
+
+        funestra.tick(window=WINDOW)
+        player.simulate_eof_advance()
+        funestra.tick(window=WINDOW)
+
+        assert [loads for loads, _position in kino.ticks] == [2, 2]
+        assert funestra.playback.loads == 3
+
+    def test_its_lines_ride_in_the_status_file_after_the_funestras_own(self, tmp_path):
+        funestra, _player, _kino = _main(tmp_path)
+
+        funestra.tick(window=WINDOW)
+
+        status = _status(tmp_path)
+        assert "length_mode=shorts\n" in status
+        assert "compilation=Vol 3\n" in status
+        assert status.index("portrait=") < status.index("length_mode=")
+
+
+class TestTheDisplay:
+    def test_told_off_it_covers_the_picture_and_paints_nothing_else(self, tmp_path):
+        funestra, player, _kino = _main(tmp_path, commands="DISPLAY_OFF\n")
+
+        funestra.tick(window=WINDOW)
+
+        assert list(player.overlays) == [BLACK_OVERLAY_ID]
+        assert player.pushes == 0
+
+    def test_a_blanked_funestra_still_publishes_its_status(self, tmp_path):
+        funestra, _player, _kino = _main(tmp_path, commands="DISPLAY_OFF\n")
+
+        funestra.tick(window=WINDOW)
+
+        assert "video=" in _status(tmp_path)
+
+    def test_told_on_again_it_paints_the_picture_and_its_controls(self, tmp_path):
+        funestra, player, _kino = _main(tmp_path, commands="DISPLAY_OFF\n")
+        funestra.tick(window=WINDOW)
+        (tmp_path / "cmd.txt").write_text("DISPLAY_ON\n", encoding="utf-8")
+
+        funestra.tick(window=WINDOW)
+
+        assert BLACK_OVERLAY_ID not in player.overlays
+        assert HUD_OVERLAY_ID in player.overlays
+        assert player.pushes == 1
+
+
+def _scripted_main(tmp_path: Path) -> tuple[Funestra, FakePlayer]:
+    clip = _clips(tmp_path, "v0")[0]
+    script = tmp_path / "v0.funscript"
+    script.write_text('{"actions": [{"at": 0, "pos": 0}, {"at": 900, "pos": 100}, '
+                      '{"at": 2400, "pos": 10}]}', encoding="utf-8")
+    channels = _console_channels(tmp_path, [f"{clip}\t{script}"])
+    _publish_console(tmp_path)
+    player = FakePlayer(duration_ms=600_000.0)
+    player.screenshot = np.zeros((10, 20, 4), dtype=np.uint8)
+    return Funestra(player, channels=channels, playlist=read_playlist(channels.playlist),
+                    locked=True, sound_is_the_rooms=True, user=Kino), player
+
+
+class TestAStretchOfTheItem:
+    def test_a_mark_zooms_the_scrubber_and_the_chip_rides_up_with_it(self, tmp_path):
+        funestra, player = _scripted_main(tmp_path)
+        funestra.tick(window=WINDOW)
+        _x, flat_y, _bgra = player.overlays[Funestra.VOLUME_OVERLAY_ID]
+
+        funestra.playback.set_mark(50_000)
+        player.position_ms = 51_000.0
+        funestra.tick(window=WINDOW)
+
+        _x, _y, bar = player.overlays[Funestra.SCRUBBER_OVERLAY_ID]
+        assert bar.shape[0] == 48
+        assert player.overlays[Funestra.VOLUME_OVERLAY_ID][1] < flat_y
+
+    def test_a_press_on_the_zoomed_scrubber_seeks_inside_the_window_it_shows(self, tmp_path):
+        funestra, player = _scripted_main(tmp_path)
+        funestra.playback.set_mark(50_000)
+        player.position_ms = 51_000.0
+        funestra.tick(window=WINDOW)
+        x0, x1 = bar_track_x(640)
+
+        funestra.press((x0 + x1) // 2, 470, window=WINDOW)
+
+        assert 48_000 <= player.seeks[-1] <= 70_000
+
+    def test_a_running_range_puts_its_two_frames_up_above_their_marks(self, tmp_path):
+        funestra, player = _scripted_main(tmp_path)
+        funestra.playback.set_ab_loop(2_000, 4_000)
+        player.position_ms = 2_000.0
+
+        funestra.tick(window=WINDOW)
+        player.position_ms = 3_700.0
+        funestra.tick(window=WINDOW)
+
+        assert {Funestra.IN_FRAME_OVERLAY_ID, Funestra.OUT_FRAME_OVERLAY_ID} <= set(player.overlays)
+        assert player.overlays[Funestra.IN_FRAME_OVERLAY_ID][2] is player.screenshot
+
+    def test_the_end_of_the_range_takes_both_frames_down(self, tmp_path):
+        funestra, player = _scripted_main(tmp_path)
+        funestra.playback.set_ab_loop(2_000, 4_000)
+        funestra.tick(window=WINDOW)
+
+        funestra.playback.clear_ab_loop()
+        funestra.tick(window=WINDOW)
+
+        assert not {Funestra.IN_FRAME_OVERLAY_ID, Funestra.OUT_FRAME_OVERLAY_ID} & set(player.overlays)
+
+    def test_a_frame_mpv_could_not_give_is_asked_for_again(self, tmp_path):
+        funestra, player = _scripted_main(tmp_path)
+        player.screenshot = None
+        funestra.playback.set_ab_loop(2_000, 4_000)
+
+        funestra.tick(window=WINDOW)
+
+        assert Funestra.IN_FRAME_OVERLAY_ID not in player.overlays
+        assert player.screenshots == 1
+
+    def test_the_frames_sit_under_the_panel_and_the_black_covers_them(self):
+        assert max(Funestra.IN_FRAME_OVERLAY_ID, Funestra.OUT_FRAME_OVERLAY_ID) < HUD_OVERLAY_ID
+        assert max(Funestra.OVERLAY_IDS) < BLACK_OVERLAY_ID

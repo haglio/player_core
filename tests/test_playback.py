@@ -752,3 +752,263 @@ class TestAFrameInThePicturesPlace:
 
         assert playback.current_video == finished
         assert player.opened == opened_before
+
+
+class TestOpeningLocked:
+    """The Main Funestra opens holding its item, the way the Main Player always
+    has; a satellite opens letting the list move on."""
+
+    def test_a_playback_opened_locked_holds_its_item_from_the_first_frame(self, tmp_path):
+        playback, player = _make_playback(tmp_path, entries=2, locked=True)
+
+        assert playback.is_locked is True
+        assert player.loop_file is True
+        assert player.staged_next is None
+
+    def test_a_playback_opened_unlocked_stages_the_next_item(self, tmp_path):
+        playback, player = _make_playback(tmp_path, entries=2)
+
+        assert playback.is_locked is False
+        assert player.staged_next == tmp_path / "v1.mp4"
+
+
+class TestWhereInTheListItIs:
+    def test_the_index_follows_the_item_on_screen(self, tmp_path):
+        playback, _player = _make_playback(tmp_path, entries=3)
+
+        assert playback.index == 0
+        playback.step(2)
+        assert playback.index == 2
+
+    def test_a_version_step_is_said_until_the_next_item_opens(self, tmp_path):
+        playback, _player = _make_playback(tmp_path, entries=2)
+        clip = playback.current_video
+        other = tmp_path / "v0_sorted.mp4"
+        other.write_text("fake")
+
+        assert playback.switching_versions is False
+        playback.step_version([clip, other], 1)
+        assert playback.switching_versions is True
+        playback.step(1)
+        assert playback.switching_versions is False
+
+
+class TestShape:
+    def test_an_item_taller_than_it_is_wide_is_portrait(self, tmp_path):
+        playback, player = _make_playback(tmp_path)
+
+        player.source_dims = (1080, 1920)
+
+        assert playback.portrait is True
+
+    def test_an_item_wider_than_it_is_tall_is_not(self, tmp_path):
+        playback, player = _make_playback(tmp_path)
+
+        player.source_dims = (1920, 1080)
+
+        assert playback.portrait is False
+
+    def test_an_item_not_measured_yet_has_no_shape(self, tmp_path):
+        playback, _player = _make_playback(tmp_path)
+
+        assert playback.portrait is None
+
+
+class TestTheScriptNamedForEachItem:
+    def test_it_says_which_file_scripts_an_item_in_the_list(self, tmp_path):
+        script = _script(tmp_path / "v1.funscript", (0, 0), (400, 90))
+        playback, _player = _make_playback(tmp_path, entries=2, funscripts={1: script})
+
+        assert playback.funscript_of(tmp_path / "v0.mp4") is None
+        assert playback.funscript_of(tmp_path / "v1.mp4") == script
+
+
+class TestASeekOverAFileOpen:
+    """mpv opens a file asynchronously and reports no duration for a tick or two,
+    and refuses a seek until the file plays.  A seek asked for in that window is
+    owed rather than dropped or clamped against a zero-length item."""
+
+    def test_a_seek_before_the_duration_is_known_waits(self, tmp_path):
+        playback, player = _make_playback(tmp_path, duration_ms=0.0)
+
+        playback.seek_to(60_000)
+
+        assert player.seeks == []
+
+    def test_it_lands_on_the_first_pass_the_duration_is_known(self, tmp_path):
+        playback, player = _make_playback(tmp_path, duration_ms=0.0)
+        playback.seek_to(60_000)
+        playback.advance()
+        assert player.seeks == []
+
+        player.duration_ms = 90_000.0
+        playback.advance()
+
+        assert player.seeks == [60_000]
+
+    def test_it_lands_even_while_paused(self, tmp_path):
+        playback, player = _make_playback(tmp_path, duration_ms=0.0, start_paused=True)
+        playback.seek_to(60_000)
+        player.duration_ms = 90_000.0
+
+        playback.advance()
+
+        assert player.seeks == [60_000]
+
+    def test_it_lands_only_once(self, tmp_path):
+        playback, player = _make_playback(tmp_path, duration_ms=0.0)
+        playback.seek_to(60_000)
+        player.duration_ms = 90_000.0
+
+        playback.advance()
+        playback.advance()
+
+        assert player.seeks == [60_000]
+
+    def test_a_seek_mpv_refused_is_asked_for_again(self, tmp_path):
+        playback, player = _make_playback(tmp_path, duration_ms=90_000.0)
+        player.refuse_seeks(1)
+
+        playback.seek_to(2_000)
+        playback.advance()
+
+        assert player.seeks == [2_000]
+
+    def test_navigating_away_drops_a_seek_the_old_item_never_took(self, tmp_path):
+        playback, player = _make_playback(tmp_path, entries=2, duration_ms=0.0)
+        playback.seek_to(60_000)
+
+        playback.step(1)
+        player.duration_ms = 90_000.0
+        playback.advance()
+
+        assert player.seeks == []
+
+
+class TestAStretchBeingMarked:
+    """A mark is where a stretch of the item starts to be marked out; nothing may
+    rewind the playhead before it until the mark is closed or dropped."""
+
+    def test_a_mark_is_a_floor_under_every_seek(self, tmp_path):
+        playback, player = _make_playback(tmp_path, duration_ms=60_000.0)
+        player.position_ms = 5_000.0
+
+        playback.set_mark(5_000)
+        playback.seek_by(-3_000)
+        playback.seek_to(1_000)
+
+        assert player.seeks == [5_000.0, 5_000.0]
+        assert playback.mark == 5_000
+
+    def test_dropping_the_mark_lifts_the_floor(self, tmp_path):
+        playback, player = _make_playback(tmp_path, duration_ms=60_000.0)
+        playback.set_mark(5_000)
+
+        playback.set_mark(None)
+        playback.seek_to(1_000)
+
+        assert player.seeks == [1_000.0]
+        assert playback.mark is None
+
+    def test_opening_another_item_drops_the_mark(self, tmp_path):
+        playback, _player = _make_playback(tmp_path, entries=2)
+        playback.set_mark(5_000)
+
+        playback.step(1)
+
+        assert playback.mark is None
+
+
+class TestAStretchRepeated:
+    """An A/B range mpv goes round: the script of the item comes round with it,
+    and the range belongs to the item, so opening another item ends it."""
+
+    def test_the_range_reaches_the_player_and_closes_the_mark(self, tmp_path):
+        playback, player = _make_playback(tmp_path, duration_ms=60_000.0)
+        playback.set_mark(2_000)
+
+        playback.set_ab_loop(2_000, 4_000)
+
+        assert player.ab_loop == (2_000, 4_000)
+        assert (playback.ab_loop, playback.mark) == ((2_000, 4_000), None)
+
+    def test_clearing_it_clears_the_players_range(self, tmp_path):
+        playback, player = _make_playback(tmp_path, duration_ms=60_000.0)
+        playback.set_ab_loop(2_000, 4_000)
+
+        playback.clear_ab_loop()
+
+        assert (player.ab_loop, playback.ab_loop) == (None, None)
+
+    def test_a_running_range_plays_its_stretch_of_the_script_again_and_again(self, tmp_path):
+        script = _script(tmp_path / "v0.funscript", (0, 100), (1_000, 0), (2_000, 100),
+                         (3_000, 0), (4_000, 100))
+        playback, _player = _make_playback(tmp_path, duration_ms=60_000.0, funscripts={0: script})
+
+        playback.set_ab_loop(2_000, 4_000)
+
+        assert playback.funscript_as_played.position_at(5_000) == 0
+
+    def test_opening_another_item_clears_a_range_the_last_one_left(self, tmp_path):
+        playback, player = _make_playback(tmp_path, entries=2, duration_ms=60_000.0)
+        playback.set_ab_loop(2_000, 4_000)
+
+        playback.step(1)
+
+        assert (player.ab_loop, playback.ab_loop) == (None, None)
+
+    def test_the_device_can_be_taken_over_by_whoever_moves_the_clock(self, tmp_path):
+        tcode = FakeTCode()
+        playback, _player = _make_playback(tmp_path, tcode=tcode)
+        before = tcode.resets
+
+        playback.take_the_device_over()
+
+        assert tcode.resets == before + 1
+
+
+class TestCountingTheItemsOpened:
+    """How many times an item has been opened on the player, so whatever runs on
+    a Funestra can tell a reopened item from the one it was already looking at."""
+
+    def test_every_open_counts_including_the_same_item_again(self, tmp_path):
+        playback, _player = _make_playback(tmp_path, entries=2)
+        opened = playback.loads
+
+        playback.step(1)
+        playback.play_file(playback.current_video)
+
+        assert playback.loads == opened + 2
+
+    def test_an_item_rolled_onto_counts_as_opened(self, tmp_path):
+        playback, player = _make_playback(tmp_path, entries=2)
+        opened = playback.loads
+
+        player.simulate_eof_advance()
+        playback.advance()
+
+        assert playback.loads == opened + 1
+
+
+class TestTakingUpAListFromItsTop:
+    def test_it_plays_the_new_lists_first_item(self, tmp_path):
+        playback, player = _make_playback(tmp_path, entries=2)
+        a, b = tmp_path / "a.mp4", tmp_path / "b.mp4"
+        for path in (a, b):
+            path.write_text("fake")
+
+        playback.load_playlist([a, b])
+
+        assert (playback.index, playback.current_video) == (0, a)
+        assert player.opened[-1] == a
+        assert playback.playlist == [a, b]
+
+    def test_it_brings_the_lists_scripts(self, tmp_path):
+        playback, _player = _make_playback(tmp_path, entries=2)
+        a = tmp_path / "a.mp4"
+        a.write_text("fake")
+        script = _script(tmp_path / "a.funscript", (0, 0), (100, 99))
+
+        playback.load_playlist([a], {a: script})
+
+        assert playback.current_funscript.actions == [(0, 0), (100, 99)]

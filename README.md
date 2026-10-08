@@ -52,14 +52,19 @@ another application's internals to get it. By what it is:
   any player with the same interface) and the files its User drives it through
   (`Channels`), plays what it is handed (`playback`, with `funestra_controls`
   answering the verbs, `funestra_status` publishing the status, `play_points`,
-  `seeking` and `scripted_device` under it), and draws the published panel
-  (`hud_overlay`), the scrubber (`heatmap` for a scripted item's colors), the
-  volume chip (`volume_control`) and the playhead readout itself, placing a
-  press against them (`pointer`).  A User runs on a Funestra and hands it
-  content and the buttons to draw; none draws on it.  `tests/test_hud_drawers.py`
-  holds the consumers to that: a package that imports a painter out of here is
-  drawing a HUD itself, and only the ones still to move onto a Funestra are
-  listed.
+  `seeking` and `scripted_device` under it), and draws the published panel —
+  a satellite's (`hud_overlay`) or the main slot's console (`console_overlay`),
+  whichever file it was given — the scrubber (`scrubber`: a scripted item's
+  colors, the zoom while a stretch is marked, the frames of a running A/B
+  range), the volume chip (`volume_control`: its own level, or the room's,
+  asked for on the dashboard's channel, `dashboard`), the playhead readout and
+  the black it shows when the room gives its rectangle away (`display`),
+  placing a press against them (`pointer`).  A User runs on a Funestra in the
+  same process (`funestra.User`: its verbs, a pass of its own each frame, its
+  lines in the status file, the console's top block) or drives it through its
+  files from another; none draws on it.  `tests/test_hud_drawers.py` holds the
+  consumers to that: a package that imports a painter out of here is drawing a
+  HUD itself, and only the ones still to move onto a Funestra are listed.
 - **the window** — `sdl_hints`, the SDL facts every player here has to get
   right before it opens one (its taskbar identity it claims through
   `app_support.win32`, like every other process in the family).

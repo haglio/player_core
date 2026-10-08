@@ -62,9 +62,13 @@ class FakePlayer(RefusesSeeks):
         self.speed = 1.0
         self.pace_s: float | None = None
         self.showing_picture = False
+        self.source_dims = (0, 0)
+        self.ab_loop: tuple[float, float] | None = None
         self.pushes = 0
         self.tiled_to: list[tuple[int, int]] = []
         self.swapped: list[Path] = []
+        self.screenshot = None
+        self.screenshots = 0
 
     def tile_to_fill(self, window_width: int, window_height: int) -> None:
         self.tiled_to.append((window_width, window_height))
@@ -112,6 +116,12 @@ class FakePlayer(RefusesSeeks):
         self.seeks.append(ms)
         self.position_ms = max(0.0, min(self.duration_ms, ms))
 
+    def set_ab_loop(self, in_ms: float, out_ms: float) -> None:
+        self.ab_loop = (in_ms, out_ms)
+
+    def clear_ab_loop(self) -> None:
+        self.ab_loop = None
+
     def set_volume(self, volume: int) -> None:
         self.volume = volume
 
@@ -123,6 +133,10 @@ class FakePlayer(RefusesSeeks):
 
     def close(self) -> None:
         self.closed = True
+
+    def screenshot_bgra(self):
+        self.screenshots += 1
+        return self.screenshot
 
     def overlay(self, ident: int, x: int, y: int, bgra) -> None:
         self.overlays[ident] = (x, y, bgra)
@@ -140,7 +154,7 @@ class FakePlayer(RefusesSeeks):
         return tail[0] if tail else None
 
 
-def make_playback(tmp_path, *, entries=1, start_paused=False, duration_ms=5_000.0,
+def make_playback(tmp_path, *, entries=1, start_paused=False, duration_ms=5_000.0, locked=False,
                   play_points=None, funscripts=None, tcode=None):
     playlist = []
     for i in range(entries):
@@ -149,7 +163,7 @@ def make_playback(tmp_path, *, entries=1, start_paused=False, duration_ms=5_000.
         playlist.append(vid)
     player = FakePlayer(duration_ms=duration_ms)
     return Playback(
-        playlist, player=player, start_paused=start_paused, play_points=play_points,
+        playlist, player=player, start_paused=start_paused, locked=locked, play_points=play_points,
         funscripts={playlist[index]: script for index, script in (funscripts or {}).items()},
         tcode=tcode,
     ), player
