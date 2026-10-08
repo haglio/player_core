@@ -53,14 +53,16 @@ install -- so a worktree of this repo needs nothing copied in. A checkout's own
   needs. `StatusWriter` takes a `fields` callable rather than hardcoding either
   player's keys for exactly this reason.
 
-- **A Player IS a Funestra; nothing runs *on* a Player.** A Funestra is a
-  window of Fun Time (`funestra.Funestra`): it plays what it is handed and
-  draws the HUD. The Main, Portrait and Landscape Players are Funestras, and
-  Kino (Fun Time's Video mode), Genau and an Origenerator Slideshow are what
-  runs on them. Saying a Player "runs on" or "has" a Funestra puts a layer
-  between the window and what he watches that does not exist, and he has had
-  to correct it. The near miss that still counts: "the satellites run on a
-  Funestra" -- the satellite program is the window, so each satellite is one.
+- **A Player is a Funestra, and what ran on a Player runs on a Funestra.** A
+  Funestra is a window of Fun Time (`funestra.Funestra`): it plays what it is
+  handed and draws the HUD. The Main, Portrait and Landscape Players became
+  Funestras, and Kino (Fun Time's Video mode), Genau and an Origenerator
+  Slideshow run on them exactly as they ran on the Players. What is wrong is a
+  third thing between the two -- a Player that "runs on" or "has" a Funestra,
+  a Funestra under a Player -- and so is the opposite over-correction, that
+  nothing runs on a Player; he has had to correct both. The near miss that
+  still counts: "the satellites run on a Funestra" -- the satellite program is
+  the window, so each satellite is a Funestra, and Kino runs on it.
 
 ## Changing this repo changes three apps
 
