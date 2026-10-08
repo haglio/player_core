@@ -150,6 +150,19 @@ def test_commands_drain_and_act_before_the_frame_is_published(tmp_path):
     assert f"video={clips[1]}" in _status(tmp_path)
 
 
+def test_a_list_written_under_the_window_is_taken_with_no_verb_sent(tmp_path):
+    """The host writes the list and then queues one reload, and that queue drops the
+    line when the file is held for longer than 25ms -- after which the window went
+    on playing what it had, with the new list on disk beside it, for good."""
+    clips = _clips(tmp_path, "v0", "v1", "v2")
+    funestra, _player = _funestra(tmp_path, [str(clips[0])], commands="")
+    (tmp_path / "playlist.tsv").write_text(f"{clips[2]}\n", encoding="utf-8")
+
+    funestra.tick(window=WINDOW)
+
+    assert f"video={clips[2]}" in _status(tmp_path)
+
+
 def test_reload_playlist_reads_the_list_it_was_handed_again(tmp_path):
     clips = _clips(tmp_path, "v0", "v1", "v2")
     funestra, _player = _funestra(tmp_path, [str(clips[0])], commands="")
