@@ -24,6 +24,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import NamedTuple
 
+logger = logging.getLogger(__name__)
 _TIMEOUT_S = 60
 # Added to whatever wait a 429 names, so the retry lands past the limit's edge
 # rather than on it.
@@ -96,7 +97,7 @@ class Forum:
                  sleep: Callable[[float], None] = time.sleep,
                  clock: Callable[[], float] = time.monotonic,
                  pace_s: float = 1.0,
-                 log: logging.Logger = logging.getLogger(__name__)) -> None:
+                 log: logging.Logger = logger) -> None:
         self._base_url = base_url.rstrip("/")
         self._headers = headers
         self._opener = opener
