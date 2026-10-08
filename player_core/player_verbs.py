@@ -46,6 +46,7 @@ __all__ = [
     "TRASH",
     "pace_seconds",
     "play_file",
+    "step_version",
 ]
 
 # The list: step along it, or read it again after the source rewrote the file

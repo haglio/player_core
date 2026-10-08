@@ -7,7 +7,10 @@ from pathlib import Path
 
 from app_support.file_channel import publish_whole
 
-__all__: list[str] = []
+__all__ = [
+    "PlayPoints",
+    "play_points_filename",
+]
 
 
 def play_points_filename(who: str) -> str:

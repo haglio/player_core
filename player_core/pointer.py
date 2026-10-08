@@ -11,7 +11,10 @@ from .file_channel import append_command
 from .playhead import on_readout
 from .timeline import TIMELINE_HEIGHT, bar_track_x
 
-__all__: list[str] = []
+__all__ = [
+    "OMNIPAUSE_TOGGLE",
+    "time_at",
+]
 
 logger = logging.getLogger(__name__)
 

@@ -12,7 +12,9 @@ from .volume import (
     volume_at,
 )
 
-__all__: list[str] = []
+__all__ = [
+    "VolumeControl",
+]
 
 
 class VolumeControl:

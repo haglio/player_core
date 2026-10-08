@@ -27,7 +27,10 @@ from .timeline import TIMELINE_HEIGHT, bar_track_x, progress_bar_bgra
 from .volume import VolumeHudPainter, chip_xy
 from .volume_control import VolumeControl
 
-__all__: list[str] = []
+__all__ = [
+    "Channels",
+    "Funestra",
+]
 
 logger = logging.getLogger(__name__)
 

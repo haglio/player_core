@@ -34,7 +34,10 @@ from .player_verbs import (
 )
 from .playlist import item_from_line
 
-__all__: list[str] = []
+__all__ = [
+    "FunestraControls",
+    "apply_command",
+]
 
 logger = logging.getLogger(__name__)
 
