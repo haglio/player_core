@@ -23,7 +23,8 @@ from .mpv_player import MpvPlayer
 from .play_points import PlayPoints
 from .playback import Playback, funscripts_of
 from .playhead import video_playhead
-from .playlist import PlaylistItem, read_playlist
+from .playlist import PlaylistItem
+from .playlist_follower import PlaylistFollower
 from .pointer import Pointer
 from .scrubber import HeatmapStrip, LoopThumbCapture, loop_thumbnail_xys
 from .session_quit import quit_gesture
@@ -121,6 +122,8 @@ class Funestra:
             locked=locked, play_points=PlayPoints(channels.play_points),
             funscripts=funscripts_of(playlist), tcode=tcode,
         )
+        self._follower = (None if channels.playlist is None
+                          else PlaylistFollower(channels.playlist, take=self._take_the_list))
         self._user: User = _Nobody() if user is None else user(self.playback)
         self._drive_gate = DriveGate(self.playback)
         self._strip = HeatmapStrip()
@@ -132,7 +135,8 @@ class Funestra:
         self._display = Display(player, self.OVERLAY_IDS)
         self._pointer = Pointer(hud=self._panel, dashboard_cmd_file=channels.dashboard_cmd)
         self._controls = FunestraControls(
-            self.playback, stop_event=self._stop, reload_playlist=self._reload_playlist,
+            self.playback, stop_event=self._stop,
+            reload_playlist=None if self._follower is None else self._follower.read_now,
             room_volume=self._volume if sound_is_the_rooms else None, display=self._display)
         self._status = (
             StatusWriter(channels.status, lambda playback: {
@@ -209,6 +213,8 @@ class Funestra:
         if channels.command is not None:
             for command in consume_command_file(channels.command, logger=logger, uppercase=False):
                 self._apply(command)
+        if self._follower is not None:
+            self._follower.tick()
         self._user.tick()
         self.playback.advance()
         if self._status is not None:
@@ -230,12 +236,8 @@ class Funestra:
         if not look_up(command, VERBS, self._controls):
             logger.warning("Unhandled command: %s", command.strip())
 
-    def _reload_playlist(self) -> None:
-        if self._channels.playlist is None:
-            return
-        items = read_playlist(self._channels.playlist)
-        if items:
-            self.playback.replace_playlist([item.path for item in items], funscripts_of(items))
+    def _take_the_list(self, items: list[PlaylistItem]) -> None:
+        self.playback.replace_playlist([item.path for item in items], funscripts_of(items))
 
     def _paint(self, window: tuple[int, int]) -> None:
         self._paint_panel(window, self.clip_row())

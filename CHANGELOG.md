@@ -9,6 +9,31 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-10-08 — a window follows its playlist file, and fifteen HUD names are declared again
+
+`PlaylistFollower` (new, private to this package): a window takes the list its
+playlist file holds whenever that file changes, and `RELOAD_PLAYLIST` only brings
+that read forward. Until now the verb was the only way a new list ever reached a
+window: the host writes the file and queues one line, `append_command` drops that
+line when the queue is held for longer than 25ms and tells nobody, and the window
+then played what it had with the new list sitting on disk beside it for the rest
+of the session. Fun Time's flake gate caught it twice on the landscape player,
+coming back into Origenerator mode.
+
+Declared, fifteen names the apps already import: `hud_row`'s `MUTE`, `SCRUBBER`,
+`VOLUME`, `RowHud`, `row_part`, `scrub_to` and `volume_to`; `hud_panel`'s
+`draw_button`, `fit_text` and `text_width`; `satellite_hud`'s `BLOCK_GAP`,
+`CTRL_BTN` and `MAP_THUMB_H`; `volume`'s `MAX_VOLUME` and `MIN_VOLUME`. A module
+lands here private and is declared once an app reaches for it, and that second
+half had not happened for the row, the panel or the two HUDs.
+
+A defect left alone: the merge gate does not catch an undeclared name. Its
+`prepare` step clones genau, fun_time and origenerator next to the checkout so
+`tests/test_consumer_imports.py` has consumers to read, and the run for `e58de4e`
+reported that test as skipped -- which is what it does when it finds no sibling
+importing this package. The clones are not landing where the scan looks, so that
+gate has never once held this surface.
+
 ## 2026-10-08 — the clip's row is a block of the panel, and nothing is drawn along a lower edge
 
 A Funestra laid the track, the time readout and the volume chip along the lower
