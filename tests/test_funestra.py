@@ -13,17 +13,28 @@ from funestra_fakes import FakePlayer
 from player_core.console import ConsoleModel, ModeHud, console_text
 from player_core.display import BLACK_OVERLAY_ID
 from player_core.funestra import Channels, Funestra
-from player_core.funscript import load as load_funscript
-from player_core.heatmap import build_heatmap
 from player_core.hud_overlay import HUD_OVERLAY_ID
 from player_core.modes import LengthMode, MainMode, Osr2State
-from player_core.playhead import PlayheadHudPainter, readout_xy, video_playhead
 from player_core.playlist import read_playlist
 from player_core.session_quit import SESSION_QUIT
-from player_core.timeline import TIMELINE_HEIGHT, bar_track_x, progress_bar_bgra
-from player_core.volume import chip_xy
+from player_core.timeline import TIMELINE_HEIGHT, bar_track_x
+from player_core.volume import CHIP_H, CHIP_W, chip_xy
 
 WINDOW = (640, 480)
+
+
+def _on_the_row(funestra, player, part: str = "track", *, along: int | None = None):
+    """A window point on one of the row's controls, which the panel draws at
+    its foot.  The panel is wherever the room put it, so this is read back off
+    the overlay it was composited at."""
+    left, top, _bgra = player.overlays[HUD_OVERLAY_ID]
+    x, y, width, height = funestra._panel.row_rect
+    if part == "track":
+        x0, x1 = bar_track_x(width)
+        return left + x + (along if along is not None else (x0 + x1) // 2), top + y + height - 4
+    cx, cy = chip_xy(win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT)
+    across = 4 if part == "speaker" else CHIP_W - 6
+    return left + x + cx + across, top + y + cy + CHIP_H // 2
 
 
 def _clips(tmp_path: Path, *names: str) -> list[Path]:
@@ -74,48 +85,60 @@ def test_one_pass_plays_publishes_and_paints_then_quit_stops_it(tmp_path):
 
     assert player.opened[0] == clips[0]
     assert f"video={clips[0]}" in _status(tmp_path)
-    assert len(player.overlays) == 3
     assert funestra.stopped is True
     funestra.close()
     assert player.closed is True
 
 
-def test_one_pass_puts_up_where_the_clip_is_and_how_long_it_runs(tmp_path):
+def test_a_window_wearing_no_panel_draws_nothing_over_its_picture(tmp_path):
+    """The track, the time and the volume are a block of the panel, so a window
+    with no panel to wear has nowhere to put them -- and the picture comes
+    through untouched instead of carrying a row along its lower edge."""
     funestra, player = _funestra(tmp_path, [str(clip) for clip in _clips(tmp_path, "v0")])
 
     funestra.tick(window=WINDOW)
 
-    pill = PlayheadHudPainter().bgra(video_playhead(0.0, player.duration_ms, player.frame_rate))
-    at = readout_xy(pill.shape[1], win_w=640, win_h=480, timeline_h=TIMELINE_HEIGHT)
-    assert any((x, y) == at and np.array_equal(bgra, pill)
-               for x, y, bgra in player.overlays.values())
+    assert player.overlays == {}
 
 
-def test_a_scripted_clips_scrubber_is_filled_with_its_scripts_colors(tmp_path):
+def test_the_row_says_where_the_clip_is_and_how_long_it_runs(tmp_path):
+    funestra, player = _funestra(tmp_path, [str(clip) for clip in _clips(tmp_path, "v0")])
+
+    funestra.tick(window=WINDOW)
+
+    row = funestra.clip_row()
+    assert (row.position_ms, row.duration_ms) == (0.0, player.duration_ms)
+    assert row.playhead is not None
+    assert row.volume is funestra._volume.hud
+
+
+def test_a_scripted_clips_track_is_filled_across_the_width_the_panel_drew_it_at(tmp_path):
+    """The colors fill the track, and a panel is as wide as what is on it, so
+    they are measured across the row the panel drew rather than the window."""
     clip = _clips(tmp_path, "v0")[0]
     script = tmp_path / "v0.funscript"
     script.write_text('{"actions": [{"at": 0, "pos": 0}, {"at": 900, "pos": 100}, '
                       '{"at": 2400, "pos": 10}]}', encoding="utf-8")
-    funestra, player = _funestra(tmp_path, [f"{clip}\t{script}"])
+    funestra, _player = _funestra(tmp_path, [f"{clip}\t{script}"], hud=True)
+    _publish_panel(tmp_path)
 
     funestra.tick(window=WINDOW)
+    funestra.tick(window=WINDOW)
 
-    x0, x1 = bar_track_x(640)
-    _x, _y, bar = player.overlays[Funestra.SCRUBBER_OVERLAY_ID]
-    assert np.array_equal(bar, progress_bar_bgra(
-        0.0, player.duration_ms, None, 640,
-        heatmap=build_heatmap(load_funscript(script), x1 - x0,
-                              start_ms=0, end_ms=player.duration_ms)))
+    x0, x1 = bar_track_x(funestra._panel.row_rect[2])
+    assert len(funestra._strip.colors) == x1 - x0
 
 
-def test_a_picture_on_screen_has_no_scrubber_under_it(tmp_path):
-    funestra, player = _funestra(tmp_path, [str(clip) for clip in _clips(tmp_path, "v0")])
+def test_a_picture_on_screen_puts_no_row_on_the_panel(tmp_path):
+    funestra, player = _funestra(tmp_path, [str(clip) for clip in _clips(tmp_path, "v0")],
+                                 hud=True)
+    _publish_panel(tmp_path)
     player.showing_picture = True
 
     funestra.tick(window=WINDOW)
 
-    assert Funestra.SCRUBBER_OVERLAY_ID not in player.overlays
-    assert len(player.overlays) == 2
+    assert funestra.clip_row() is None
+    assert funestra._panel.row_rect is None
 
 
 def test_commands_drain_and_act_before_the_frame_is_published(tmp_path):
@@ -177,40 +200,57 @@ class TestTheWindowsClose:
 
 
 class TestAPress:
-    def test_on_the_scrubber_seeks_the_clip(self, tmp_path):
-        funestra, player = _funestra(tmp_path, [str(clip) for clip in _clips(tmp_path, "v0")])
-        x0, x1 = bar_track_x(640)
+    """On the row the panel draws, which is where the track, the time and the
+    volume are now."""
 
-        funestra.press((x0 + x1) // 2, 476, window=WINDOW)
+    def _wearing_a_panel(self, tmp_path, *, audible: bool = True):
+        funestra, player = _funestra(
+            tmp_path, [str(clip) for clip in _clips(tmp_path, "v0")],
+            hud=True, audible=audible)
+        _publish_panel(tmp_path)
+        funestra.tick(window=WINDOW)
+        return funestra, player
+
+    def test_on_the_track_seeks_the_clip(self, tmp_path):
+        funestra, player = self._wearing_a_panel(tmp_path)
+        x0, x1 = bar_track_x(funestra._panel.row_rect[2])
+
+        funestra.press(*_on_the_row(funestra, player), window=WINDOW)
 
         assert len(player.seeks) == 1
         assert abs(player.seeks[0] - player.duration_ms / 2) <= player.duration_ms / (x1 - x0)
 
-    def test_on_the_volume_chip_unmutes_this_player(self, tmp_path):
-        funestra, player = _funestra(tmp_path, [str(clip) for clip in _clips(tmp_path, "v0")])
-        vx, vy = chip_xy(win_w=640, win_h=480, timeline_h=TIMELINE_HEIGHT)
+    def test_on_the_speaker_unmutes_this_player(self, tmp_path):
+        funestra, player = self._wearing_a_panel(tmp_path)
 
-        funestra.press(vx + 7, vy + 11, window=WINDOW)
+        funestra.press(*_on_the_row(funestra, player, "speaker"), window=WINDOW)
 
         assert player.muted is False
         assert player.seeks == []
 
-    def test_on_the_chip_of_a_silent_build_sets_nothing(self, tmp_path):
-        funestra, player = _funestra(tmp_path, [str(clip) for clip in _clips(tmp_path, "v0")],
-                                     audible=False)
-        vx, vy = chip_xy(win_w=640, win_h=480, timeline_h=TIMELINE_HEIGHT)
+    def test_on_the_speaker_of_a_silent_build_sets_nothing(self, tmp_path):
+        funestra, player = self._wearing_a_panel(tmp_path, audible=False)
 
-        funestra.press(vx + 7, vy + 11, window=WINDOW)
+        funestra.press(*_on_the_row(funestra, player, "speaker"), window=WINDOW)
 
         assert player.muted is True
 
-    def test_held_along_the_chip_keeps_setting_the_level(self, tmp_path):
-        funestra, player = _funestra(tmp_path, [str(clip) for clip in _clips(tmp_path, "v0")])
-        vx, vy = chip_xy(win_w=640, win_h=480, timeline_h=TIMELINE_HEIGHT)
+    def test_held_along_the_slider_keeps_setting_the_level(self, tmp_path):
+        funestra, player = self._wearing_a_panel(tmp_path)
+        at = _on_the_row(funestra, player, "slider")
 
-        funestra.motion(vx + 66, vy + 11, held=True, window=WINDOW)
+        funestra.press(*at, window=WINDOW)
+        funestra.motion(*at, held=True, window=WINDOW)
 
-        assert player.volume == 50
+        assert player.volume == 100
+
+    def test_anywhere_off_the_panel_asks_the_session_to_pause_everything(self, tmp_path):
+        funestra, player = self._wearing_a_panel(tmp_path)
+        left, top, panel = player.overlays[HUD_OVERLAY_ID]
+
+        funestra.press(left + panel.shape[1] + 20, top + panel.shape[0] + 20, window=WINDOW)
+
+        assert _asked(tmp_path) == ["omnipause_toggle"]
 
 
 def test_each_pass_carries_a_still_s_move_a_little_further(tmp_path):
@@ -237,14 +277,18 @@ def test_a_player_that_does_not_tile_is_never_asked_to(tmp_path):
     assert player.tiled_to == []
 
 
-def test_the_panel_its_source_publishes_is_drawn_over_the_picture(tmp_path):
+def _publish_panel(tmp_path: Path) -> None:
+    (tmp_path / "portrait_hud.json").write_text(json.dumps({"player": "portrait"}),
+                                                encoding="utf-8")
+
+
+def test_the_panel_its_source_publishes_is_the_one_thing_over_the_picture(tmp_path):
     funestra, player = _funestra(tmp_path, [str(clip) for clip in _clips(tmp_path, "v0")], hud=True)
-    (tmp_path / "portrait_hud.json").write_text(json.dumps({"player": "portrait"}), encoding="utf-8")
+    _publish_panel(tmp_path)
 
     funestra.tick(window=WINDOW)
 
-    assert HUD_OVERLAY_ID in player.overlays
-    assert len(player.overlays) == 4
+    assert list(player.overlays) == [HUD_OVERLAY_ID]
 
 
 def test_on_a_window_the_way_of_playing_is_mpv_opened_on_that_window(tmp_path):
@@ -324,8 +368,7 @@ class TestTheMainFunestra:
 
         funestra.tick(window=WINDOW)
 
-        assert HUD_OVERLAY_ID in player.overlays
-        assert len(player.overlays) == 4
+        assert list(player.overlays) == [HUD_OVERLAY_ID]
 
     def test_the_console_leads_with_what_runs_on_the_funestra_says_it_is_playing(self, tmp_path):
         funestra, player, kino = _main(tmp_path)
@@ -358,11 +401,11 @@ class TestTheMainFunestra:
 
     def test_its_sound_is_the_rooms_so_the_chip_asks_rather_than_sets(self, tmp_path):
         funestra, player, _kino = _main(tmp_path)
-        vx, vy = chip_xy(win_w=640, win_h=480, timeline_h=TIMELINE_HEIGHT)
+        funestra.tick(window=WINDOW)
 
-        funestra.press(vx + 66, vy + 11, window=WINDOW)
+        funestra.press(*_on_the_row(funestra, player, "slider"), window=WINDOW)
 
-        assert _asked(tmp_path) == ["audio_set_volume|50"]
+        assert _asked(tmp_path) == ["audio_set_volume|100"]
         assert player.volume == 100
 
     def test_the_rooms_level_reaches_the_player_through_the_command_file(self, tmp_path):
@@ -478,31 +521,30 @@ def _scripted_main(tmp_path: Path) -> tuple[Funestra, FakePlayer]:
 
 
 class TestAStretchOfTheItem:
-    def test_a_mark_zooms_the_scrubber_and_the_chip_rides_up_with_it(self, tmp_path):
+    def test_a_mark_zooms_the_track_to_the_stretch_around_it(self, tmp_path):
         funestra, player = _scripted_main(tmp_path)
         funestra.tick(window=WINDOW)
-        _x, flat_y, _bgra = player.overlays[Funestra.VOLUME_OVERLAY_ID]
+        assert funestra.clip_row().duration_ms == player.duration_ms
 
         funestra.playback.set_mark(50_000)
         player.position_ms = 51_000.0
         funestra.tick(window=WINDOW)
 
-        _x, _y, bar = player.overlays[Funestra.SCRUBBER_OVERLAY_ID]
-        assert bar.shape[0] == 48
-        assert player.overlays[Funestra.VOLUME_OVERLAY_ID][1] < flat_y
+        row = funestra.clip_row()
+        assert row.duration_ms < player.duration_ms
+        assert row.record_in_ms == 50_000 - funestra._strip.window[0]
 
-    def test_a_press_on_the_zoomed_scrubber_seeks_inside_the_window_it_shows(self, tmp_path):
+    def test_a_press_on_the_zoomed_track_seeks_inside_the_stretch_it_shows(self, tmp_path):
         funestra, player = _scripted_main(tmp_path)
         funestra.playback.set_mark(50_000)
         player.position_ms = 51_000.0
         funestra.tick(window=WINDOW)
-        x0, x1 = bar_track_x(640)
 
-        funestra.press((x0 + x1) // 2, 470, window=WINDOW)
+        funestra.press(*_on_the_row(funestra, player), window=WINDOW)
 
         assert 48_000 <= player.seeks[-1] <= 70_000
 
-    def test_a_running_range_puts_its_two_frames_up_above_their_marks(self, tmp_path):
+    def test_a_running_range_hangs_its_two_frames_under_the_panel(self, tmp_path):
         funestra, player = _scripted_main(tmp_path)
         funestra.playback.set_ab_loop(2_000, 4_000)
         player.position_ms = 2_000.0
@@ -513,6 +555,8 @@ class TestAStretchOfTheItem:
 
         assert {Funestra.IN_FRAME_OVERLAY_ID, Funestra.OUT_FRAME_OVERLAY_ID} <= set(player.overlays)
         assert player.overlays[Funestra.IN_FRAME_OVERLAY_ID][2] is player.screenshot
+        panel_top, panel = player.overlays[HUD_OVERLAY_ID][1], player.overlays[HUD_OVERLAY_ID][2]
+        assert player.overlays[Funestra.IN_FRAME_OVERLAY_ID][1] >= panel_top + panel.shape[0]
 
     def test_the_end_of_the_range_takes_both_frames_down(self, tmp_path):
         funestra, player = _scripted_main(tmp_path)

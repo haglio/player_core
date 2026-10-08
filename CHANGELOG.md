@@ -9,6 +9,35 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-10-08 — the clip's row is a block of the panel, and nothing is drawn along a lower edge
+
+A Funestra laid the track, the time readout and the volume chip along the lower
+edge of its video while the panel it wears sat above them: two panels on one
+screen, and in the headset a wrapped video smears such a row round the nadir.
+The row is a block of whichever panel the window wears now -- the room's
+console on the main slot, else the published HUD -- so `Funestra` draws exactly
+one thing over its picture, plus the loop's two frames hanging under it.
+
+Gone: `Funestra.SCRUBBER_OVERLAY_ID`, `VOLUME_OVERLAY_ID` and
+`READOUT_OVERLAY_ID`, with `OVERLAY_IDS` down to the panel and the loop's two
+frames; `VolumeControl.press_at` / `drag_at` and `RoomVolume.press_at` /
+`drag_at`, the panel placing the press on the chip instead; and
+`ConsoleOverlay.tick`'s `lower_edge`, there being nothing down there to clear.
+
+New: `hud_row.RowPress`, the one placement of a press on the row, which both
+panels hold and hand `seek` / `set_volume` / `toggle_mute`; `RoomVolume` grows
+the `toggle_mute` and `set_level` `VolumeControl` already had, so both answer
+the same two verbs. Each panel reports `row_rect`, the row in its own
+coordinates, and `row_track`, the track's two ends and the y under the panel in
+the window's -- `hud_row.track_on_screen` and `UNDER_THE_PANEL_GAP`.
+`loop_thumbnail_xys` takes `top` in place of `win_h` and hangs the frames
+there. `HudOverlay.tick` takes `heatmap` where it took `funscript`: a panel is
+as wide as what is on it, so its host measures the track and builds the colors
+across it, and `hud_row.fitting` drops a fill of the wrong length rather than
+letting `timeline.progress_bar_bgra` raise -- which took mpv's render loop with
+it and left a window showing no picture at all. `HeatmapStrip.update` builds
+nothing for a width of 0, which is a host that has not measured a track yet.
+
 ## 2026-10-08 — a HUD is divided into sections, and the console's device rows ride apart
 
 Both painters lay their panel down as a stack of sections with a line across

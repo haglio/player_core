@@ -53,6 +53,16 @@ class TestTheHeightOfTheTimelineRow:
 
 
 class TestHeatmapStrip:
+    def test_a_track_nobody_has_measured_yet_gets_no_colors(self):
+        """A panel is as wide as what is on it, so its host has no width to
+        offer until one has been drawn.  Nothing to measure across is not an
+        error; it is the first frame, and it goes up as a plain bar."""
+        strip = HeatmapStrip()
+
+        strip.update("v0.mp4", _funscript(), 4000.0, width=0)
+
+        assert strip.colors == []
+
     def test_builds_one_color_per_pixel_of_the_track_it_fills(self):
         fs = _funscript()
         strip = HeatmapStrip()
@@ -297,8 +307,11 @@ class TestLoopThumbCapture:
 
 
 class TestWhereTheLoopsTwoFramesGo:
+    """Each hangs at the y its host gives -- just under the panel the track is
+    a block of -- lined up with its own mark along that track."""
+
     TRACK = (40, 868)
-    WIN_W, WIN_H = 1000, 600
+    WIN_W, TOP = 1000, 564
     FRAME_H, FRAME_W = 10, 20
 
     def _thumbs(self, *, out=True):
@@ -310,27 +323,21 @@ class TestWhereTheLoopsTwoFramesGo:
 
     def _xys(self, heatmap, thumbs, bounds):
         return loop_thumbnail_xys(heatmap, thumbs, bounds, track=self.TRACK,
-                                  win_w=self.WIN_W, win_h=self.WIN_H)
+                                  win_w=self.WIN_W, top=self.TOP)
 
     def _scripted(self) -> HeatmapStrip:
         strip = HeatmapStrip()
         strip.update("v0.mp4", _funscript(), 4000.0, width=40)
         return strip
 
-    def test_each_frame_sits_centered_above_its_own_mark(self):
+    def test_each_frame_sits_centered_under_its_own_mark(self):
         assert self._xys(self._scripted(), self._thumbs(), (2000, 3000)) == (
-            (444, 564), (651, 564))
-
-    def test_an_unscripted_item_still_clears_the_row_its_bar_needs(self):
-        strip = HeatmapStrip()
-        strip.update("plain.mp4", None, 4000.0, width=40)
-
-        assert self._xys(strip, self._thumbs(), (2000, 3000))[0] == (444, 564)
+            (444, self.TOP), (651, self.TOP))
 
     def test_a_frame_not_grabbed_yet_has_nowhere_to_go(self):
         in_at, out_at = self._xys(self._scripted(), self._thumbs(out=False), (2000, 3000))
 
-        assert (in_at, out_at) == ((444, 564), None)
+        assert (in_at, out_at) == ((444, self.TOP), None)
 
     def test_two_marks_too_close_together_push_their_frames_apart(self):
         (in_x, _y), (out_x, _oy) = self._xys(self._scripted(), self._thumbs(), (2000, 2050))

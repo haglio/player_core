@@ -53,6 +53,9 @@ _CHIP_PARTS = {"mute": MUTE, "track": VOLUME}
 # for the row the way it widens for its own rows.
 _LEAST_TRACK = 60
 
+# Between the panel's lower edge and the loop's two frames hanging under it.
+UNDER_THE_PANEL_GAP = 2
+
 
 @dataclass(frozen=True)
 class RowHud:
@@ -88,12 +91,14 @@ class RowSection:
              *, heatmap: np.ndarray | None = None) -> None:
         """Paint the row with its top-left corner at ``(x, y)`` of *image*.
 
-        *heatmap* is the funscript's colors across the track; without it the
-        track is the plain bar.
+        *heatmap* is the funscript's colors across the track; without it, or
+        with colors measured across some other width, the track is the plain
+        bar.
         """
         _width, height = self.size(width)
         bar = progress_bar_bgra(row.position_ms, row.duration_ms, row.loop_bounds,
-                                width, record_in_ms=row.record_in_ms, heatmap=heatmap)
+                                width, record_in_ms=row.record_in_ms,
+                                heatmap=fitting(heatmap, width))
         image.alpha_composite(_rgba(bar), (x, y + height - bar.shape[0]))
         if row.volume is not None:
             chip = _rgba(self._volume.bgra(row.volume))
@@ -103,6 +108,36 @@ class RowSection:
             pill = _rgba(self._readout.bgra(row.playhead))
             image.alpha_composite(pill, _offset((x, y), readout_xy(
                 pill.width, win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT)))
+
+
+def fitting(heatmap, width: int):
+    """The colors if they were measured across a track this wide, else None.
+
+    A panel is as wide as what is on it, so how wide its track came out is an
+    answer only a render gives: a host measures one panel and fills the next.
+    Between those two the panel can change width, and a fill of the wrong
+    length raises out of the track painter rather than stretching -- which
+    takes the window's drawing down with it and leaves it showing no picture at
+    all.  Dropping the stale fill costs one frame of plain track instead.
+    """
+    if heatmap is None or not len(heatmap):
+        return None
+    x0, x1 = bar_track_x(width)
+    return heatmap if len(heatmap) == x1 - x0 else None
+
+
+def track_on_screen(rect: tuple[int, int, int, int] | None, *, origin: tuple[int, int],
+                    panel_height: int) -> tuple[int, int, int] | None:
+    """Where the row's track runs in the window's own coordinates: its two ends
+    and the y just under the panel, or None where no row is drawn.  A window
+    hangs its loop's frames there, below their own marks on the track.
+    """
+    if rect is None:
+        return None
+    left, top = origin
+    x0, x1 = bar_track_x(rect[2])
+    return (left + rect[0] + x0, left + rect[0] + x1,
+            top + panel_height + UNDER_THE_PANEL_GAP)
 
 
 def _rgba(bgra: np.ndarray) -> Image.Image:
@@ -129,6 +164,64 @@ def row_part(px: int, py: int, *, width: int) -> str:
     if on_readout(px, py, win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT):
         return READOUT
     return SCRUBBER if py >= height - TIMELINE_HEIGHT else ""
+
+
+class RowPress:
+    """What a press on the clip's row asks of the window that draws it.
+
+    Every panel that hosts the row places a press on it with this, so the
+    track, the slider and the speaker answer the same way wherever the row is
+    drawn.  *rect* is where the row landed in the panel's own coordinates, and
+    *duration_ms* how long the track spans -- the clip, or the window a loop
+    being recorded has zoomed it to.
+    """
+
+    def __init__(self, *, seek=None, set_volume=None, toggle_mute=None) -> None:
+        self._seek = seek
+        self._set_volume = set_volume
+        self._toggle_mute = toggle_mute
+        self._holding = ""
+
+    @property
+    def holding(self) -> bool:
+        return bool(self._holding)
+
+    def press(self, px: int, py: int, *, rect, duration_ms: float) -> bool:
+        """Whether this press landed on a control of the row, and if it did,
+        what it asked: the track runs the clip there, the slider sets the level,
+        the speaker mutes."""
+        if rect is None:
+            return False
+        x, y, width, height = rect
+        if not (x <= px < x + width and y <= py < y + height):
+            return False
+        self._holding = row_part(px - x, py - y, width=width)
+        if not self._holding:
+            return False
+        self._act(px, py, rect=rect, duration_ms=duration_ms)
+        return True
+
+    def drag_to(self, px: int, py: int, *, rect, duration_ms: float) -> bool:
+        """The track and the slider go on being set while the pointer is held
+        down.  The speaker does not: the mute is a press, so a pointer crossing
+        it on its way along the slider must not flip it."""
+        if rect is None or self._holding not in (SCRUBBER, VOLUME):
+            return False
+        self._act(px, py, rect=rect, duration_ms=duration_ms)
+        return True
+
+    def release(self) -> None:
+        self._holding = ""
+
+    def _act(self, px: int, py: int, *, rect, duration_ms: float) -> None:
+        x, y, width, _height = rect
+        px, py = px - x, py - y
+        if self._holding == SCRUBBER and self._seek is not None:
+            self._seek(scrub_to(px, width=width, duration_ms=duration_ms))
+        elif self._holding == VOLUME and self._set_volume is not None:
+            self._set_volume(volume_to(px, py, width=width))
+        elif self._holding == MUTE and self._toggle_mute is not None:
+            self._toggle_mute()
 
 
 def scrub_to(px: int, *, width: int, duration_ms: float) -> float:
