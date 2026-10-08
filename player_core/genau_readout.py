@@ -235,7 +235,7 @@ class GenauReadout:
         """Say the readout for the console to draw, at a fraction of the refresh
         rate.
 
-        In video mode this panel belongs to the video player's console — the
+        In kino mode this panel belongs to the main player's console — the
         controls that move these numbers are up there, so the numbers are too —
         and Genau's window is only the transparent layer driving the device.
         The trace scrolls, so this cannot wait for a change the way the status

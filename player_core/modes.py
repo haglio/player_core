@@ -29,7 +29,7 @@ __all__ = [
 class MainMode(StrEnum):
     """What holds the main slot: the main player's video, or Genau's clips."""
 
-    VIDEO = "video"
+    KINO = "kino"
     GENAU = "genau"
 
 
@@ -37,7 +37,7 @@ class SatellitesMode(StrEnum):
     """What the satellite side shows: the two players, or a hosted Origenerator's
     shows over them."""
 
-    VIDEO = "video"
+    KINO = "kino"
     ORIGENERATOR = "origenerator"
 
 

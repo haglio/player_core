@@ -5,7 +5,7 @@ video; what the document itself is belongs to the whole family and lives in
 :mod:`app_support.funscript`.  What is here is what a *player* asks of one:
 where sustained action begins (so the OSR2 rests through a long quiet lead-in
 instead of drifting toward it), whether a given playhead sits in a quiet stretch
-(``is_resting_at`` — what the video-mode handoff hands to the Robot Hand), where
+(``is_resting_at`` — what the kino-mode handoff hands to the Robot Hand), where
 the action next picks up (``next_active_ms`` — where a jump-to-the-action
 lands), plus loop-boundary snapping for A-B loops.
 """
@@ -58,7 +58,7 @@ _RISE_MS = 1000
 PARK_SETTLE_MS = 500
 
 # How long the device takes to walk between one driver's last position and the
-# next one's first, at a video-mode handoff.  A couple of seconds: long enough to
+# next one's first, at a kino-mode handoff.  A couple of seconds: long enough to
 # read as a hand-over rather than a jump, short enough to leave the device
 # resting for most of the buffer.  Both directions use it — down onto the park
 # when the script takes over, up to the motion's floor when the hand does — so the
@@ -425,7 +425,7 @@ class Funscript:
         """True when position_ms sits outside every stretch the script holds the
         device for — a funscript's lead-in, an interior gap, the tail.
 
-        In video mode the orchestrator hands these stretches to the Robot Hand;
+        In kino mode the orchestrator hands these stretches to the Robot Hand;
         inside a turn the funscript drives.  Read straight off :meth:`turn_bounds_at`'s own
         turns rather than measured again here, because the two answers have to
         be the same answer: the arbiter flips the device on this, and the trace

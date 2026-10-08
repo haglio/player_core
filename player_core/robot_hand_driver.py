@@ -6,7 +6,7 @@ the beat engine's continuous phase into rate-limited position commands, shaped
 by the hand's state -- the mirror of :class:`player_core.tcode_driver.FunscriptTCodeDriver`,
 which turns a script's waypoints into the same commands.
 
-The hand does not hold the device the whole time.  In video mode a funscript
+The hand does not hold the device the whole time.  In kino mode a funscript
 takes it for every scripted stretch, and an orchestrator's pause takes it too,
 so the driver is told on that edge -- :class:`DeviceHandoff` watches for it --
 and climbs out of the park when it gets the device back, or latches where the
@@ -59,7 +59,7 @@ class RobotHandTCodeDriver:
         self._last_send_time: float = 0.0
         self._last_phase: float = 0.0
         self._motion_phase: float = 0.0
-        # The hand does not drive the device the whole time — in video mode a
+        # The hand does not drive the device the whole time — in kino mode a
         # funscript takes it for every scripted stretch — so it comes back to a
         # device parked wherever the script left it.  Armed here and on every
         # takeover.

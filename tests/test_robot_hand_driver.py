@@ -71,7 +71,7 @@ class TestRobotHandTCodeDriver:
 
 
 class TestTakingOver:
-    """Genau does not hold the device the whole time — in video mode a funscript has
+    """Genau does not hold the device the whole time — in kino mode a funscript has
     it for every scripted stretch — so it comes back to a device parked wherever
     that script left it, with its own phase run on without it."""
 

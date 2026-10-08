@@ -57,7 +57,7 @@ __all__ = [
 ]
 
 # What has the device, which is what the trace is a picture of.  The Robot
-# Hand's motion and a video's funscript take turns in video mode; in auto mode
+# Hand's motion and a video's funscript take turns in kino mode; in auto mode
 # the OSR2 runs its own firmware and neither of them is sending; and with the
 # device off nothing is moving at all.
 DRIVEN_BY_ROBOT_HAND = "robot_hand"
@@ -525,7 +525,7 @@ class DriveSection:
 
 
 # --- publishing --------------------------------------------------------------
-# In video mode the readout is drawn by the main player, inside its console, under the
+# In kino mode the readout is drawn by the main player, inside its console, under the
 # controls that move it — so Genau stops drawing and starts saying.  A file, like every
 # other channel between these players: the reader polls per frame, and a torn or
 # missing read simply means "keep the readout you have".

@@ -66,7 +66,7 @@ def _drive(offset: float = 0.0, **over) -> DriveHud:
 def _line(*, locked: bool = True, order_latest: bool = False, **modes) -> str:
     """The status line for a main player in *modes*, with that lock and order."""
     return ConsoleHud(modes=ModeHud(**modes),
-                      console=ConsoleModel(main_mode=MainMode.VIDEO, locked=locked,
+                      console=ConsoleModel(main_mode=MainMode.KINO, locked=locked,
                                            latest=order_latest)).status_line
 
 
@@ -133,10 +133,10 @@ class TestLine:
         assert line(locked=True, latest=True) == "Locked · Latest"
 
     def test_the_pace_belongs_to_genau_and_is_not_claimed_while_main_player_is_showing(self):
-        """Video mode draws the readout, so the pace is there to read — but the main player is on
+        """Kino mode draws the readout, so the pace is there to read — but the main player is on
         screen and an unlocked main player plays through its playlist rather than moving on
         a timer, so saying seconds would describe the wrong player."""
-        assert ConsoleHud(console=ConsoleModel(main_mode=MainMode.VIDEO, locked=False, latest=False),
+        assert ConsoleHud(console=ConsoleModel(main_mode=MainMode.KINO, locked=False, latest=False),
                           drive=_drive(advance_interval=5)).status_line == "Unlocked · Shuffle"
 
     def test_a_host_with_no_browse_order_names_none(self):
@@ -194,7 +194,7 @@ class TestPainter:
     def test_held_to_a_width_it_paints_every_mode_that_wide(self):
         """A console hanging in a scene as a screen of its own (FunTimeVR's) must
         not change size with what is on it: the genau-mode rows are narrower
-        than the video-mode ones, and sized to its contents the screen jumped
+        than the kino-mode ones, and sized to its contents the screen jumped
         between the modes."""
         painter = ConsolePainter(width=300)
 
@@ -207,14 +207,14 @@ class TestPainter:
             for mode in MainMode
         }
 
-        assert widths == {MainMode.VIDEO: 300, MainMode.GENAU: 300}
+        assert widths == {MainMode.KINO: 300, MainMode.GENAU: 300}
 
     def test_a_file_name_too_long_for_the_held_width_is_elided_rather_than_widening_it(self):
         painter = ConsolePainter(width=300)
         long_name = "Jane Doe - scene one - " + "a long descriptor " * 6
 
         _rgba, (width, _height) = painter.rgba(ConsoleHud(
-            modes=ModeHud(video=long_name), console=ConsoleModel(main_mode=MainMode.VIDEO, locked=False)))
+            modes=ModeHud(video=long_name), console=ConsoleModel(main_mode=MainMode.KINO, locked=False)))
 
         assert width == 300
 
@@ -234,7 +234,7 @@ class TestPainter:
         Fitting it is player_core's job — this guards that the console hands it the
         panel's own bounds, since anything wider puts the tooltip back over the edge."""
         painter = ConsolePainter()
-        hud = ConsoleHud(console=ConsoleModel(main_mode=MainMode.VIDEO, locked=False,
+        hud = ConsoleHud(console=ConsoleModel(main_mode=MainMode.KINO, locked=False,
                                               rows=console_rows()))
         plain = _rgb(painter.bgra(hud))  # also lays the buttons out, so one can be hovered
         tiny = load_font(8)
@@ -296,16 +296,16 @@ class TestPainter:
 
     def test_the_readout_grows_the_panel(self):
         painter = ConsolePainter()
-        plain = painter.bgra(ConsoleHud(console=ConsoleModel(main_mode=MainMode.VIDEO))).shape[0]
+        plain = painter.bgra(ConsoleHud(console=ConsoleModel(main_mode=MainMode.KINO))).shape[0]
         driving = ConsolePainter().bgra(
-            ConsoleHud(console=ConsoleModel(main_mode=MainMode.VIDEO), drive=_drive())).shape[0]
+            ConsoleHud(console=ConsoleModel(main_mode=MainMode.KINO), drive=_drive())).shape[0]
 
         assert driving > plain
 
     def test_the_dot_lights_only_while_the_main_has_the_floor(self):
         def dot(active: bool):
             bgra = ConsolePainter().bgra(
-                ConsoleHud(console=ConsoleModel(main_mode=MainMode.VIDEO, active=active)))
+                ConsoleHud(console=ConsoleModel(main_mode=MainMode.KINO, active=active)))
             body = sum(load_font(11).getmetrics())
             cx, cy = PAD + 5, PAD + body // 2  # the dot's own centre
             return tuple(int(v) for v in _rgb(bgra)[cy, cx])
@@ -319,23 +319,23 @@ class TestPainter:
         another player."""
         painter = ConsolePainter()
 
-        lit = painter.bgra(ConsoleHud(console=ConsoleModel(main_mode=MainMode.VIDEO, active=True)))
-        idle = ConsolePainter().bgra(ConsoleHud(console=ConsoleModel(main_mode=MainMode.VIDEO, active=False)))
+        lit = painter.bgra(ConsoleHud(console=ConsoleModel(main_mode=MainMode.KINO, active=True)))
+        idle = ConsolePainter().bgra(ConsoleHud(console=ConsoleModel(main_mode=MainMode.KINO, active=False)))
 
         assert lit.shape == idle.shape
 
     def test_an_unchanged_hud_is_not_repainted(self):
         painter = ConsolePainter()
-        hud = ConsoleHud(console=ConsoleModel(main_mode=MainMode.VIDEO))
+        hud = ConsoleHud(console=ConsoleModel(main_mode=MainMode.KINO))
 
-        assert painter.bgra(hud) is painter.bgra(ConsoleHud(console=ConsoleModel(main_mode=MainMode.VIDEO)))
+        assert painter.bgra(hud) is painter.bgra(ConsoleHud(console=ConsoleModel(main_mode=MainMode.KINO)))
 
     def test_the_readouts_arrows_are_hit_targets_even_though_it_draws_them(self):
         """The readout paints its own amplitude/centre/speed arrows; the console
         adds them to its hit targets so a press on the trace's controls posts what
         is drawn there."""
         painter = ConsolePainter()
-        painter.bgra(ConsoleHud(console=ConsoleModel(main_mode=MainMode.VIDEO), drive=_drive()))
+        painter.bgra(ConsoleHud(console=ConsoleModel(main_mode=MainMode.KINO), drive=_drive()))
 
         actions = {b.command for _rect, b in painter.buttons}
         for action in ("robot_hand_amplitude_up", "robot_hand_center_down", "robot_hand_speed_up"):
@@ -346,7 +346,7 @@ class TestPainter:
         a line jammed in with the mode."""
         painter = ConsolePainter()
         bgra = painter.bgra(ConsoleHud(
-            console=ConsoleModel(main_mode=MainMode.VIDEO, osr2=Osr2State.FUNSCRIPT)))
+            console=ConsoleModel(main_mode=MainMode.KINO, osr2=Osr2State.FUNSCRIPT)))
         rgb = _rgb(bgra)
         # FunScript is drawn green; there is green ink somewhere below the top line.
         green = (rgb[:, :, 1] > 130) & (rgb[:, :, 0] < 110) & (rgb[:, :, 2] < 110)
@@ -371,8 +371,8 @@ class TestPainter:
         this family, and the mode you are in is neither."""
 
         shade, pixels = self._busiest_shade(
-            "main_video_activate",
-            ConsoleModel(main_mode=MainMode.VIDEO, rows=console_rows("video")))
+            "main_kino_activate",
+            ConsoleModel(main_mode=MainMode.KINO, rows=console_rows("kino")))
 
         assert shade == BLUE
         green = (pixels[:, :, 1] > 130) & (pixels[:, :, 0] < 110) & (pixels[:, :, 2] < 110)
@@ -401,7 +401,7 @@ class TestPainter:
                 colors.BG_BUTTON_ACTIVE.blue())
         shade, _pixels = self._busiest_shade(
             "main_shuffle",
-            ConsoleModel(main_mode=MainMode.VIDEO, latest=False,
+            ConsoleModel(main_mode=MainMode.KINO, latest=False,
                          rows=console_rows(remembered=True)),
             modes=ModeHud(length_mode=LengthMode.MIXED, compilation="Volume 6"))
 
@@ -414,10 +414,10 @@ class TestPainter:
 
         painter = ConsolePainter()
         rgb = _rgb(painter.bgra(ConsoleHud(
-            console=ConsoleModel(main_mode=MainMode.VIDEO, rows=console_rows()))))
+            console=ConsoleModel(main_mode=MainMode.KINO, rows=console_rows()))))
         (bx, by, bw, bh), _b = next(
             (rect, b) for rect, b in painter.buttons
-            if b.command and b.command != "main_video_activate")
+            if b.command and b.command != "main_kino_activate")
         pixels = rgb[by:by + bh, bx:bx + bw].astype(int)
         muted = TEXT_MUTED
 
@@ -443,7 +443,7 @@ class TestPainter:
         for action, grid in (("broker_panel", ICON_GRIDS["B"]),
                              ("main_fmode", ICON_GRIDS["F"])):
             pixels = self._button_pixels(action, ConsoleModel(
-                main_mode=MainMode.VIDEO, rows=console_rows(favorites=True),
+                main_mode=MainMode.KINO, rows=console_rows(favorites=True),
                 osr2_controls=osr2_controls()))
             magenta = (pixels == np.array((200, 80, 160), dtype=pixels.dtype)).all(axis=2)
             ys, xs = np.nonzero(magenta)
@@ -463,7 +463,7 @@ class TestPainter:
         painter draws it: a run of ink across the middle of the button, wider than
         it is tall, which is the mark every Windows title bar uses."""
         pixels = self._button_pixels(
-            "main_minimize", ConsoleModel(main_mode=MainMode.VIDEO, rows=console_rows()))
+            "main_minimize", ConsoleModel(main_mode=MainMode.KINO, rows=console_rows()))
         # The button's own rounded outline is its border, so only the interior
         # holds the mark -- and the interior is the button's ground now, which is
         # itself gray, so the mark is what is BRIGHTER than that ground.
@@ -482,14 +482,14 @@ class TestPainter:
 
     def _broker_pixels(self, broker: bool) -> np.ndarray:
         return self._button_pixels("broker_panel", ConsoleModel(
-            main_mode=MainMode.VIDEO, osr2_controls=osr2_controls(broker=broker)))
+            main_mode=MainMode.KINO, osr2_controls=osr2_controls(broker=broker)))
 
     def test_f_mode_is_the_one_lit_control_that_stays_green(self):
         """It narrows the playlist to the videos that have a funscript, and green
         is what the funscripts and the favorites own."""
         pixels = self._button_pixels(
             "main_fmode",
-            ConsoleModel(main_mode=MainMode.VIDEO,
+            ConsoleModel(main_mode=MainMode.KINO,
                          rows=console_rows(favorites=True))).astype(int)
 
         shades, counts = np.unique(pixels.reshape(-1, 3), axis=0, return_counts=True)
@@ -542,7 +542,7 @@ class TestPainter:
         different button rather than as the same one recording."""
         painter = ConsolePainter()
         rgb = _rgb(painter.bgra(
-            ConsoleHud(console=ConsoleModel(main_mode=MainMode.VIDEO,
+            ConsoleHud(console=ConsoleModel(main_mode=MainMode.KINO,
                                             rows=console_rows(recording=True)))))
         bx, by, bw, bh = _rect_of(painter, "main_player_record_tap")
         pixels = rgb[by:by + bh, bx:bx + bw].astype(int)
@@ -553,7 +553,7 @@ class TestPainter:
 
 class TestPresses:
     @staticmethod
-    def _painted(mode: MainMode = MainMode.VIDEO) -> ConsolePainter:
+    def _painted(mode: MainMode = MainMode.KINO) -> ConsolePainter:
         painter = ConsolePainter()
         painter.bgra(ConsoleHud(console=ConsoleModel(main_mode=mode,
                                                     rows=console_rows(mode))))
@@ -576,7 +576,7 @@ class TestPresses:
 
     def test_the_panel_under_a_press_ends_where_its_painting_does(self):
         painter = ConsolePainter()
-        height, width = painter.bgra(ConsoleHud(console=ConsoleModel(main_mode=MainMode.VIDEO))).shape[:2]
+        height, width = painter.bgra(ConsoleHud(console=ConsoleModel(main_mode=MainMode.KINO))).shape[:2]
         left, top = hud_xy()
 
         assert painter.covers(left, top)
@@ -599,7 +599,7 @@ class TestPresses:
     def test_a_readouts_arrow_press_reaches_genau(self):
         painter = ConsolePainter()
         painter.bgra(ConsoleHud(
-            console=ConsoleModel(main_mode=MainMode.VIDEO, osr2=Osr2State.ROBOT_HAND), drive=_drive()))
+            console=ConsoleModel(main_mode=MainMode.KINO, osr2=Osr2State.ROBOT_HAND), drive=_drive()))
 
         assert painter.press_at(*_over(painter, "robot_hand_amplitude_up")) == "robot_hand_amplitude_up"
 
@@ -609,7 +609,7 @@ class TestPresses:
         funscript was already driving, and the two fought over it."""
         painter = ConsolePainter()
         painter.bgra(ConsoleHud(
-            console=ConsoleModel(main_mode=MainMode.VIDEO, osr2=Osr2State.FUNSCRIPT), drive=_drive()))
+            console=ConsoleModel(main_mode=MainMode.KINO, osr2=Osr2State.FUNSCRIPT), drive=_drive()))
 
         over = _over(painter, "robot_hand_amplitude_up")
         assert painter.press_at(*over) == ""
@@ -631,7 +631,7 @@ class TestDrags:
     def _painted(osr2: Osr2State = Osr2State.ROBOT_HAND) -> ConsolePainter:
         painter = ConsolePainter()
         painter.bgra(ConsoleHud(
-            console=ConsoleModel(main_mode=MainMode.VIDEO, osr2=osr2,
+            console=ConsoleModel(main_mode=MainMode.KINO, osr2=osr2,
                                  rows=console_rows()),
             drive=_drive()))
         return painter
@@ -723,7 +723,7 @@ class TestDrags:
     def test_a_press_along_the_max_intensity_sets_it_and_the_drag_goes_on_setting_it(self):
         painter = ConsolePainter()
         painter.bgra(ConsoleHud(
-            console=ConsoleModel(main_mode=MainMode.VIDEO, osr2=Osr2State.ROBOT_HAND,
+            console=ConsoleModel(main_mode=MainMode.KINO, osr2=Osr2State.ROBOT_HAND,
                                  max_intensity=50),
             drive=_drive()))
         max_intensity = self._band(painter, MAX_INTENSITY)
@@ -735,7 +735,7 @@ class TestDrags:
         """With nothing driving, the readout is not drawn, so its bands must not linger as
         targets over whatever the console puts in that space instead."""
         painter = ConsolePainter()
-        painter.bgra(ConsoleHud(console=ConsoleModel(main_mode=MainMode.VIDEO)))
+        painter.bgra(ConsoleHud(console=ConsoleModel(main_mode=MainMode.KINO)))
 
         assert painter.tracks == []
 
@@ -770,7 +770,7 @@ class TestDeclaredRows:
         status line and the OSR2 line, with no row held open for buttons nobody
         asked for."""
         painter = ConsolePainter()
-        painter.bgra(ConsoleHud(console=ConsoleModel(main_mode=MainMode.VIDEO)))
+        painter.bgra(ConsoleHud(console=ConsoleModel(main_mode=MainMode.KINO)))
 
         assert _declared(painter) == []
 
@@ -792,7 +792,7 @@ class TestAConsoleAnotherPlayerTookTheOsr2From:
         painter = ConsolePainter()
         bgra = painter.bgra(ConsoleHud(
             console=ConsoleModel(
-                main_mode=MainMode.VIDEO, osr2=Osr2State.ROBOT_HAND,
+                main_mode=MainMode.KINO, osr2=Osr2State.ROBOT_HAND,
                 rows=((Button("main_take_osr2", "OSR2", "Take the OSR2"),),),
                 osr2_controls=(Button("broker_panel", BROKER_ICON, "Broker"),),
                 has_osr2=has_osr2),
@@ -816,7 +816,7 @@ class TestPlaybackSpeed:
     def test_the_drawing_player_folds_in_its_own_rate(self):
         """Fun Time does not publish the main player's video rate — the main player knows it and adds it
         at draw time, so the console shows the rate the video is really playing."""
-        console = with_playback_speed(ConsoleModel(main_mode=MainMode.VIDEO), 1.75)
+        console = with_playback_speed(ConsoleModel(main_mode=MainMode.KINO), 1.75)
 
         assert console.playback_speed == 1.75
 
@@ -830,7 +830,7 @@ class TestPlaybackSpeed:
             return [button.glyph for _rect, button in painter.buttons if button.host_value]
 
         assert readouts(ConsoleHud(console=with_playback_speed(
-            ConsoleModel(main_mode=MainMode.VIDEO, rows=console_rows("video")), 1.75))) == ["1.75×"]
+            ConsoleModel(main_mode=MainMode.KINO, rows=console_rows("kino")), 1.75))) == ["1.75×"]
         assert readouts(ConsoleHud(
             console=ConsoleModel(main_mode=MainMode.GENAU, rows=console_rows("genau")),
             drive=_drive(advance_interval=7))) == ["7s"]
@@ -866,14 +866,14 @@ class TestTraceSources:
         return painter, {tuple(pixel) for row in rgb for pixel in row}
 
     def test_genau_driving_leaves_the_readout_pressable(self):
-        painter = self._painted(MainMode.VIDEO, Osr2State.ROBOT_HAND)
+        painter = self._painted(MainMode.KINO, Osr2State.ROBOT_HAND)
 
         assert [t.dim for t in painter.tracks] == [False, False, False]
 
     def test_a_funscript_driving_dims_every_control_but_keeps_the_trace(self):
         """A motion Genau is not sending cannot be adjusted; the picture of the
         one that *is* being sent is still worth drawing."""
-        painter = self._painted(MainMode.VIDEO, Osr2State.FUNSCRIPT)
+        painter = self._painted(MainMode.KINO, Osr2State.FUNSCRIPT)
 
         assert all(t.dim for t in painter.tracks)
         assert painter.tracks
@@ -889,22 +889,22 @@ class TestTraceSources:
         assert MAGENTA in colors
 
     def test_the_device_running_itself_wins_over_a_composed_handoff(self):
-        """In video mode the console composes the funscript's plan over Genau's
+        """In kino mode the console composes the funscript's plan over Genau's
         motion -- but under auto neither of them reaches the device, so a plan
         drawn in their two colors describes drivers that do not have it."""
         painter, colors = self._drawn(
-            "video", "auto",
+            "kino", "auto",
             drive=_drive(segments=((0, "robot_hand"), (40, "funscript"))))
 
-        assert painter._osr2_state(ConsoleModel(main_mode=MainMode.VIDEO, osr2=Osr2State.AUTO)) == "auto"
+        assert painter._osr2_state(ConsoleModel(main_mode=MainMode.KINO, osr2=Osr2State.AUTO)) == "auto"
         assert MAGENTA in colors
 
     def test_the_panel_keeps_its_size_whoever_has_the_device(self):
         """The controls dim for a funscript's turn rather than leave: removing
         them resized the panel, so the trace shifted at every handoff and the
         position marker jumped with it."""
-        genau_turn = self._painted(MainMode.VIDEO, Osr2State.ROBOT_HAND)
-        funscript_turn = self._painted(MainMode.VIDEO, Osr2State.FUNSCRIPT)
+        genau_turn = self._painted(MainMode.KINO, Osr2State.ROBOT_HAND)
+        funscript_turn = self._painted(MainMode.KINO, Osr2State.FUNSCRIPT)
 
         assert genau_turn._image.size == funscript_turn._image.size
 
@@ -913,7 +913,7 @@ class TestEveryConsolePaints:
     """One paint per (mode x driver) with a composed trace on the panel.
 
     The pill's Buffer state shipped referencing a name this module never
-    imported, and no test painted a video-mode console with a composed drive — so
+    imported, and no test painted a kino-mode console with a composed drive — so
     every suite was green while the real main player crashed on its first console
     frame and the session came up with no main player at all.  A paint smoke
     over the whole grid makes that class of crash impossible to ship quietly.
@@ -940,7 +940,7 @@ class TestEveryConsolePaints:
         painter = ConsolePainter()
         hud = ConsoleHud(
             modes=ModeHud(video="clip one"),
-            console=ConsoleModel(main_mode=MainMode.VIDEO, osr2=Osr2State.ROBOT_HAND),
+            console=ConsoleModel(main_mode=MainMode.KINO, osr2=Osr2State.ROBOT_HAND),
             drive=DriveHud(waveform=wave, driven="neutral",
                            segments=((0, "robot_hand"), (30, "neutral"))))
         painter.rgba(hud)
@@ -973,7 +973,7 @@ class TestControlOff:
                 assert painter._osr2_state(hud.console) == OSR2_CONTROL_OFF, (mode, osr2)
 
     def test_the_readout_goes_gray_even_over_a_composed_trace(self):
-        """Video mode draws the script's own plan, which keeps sliding through
+        """Kino mode draws the script's own plan, which keeps sliding through
         every rest -- but a plan for a device hearing none of it is not a live
         readout, and the one thing left claiming otherwise."""
         painter = ConsolePainter()
@@ -999,7 +999,7 @@ class TestControlOff:
         while the session is driving; with the OSR2 let go of, a sliding line
         and a walking dot are a picture of a device that is not moving at all."""
         painter = ConsolePainter()
-        console = ConsoleModel(main_mode=MainMode.VIDEO, osr2=Osr2State.FUNSCRIPT,
+        console = ConsoleModel(main_mode=MainMode.KINO, osr2=Osr2State.FUNSCRIPT,
                                osr2_control=OSR2_CONTROL_OFF)
         first = painter.bgra(ConsoleHud(console=console, drive=_drive(0.0))).copy()
 
@@ -1008,14 +1008,14 @@ class TestControlOff:
 
     def test_driving_leaves_the_readout_alone(self):
         painter = ConsolePainter()
-        hud = self._hud("video", "funscript", OSR2_DRIVING)
+        hud = self._hud("kino", "funscript", OSR2_DRIVING)
         painter.rgba(hud)
 
         assert painter._painted[0].drive.live is True
 
     def test_the_pill_is_drawn_in_the_red_its_button_wears(self):
         painter = ConsolePainter()
-        bgra = painter.bgra(self._hud("video", "funscript", OSR2_CONTROL_OFF))
+        bgra = painter.bgra(self._hud("kino", "funscript", OSR2_CONTROL_OFF))
         rgb = _rgb(bgra)
         red = (rgb[:, :, 0] > 150) & (rgb[:, :, 1] < 110) & (rgb[:, :, 2] < 110)
 
@@ -1084,7 +1084,7 @@ class TestNothingDriving:
     control is dead is the one part still claiming to be live.
 
     Genau's own mode, where the readout is a picture of one waveform and
-    nothing else.  Video mode is the exception, below: there the readout is a
+    nothing else.  Kino mode is the exception, below: there the readout is a
     picture of a handoff, and the gaps are part of what it draws.
     """
 
@@ -1150,7 +1150,7 @@ class TestTheDeviceRunningItselfKeepsMoving:
 
 
 class TestTheHandoffKeepsMoving:
-    """In video mode the readout draws the device changing hands, and between the
+    """In kino mode the readout draws the device changing hands, and between the
     two drivers is a gap where nothing is being sent at all — the OSR2 stops
     answering on the wire and reads "off" for a moment.  Held still there, the
     whole trace froze into one flat grey at every handoff and came back only
@@ -1160,10 +1160,10 @@ class TestTheHandoffKeepsMoving:
     def test_the_trace_goes_on_sliding_through_the_gap(self):
         painter = ConsolePainter()
         first = painter.bgra(ConsoleHud(
-            console=ConsoleModel(main_mode=MainMode.VIDEO, osr2=Osr2State.OFF), drive=_drive(0.0))).copy()
+            console=ConsoleModel(main_mode=MainMode.KINO, osr2=Osr2State.OFF), drive=_drive(0.0))).copy()
 
         later = painter.bgra(ConsoleHud(
-            console=ConsoleModel(main_mode=MainMode.VIDEO, osr2=Osr2State.OFF), drive=_drive(3.0)))
+            console=ConsoleModel(main_mode=MainMode.KINO, osr2=Osr2State.OFF), drive=_drive(3.0)))
 
         assert not np.array_equal(later, first)
 
@@ -1173,7 +1173,7 @@ class TestTheHandoffKeepsMoving:
         that has to survive the gap."""
         painter = ConsolePainter()
         hud = ConsoleHud(
-            console=ConsoleModel(main_mode=MainMode.VIDEO, osr2=Osr2State.OFF),
+            console=ConsoleModel(main_mode=MainMode.KINO, osr2=Osr2State.OFF),
             drive=replace(_drive(0.0), segments=((0, "genau"), (40, "neutral"))))
 
         assert painter._resolve(hud).drive.segments == ((0, "genau"), (40, "neutral"))
@@ -1187,7 +1187,7 @@ class TestTheLockIsGreen:
 
         painter = ConsolePainter()
         rgb = _rgb(painter.bgra(ConsoleHud(
-            console=ConsoleModel(main_mode=MainMode.VIDEO, rows=console_rows(locked=True)))))
+            console=ConsoleModel(main_mode=MainMode.KINO, rows=console_rows(locked=True)))))
         bx, by, bw, bh = _rect_of(painter, "main_lock")
         pixels = rgb[by:by + bh, bx:bx + bw].astype(int)
         shades, counts = np.unique(pixels.reshape(-1, 3), axis=0, return_counts=True)
@@ -1198,7 +1198,7 @@ class TestTheLockIsGreen:
 
         painter = ConsolePainter()
         rgb = _rgb(painter.bgra(ConsoleHud(
-            console=ConsoleModel(main_mode=MainMode.VIDEO, rows=console_rows(locked=False)))))
+            console=ConsoleModel(main_mode=MainMode.KINO, rows=console_rows(locked=False)))))
         bx, by, bw, bh = _rect_of(painter, "main_lock")
         pixels = rgb[by:by + bh, bx:bx + bw].astype(int)
         shades, counts = np.unique(pixels.reshape(-1, 3), axis=0, return_counts=True)
@@ -1258,10 +1258,10 @@ class TestARowsNameLinesUpWithItsControls:
     def test_both_named_rows_take_the_same_cell_so_they_line_up(self):
         """The pair beside the name sits in the same place whichever row is up,
         so a flip between the modes moves nothing under the pointer."""
-        video, _rows = self._rows("video")
+        kino, _rows = self._rows("kino")
         genau, _rows = self._rows("genau")
 
-        assert _rect_of(video, "main_player_speed_down")[0] == _rect_of(
+        assert _rect_of(kino, "main_player_speed_down")[0] == _rect_of(
             genau, "genau_clip_seconds_down")[0]
 
 
@@ -1273,7 +1273,7 @@ class TestTheRowTheConsoleCarriesForItsVideo:
     @staticmethod
     def _hud() -> ConsoleHud:
         return ConsoleHud(modes=ModeHud(video="scene one"),
-                          console=ConsoleModel(main_mode=MainMode.VIDEO, locked=False))
+                          console=ConsoleModel(main_mode=MainMode.KINO, locked=False))
 
     def test_a_player_that_hands_over_no_row_grows_none(self):
         painter = ConsolePainter()

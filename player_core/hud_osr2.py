@@ -170,7 +170,7 @@ class ReadoutResolver:
         elif control == OSR2_CONTROL_OFF:
             # Nothing is going out, so nobody has the device — whatever the
             # round trip or the composed trace last said had it.  The trace's own
-            # names go with it: a video-mode plan says who has the device at each
+            # names go with it: a kino-mode plan says who has the device at each
             # knot, and kept, they drew the line in the script's green under a
             # word that read "control off".
             drive = replace(drive, driven=DRIVEN_BY_NOTHING, segments=())
