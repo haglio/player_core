@@ -21,6 +21,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -71,9 +72,11 @@ def sha256_of(path: Path) -> str:
 
 
 def _releases(repository: str) -> list[dict]:
+    headers = {"Accept": "application/vnd.github+json"}
+    if token := os.environ.get("GH_TOKEN"):
+        headers["Authorization"] = f"Bearer {token}"
     request = urllib.request.Request(
-        f"https://api.github.com/repos/{repository}/releases?per_page=15",
-        headers={"Accept": "application/vnd.github+json"})
+        f"https://api.github.com/repos/{repository}/releases?per_page=15", headers=headers)
     with urllib.request.urlopen(request, timeout=_DOWNLOAD_TIMEOUT) as response:
         return json.load(response)
 

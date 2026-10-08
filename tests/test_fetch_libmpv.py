@@ -123,6 +123,31 @@ class TestWhenThePinExpires:
         with pytest.raises(SystemExit, match="could not resolve"):
             fetch_libmpv.resolve(pinned)
 
+    def test_the_releases_are_asked_for_with_the_token_the_runner_holds(self, monkeypatch):
+        # A shared runner's address runs out of unauthenticated requests within
+        # the hour, and the gate then fails before a test has run.
+        sent = []
+
+        class _Answer:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_exc):
+                return False
+
+            def read(self):
+                return b"[]"
+
+        def _urlopen(request, timeout):
+            sent.append(request)
+            return _Answer()
+
+        monkeypatch.setenv("GH_TOKEN", "an-invented-token")
+        monkeypatch.setattr(fetch_libmpv.urllib.request, "urlopen", _urlopen)
+
+        assert fetch_libmpv._releases("someone/mpv-builds") == []
+        assert sent[0].get_header("Authorization") == "Bearer an-invented-token"
+
 
 def test_the_dll_lands_where_the_loader_looks():
 
