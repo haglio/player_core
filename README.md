@@ -10,7 +10,7 @@ take the HUDs and the motion without the player.
 | --- | --- | --- |
 | Genau | `../genau` | the clip player's whole engine, under its pygame window |
 | Fun Time's main player | `../fun_time` | the player, the console, the drive readout, the T-Code driver |
-| Fun Time's satellites | `../fun_time` | the player, the satellite HUD |
+| Fun Time's satellites | `../fun_time` | a Funestra, on each satellite's window |
 | Fun Time's VR player | `../fun_time` | the offscreen player, the T-Code driver, and the clip player's engine for its genau mode |
 | Fun Time itself | `../fun_time` | the file channel, the playlist, the status line |
 | Origenerator | `../origenerator` | the console and the drive readout, over its slideshows |
@@ -47,6 +47,19 @@ another application's internals to get it. By what it is:
   than panels — the drive readout and `hud_osr2`'s device line — because a host
   that both browses a set and drives the OSR2 (Origenerator's shows) says all of
   it on ONE panel rather than stacking a console under a lock HUD.
+- **the Funestra** — a window of Fun Time: `funestra` builds one on a way of
+  playing (`Funestra.on_window` opens mpv on a window handle; the base takes
+  any player with the same interface) and the files its User drives it through
+  (`Channels`), plays what it is handed (`playback`, with `funestra_controls`
+  answering the verbs, `funestra_status` publishing the status, `play_points`,
+  `seeking` and `scripted_device` under it), and draws the published panel
+  (`hud_overlay`), the scrubber (`heatmap` for a scripted item's colors), the
+  volume chip (`volume_control`) and the playhead readout itself, placing a
+  press against them (`pointer`).  A User runs on a Funestra and hands it
+  content and the buttons to draw; none draws on it.  `tests/test_hud_drawers.py`
+  holds the consumers to that: a package that imports a painter out of here is
+  drawing a HUD itself, and only the ones still to move onto a Funestra are
+  listed.
 - **the window** — `sdl_hints`, the SDL facts every player here has to get
   right before it opens one (its taskbar identity it claims through
   `app_support.win32`, like every other process in the family).

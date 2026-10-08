@@ -9,6 +9,25 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-10-07 — a Funestra: the window that draws its own HUD, and the gate on who else draws one
+
+`funestra.Funestra` is the satellite program's run loop moved here without its
+window: built on a way of playing and the files its User drives it through
+(`Channels`), it plays what it is handed, answers the verbs, publishes the
+status, and draws the published panel, the scrubber, the volume chip and the
+playhead readout as mpv overlays.  With it come fun_time's `satellite/session.py`
+(`playback.Playback`), `satellite/runtime.py` (`funestra_controls`),
+`satellite/status.py` (`funestra_status`), `satellite/versions.py` (the
+`NEXT_VERSION` / `PREV_VERSION` verbs, in `player_verbs`), `satellite/hud_overlay.py`,
+`satellite/volume.py` (`volume_control.VolumeControl`), `satellite/pointer.py`
+(`pointer`), and the main_player modules the satellites borrowed: `play_points`,
+`seeking`, `scripted_device` and `heatmap`.  Every name is declared in
+`__all__` once fun_time's import of it has landed.
+
+`tests/test_hud_drawers.py` fails the build on any consumer package that imports
+a painter out of this one except the drawers still to move onto a Funestra,
+listed in `KNOWN_DRAWERS`, and on a listed one that has stopped drawing.
+
 ## 2026-10-07 — Genau's clips folder forks into 2D and VR, and the weird pile follows it
 
 `scan_clips` walks into the folders inside the ones it is given, so a 2D folder
