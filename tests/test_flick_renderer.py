@@ -94,3 +94,28 @@ def test_display_index_for_phase_reverses_phase_position():
 
 def test_display_index_for_phase_clamps_past_end():
     assert display_index_for_phase(1.0, 8) == 0
+
+
+class TestHowFarRoundTheLoopTheFlickIs:
+    """The dial's hand: counted UP while the frame that is up counts DOWN, since
+    a flick is shown from its last frame back (display_index_for_phase), so a
+    hand drawn straight off the index would go round the wrong way."""
+
+    def _showing(self, index: int | None, count: int | None):
+        controller, flick_store, _calls = _make_controller()
+        path = Path("demo.mp4")
+        if count is not None:
+            flick_store.flick_cache[path] = {"frames": [f"f{i}" for i in range(count)]}
+        controller.set_current_flick_path(path)
+        if index is not None:
+            controller.show_frame_at(index)
+        return controller
+
+    def test_it_goes_round_once_as_the_frames_run_back_to_the_first(self):
+        assert self._showing(19, 20).loop_turn == 0.0
+        assert self._showing(12, 20).loop_turn == 7 / 20
+        assert self._showing(0, 20).loop_turn == 19 / 20
+
+    def test_there_is_no_turn_before_a_frame_is_up(self):
+        assert self._showing(None, 20).loop_turn is None
+        assert self._showing(None, None).loop_turn is None

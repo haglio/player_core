@@ -200,3 +200,12 @@ class TestAPressAlongTheTrack:
         set_elapsed(state, 1.0)
 
         assert state.elapsed >= 3.0
+
+    def test_it_moves_twenty_times_a_second_rather_than_every_tick(self):
+        """The console is repainted whenever the row moves, so the time the
+        track draws is kept to the step it falls on."""
+        state = FlickAdvanceState(locked=False, interval=10)
+
+        set_elapsed(state, 4.03)
+
+        assert state.elapsed == 4.05
