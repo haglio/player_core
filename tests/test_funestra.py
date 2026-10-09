@@ -12,7 +12,7 @@ from funestra_fakes import FakePlayer
 
 from player_core.clip_picture import BACKDROP_OVERLAY_ID, FIRST_TILE_OVERLAY_ID, Picture
 from player_core.console import ConsoleModel, ModeHud, console_text
-from player_core.funestra import Channels, Funestra
+from player_core.funestra import Channels, Funestra, User, _Nobody
 from player_core.hud_overlay import HUD_OVERLAY_ID
 from player_core.modes import LengthMode, MainMode, Osr2State
 from player_core.playhead import clip_playhead
@@ -488,6 +488,10 @@ class TestTheMainFunestra:
 
 
 class TestWhatRunsOnTheFunestra:
+    def test_what_runs_on_it_can_be_told_from_what_cannot(self):
+        assert isinstance(_Nobody(), User)
+        assert not isinstance(object(), User)
+
     def test_it_is_handed_the_playback_it_runs_on(self, tmp_path):
         funestra, _player, kino = _main(tmp_path)
 

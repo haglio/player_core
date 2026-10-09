@@ -7,7 +7,7 @@ import threading
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from .clip_picture import ClipPicture, Picture
 from .console import ModeHud
@@ -58,6 +58,7 @@ class Channels:
     tcode_port: int | None = None
 
 
+@runtime_checkable
 class User(Protocol):
     """What runs on a Funestra, as the Funestra sees it."""
 
