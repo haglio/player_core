@@ -113,6 +113,20 @@ class TestControls:
                 assert x >= PAD and x + w <= PAD + SECTION_W
                 assert y >= PAD and y + h <= PAD + SECTION_H
 
+    def test_each_plus_and_minus_sits_in_the_middle_of_its_mark(self):
+        hud = _hud()
+        rgb = _rendered(hud).astype(float)[..., :3]
+
+        for control in controls(PAD, PAD, hud):
+            x, y, w, h = control.rect
+            inside = rgb[y + 1:y + h - 1, x + 1:x + w - 1].max(axis=2)
+            ink = np.clip(inside - 60, 0, None)
+            rows, columns = np.indices(ink.shape)
+            middle_row, middle_column = (h - 3) / 2, (w - 3) / 2
+
+            assert abs((ink * rows).sum() / ink.sum() - middle_row) <= 0.25, control.command
+            assert abs((ink * columns).sum() / ink.sum() - middle_column) <= 0.25, control.command
+
 
 class TestTheCenterLabel:
     @staticmethod
