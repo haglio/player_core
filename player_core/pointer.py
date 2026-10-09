@@ -6,9 +6,8 @@ what is left here is the panel first and the picture under it.
 """
 from __future__ import annotations
 
-from pathlib import Path
+from collections.abc import Callable
 
-from .dashboard import ask
 from .timeline import bar_track_x
 
 __all__ = [
@@ -31,24 +30,31 @@ def time_at(mx: int, *, win_w: int, duration_ms: float,
     return start_ms + fraction * (end_ms - start_ms)
 
 
-class Pointer:
-    def __init__(self, *, hud=None, dashboard_cmd_file: Path | None = None) -> None:
-        self._hud = hud
-        self._dashboard_cmd_file = dashboard_cmd_file
+def _nothing() -> None:
+    pass
 
-    def press(self, mx: int, my: int, *, win_w: int, win_h: int) -> None:
+
+class Pointer:
+    def __init__(self, *, hud=None, picture: Callable[[], None] = _nothing) -> None:
+        self._hud = hud
+        self._picture = picture
+
+    def press(self, mx: int, my: int) -> None:
         """The panel takes what is on it -- its buttons and the clip's row --
-        and a press anywhere else is a press on the picture, which asks the
-        session to pause everything."""
+        and a press anywhere else is a press on the picture."""
         if self._hud is not None and self._hud.press(mx, my):
             return
-        ask(self._dashboard_cmd_file, OMNIPAUSE_TOGGLE)
+        self._picture()
+
+    def wheel(self, mx: int, my: int, steps: int) -> None:
+        if self._hud is not None:
+            self._hud.wheel(mx, my, steps)
 
     def release(self) -> None:
         if self._hud is not None:
             self._hud.release()
 
-    def motion(self, mx: int, my: int, *, held: bool, win_w: int, win_h: int) -> None:
+    def motion(self, mx: int, my: int, *, held: bool) -> None:
         if self._hud is None:
             return
         self._hud.motion(mx, my)

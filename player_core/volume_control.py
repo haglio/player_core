@@ -24,18 +24,21 @@ __all__ = [
 
 
 class VolumeControl:
-    def __init__(self, player, *, live: bool = True) -> None:
+    def __init__(self, player, *, live: bool = True, muted: bool = True) -> None:
         self._player = player
         self._live = live
-        self._hud = VolumeHud(volume=MAX_VOLUME if live else MIN_VOLUME, muted=True)
+        self._hud = VolumeHud(volume=MAX_VOLUME if live else MIN_VOLUME, muted=muted)
 
     @property
     def hud(self) -> VolumeHud:
         return self._hud
 
     def toggle_mute(self) -> None:
+        self.set_muted(not self._hud.muted)
+
+    def set_muted(self, muted: bool) -> None:
         if self._live:
-            self._set(replace(self._hud, muted=not self._hud.muted))
+            self._set(replace(self._hud, muted=muted))
 
     def set_level(self, volume: int) -> None:
         if self._live:

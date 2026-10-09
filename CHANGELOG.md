@@ -9,6 +9,30 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-10-09 — a Funestra wears the panel its own program hands it
+
+A standalone Origenerator's Slideshow runs on a Funestra now (step 4 of the
+plan): the one Funestra that app activates for a Slideshow, on a window of its
+own, with no room publishing a panel for it. So a Funestra takes `panel=`, a
+callable answering the `HudModel` to wear, and draws it where a session would
+have published one; its presses come back through `apply_command`, the way the
+window's file verbs do, and a press on the picture asks what runs on the window
+to pause (`OMNIPAUSE_TOGGLE`) where there is no room to ask. `HudOverlay` takes
+the same pair (`panel=`, `post=`) beside its file pair, keeps the readout a
+program composes into its model (a session's panel never carries one, and the
+room's motion file fills it in), and hands the pointer on the block its source
+paints at the foot back to that source -- `foot_press`, `foot_drag`,
+`foot_release` and `foot_wheel`, each with where it landed in the block's own
+pixels -- since only the source knows what it drew there; `HudTargets.foot` is
+where that block landed. A Funestra opens heard when told (`muted=False`,
+through `on_window` and `VolumeControl`), takes the wheel (`wheel`), and
+`Playback` lets go of its item (`let_go`, for a file about to be moved) and says
+when the player has nothing up (`idle`). `Pointer` (package-internal) takes what
+a press on the picture does rather than the dashboard file, and no longer takes
+the window size it never read. `Funestra.press` and `motion` keep their
+`window=` for the consumers that pass it. The four foot verbs are declared once
+origenerator reaches for them, in the landing after that one.
+
 ## 2026-10-09 — the Funestra declares what the Main Player reaches, and the second window's verbs go
 
 Fun Time's Main Player runs Kino and Genau on one Funestra now (fun_time #379,

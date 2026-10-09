@@ -1012,3 +1012,24 @@ class TestTakingUpAListFromItsTop:
         playback.load_playlist([a], {a: script})
 
         assert playback.current_funscript.actions == [(0, 0), (100, 99)]
+
+
+def test_letting_go_of_the_item_leaves_the_player_holding_nothing(tmp_path):
+    """A host about to move or delete what it was showing lets go first: the
+    engine holds an open handle on it, and Windows refuses to move a file out
+    from under one."""
+    playback, player = _make_playback(tmp_path, entries=2)
+
+    playback.let_go()
+
+    assert player.stopped is True
+    assert playback.idle is True
+
+
+def test_an_item_the_player_would_not_open_reads_as_idle(tmp_path):
+    playback, player = _make_playback(tmp_path, entries=2)
+    assert playback.idle is False
+
+    player.idle = True
+
+    assert playback.idle is True

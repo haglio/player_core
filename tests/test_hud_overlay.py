@@ -11,10 +11,11 @@ from PIL import Image
 from shared_ui.spacing import BUTTON_SIZE_HUD
 
 from player_core.drive_readout import DriveHud, publish_drive
+from player_core.hud_button import Button
 from player_core.hud_overlay import HudOverlay
 from player_core.hud_placement import HudEdge
 from player_core.hud_row import UNDER_THE_PANEL_GAP, RowHud
-from player_core.satellite_hud import MARGIN, PAD
+from player_core.satellite_hud import MARGIN, PAD, HudModel
 from player_core.timeline import TIMELINE_HEIGHT, bar_track_x
 from player_core.volume import CHIP_H, CHIP_W, SPEAKER_W, VolumeHud, chip_xy
 
@@ -657,3 +658,106 @@ def test_a_panel_hanging_on_its_own_screen_keeps_its_default_justification(
     assert min(rect[0] for rect, _b in overlay.targets.buttons) == PAD
     (x, y, _bgra), = player.overlays.values()
     assert (x, y) == (MARGIN, MARGIN)
+
+
+class _Foot:
+    """A block the source paints at the panel's foot, as the source sees it."""
+
+    def __init__(self, size=(120, 40)) -> None:
+        self._size = size
+
+    def size(self):
+        return self._size
+
+    def paint(self, image, x, y, width, pointer):
+        return []
+
+
+def _a_windows_own_panel(player, *, foot=None, posts=None):
+    model = HudModel(player="portrait", lock_label="Unlocked",
+                     rows=((Button("portrait_next", "N", "Next"),),), foot=foot)
+    posted = [] if posts is None else posts
+    overlay = HudOverlay(panel=lambda: model, post=posted.append, player=player,
+                         clock=lambda: 0.0)
+    overlay.tick()
+    return overlay, posted
+
+
+class TestAWindowsOwnPanel:
+    def test_a_press_on_a_button_goes_back_to_the_program_that_handed_the_panel_over(self):
+        player = FakePlayer()
+        overlay, posted = _a_windows_own_panel(player)
+        (x, y, w, h), _button = next((rect, b) for rect, b in overlay.targets.buttons
+                                     if b.command == "portrait_next")
+
+        overlay.press(MARGIN + x + w // 2, MARGIN + y + h // 2)
+
+        assert posted == ["portrait_next"]
+
+    def test_it_keeps_the_readout_the_program_drew_into_it(self):
+        """A session publishes no readout and the room's motion file fills one
+        in; the window's own program composes the readout itself, and nothing
+        here may wipe it."""
+        player = FakePlayer()
+        readout = DriveHud(speed=50, amplitude=80, center=50,
+                           waveform=tuple(0.5 for _ in range(80)))
+        model = HudModel(player="portrait", lock_label="Unlocked", osr2="robot_hand",
+                         osr2_control="driving", drive=readout)
+        overlay = HudOverlay(panel=lambda: model, post=lambda command: None, player=player,
+                             clock=lambda: 0.0)
+
+        overlay.tick()
+
+        assert overlay.targets.tracks
+
+
+class TestTheBlockAtTheFoot:
+    """The source painted the block and knows what is drawn where, so the
+    pointer goes back to it: a press, a drag, the button coming up and the
+    wheel, each with where it landed in the block's own pixels."""
+
+    def _foot_at(self, overlay):
+        x, y, _width, _height = overlay.targets.foot
+        return MARGIN + x, MARGIN + y
+
+    def test_a_press_on_the_block_is_the_sources_with_where_it_landed(self):
+        overlay, posted = _a_windows_own_panel(FakePlayer(), foot=_Foot())
+        left, top = self._foot_at(overlay)
+
+        taken = overlay.press(left + 30, top + 7)
+
+        assert taken is True
+        assert posted == ["foot_press|30|7"]
+
+    def test_a_held_press_drags_and_the_button_coming_up_lets_go(self):
+        overlay, posted = _a_windows_own_panel(FakePlayer(), foot=_Foot())
+        left, top = self._foot_at(overlay)
+        overlay.press(left + 30, top + 7)
+
+        assert overlay.holding is True
+        overlay.drag_to(left + 30, top + 25)
+        overlay.release()
+
+        assert posted == ["foot_press|30|7", "foot_drag|30|25", "foot_release|30|25"]
+        assert overlay.holding is False
+
+    def test_the_wheel_over_the_block_is_the_sources_too(self):
+        overlay, posted = _a_windows_own_panel(FakePlayer(), foot=_Foot())
+        left, top = self._foot_at(overlay)
+
+        taken = overlay.wheel(left + 10, top + 10, -2)
+
+        assert taken is True
+        assert posted == ["foot_wheel|-2|10|10"]
+
+    def test_the_wheel_elsewhere_on_the_panel_turns_nothing_and_is_still_the_panels(self):
+        overlay, posted = _a_windows_own_panel(FakePlayer(), foot=_Foot())
+
+        assert overlay.wheel(MARGIN + 2, MARGIN + 2, 1) is True
+        assert overlay.wheel(2000, 2000, 1) is False
+        assert posted == []
+
+    def test_a_panel_without_a_block_has_nothing_at_its_foot_to_press(self):
+        overlay, posted = _a_windows_own_panel(FakePlayer())
+
+        assert overlay.targets.foot is None

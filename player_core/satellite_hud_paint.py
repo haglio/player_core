@@ -380,7 +380,9 @@ class HudRenderer:
             image, draw, width, layout.device, model, osr2_line, drive_h,
             rows=device_rows, widths=device_row_widths)
         buttons.extend(device_buttons)
+        foot_rect = None
         if model.foot is not None:
+            foot_rect = (x, layout.foot, width - 2 * PAD, foot_h)
             buttons.extend(model.foot.paint(image, x, layout.foot, width - 2 * PAD,
                                             self._pointer))
 
@@ -392,7 +394,8 @@ class HudRenderer:
         if hover_tip:
             draw_tooltip(draw, self._tiny, hover_tip, hover_pos, (width, height))
         return RenderedHud(panel.to_bgra(), replace(
-            map_targets, tracks=bands, row=row_rect, buttons=buttons, favorite=favorite))
+            map_targets, tracks=bands, row=row_rect, foot=foot_rect, buttons=buttons,
+            favorite=favorite))
 
     def _draw_map(self, image, draw, model: HudModel, top: int, width: int,
                   counts: tuple[str, ...], thumbs, windows, hover_loop: str) -> HudTargets:

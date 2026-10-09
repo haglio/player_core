@@ -142,6 +142,16 @@ class Playback:
     def showing(self) -> Path:
         return self._versions.get(self.current_video, self.current_video)
 
+    @property
+    def idle(self) -> bool:
+        """Whether the player has nothing up at all: the item would not open,
+        or it was let go of."""
+        return self._player.idle
+
+    def let_go(self) -> None:
+        """Play nothing, so the file on screen can be moved or deleted."""
+        self._player.stop()
+
     def step_version(self, versions: list[Path], delta: int) -> None:
         showing = self.showing
         if len(versions) < 2 or showing not in versions:

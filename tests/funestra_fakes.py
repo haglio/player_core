@@ -69,6 +69,8 @@ class FakePlayer(RefusesSeeks):
         self.swapped: list[Path] = []
         self.screenshot = None
         self.screenshots = 0
+        self.idle = False
+        self.stopped = False
 
     def tile_to_fill(self, window_width: int, window_height: int) -> None:
         self.tiled_to.append((window_width, window_height))
@@ -77,6 +79,12 @@ class FakePlayer(RefusesSeeks):
         self.opened.append(path)
         self.playlist = [path]
         self.playlist_pos = 0
+        self.idle = False
+        self.stopped = False
+
+    def stop(self) -> None:
+        self.stopped = True
+        self.idle = True
         self.position_ms = 0.0
 
     def swap_still(self, path: Path) -> None:

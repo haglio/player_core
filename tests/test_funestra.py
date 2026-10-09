@@ -13,10 +13,13 @@ from funestra_fakes import FakePlayer
 from player_core.clip_picture import BACKDROP_OVERLAY_ID, FIRST_TILE_OVERLAY_ID, Picture
 from player_core.console import ConsoleModel, ModeHud, console_text
 from player_core.funestra import Channels, Funestra, User, _Nobody
+from player_core.hud_button import Button
 from player_core.hud_overlay import HUD_OVERLAY_ID
 from player_core.modes import LengthMode, MainMode, Osr2State
 from player_core.playhead import clip_playhead
 from player_core.playlist import read_playlist
+from player_core.pointer import OMNIPAUSE_TOGGLE
+from player_core.satellite_hud import HudModel
 from player_core.session_quit import SESSION_QUIT
 from player_core.timeline import TIMELINE_HEIGHT, bar_track_x
 from player_core.volume import CHIP_H, CHIP_W, chip_xy
@@ -717,3 +720,126 @@ class TestAUsersOwnPicture:
 
         assert not {BACKDROP_OVERLAY_ID, FIRST_TILE_OVERLAY_ID} & set(player.overlays)
         assert funestra._panel._clip_row.duration_ms == player.duration_ms
+
+
+class TestAWindowsOwnPanel:
+    """A window handed a panel of its own -- built in its process, as a
+    standalone Origenerator builds its Slideshow's -- wears it where a session
+    would have published one, and hands its presses to what runs on the window."""
+
+    def _own_panel(self, tmp_path, *, user=Kino, muted=True):
+        clips = _clips(tmp_path, "v0", "v1")
+        channels = _channels(tmp_path, [str(clip) for clip in clips], commands="")
+        player = FakePlayer()
+        made: list[Kino] = []
+
+        def make(playback):
+            made.append(user(playback))
+            return made[-1]
+
+        panel = [HudModel(player="portrait", lock_label="Unlocked",
+                          rows=((Button("portrait_next", "N", "Next"),),))]
+        funestra = Funestra(player, channels=channels, playlist=read_playlist(channels.playlist),
+                            users={"slideshow": make}, panel=lambda: panel[0], muted=muted)
+        return funestra, player, made[0], panel
+
+    def test_it_is_drawn_over_the_picture_where_no_session_published_one(self, tmp_path):
+        funestra, player, _user, _panel = self._own_panel(tmp_path)
+
+        funestra.tick(window=WINDOW)
+
+        assert list(player.overlays) == [HUD_OVERLAY_ID]
+
+    def test_a_press_on_one_of_its_buttons_reaches_what_runs_on_the_window(self, tmp_path):
+        funestra, player, user, _panel = self._own_panel(tmp_path)
+        funestra.tick(window=WINDOW)
+        left, top, _bgra = player.overlays[HUD_OVERLAY_ID]
+        (x, y, w, h), _button = next((rect, b) for rect, b in funestra._panel.targets.buttons
+                                     if b.command == "portrait_next")
+
+        funestra.press(left + x + w // 2, top + y + h // 2, window=WINDOW)
+
+        assert user.commands == ["portrait_next"]
+        assert _asked(tmp_path) == []
+
+    def test_a_press_on_the_picture_asks_what_runs_on_the_window_to_pause(self, tmp_path):
+        funestra, player, user, _panel = self._own_panel(tmp_path)
+        funestra.tick(window=WINDOW)
+        left, top, panel = player.overlays[HUD_OVERLAY_ID]
+
+        funestra.press(left + panel.shape[1] + 20, top + panel.shape[0] + 20, window=WINDOW)
+
+        assert user.commands == [OMNIPAUSE_TOGGLE]
+        assert _asked(tmp_path) == []
+
+    def test_it_is_redrawn_when_the_panel_changes_and_only_then(self, tmp_path):
+        funestra, player, _user, panel = self._own_panel(tmp_path)
+        funestra.tick(window=WINDOW)
+        funestra.tick(window=WINDOW)  # the second fills the track at the width the first measured
+        first = player.overlays[HUD_OVERLAY_ID][2]
+        funestra.tick(window=WINDOW)
+        assert player.overlays[HUD_OVERLAY_ID][2] is first
+
+        panel[0] = replace(panel[0], locked=True, lock_label="Locked")
+        funestra.tick(window=WINDOW)
+
+        assert player.overlays[HUD_OVERLAY_ID][2] is not first
+
+    def test_it_comes_down_when_what_runs_on_the_window_has_no_panel_to_show(self, tmp_path):
+        funestra, player, _user, panel = self._own_panel(tmp_path)
+        funestra.tick(window=WINDOW)
+
+        panel[0] = None
+        funestra.tick(window=WINDOW)
+
+        assert HUD_OVERLAY_ID not in player.overlays
+
+    def test_it_names_the_item_as_what_runs_on_the_window_names_it(self, tmp_path):
+        funestra, player, user, _panel = self._own_panel(tmp_path)
+        funestra.tick(window=WINDOW)
+        first = player.overlays[HUD_OVERLAY_ID][2]
+
+        user.video = "Example Studio / seed 7"
+        funestra.tick(window=WINDOW)
+
+        assert player.overlays[HUD_OVERLAY_ID][2] is not first
+
+    def test_the_rows_track_and_chip_are_the_windows_own(self, tmp_path):
+        funestra, player, _user, _panel = self._own_panel(tmp_path)
+        funestra.tick(window=WINDOW)
+
+        funestra.press(*_on_the_row(funestra, player), window=WINDOW)
+
+        assert len(player.seeks) == 1
+
+    def test_it_opens_heard_when_told_to(self, tmp_path):
+        funestra, _player, _user, _panel = self._own_panel(tmp_path, muted=False)
+
+        assert funestra._volume.hud.muted is False
+
+    def test_it_opens_silent_unless_told_otherwise(self, tmp_path):
+        funestra, _player, _user, _panel = self._own_panel(tmp_path)
+
+        assert funestra._volume.hud.muted is True
+
+
+def test_on_a_window_the_way_of_playing_can_be_heard(tmp_path):
+    clips = _clips(tmp_path, "v0")
+    channels = _channels(tmp_path, [str(clips[0])])
+
+    with patch("player_core.funestra.MpvPlayer", return_value=FakePlayer()) as mpv:
+        Funestra.on_window(4242, channels=channels, playlist=read_playlist(channels.playlist),
+                           muted=False)
+
+    mpv.assert_called_once_with(4242, muted=False, loop_file=False, prefetch=True)
+
+
+def test_a_window_told_to_fall_silent_mutes_its_player_and_its_chip(tmp_path):
+    funestra, player = _funestra(tmp_path, [str(clip) for clip in _clips(tmp_path, "v0")])
+    funestra.tick(window=WINDOW)
+
+    funestra.set_muted(True)
+    assert (player.muted, funestra._volume.hud.muted) == (True, True)
+
+    funestra.set_muted(False)
+    assert (player.muted, funestra._volume.hud.muted) == (False, False)
