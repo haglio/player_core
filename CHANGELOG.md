@@ -206,10 +206,14 @@ the loop (and the device, whose picture the frame is) at that point.
 names. `RowHud.loop_turn` is what a row with a dial carries; `row_part(dial=)`
 says when a press is on it and `turn_to` where round it; `readout_xy(dial=)`
 moves a wide row's readout over to make room. `ClipAdvanceState.elapsed` and
-`set_elapsed` are the track's two halves, and
-`GenauRefreshController.seek_the_time_on_screen` is the press reaching the
-engine. `DIAL`, `turn_to` and `RowSection` are declared once genau and Fun Time
-reach for them, and `clip_playhead` leaves once neither does.
+`set_elapsed` are the track's two halves, `ClipRenderController.loop_turn` the
+dial's, and `GenauRefreshController.seek_the_time_on_screen` the press reaching
+the engine. A `Picture` a User puts up carries both -- `loop_turn`,
+`elapsed_ms` and `interval_ms`, with `seek_time` and `seek_loop` for the two
+presses -- in place of its frame count and one seek, and the Funestra's row and
+`RowPress` take the dial from it. `DIAL`, `READOUT`, `turn_to` and `RowSection`
+are declared once Fun Time's headset reaches for them, and `clip_playhead` and
+`pointer.time_at` leave once nothing does.
 
 ## 2026-10-08 — a window follows its playlist file, and fifteen HUD names are declared again
 

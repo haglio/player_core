@@ -122,6 +122,7 @@ class HudOverlay:
         over_the_video: bool = True,
         minus_on_the_panel: bool = True,
         seek=None,
+        seek_loop=None,
         set_volume=None,
         toggle_mute=None,
     ) -> None:
@@ -144,7 +145,8 @@ class HudOverlay:
         self._clip_row: RowHud | None = None
         self._heatmap = None
         # The panel draws the clip's row, so it places a press on it too.
-        self._row = RowPress(seek=seek, set_volume=set_volume, toggle_mute=toggle_mute)
+        self._row = RowPress(seek=seek, seek_loop=seek_loop, set_volume=set_volume,
+                             toggle_mute=toggle_mute)
         self._hover: PointerReading[_Hover] = PointerReading(_ON_NO_CONTROL)
         self._pointer_at = (0, 0)
         self._foot_held = False
@@ -209,7 +211,7 @@ class HudOverlay:
             return False
         self._pointer_at = self._local(x, y)
         if self._row.press(*self._pointer_at, rect=self.targets.row,
-                           duration_ms=self._track_duration()):
+                           duration_ms=self._track_duration(), dial=self._has_a_dial()):
             return True
         if self._foot_covers(*self._pointer_at):
             self._foot_held = True
@@ -237,9 +239,12 @@ class HudOverlay:
         recorded has zoomed it to, which is what the row was drawn from."""
         return 0.0 if self._clip_row is None else self._clip_row.duration_ms
 
+    def _has_a_dial(self) -> bool:
+        return self._clip_row is not None and self._clip_row.loop_turn is not None
+
     @property
     def row_rect(self) -> tuple[int, int, int, int] | None:
-        """Where the clip's row landed in this panel, for a host measuring the
+        """Where the flick's row landed in this panel, for a host measuring the
         track it is to fill."""
         return self.targets.row
 

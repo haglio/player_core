@@ -189,8 +189,9 @@ class RowPress:
     being recorded has zoomed it to.
     """
 
-    def __init__(self, *, seek=None, set_volume=None, toggle_mute=None) -> None:
+    def __init__(self, *, seek=None, seek_loop=None, set_volume=None, toggle_mute=None) -> None:
         self._seek = seek
+        self._seek_loop = seek_loop
         self._set_volume = set_volume
         self._toggle_mute = toggle_mute
         self._holding = ""
@@ -199,26 +200,26 @@ class RowPress:
     def holding(self) -> bool:
         return bool(self._holding)
 
-    def press(self, px: int, py: int, *, rect, duration_ms: float) -> bool:
+    def press(self, px: int, py: int, *, rect, duration_ms: float, dial: bool = False) -> bool:
         """Whether this press landed on a control of the row, and if it did,
-        what it asked: the track runs the clip there, the slider sets the level,
-        the speaker mutes."""
+        what it asked: the track runs the clip there, the dial turns its loop,
+        the slider sets the level, the speaker mutes."""
         if rect is None:
             return False
         x, y, width, height = rect
         if not (x <= px < x + width and y <= py < y + height):
             return False
-        self._holding = row_part(px - x, py - y, width=width)
+        self._holding = row_part(px - x, py - y, width=width, dial=dial)
         if not self._holding:
             return False
         self._act(px, py, rect=rect, duration_ms=duration_ms)
         return True
 
     def drag_to(self, px: int, py: int, *, rect, duration_ms: float) -> bool:
-        """The track and the slider go on being set while the pointer is held
-        down.  The speaker does not: the mute is a press, so a pointer crossing
-        it on its way along the slider must not flip it."""
-        if rect is None or self._holding not in (SCRUBBER, VOLUME):
+        """The track, the dial and the slider go on being set while the pointer
+        is held down.  The speaker does not: the mute is a press, so a pointer
+        crossing it on its way along the slider must not flip it."""
+        if rect is None or self._holding not in (SCRUBBER, DIAL, VOLUME):
             return False
         self._act(px, py, rect=rect, duration_ms=duration_ms)
         return True
@@ -231,6 +232,8 @@ class RowPress:
         px, py = px - x, py - y
         if self._holding == SCRUBBER and self._seek is not None:
             self._seek(scrub_to(px, width=width, duration_ms=duration_ms))
+        elif self._holding == DIAL and self._seek_loop is not None:
+            self._seek_loop(turn_to(px, py, width=width))
         elif self._holding == VOLUME and self._set_volume is not None:
             self._set_volume(volume_to(px, py, width=width))
         elif self._holding == MUTE and self._toggle_mute is not None:

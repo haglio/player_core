@@ -38,18 +38,24 @@ _LOADING_INSET = 8
 _LOADING_GROUND = (0, 0, 0, 180)
 
 
-def _nothing(_fraction: float) -> None:
+def _nothing(_value: float) -> None:
     pass
 
 
-@answers_to_old_names({"clip": "flick"})
+@answers_to_old_names({"clip": "flick", "seek": "seek_loop"})
 @dataclass(frozen=True)
 class Picture:
+    """A frame of a flick, with the flick's two senses of time for the row: how
+    far round its loop the flick has turned (the dial; None before a frame is
+    up), and how long it has been up of the time it gets (the track)."""
+
     frame: np.ndarray | None
-    played: int = 0
-    count: int = 0
+    loop_turn: float | None = None
+    elapsed_ms: float = 0.0
+    interval_ms: float = 0.0
     loading: str | None = None
-    seek: Callable[[float], None] = _nothing
+    seek_time: Callable[[float], None] = _nothing
+    seek_loop: Callable[[float], None] = _nothing
     flick: Path | None = None
 
 
