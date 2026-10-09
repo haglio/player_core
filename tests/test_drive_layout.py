@@ -47,6 +47,35 @@ def test_the_speed_bar_is_as_wide_as_the_amplitude_bar_is_tall():
     assert g.speed_bar[2] == g.amp_bar[3]
 
 
+def test_every_mark_is_the_size_of_the_speed_and_center_marks():
+    g = layout.geometry(0, 0, 0.5)
+    size = g.speed_up[2:]
+
+    assert {g.amp_up[2:], g.amp_down[2:], g.center_up[2:], g.center_down[2:],
+            g.speed_down[2:]} == {size}
+
+
+def test_the_amplitude_bar_is_as_thick_as_the_speed_bar():
+    g = layout.geometry(0, 0, 0.5)
+
+    assert g.amp_bar[2] == g.speed_bar[3]
+
+
+def test_the_amplitude_bar_stands_as_far_from_the_trace_as_the_speed_bar_hangs_below_it():
+    g = layout.geometry(0, 0, 0.5)
+    trace_x, trace_y, trace_w, trace_h = g.wave
+
+    assert g.amp_bar[0] - (trace_x + trace_w) == g.speed_bar[1] - (trace_y + trace_h)
+
+
+def test_the_speed_marks_and_bar_run_exactly_the_width_of_the_trace():
+    g = layout.geometry(0, 0, 0.5)
+    trace_x, _y, trace_w, _h = g.wave
+
+    assert g.speed_down[0] == trace_x
+    assert g.speed_up[0] + g.speed_up[2] == trace_x + trace_w
+
+
 def test_the_amplitude_s_lower_mark_sits_level_with_the_speed_marks_beside_it():
     g = layout.geometry(0, 0, 0.5)
 
