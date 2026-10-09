@@ -40,15 +40,14 @@ _BAR_H = 12          # the speed track's thickness
 _CTRL = 14           # an integrated control button (square)
 _MARK_GAP = 2
 _GAP = 6
-_AMP_W = 18          # the amplitude bar's width
 _WAVE_H = 96         # the trace's own height
 # The side labels stack their number under their word, so each column is only as
 # wide as the wider of the two rather than as wide as both plus a gap.
 _CTR_LABEL_W = 34    # room for "Center" down the left
 _AMP_LABEL_W = 25    # room for "Amp" down the right
-_WAVE_W = 120        # the trace, between the two axis columns
+_WAVE_W = 2 * (_CTRL + _MARK_GAP) + _WAVE_H
 
-SECTION_W = _CTR_LABEL_W + _GAP + _CTRL + _GAP + _WAVE_W + _GAP + _AMP_W + _GAP + _AMP_LABEL_W
+SECTION_W = _CTR_LABEL_W + _GAP + _CTRL + _GAP + _WAVE_W + _MARK_GAP + _CTRL + _GAP + _AMP_LABEL_W
 SECTION_H = _CTRL + _MARK_GAP + _WAVE_H + _MARK_GAP + _CTRL + 2 + _LABEL_H
 
 # How many points the trace is drawn from. Shared, because a funscript sampled
@@ -111,15 +110,15 @@ class Geometry:
 def geometry(x: int, y: int, center_frac: float) -> Geometry:
     ctr_ctrl_x = x + _CTR_LABEL_W + _GAP
     wave_x = ctr_ctrl_x + _CTRL + _GAP
-    amp_x = wave_x + _WAVE_W + _GAP
+    amp_x = wave_x + _WAVE_W + _MARK_GAP
     wave_y = y + _CTRL + _MARK_GAP
     wave = (wave_x, wave_y, _WAVE_W, _WAVE_H)
     wave_lower = wave_y + _WAVE_H
 
     amp_bar_h = _WAVE_H
-    amp_up = (amp_x, y, _AMP_W, _CTRL)
-    amp_bar = (amp_x, wave_y, _AMP_W, amp_bar_h)
-    amp_down = (amp_x, wave_lower + _MARK_GAP, _AMP_W, _CTRL)
+    amp_up = (amp_x, y, _CTRL, _CTRL)
+    amp_bar = (amp_x + (_CTRL - _BAR_H) // 2, wave_y, _BAR_H, amp_bar_h)
+    amp_down = (amp_x, wave_lower + _MARK_GAP, _CTRL, _CTRL)
 
     # The centre marks ride its dotted line, kept inside the trace's band so a
     # centre at either end cannot push one off the block.
@@ -130,13 +129,12 @@ def geometry(x: int, y: int, center_frac: float) -> Geometry:
     label_h = 2 * _CTRL + _MARK_GAP
     center_label = (x, up_y, _CTR_LABEL_W, label_h)
     center_handle = (x, up_y, _CTR_LABEL_W + _GAP, label_h)
-    amp_label = (amp_x + _AMP_W + _GAP, wave_y + (_WAVE_H - label_h) // 2, _AMP_LABEL_W, label_h)
+    amp_label = (amp_x + _CTRL + _GAP, wave_y + (_WAVE_H - label_h) // 2, _AMP_LABEL_W, label_h)
 
     speed_y = wave_lower + _MARK_GAP
-    speed_up_x = wave_x + _WAVE_W - _CTRL
-    bar_x = speed_up_x - _MARK_GAP - amp_bar_h
-    speed_down = (bar_x - _MARK_GAP - _CTRL, speed_y, _CTRL, _CTRL)
-    speed_up = (speed_up_x, speed_y, _CTRL, _CTRL)
+    bar_x = wave_x + _CTRL + _MARK_GAP
+    speed_down = (wave_x, speed_y, _CTRL, _CTRL)
+    speed_up = (bar_x + amp_bar_h + _MARK_GAP, speed_y, _CTRL, _CTRL)
     speed_bar = (bar_x, speed_y + (_CTRL - _BAR_H) // 2, amp_bar_h, _BAR_H)
 
     return Geometry(
