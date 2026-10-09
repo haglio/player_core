@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
+import pytest
 from console_rows import console_rows
 from funestra_fakes import FakeEngine
 
@@ -18,8 +19,9 @@ from funestra_core.hud_corners import CORNER_PLUS_OVERLAY_ID
 from funestra_core.hud_minimize import BUTTON
 from funestra_core.hud_overlay import HUD_OVERLAY_ID
 from funestra_core.hud_placement import HudEdge
+from funestra_core.loop_dial import DIAL_SIZE, dial_xy
 from funestra_core.modes import LengthMode, MainMode, Osr2State
-from funestra_core.playhead import flick_playhead
+from funestra_core.playhead import video_playhead
 from funestra_core.playlist import read_playlist
 from funestra_core.pointer import OMNIPAUSE_TOGGLE
 from funestra_core.satellite_hud import MARGIN, HudModel
@@ -39,6 +41,9 @@ def _on_the_row(funestra, engine, part: str = "track", *, along: int | None = No
     if part == "track":
         x0, x1 = bar_track_x(width)
         return left + x + (along if along is not None else (x0 + x1) // 2), top + y + height - 4
+    if part == "dial":
+        dx, dy = dial_xy(win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT)
+        return left + x + dx + DIAL_SIZE - 3, top + y + dy + DIAL_SIZE // 2  # quarter past
     cx, cy = chip_xy(win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT)
     across = 4 if part == "speaker" else CHIP_W - 6
     return left + x + cx + across, top + y + cy + CHIP_H // 2
@@ -427,8 +432,10 @@ class Genau(Kino):
         self.video = "alpha"
         self.frame = np.zeros((8, 16, 3), dtype=np.uint8)
         self.flick = Path("C:/flicks/alpha.mp4")
-        self.played, self.count = 3, 8
-        self.sought: list[float] = []
+        self.loop_turn: float | None = 0.3
+        self.elapsed_ms, self.interval_ms = 4_000.0, 10_000.0
+        self.sought_times: list[float] = []
+        self.sought_turns: list[float] = []
 
     def apply_command(self, command: str) -> bool:
         self.commands.append(command)
@@ -441,8 +448,10 @@ class Genau(Kino):
         return ModeHud(video=self.video)
 
     def picture(self) -> Picture | None:
-        return Picture(frame=self.frame, played=self.played, count=self.count,
-                       seek=self.sought.append, flick=self.flick)
+        return Picture(frame=self.frame, loop_turn=self.loop_turn,
+                       elapsed_ms=self.elapsed_ms, interval_ms=self.interval_ms,
+                       seek_time=self.sought_times.append, seek_loop=self.sought_turns.append,
+                       flick=self.flick)
 
 
 def _main(tmp_path: Path, *, commands: str = "", user=Kino,
@@ -755,24 +764,39 @@ class TestAUsersOwnPicture:
 
         assert engine.overlays[HUD_OVERLAY_ID][2] is not before
 
-    def test_the_row_counts_its_frames_rather_than_the_videos_time(self, tmp_path):
+    def test_the_row_runs_its_pictures_time_on_screen_and_turns_its_dial(self, tmp_path):
+        """A flick has two senses of time: the track runs how long it has been
+        up of the seconds it gets, and the dial beside it goes round with the
+        loop of the clip itself."""
         funestra, _engine, genau = self._genau_in_front(tmp_path)
 
         row = funestra._panel._clip_row
 
-        assert (row.position_ms, row.duration_ms) == (genau.played, genau.count)
-        assert row.playhead == flick_playhead(genau.played, genau.count)
+        assert (row.position_ms, row.duration_ms) == (genau.elapsed_ms, genau.interval_ms)
+        assert row.playhead == video_playhead(genau.elapsed_ms, genau.interval_ms, 0)
+        assert row.loop_turn == genau.loop_turn
         assert row.volume is funestra._volume.hud
 
-    def test_a_press_on_the_track_runs_its_picture_there_rather_than_the_video(self, tmp_path):
+    def test_a_press_on_the_track_puts_its_picture_that_far_into_its_time_rather_than_the_video(
+            self, tmp_path):
         funestra, engine, genau = self._genau_in_front(tmp_path)
         x0, x1 = bar_track_x(funestra._panel.row_rect[2])
 
         funestra.press(*_on_the_row(funestra, engine), window=WINDOW)
 
         assert engine.seeks == []
-        assert len(genau.sought) == 1
-        assert abs(genau.sought[0] - 0.5) <= 1 / (x1 - x0)
+        assert len(genau.sought_times) == 1
+        assert abs(genau.sought_times[0] - genau.interval_ms / 2) <= genau.interval_ms / (x1 - x0)
+        assert genau.sought_turns == []
+
+    def test_a_press_on_the_dial_turns_its_pictures_loop(self, tmp_path):
+        funestra, engine, genau = self._genau_in_front(tmp_path)
+
+        funestra.press(*_on_the_row(funestra, engine, "dial"), window=WINDOW)
+
+        assert engine.seeks == []
+        assert genau.sought_times == []
+        assert genau.sought_turns == [pytest.approx(0.25, abs=0.03)]
 
     def test_the_videos_loop_frames_stay_down_while_it_has_the_window(self, tmp_path):
         funestra, engine, _genau = self._genau_in_front(tmp_path)
@@ -1092,8 +1116,8 @@ class TestAUsersOwnPictureElsewhere:
         funestra.tick(window=WINDOW)
 
         picture, window = surface.shown[-1]
-        assert (picture.frame, picture.played, picture.count, picture.flick, window) == (
-            genau.frame, genau.played, genau.count, genau.flick, WINDOW)
+        assert (picture.frame, picture.loop_turn, picture.flick, window) == (
+            genau.frame, genau.loop_turn, genau.flick, WINDOW)
         assert engine.overlays == {}
 
     def test_it_is_told_when_no_picture_is_up(self, tmp_path):

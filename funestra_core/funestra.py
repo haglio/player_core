@@ -27,7 +27,7 @@ from .hud_row import RowHud
 from .mpv_engine import MpvEngine
 from .play_points import PlayPoints
 from .playback import Playback, funscripts_of
-from .playhead import flick_playhead, video_playhead
+from .playhead import video_playhead
 from .playlist import PlaylistItem
 from .playlist_follower import PlaylistFollower
 from .pointer import OMNIPAUSE_TOGGLE, Pointer
@@ -244,8 +244,8 @@ class Funestra:
             return HudOverlay(
                 panel=panel, post=self._apply, engine=drawn_on,
                 minus_on_the_panel=self._panel_surface is None,
-                seek=self._seek_along_the_track, set_volume=self._volume.set_level,
-                toggle_mute=self._volume.toggle_mute,
+                seek=self._seek_along_the_track, seek_loop=self._seek_round_the_dial,
+                set_volume=self._volume.set_level, toggle_mute=self._volume.toggle_mute,
             )
         if channels.console is not None:
             return ConsoleOverlay(
@@ -254,8 +254,8 @@ class Funestra:
                 drive_gate=self._drive_gate, top_block=self._top_block,
                 width=None if self._panel_surface is None else self._panel_surface.width,
                 minus_on_the_panel=self._panel_surface is None,
-                seek=self._seek_along_the_track, set_volume=self._volume.set_level,
-                toggle_mute=self._volume.toggle_mute,
+                seek=self._seek_along_the_track, seek_loop=self._seek_round_the_dial,
+                set_volume=self._volume.set_level, toggle_mute=self._volume.toggle_mute,
             )
         if channels.hud is not None:
             return HudOverlay(
@@ -263,21 +263,27 @@ class Funestra:
                 drive_file=channels.drive, drive_gate=self._drive_gate,
                 over_the_video=self._panel_surface is None,
                 minus_on_the_panel=self._panel_surface is None,
-                seek=self._seek_along_the_track, set_volume=self._volume.set_level,
-                toggle_mute=self._volume.toggle_mute,
+                seek=self._seek_along_the_track, seek_loop=self._seek_round_the_dial,
+                set_volume=self._volume.set_level, toggle_mute=self._volume.toggle_mute,
             )
         return None
 
     def _seek_along_the_track(self, ms: float) -> None:
         """A press on the track names a time in the stretch the track spans,
         which is the whole clip until a loop being recorded zooms it in -- or,
-        under a picture the User put up itself, how far along that picture."""
+        under a picture the User put up itself, how far into its time on
+        screen that picture is."""
         picture = self._front.picture()
         if picture is not None:
-            picture.seek(ms / picture.count if picture.count else 0.0)
+            picture.seek_time(ms)
             return
         start_ms, _end_ms = self._strip.window
         self.playback.seek_to(start_ms + ms)
+
+    def _seek_round_the_dial(self, turn: float) -> None:
+        picture = self._front.picture()
+        if picture is not None:
+            picture.seek_loop(turn)
 
     @classmethod
     def on_window(cls, wid: int, *, channels: Channels, playlist: list[PlaylistItem],
@@ -486,10 +492,11 @@ class Funestra:
 
 
 def picture_row(picture: Picture, volume) -> RowHud | None:
-    """The row for a picture a User put up itself, counted in frames rather
-    than milliseconds -- a flick is a loop of frames and has no running time --
-    or None while there is none up."""
-    if picture.count <= 0:
+    """The row for a picture a User put up itself: its time on screen on the
+    track and its loop on the dial, or None while there is none up."""
+    if picture.loop_turn is None:
         return None
-    return RowHud(position_ms=picture.played, duration_ms=picture.count, volume=volume,
-                  playhead=flick_playhead(picture.played, picture.count))
+    return RowHud(position_ms=picture.elapsed_ms, duration_ms=picture.interval_ms,
+                  volume=volume,
+                  playhead=video_playhead(picture.elapsed_ms, picture.interval_ms, 0),
+                  loop_turn=picture.loop_turn)

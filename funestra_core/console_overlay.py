@@ -38,6 +38,7 @@ class ConsoleOverlay:
         width: int | None = None,
         minus_on_the_panel: bool = True,
         seek=None,
+        seek_loop=None,
         set_volume=None,
         toggle_mute=None,
     ) -> None:
@@ -58,7 +59,8 @@ class ConsoleOverlay:
         self._panel_height = 0
         self._clip_row: RowHud | None = None
         # The console draws the clip's row, so it places a press on it too.
-        self._row = RowPress(seek=seek, set_volume=set_volume, toggle_mute=toggle_mute)
+        self._row = RowPress(seek=seek, seek_loop=seek_loop, set_volume=set_volume,
+                             toggle_mute=toggle_mute)
 
     @property
     def console(self) -> ConsoleModel:
@@ -99,7 +101,7 @@ class ConsoleOverlay:
 
     @property
     def row_rect(self) -> tuple[int, int, int, int] | None:
-        """Where the clip's row landed in this panel, for a host measuring the
+        """Where the flick's row landed in this panel, for a host measuring the
         track it is to fill."""
         return self._painter.row_rect
 
@@ -115,7 +117,7 @@ class ConsoleOverlay:
 
     def press(self, x: int, y: int) -> bool:
         if self._row.press(*self._local(x, y), rect=self._painter.row_rect,
-                           duration_ms=self._track_duration()):
+                           duration_ms=self._track_duration(), dial=self._has_a_dial()):
             return True
         asked = self._painter.press_at(x, y)
         if asked:
@@ -147,6 +149,9 @@ class ConsoleOverlay:
         """How long the track spans -- the clip, or the window a loop being
         recorded has zoomed it to, which is what the row was drawn from."""
         return 0.0 if self._clip_row is None else self._clip_row.duration_ms
+
+    def _has_a_dial(self) -> bool:
+        return self._clip_row is not None and self._clip_row.loop_turn is not None
 
     def motion(self, x: int, y: int) -> None:
         self._hover.take(self._painter.hover_at(x, y))
