@@ -9,10 +9,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+from .clip_picture import ClipPicture, Picture
 from .console import ModeHud
 from .console_overlay import ConsoleOverlay
 from .control_registry import look_up
-from .display import Display
 from .drive_gate import DriveGate
 from .file_channel import consume_command_file, read_paused_state
 from .funestra_controls import VERBS, FunestraControls
@@ -22,7 +22,7 @@ from .hud_row import RowHud
 from .mpv_player import MpvPlayer
 from .play_points import PlayPoints
 from .playback import Playback, funscripts_of
-from .playhead import video_playhead
+from .playhead import clip_playhead, video_playhead
 from .playlist import PlaylistItem
 from .playlist_follower import PlaylistFollower
 from .pointer import Pointer
@@ -69,6 +69,12 @@ class User(Protocol):
 
     def top_block(self) -> ModeHud: ...
 
+    def set_showing(self, showing: bool) -> None: ...
+
+    def picture(self) -> Picture | None: ...
+
+    def close(self) -> None: ...
+
 
 class _Nobody:
     """A Funestra driven through its files alone."""
@@ -84,6 +90,20 @@ class _Nobody:
 
     def top_block(self) -> ModeHud:
         return ModeHud()
+
+    def set_showing(self, showing: bool) -> None:
+        pass
+
+    def picture(self) -> Picture | None:
+        return None
+
+    def close(self) -> None:
+        pass
+
+
+NOBODY = ""
+
+Users = Mapping[str, Callable[[Playback], User]]
 
 
 def osr2_line(channels: Channels) -> FunscriptTCodeDriver | None:
@@ -109,7 +129,7 @@ class Funestra:
         tiles: bool = False,
         locked: bool = False,
         sound_is_the_rooms: bool = False,
-        user: Callable[[Playback], User] | None = None,
+        users: Users | None = None,
     ) -> None:
         self._player = player
         self._channels = channels
@@ -124,7 +144,10 @@ class Funestra:
         )
         self._follower = (None if channels.playlist is None
                           else PlaylistFollower(channels.playlist, take=self._take_the_list))
-        self._user: User = _Nobody() if user is None else user(self.playback)
+        self._users: dict[str, User] = (
+            {NOBODY: _Nobody()} if not users
+            else {name: make(self.playback) for name, make in users.items()})
+        self._showing = next(iter(self._users))
         self._drive_gate = DriveGate(self.playback)
         self._strip = HeatmapStrip()
         self._volume = (
@@ -132,19 +155,28 @@ class Funestra:
             if sound_is_the_rooms else VolumeControl(player, live=audible)
         )
         self._panel = self._panel_for(channels, player)
-        self._display = Display(player, self.OVERLAY_IDS)
+        self._clip_picture = ClipPicture(player)
         self._pointer = Pointer(hud=self._panel, dashboard_cmd_file=channels.dashboard_cmd)
         self._controls = FunestraControls(
             self.playback, stop_event=self._stop,
             reload_playlist=None if self._follower is None else self._follower.read_now,
-            room_volume=self._volume if sound_is_the_rooms else None, display=self._display)
+            room_volume=self._volume if sound_is_the_rooms else None, show=self._show)
         self._status = (
             StatusWriter(channels.status, lambda playback: {
                 **status_fields(playback, self._drive_gate.handoff_touch()),
-                **self._user.status_fields()})
+                **{key: value for user in self._users.values()
+                   for key, value in user.status_fields().items()}})
             if channels.status else None
         )
         self._loop_frames = LoopThumbCapture()
+        self._front.set_showing(True)
+
+    @property
+    def _front(self) -> User:
+        return self._users[self._showing]
+
+    def _top_block(self) -> ModeHud:
+        return self._front.top_block()
 
     def _panel_for(self, channels: Channels, player) -> HudOverlay | ConsoleOverlay | None:
         """The one panel this window wears, which carries the clip's row: the
@@ -158,7 +190,7 @@ class Funestra:
             return ConsoleOverlay(
                 console_file=channels.console, drive_file=channels.drive,
                 command_file=channels.dashboard_cmd, player=player,
-                drive_gate=self._drive_gate, top_block=self._user.top_block,
+                drive_gate=self._drive_gate, top_block=self._top_block,
                 seek=self._seek_along_the_track, set_volume=self._volume.set_level,
                 toggle_mute=self._volume.toggle_mute,
             )
@@ -173,7 +205,12 @@ class Funestra:
 
     def _seek_along_the_track(self, ms: float) -> None:
         """A press on the track names a time in the stretch the track spans,
-        which is the whole clip until a loop being recorded zooms it in."""
+        which is the whole clip until a loop being recorded zooms it in -- or,
+        under a picture the User put up itself, how far along that picture."""
+        picture = self._front.picture()
+        if picture is not None:
+            picture.seek(ms / picture.count if picture.count else 0.0)
+            return
         start_ms, _end_ms = self._strip.window
         self.playback.seek_to(start_ms + ms)
 
@@ -181,17 +218,21 @@ class Funestra:
     def on_window(cls, wid: int, *, channels: Channels, playlist: list[PlaylistItem],
                   audible: bool = True, tiles: bool = False, locked: bool = False,
                   sound_is_the_rooms: bool = False,
-                  user: Callable[[Playback], User] | None = None) -> Funestra:
+                  users: Users | None = None) -> Funestra:
         return cls(
             MpvPlayer(wid, muted=True, loop_file=False, prefetch=True),
             channels=channels, playlist=playlist, tcode=osr2_line(channels),
             audible=audible, tiles=tiles, locked=locked, sound_is_the_rooms=sound_is_the_rooms,
-            user=user,
+            users=users,
         )
 
     @property
     def stopped(self) -> bool:
         return self._stop.is_set()
+
+    @property
+    def showing(self) -> str:
+        return self._showing
 
     def close_requested(self) -> None:
         if quit_gesture(self._channels.dashboard_cmd):
@@ -215,33 +256,52 @@ class Funestra:
                 self._apply(command)
         if self._follower is not None:
             self._follower.tick()
-        self._user.tick()
+        for user in self._users.values():
+            user.tick()
         self.playback.advance()
         if self._status is not None:
             self._status.write(self.playback)
-        self._display.sync(*window)
-        if not self._display.active:
-            return
         if self._tiles:
             self._player.tile_to_fill(*window)
         self._player.push_still()
         self._paint(window)
 
     def close(self) -> None:
+        for user in self._users.values():
+            user.close()
         self.playback.close()
 
     def _apply(self, command: str) -> None:
-        if self._user.apply_command(command):
-            return
+        for user in self._users.values():
+            if user.apply_command(command):
+                return
         if not look_up(command, VERBS, self._controls):
             logger.warning("Unhandled command: %s", command.strip())
+
+    def _show(self, name: str) -> bool:
+        if name not in self._users:
+            return False
+        if name != self._showing:
+            self._front.set_showing(False)
+            self._showing = name
+            self._front.set_showing(True)
+        return True
 
     def _take_the_list(self, items: list[PlaylistItem]) -> None:
         self.playback.replace_playlist([item.path for item in items], funscripts_of(items))
 
     def _paint(self, window: tuple[int, int]) -> None:
-        self._paint_panel(window, self.clip_row())
-        self._paint_loop_frames(window)
+        picture = self._front.picture()
+        if picture is None:
+            self._clip_picture.hide()
+            row = self.clip_row()
+            self._paint_panel(window, row, self._strip.colors if row is not None else None,
+                              self.playback.speed)
+            self._paint_loop_frames(window)
+            return
+        self._clip_picture.show(picture, window)
+        self._paint_panel(window, picture_row(picture, self._volume.hud), None, 1.0)
+        self._take_the_loop_frames_down()
 
     def clip_row(self) -> RowHud | None:
         """Where the clip has got to, how long it runs, how loud it is and where
@@ -277,16 +337,16 @@ class Funestra:
         rect = None if self._panel is None else self._panel.row_rect
         return 0 if rect is None else rect[2]
 
-    def _paint_panel(self, window: tuple[int, int], row: RowHud | None) -> None:
+    def _paint_panel(self, window: tuple[int, int], row: RowHud | None, colors,
+                     playback_speed: float) -> None:
         if self._panel is None:
             return
-        colors = self._strip.colors if row is not None else None
         if isinstance(self._panel, ConsoleOverlay):
-            self._panel.tick(playback_speed=self.playback.speed, window=window,
+            self._panel.tick(playback_speed=playback_speed, window=window,
                              clip_row=row, heatmap=colors)
         else:
             self._panel.tick(video=self.playback.name_on_screen,
-                             playback_speed=self.playback.speed, window=window,
+                             playback_speed=playback_speed, window=window,
                              clip_row=row, heatmap=colors)
 
     def _paint_loop_frames(self, window: tuple[int, int]) -> None:
@@ -298,8 +358,7 @@ class Funestra:
             frames.set(which, player.screenshot_bgra())
         track = None if self._panel is None else self._panel.row_track
         if playback.ab_loop is None or track is None:
-            player.remove_overlay(self.IN_FRAME_OVERLAY_ID)
-            player.remove_overlay(self.OUT_FRAME_OVERLAY_ID)
+            self._take_the_loop_frames_down()
             return
         x0, x1, top = track
         in_at, out_at = loop_thumbnail_xys(
@@ -309,3 +368,17 @@ class Funestra:
             player.overlay(self.IN_FRAME_OVERLAY_ID, *in_at, frames.in_thumb)
         if out_at is not None:
             player.overlay(self.OUT_FRAME_OVERLAY_ID, *out_at, frames.out_thumb)
+
+    def _take_the_loop_frames_down(self) -> None:
+        self._player.remove_overlay(self.IN_FRAME_OVERLAY_ID)
+        self._player.remove_overlay(self.OUT_FRAME_OVERLAY_ID)
+
+
+def picture_row(picture: Picture, volume) -> RowHud | None:
+    """The row for a picture a User put up itself, counted in frames rather
+    than milliseconds -- a clip is a loop of frames and has no running time --
+    or None while there is none up."""
+    if picture.count <= 0:
+        return None
+    return RowHud(position_ms=picture.played, duration_ms=picture.count, volume=volume,
+                  playhead=clip_playhead(picture.played, picture.count))

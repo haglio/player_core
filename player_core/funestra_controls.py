@@ -13,8 +13,6 @@ from .playback import Playback
 from .playback_rate import RATE_STEP, parse_rate
 from .player_verbs import (
     CLEAR_FRAME,
-    DISPLAY_OFF,
-    DISPLAY_ON,
     LOCK_OFF,
     LOCK_ON,
     NEXT,
@@ -31,6 +29,7 @@ from .player_verbs import (
     SET_SPEED,
     SET_TCODE_ENABLED,
     SET_VOLUME,
+    SHOW,
     SHOW_FRAME,
     SPEED_DOWN,
     SPEED_UP,
@@ -61,7 +60,7 @@ class FunestraControls:
     stop_event: threading.Event | None = None
     reload_playlist: Callable[[], None] | None = None
     room_volume: Any = None
-    display: Any = None
+    show: Callable[[str], bool] | None = None
 
 
 Act = Callable[[FunestraControls, str], bool]
@@ -103,11 +102,8 @@ def _set_volume(controls: FunestraControls, value: str) -> bool:
     return True
 
 
-def _display_set(active: bool) -> Act:
-    def act(controls: FunestraControls, _value: str) -> bool:
-        controls.display.set_active(active)
-        return True
-    return act
+def _show(controls: FunestraControls, value: str) -> bool:
+    return controls.show(value.strip().lower())
 
 
 def _discard(controls: FunestraControls, _value: str) -> bool:
@@ -242,9 +238,9 @@ CONTROLS: tuple[Control, ...] = (
         verbs=(Verb(SET_VOLUME, _set_volume, takes_a_value=True),),
     ),
     Control(
-        name="display",
-        needs=("display",),
-        verbs=(Verb(DISPLAY_ON, _display_set(True)), Verb(DISPLAY_OFF, _display_set(False))),
+        name="showing",
+        needs=("show",),
+        verbs=(Verb(SHOW, _show, takes_a_value=True),),
     ),
     Control(
         name="playlist",
