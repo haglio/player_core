@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 
 import pytest
-from one_move import DRIFT, OneMove
+from dealt_moves import DRIFT, Deals
 
 from player_core import audio_outputs
 from player_core.ken_burns import Move, zoom_in
@@ -42,6 +42,7 @@ class FakeMpv:
         self.heard: dict[str, object] = {}
         self.audio_device_list: list[dict] = []
         self.audio_device = "auto"
+        self.__dict__.update(dict.fromkeys(PLACING, 0.0))
 
     def observe_property(self, name: str, handler) -> None:
         self.observers[name] = handler
@@ -88,10 +89,10 @@ class Control(_MpvControl):
     """
 
     def __init__(self, mpv, now: float = 0.0, move: Move = CREEP,
-                 deals: OneMove | None = None,
+                 deals: Deals | None = None,
                  looping: bool = False) -> None:
         # the call gate every method here runs under
-        super().__init__(deals or OneMove(move), looping=looping)
+        super().__init__(deals or Deals(move), looping=looping)
         self.now = now
         self._adopt(mpv)
 
@@ -534,7 +535,7 @@ def test_a_picture_that_has_not_moved_since_the_last_frame_asks_mpv_for_nothing(
 
 def test_a_still_swapped_in_carries_on_the_move_of_the_picture_it_replaced():
     mpv = FakeMpv()
-    deals = OneMove(CREEP)
+    deals = Deals(CREEP)
     control = Control(mpv, now=100.0, deals=deals)
     control.set_pace(4.0)
     show_a_picture(mpv)
@@ -671,7 +672,7 @@ def test_a_pace_set_while_a_still_is_swapped_in_leaves_mpv_holding_it():
 
 def test_a_file_opened_is_dealt_a_move_of_its_own_though_it_was_once_swapped_in():
     mpv = FakeMpv()
-    deals = OneMove(CREEP)
+    deals = Deals(CREEP)
     control = Control(mpv, now=100.0, deals=deals)
     control.set_pace(4.0)
     show_a_picture(mpv)
@@ -693,12 +694,12 @@ def test_a_picture_opened_again_after_its_hold_makes_its_move_again():
     control.load(Path("made-up-scene.png"))
     mpv.report("path", "made-up-scene.png")
 
-    assert zoom_drawn_at(control, mpv, 106.5) == pytest.approx(math.log2(CREEP.at(0.5).zoom))
+    assert drawn_at(control, mpv, 106.5) == pytest.approx(CREEP.at(0.5).placement())
 
 
 def test_a_picture_opened_again_is_dealt_one_move_though_mpv_reports_the_gap_between():
     mpv = FakeMpv()
-    deals = OneMove(CREEP)
+    deals = Deals(CREEP)
     control = Control(mpv, now=100.0, deals=deals)
     control.set_pace(4.0)
     show_a_picture(mpv)
@@ -712,7 +713,7 @@ def test_a_picture_opened_again_is_dealt_one_move_though_mpv_reports_the_gap_bet
 
 def test_a_reopening_mpv_said_nothing_about_costs_no_later_opening_its_move():
     mpv = FakeMpv()
-    deals = OneMove(CREEP)
+    deals = Deals(CREEP)
     control = Control(mpv, now=100.0, deals=deals)
     control.set_pace(4.0)
     show_a_picture(mpv)
@@ -754,7 +755,7 @@ def test_a_still_swapped_in_after_the_player_let_go_of_its_file_stages_nothing()
 
 def test_the_gap_between_two_files_is_dealt_no_move_of_its_own():
     mpv = FakeMpv()
-    deals = OneMove(DRIFT)
+    deals = Deals(DRIFT)
     control = Control(mpv, now=100.0, deals=deals)
     control.set_pace(4.0)
 
@@ -765,10 +766,10 @@ def test_the_gap_between_two_files_is_dealt_no_move_of_its_own():
     assert deals.dealt == 2
 
 
-def zoom_drawn_at(control: Control, mpv: FakeMpv, now: float) -> float:
+def drawn_at(control: Control, mpv: FakeMpv, now: float) -> tuple[float, float, float]:
     control.now = now
     control.push_still()
-    return mpv.video_zoom
+    return mpv.video_zoom, mpv.video_align_x, mpv.video_align_y
 
 
 def test_an_unlocked_picture_past_its_hold_stays_where_its_move_ended():
@@ -777,27 +778,39 @@ def test_an_unlocked_picture_past_its_hold_stays_where_its_move_ended():
     control.set_pace(4.0)
     show_a_picture(mpv)
 
-    assert zoom_drawn_at(control, mpv, 104.05) == pytest.approx(math.log2(CREEP.at(1.0).zoom))
+    assert drawn_at(control, mpv, 104.05) == pytest.approx(CREEP.at(1.0).placement())
 
 
-def test_locking_a_picture_has_it_make_its_move_again_each_time_it_repeats():
+def test_locking_a_picture_has_it_make_a_new_move_each_time_it_repeats():
     mpv = FakeMpv()
-    control = Control(mpv, now=100.0)
+    control = Control(mpv, now=100.0, deals=Deals(CREEP, DRIFT))
     control.set_pace(4.0)
     show_a_picture(mpv)
 
     control.set_loop_file(True)
 
-    assert zoom_drawn_at(control, mpv, 106.0) == pytest.approx(math.log2(CREEP.at(0.5).zoom))
+    assert drawn_at(control, mpv, 105.0) == pytest.approx(DRIFT.at(0.25).placement())
 
 
-def test_a_player_opened_locked_has_its_pictures_make_their_moves_again_as_they_repeat():
+def test_a_player_opened_locked_has_its_pictures_make_a_new_move_each_time_they_repeat():
     mpv = FakeMpv()
-    control = Control(mpv, now=100.0, looping=True)
+    control = Control(mpv, now=100.0, deals=Deals(CREEP, DRIFT), looping=True)
     control.set_pace(4.0)
     show_a_picture(mpv)
 
-    assert zoom_drawn_at(control, mpv, 106.0) == pytest.approx(math.log2(CREEP.at(0.5).zoom))
+    assert drawn_at(control, mpv, 105.0) == pytest.approx(DRIFT.at(0.25).placement())
+
+
+def test_unlocking_a_picture_has_it_finish_the_move_it_is_making():
+    mpv = FakeMpv()
+    control = Control(mpv, now=100.0, deals=Deals(CREEP, DRIFT), looping=True)
+    control.set_pace(4.0)
+    show_a_picture(mpv)
+
+    control.now = 104.5
+    control.set_loop_file(False)
+
+    assert drawn_at(control, mpv, 105.0) == pytest.approx(DRIFT.at(0.25).placement())
 
 
 def test_between_two_files_a_still_is_left_where_its_move_had_got_to():
