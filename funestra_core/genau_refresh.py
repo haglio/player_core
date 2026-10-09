@@ -9,7 +9,7 @@ from .broker_feed import snapshot
 from .cruise_control import tick_cruise_control
 from .device_walk import Walk, the_broker_holding, the_hand_taking_back
 from .file_channel import consume_command_file
-from .flick_advance import tick_flick_advance
+from .flick_advance import set_elapsed, tick_flick_advance
 from .flick_renderer import display_index_for_phase
 from .flick_scrub import FlickScrub, scrub_flick
 from .genau_controls import GenauControls, apply_runtime_command
@@ -297,8 +297,14 @@ class GenauRefreshController:
             portrait=self.renderer.portrait,
         ))
 
+    def seek_the_time_on_screen(self, seconds: float) -> None:
+        """A press along the track: put the flick *seconds* into its turn on
+        screen, so the next one comes that much sooner or later."""
+        if self.flick_advance is not None:
+            set_elapsed(self.flick_advance, seconds)
+
     def seek_the_flick(self, fraction: float) -> None:
-        """Put the flick *fraction* of the way along its bar, and the device where
+        """Put the flick *fraction* of the way round its loop, and the device where
         that is.
 
         The frame is a picture of where the device is (:mod:`funestra_core.flick_scrub`),

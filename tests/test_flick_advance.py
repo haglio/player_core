@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import pytest
+
 from funestra_core.flick_advance import (
     DEFAULT_INTERVAL_S,
     MAX_INTERVAL_S,
     MIN_INTERVAL_S,
     FlickAdvanceState,
     adjust_interval,
+    set_elapsed,
     set_interval,
     set_locked,
     tick_flick_advance,
@@ -151,3 +154,49 @@ class TestTheInterval:
         state = FlickAdvanceState(interval=MAX_INTERVAL_S)
         adjust_interval(state, 1)
         assert state.interval == MAX_INTERVAL_S
+
+
+class TestHowLongTheFlickHasBeenUp:
+    """What the track at the console's foot draws: how far an unheld flick has
+    got through its turn on screen."""
+
+    def test_it_counts_the_seconds_since_the_flick_came_on_screen(self):
+        state = FlickAdvanceState(locked=False, interval=10)
+        _run(state, seconds=4.0)
+
+        assert state.elapsed == pytest.approx(4.0, abs=0.11)
+
+    def test_a_held_flick_has_nothing_elapsed_toward_a_switch(self):
+        """Locked, nothing is going to move the flick on, so the track sits at
+        its start -- not frozen part-way, which would promise a switch that is
+        not coming."""
+        state = FlickAdvanceState(locked=False, interval=10)
+        _run(state, seconds=4.0)
+        set_locked(state, True)
+
+        assert state.elapsed == 0.0
+
+
+class TestAPressAlongTheTrack:
+    """The track is a scrubber, so a press along it puts the flick that far
+    through its turn on screen."""
+
+    def test_it_puts_the_flick_that_far_through_its_turn(self):
+        state = FlickAdvanceState(locked=False, interval=10)
+        _run(state, seconds=2.0)
+
+        set_elapsed(state, 7.0)
+
+        assert state.elapsed == 7.0
+        assert _run(state, seconds=2.8, start=2.0) == []
+        assert _run(state, seconds=0.4, start=4.8) == [1]
+
+    def test_once_the_switch_is_asked_for_the_track_stays_full(self):
+        """The next flick is on its way; a press cannot call it back, so the
+        track goes on saying so until that flick arrives."""
+        state = FlickAdvanceState(locked=False, interval=3)
+        assert len(_series(state, 0.0, 4.0, "A")) == 1
+
+        set_elapsed(state, 1.0)
+
+        assert state.elapsed >= 3.0
