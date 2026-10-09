@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from console_rows import console_rows
 from funestra_fakes import FakePlayer
+from shared_ui.spacing import BUTTON_SIZE_HUD
 
 from player_core.console import ConsoleModel, ModeHud, console_text
 from player_core.console_hud import _MARGIN
@@ -199,10 +200,14 @@ class TestWhatThePanelSays:
         assert player.overlays[HUD_OVERLAY_ID][2] is first
 
 
-def _published(tmp_path: Path, corner: HudCorner = HudCorner.UPPER_LEFT, **over) -> ConsoleOverlay:
+def _publish(tmp_path: Path, corner: HudCorner = HudCorner.UPPER_LEFT, **over) -> None:
     model = ConsoleModel(main_mode=MainMode.KINO, hud_corner=corner, rows=console_rows(),
                          osr2=Osr2State.ROBOT_HAND, **over)
     (tmp_path / "console.json").write_text(console_text(model), encoding="utf-8")
+
+
+def _published(tmp_path: Path, corner: HudCorner = HudCorner.UPPER_LEFT, **over) -> ConsoleOverlay:
+    _publish(tmp_path, corner, **over)
     overlay, _player, _gate = _overlay(tmp_path)
     _tick(overlay)
     return overlay
@@ -317,6 +322,20 @@ class TestNamingTheButtonUnderThePointer:
         _tick(overlay)
 
         assert player.overlays[HUD_OVERLAY_ID][2] is before
+
+    def test_a_console_collapsed_by_a_press_on_its_minus_draws_the_plus_alone(self, tmp_path):
+        overlay = _published(tmp_path)
+        left, top, _bgra = overlay._player.overlays[HUD_OVERLAY_ID]
+        (x, y, w, h), _minus = next((rect, b) for rect, b in overlay._painter.buttons
+                                    if b.command.endswith("_hud_minimize"))
+        overlay.motion(left + x + w // 2, top + y + h // 2)
+        overlay.press(left + x + w // 2, top + y + h // 2)
+
+        _publish(tmp_path, hud_minimized=True)
+        _tick(overlay)
+
+        bgra = overlay._player.overlays[HUD_OVERLAY_ID][2]
+        assert bgra.shape[:2] == (BUTTON_SIZE_HUD, BUTTON_SIZE_HUD)
 
 
 @pytest.mark.parametrize("corner", list(HudCorner))

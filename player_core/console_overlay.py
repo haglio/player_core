@@ -17,6 +17,7 @@ from .console_hud import ConsoleHud, ConsolePainter, with_playback_speed
 from .dashboard import ask
 from .drive_readout import DriveHud, read_drive
 from .hud_overlay import HUD_OVERLAY_ID
+from .hud_placement import place_of
 from .hud_row import RowHud, RowPress, track_on_screen
 
 __all__ = []
@@ -61,7 +62,10 @@ class ConsoleOverlay:
 
     def tick(self, *, playback_speed: float, window: tuple[int, int],
              clip_row: RowHud | None = None, heatmap=None) -> None:
-        self._console = read_console(self._console_file) or self._console
+        console = read_console(self._console_file) or self._console
+        if place_of(console) != place_of(self._console):
+            self._hover = None
+        self._console = console
         if self._drive_file is not None:
             self._drive = read_drive(self._drive_file) or self._drive
         drive = self._drive_gate.readout(
