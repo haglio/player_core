@@ -24,7 +24,9 @@ from shared_ui.spacing import BUTTON_RADIUS_HUD
 
 from . import drive_layout
 from .drive_layout import (
+    LESS,
     MAX_INTENSITY,
+    MORE,
     TRACE_SAMPLES,  # noqa: F401 — re-exported: genau reads it from here
     DriveControl,
     DriveTrack,
@@ -36,8 +38,7 @@ from .file_channel import publish_whole
 from .geometry import Rect, contains
 from .hud_button import Button
 from .hud_panel import (
-    SYMBOL_FONT,
-    draw_glyph,
+    draw_mark,
     load_font,
     text_width,
 )
@@ -263,6 +264,9 @@ CONTROL_TIPS = {
 }
 
 
+_MARK_NAMES = {MORE: "plus", LESS: "minus"}
+
+
 def readout_targets(x: int, y: int, hud: DriveHud,
                     ) -> tuple[list[tuple[Rect, Button]], list[DriveTrack]]:
     """What a readout at ``(x, y)`` leaves for a press to land on: its marks as
@@ -353,7 +357,6 @@ class DriveSection:
 
     def __init__(self) -> None:
         self._tiny = load_font(_SIZE_TINY)
-        self._glyph = load_font(_LABEL_H - 3, SYMBOL_FONT)
 
     def draw(self, image: Image.Image, x: int, y: int, hud: DriveHud) -> None:
         """Paint the readout with its top-left corner at ``(x, y)`` of *image*.
@@ -379,7 +382,7 @@ class DriveSection:
         draw_level_bar(draw, g.speed_bar, fill=_fraction(hud.speed), color=level_ink)
         self._etch_what_the_max_intensity_rules_out(draw, g, hud)
         for control in controls(x, y, hud):
-            self._draw_control(draw, control)
+            self._draw_control(image, draw, control)
 
         self._stacked(draw, g.center_label, "Center", str(hud.center),
                       anchor="rm", ink=value_ink)
@@ -388,13 +391,13 @@ class DriveSection:
         self._value(draw, g.speed_label_y, "Speed", str(hud.speed),
                     center=g.speed_label_x, ink=value_ink)
 
-    def _draw_control(self, draw, control: DriveControl) -> None:
-        """One integrated mark: an outline square with its glyph, dimmed at a limit."""
+    @staticmethod
+    def _draw_control(image: Image.Image, draw, control: DriveControl) -> None:
         x, y, w, h = control.rect
         ink = DISABLED_INK if control.dim else (*TEXT_PRIMARY, 255)
         draw.rounded_rectangle([x, y, x + w - 1, y + h - 1], radius=BUTTON_RADIUS_HUD,
                                outline=ink, width=1)
-        draw_glyph(draw, x + w / 2, y + h / 2, control.glyph, self._glyph, ink)
+        draw_mark(image, _MARK_NAMES[control.glyph], control.rect, ink)
 
     def _stacked(self, draw, rect: Rect, key: str, value: str, *, anchor: str, ink) -> None:
         x, y, w, h = rect
