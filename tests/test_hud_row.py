@@ -8,6 +8,7 @@ import pytest
 from PIL import Image
 
 from funestra_core.hud_row import (
+    DIAL,
     MUTE,
     SCRUBBER,
     VOLUME,
@@ -16,9 +17,11 @@ from funestra_core.hud_row import (
     RowSection,
     row_part,
     scrub_to,
+    turn_to,
     volume_to,
 )
-from funestra_core.playhead import lower_edge_height
+from funestra_core.loop_dial import DIAL_SIZE, dial_xy
+from funestra_core.playhead import PlayheadHud, PlayheadHudPainter, lower_edge_height, readout_xy
 from funestra_core.timeline import (
     AMBER,
     HEATMAP_ALPHA,
@@ -253,3 +256,62 @@ class TestWhatAPressOnTheRowAsksFor:
         press.release()
 
         assert press.holding is False
+
+
+class TestAFlicksDial:
+    """A flick's row carries a dial beside its track -- a clock hand going round
+    once per loop of the clip -- where a video's row has none."""
+
+    WIDTH = 400
+
+    def _painted(self, row: RowHud):
+        section = RowSection()
+        width, height = section.size(self.WIDTH)
+        panel = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        section.draw(panel, 0, 0, width, row)
+        return np.asarray(panel), dial_xy(win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT)
+
+    def test_a_flicks_row_draws_the_dial_beside_the_track(self):
+        painted, (x, y) = self._painted(RowHud(position_ms=4_000, duration_ms=10_000, loop_turn=0.3))
+
+        assert painted[y + DIAL_SIZE // 2, x + DIAL_SIZE // 2, 3] > 0
+
+    def test_a_videos_row_has_no_dial(self):
+        painted, (x, y) = self._painted(RowHud(position_ms=4_000, duration_ms=10_000))
+
+        assert painted[y + DIAL_SIZE // 2, x + DIAL_SIZE // 2, 3] == 0
+
+    def test_a_press_on_the_dial_is_on_the_dial_only_where_the_row_has_one(self):
+        """A video's row keeps the spot as the track's own margin, pressed to
+        the start of the track as it always was."""
+        height = RowSection().size(self.WIDTH)[1]
+        x, y = dial_xy(win_w=self.WIDTH, win_h=height, timeline_h=TIMELINE_HEIGHT)
+
+        assert row_part(x + DIAL_SIZE // 2, y + DIAL_SIZE // 2, width=self.WIDTH, dial=True) == DIAL
+        assert row_part(x + DIAL_SIZE // 2, y + DIAL_SIZE // 2, width=self.WIDTH) == SCRUBBER
+
+    def test_a_press_round_the_dial_names_the_turn_under_it(self):
+        height = RowSection().size(self.WIDTH)[1]
+        x, y = dial_xy(win_w=self.WIDTH, win_h=height, timeline_h=TIMELINE_HEIGHT)
+        cx, cy = x + DIAL_SIZE // 2, y + DIAL_SIZE // 2
+
+        assert turn_to(cx, cy - 8, width=self.WIDTH) == pytest.approx(0.0, abs=0.02)
+        assert turn_to(cx + 8, cy, width=self.WIDTH) == pytest.approx(0.25, abs=0.02)
+        assert turn_to(cx - 8, cy, width=self.WIDTH) == pytest.approx(0.75, abs=0.02)
+
+    def test_on_a_wide_row_the_readout_is_drawn_over_to_make_room_for_the_dial(self):
+        section = RowSection()
+        width, height = section.size(900)
+        panel = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        playhead = PlayheadHud(text="0:04 / 0:10", widest="0:10 / 0:10")
+
+        section.draw(panel, 0, 0, width, RowHud(position_ms=4_000, duration_ms=10_000,
+                                                playhead=playhead, loop_turn=0.0))
+
+        pill_w = PlayheadHudPainter().bgra(playhead).shape[1]
+        x, y = readout_xy(pill_w, win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT,
+                          dial=True)
+        painted = np.asarray(panel)
+        assert painted[y + CHIP_H // 2, x + 3, 3] > 0
+        dx, dy = dial_xy(win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT)
+        assert painted[dy + DIAL_SIZE // 2, dx + DIAL_SIZE // 2, 3] > 0

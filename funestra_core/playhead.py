@@ -8,6 +8,7 @@ from shared_ui.palette import TEXT_PRIMARY
 
 from .hud_panel import KeptBitmap, ink_center_offset, load_font, pill, text_width
 from .hud_status import SEPARATOR
+from .loop_dial import DIAL_SIZE
 from .renamed import old_name_getter
 from .timeline import READOUT_SLOT_W, bar_track_x, readout_shares_the_row
 from .volume import CHIP_H, MARGIN, PAD, chip_xy
@@ -66,11 +67,12 @@ def lower_edge_height(win_w: int, *, timeline_h: int) -> int:
     return timeline_h + _ABOVE_THE_ROW_GAP + CHIP_H
 
 
-def readout_xy(readout_w: int, *, win_w: int, win_h: int, timeline_h: int) -> tuple[int, int]:
+def readout_xy(readout_w: int, *, win_w: int, win_h: int, timeline_h: int,
+               dial: bool = False) -> tuple[int, int]:
     track_x0 = bar_track_x(win_w)[0]
     if not readout_shares_the_row(win_w):
         return track_x0, win_h - lower_edge_height(win_w, timeline_h=timeline_h)
-    x = track_x0 - MARGIN - readout_w
+    x = track_x0 - MARGIN - readout_w - ((DIAL_SIZE + MARGIN) if dial else 0)
     return max(0, x), chip_xy(win_w=win_w, win_h=win_h, timeline_h=timeline_h)[1]
 
 
