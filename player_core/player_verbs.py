@@ -94,6 +94,10 @@ SET_PACE = "SET_PACE"
 SHOW_FRAME = "SHOW_FRAME"
 CLEAR_FRAME = "CLEAR_FRAME"
 
+# Which of the things running on this Funestra has the window (SHOW kino|genau);
+# the rest keep running out of sight.
+SHOW = "SHOW"
+
 # Another version of the item on screen (NEXT_VERSION a|b|c): the whole family
 # every time, so the player steps from the file it has up.
 NEXT_VERSION = "NEXT_VERSION"

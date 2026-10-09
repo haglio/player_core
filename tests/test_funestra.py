@@ -10,11 +10,12 @@ import numpy as np
 from console_rows import console_rows
 from funestra_fakes import FakePlayer
 
+from player_core.clip_picture import BACKDROP_OVERLAY_ID, FIRST_TILE_OVERLAY_ID, Picture
 from player_core.console import ConsoleModel, ModeHud, console_text
-from player_core.display import BLACK_OVERLAY_ID
 from player_core.funestra import Channels, Funestra
 from player_core.hud_overlay import HUD_OVERLAY_ID
 from player_core.modes import LengthMode, MainMode, Osr2State
+from player_core.playhead import clip_playhead
 from player_core.playlist import read_playlist
 from player_core.session_quit import SESSION_QUIT
 from player_core.timeline import TIMELINE_HEIGHT, bar_track_x
@@ -335,6 +336,8 @@ class Kino:
         self.commands: list[str] = []
         self.ticks: list[tuple[int, float]] = []
         self.video = "Jane Doe - scene one"
+        self.showing: list[bool] = []
+        self.closed = False
 
     def apply_command(self, command: str) -> bool:
         self.commands.append(command)
@@ -349,8 +352,44 @@ class Kino:
     def top_block(self) -> ModeHud:
         return ModeHud(video=self.video, length_mode=LengthMode.SHORTS)
 
+    def set_showing(self, showing: bool) -> None:
+        self.showing.append(showing)
 
-def _main(tmp_path: Path, *, commands: str = "", user=Kino) -> tuple[Funestra, FakePlayer, Kino]:
+    def picture(self) -> Picture | None:
+        return None
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class Genau(Kino):
+    """A User that puts its own picture up: frames it decoded itself, counted
+    in frames, which the Funestra shows in place of the video."""
+
+    def __init__(self, playback) -> None:
+        super().__init__(playback)
+        self.video = "alpha"
+        self.frame = np.zeros((8, 16, 3), dtype=np.uint8)
+        self.played, self.count = 3, 8
+        self.sought: list[float] = []
+
+    def apply_command(self, command: str) -> bool:
+        self.commands.append(command)
+        return command.startswith("GENAU_")
+
+    def status_fields(self) -> dict[str, str]:
+        return {}
+
+    def top_block(self) -> ModeHud:
+        return ModeHud(video=self.video)
+
+    def picture(self) -> Picture | None:
+        return Picture(frame=self.frame, played=self.played, count=self.count,
+                       seek=self.sought.append)
+
+
+def _main(tmp_path: Path, *, commands: str = "", user=Kino,
+          genau: bool = False) -> tuple[Funestra, FakePlayer, Kino]:
     channels = _console_channels(tmp_path, [str(clip) for clip in _clips(tmp_path, "v0", "v1")],
                                  commands=commands)
     _publish_console(tmp_path)
@@ -361,8 +400,9 @@ def _main(tmp_path: Path, *, commands: str = "", user=Kino) -> tuple[Funestra, F
         made.append(user(playback))
         return made[-1]
 
+    users = {"kino": make, **({"genau": Genau} if genau else {})}
     funestra = Funestra(player, channels=channels, playlist=read_playlist(channels.playlist),
-                        locked=True, sound_is_the_rooms=True, user=make)
+                        locked=True, sound_is_the_rooms=True, users=users)
     return funestra, player, made[0]
 
 
@@ -492,34 +532,6 @@ class TestWhatRunsOnTheFunestra:
         assert status.index("portrait=") < status.index("length_mode=")
 
 
-class TestTheDisplay:
-    def test_told_off_it_covers_the_picture_and_paints_nothing_else(self, tmp_path):
-        funestra, player, _kino = _main(tmp_path, commands="DISPLAY_OFF\n")
-
-        funestra.tick(window=WINDOW)
-
-        assert list(player.overlays) == [BLACK_OVERLAY_ID]
-        assert player.pushes == 0
-
-    def test_a_blanked_funestra_still_publishes_its_status(self, tmp_path):
-        funestra, _player, _kino = _main(tmp_path, commands="DISPLAY_OFF\n")
-
-        funestra.tick(window=WINDOW)
-
-        assert "video=" in _status(tmp_path)
-
-    def test_told_on_again_it_paints_the_picture_and_its_controls(self, tmp_path):
-        funestra, player, _kino = _main(tmp_path, commands="DISPLAY_OFF\n")
-        funestra.tick(window=WINDOW)
-        (tmp_path / "cmd.txt").write_text("DISPLAY_ON\n", encoding="utf-8")
-
-        funestra.tick(window=WINDOW)
-
-        assert BLACK_OVERLAY_ID not in player.overlays
-        assert HUD_OVERLAY_ID in player.overlays
-        assert player.pushes == 1
-
-
 def _scripted_main(tmp_path: Path) -> tuple[Funestra, FakePlayer]:
     clip = _clips(tmp_path, "v0")[0]
     script = tmp_path / "v0.funscript"
@@ -530,7 +542,7 @@ def _scripted_main(tmp_path: Path) -> tuple[Funestra, FakePlayer]:
     player = FakePlayer(duration_ms=600_000.0)
     player.screenshot = np.zeros((10, 20, 4), dtype=np.uint8)
     return Funestra(player, channels=channels, playlist=read_playlist(channels.playlist),
-                    locked=True, sound_is_the_rooms=True, user=Kino), player
+                    locked=True, sound_is_the_rooms=True, users={"kino": Kino}), player
 
 
 class TestAStretchOfTheItem:
@@ -591,6 +603,113 @@ class TestAStretchOfTheItem:
         assert Funestra.IN_FRAME_OVERLAY_ID not in player.overlays
         assert player.screenshots == 1
 
-    def test_the_frames_sit_under_the_panel_and_the_black_covers_them(self):
+    def test_the_frames_sit_under_the_panel(self):
         assert max(Funestra.IN_FRAME_OVERLAY_ID, Funestra.OUT_FRAME_OVERLAY_ID) < HUD_OVERLAY_ID
-        assert max(Funestra.OVERLAY_IDS) < BLACK_OVERLAY_ID
+
+
+class TestWhoHasTheWindow:
+    """Two things run on the Main Funestra -- Kino and Genau -- and the room says
+    which one has the window.  The other keeps running out of sight."""
+
+    def test_the_first_user_has_the_window_until_the_room_says_otherwise(self, tmp_path):
+        funestra, _player, kino = _main(tmp_path, genau=True)
+
+        assert funestra.showing == "kino"
+        assert kino.showing == [True]
+
+    def test_show_hands_the_window_over_and_tells_both(self, tmp_path):
+        funestra, _player, kino = _main(tmp_path, commands="SHOW genau\n", genau=True)
+
+        funestra.tick(window=WINDOW)
+
+        assert funestra.showing == "genau"
+        assert kino.showing == [True, False]
+        assert funestra._users["genau"].showing == [True]
+
+    def test_show_naming_nobody_on_this_window_is_refused_and_named_on_the_log(self, tmp_path, caplog):
+        funestra, _player, _kino = _main(tmp_path, commands="SHOW slideshow\n", genau=True)
+
+        with caplog.at_level("WARNING", logger="player_core.funestra"):
+            funestra.tick(window=WINDOW)
+
+        assert funestra.showing == "kino"
+        assert "SHOW slideshow" in caplog.text
+
+    def test_every_user_takes_its_pass_and_answers_its_own_verbs_whoever_has_the_window(self, tmp_path):
+        funestra, _player, kino = _main(tmp_path, commands="GENAU_THING\nKINO_THING\n", genau=True)
+
+        funestra.tick(window=WINDOW)
+
+        genau = funestra._users["genau"]
+        assert kino.commands == ["GENAU_THING", "KINO_THING"]
+        assert genau.commands == ["GENAU_THING"]
+        assert len(kino.ticks) == len(genau.ticks) == 1
+
+    def test_closing_the_window_closes_everything_running_on_it(self, tmp_path):
+        funestra, _player, kino = _main(tmp_path, genau=True)
+
+        funestra.close()
+
+        assert (kino.closed, funestra._users["genau"].closed) == (True, True)
+
+
+class TestAUsersOwnPicture:
+    """Genau shows frames it decoded itself, so with the window it puts them up
+    over the video, and the row and the track answer for them."""
+
+    def _genau_in_front(self, tmp_path):
+        funestra, player, _kino = _main(tmp_path, commands="SHOW genau\n", genau=True)
+        funestra.tick(window=WINDOW)
+        return funestra, player, funestra._users["genau"]
+
+    def test_its_frame_goes_up_over_the_video_under_the_console(self, tmp_path):
+        _funestra, player, _genau = self._genau_in_front(tmp_path)
+
+        assert {BACKDROP_OVERLAY_ID, FIRST_TILE_OVERLAY_ID, HUD_OVERLAY_ID} <= set(player.overlays)
+        assert player.overlays[FIRST_TILE_OVERLAY_ID][2].shape[1] == WINDOW[0]
+
+    def test_the_console_leads_with_what_it_says_it_is_playing(self, tmp_path):
+        funestra, player, genau = self._genau_in_front(tmp_path)
+        before = player.overlays[HUD_OVERLAY_ID][2]
+
+        genau.video = "beta"
+        funestra.tick(window=WINDOW)
+
+        assert player.overlays[HUD_OVERLAY_ID][2] is not before
+
+    def test_the_row_counts_its_frames_rather_than_the_videos_time(self, tmp_path):
+        funestra, _player, genau = self._genau_in_front(tmp_path)
+
+        row = funestra._panel._clip_row
+
+        assert (row.position_ms, row.duration_ms) == (genau.played, genau.count)
+        assert row.playhead == clip_playhead(genau.played, genau.count)
+        assert row.volume is funestra._volume.hud
+
+    def test_a_press_on_the_track_runs_its_picture_there_rather_than_the_video(self, tmp_path):
+        funestra, player, genau = self._genau_in_front(tmp_path)
+        x0, x1 = bar_track_x(funestra._panel.row_rect[2])
+
+        funestra.press(*_on_the_row(funestra, player), window=WINDOW)
+
+        assert player.seeks == []
+        assert len(genau.sought) == 1
+        assert abs(genau.sought[0] - 0.5) <= 1 / (x1 - x0)
+
+    def test_the_videos_loop_frames_stay_down_while_it_has_the_window(self, tmp_path):
+        funestra, player, _genau = self._genau_in_front(tmp_path)
+        funestra.playback.set_ab_loop(2_000, 4_000)
+        player.screenshot = np.zeros((10, 20, 4), dtype=np.uint8)
+
+        funestra.tick(window=WINDOW)
+
+        assert not {Funestra.IN_FRAME_OVERLAY_ID, Funestra.OUT_FRAME_OVERLAY_ID} & set(player.overlays)
+
+    def test_handing_the_window_back_takes_its_picture_down_and_the_videos_row_returns(self, tmp_path):
+        funestra, player, _genau = self._genau_in_front(tmp_path)
+        (tmp_path / "cmd.txt").write_text("SHOW kino\n", encoding="utf-8")
+
+        funestra.tick(window=WINDOW)
+
+        assert not {BACKDROP_OVERLAY_ID, FIRST_TILE_OVERLAY_ID} & set(player.overlays)
+        assert funestra._panel._clip_row.duration_ms == player.duration_ms

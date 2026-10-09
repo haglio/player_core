@@ -7,12 +7,9 @@ from pathlib import Path
 from funestra_fakes import FakeTCode, make_playback
 
 from player_core import player_verbs
-from player_core.display import Display
 from player_core.funestra_controls import VERBS, FunestraControls, apply_command
 from player_core.player_verbs import (
     CLEAR_FRAME,
-    DISPLAY_OFF,
-    DISPLAY_ON,
     LOCK_OFF,
     LOCK_ON,
     NEXT,
@@ -29,6 +26,7 @@ from player_core.player_verbs import (
     SET_SPEED,
     SET_TCODE_ENABLED,
     SET_VOLUME,
+    SHOW,
     SHOW_FRAME,
     SPEED_DOWN,
     SPEED_UP,
@@ -293,21 +291,17 @@ class TestTheRoomsLevel:
         assert apply_command(f"{SET_VOLUME} 40", controls) is False
 
 
-class TestTheDisplay:
-    def test_off_and_on_reach_the_display(self, tmp_path):
-        playback, player = make_playback(tmp_path)
-        display = Display(player, ())
-        controls = FunestraControls(playback, reload_playlist=_never_reloads, display=display)
+class TestWhoHasTheWindow:
+    def test_show_names_which_user_has_the_window_in_the_rooms_own_spelling(self, tmp_path):
+        shown = []
+        controls = _controls(tmp_path, show=lambda name: shown.append(name) or name == "genau")
 
-        assert apply_command(DISPLAY_OFF, controls) is True
-        assert display.active is False
-        assert apply_command(DISPLAY_ON, controls) is True
-        assert display.active is True
+        assert apply_command(f"{SHOW} Genau", controls) is True
+        assert apply_command(f"{SHOW} slideshow", controls) is False
+        assert shown == ["genau", "slideshow"]
 
-    def test_a_build_with_no_display_switch_refuses_them(self, tmp_path):
-        controls = _controls(tmp_path)
-
-        assert apply_command(DISPLAY_OFF, controls) is False
+    def test_a_build_with_nobody_to_show_refuses_it(self, tmp_path):
+        assert apply_command(f"{SHOW} genau", _controls(tmp_path)) is False
 
 
 def test_every_verb_a_funestra_answers_is_spelled_in_the_familys_vocabulary():
@@ -315,6 +309,6 @@ def test_every_verb_a_funestra_answers_is_spelled_in_the_familys_vocabulary():
         NEXT, PREV, LOCK_ON, LOCK_OFF, TOGGLE_LOCK, TRASH, NEXT_VERSION, PREV_VERSION,
         SEEK_FWD, SEEK_BACK, SPEED_UP, SPEED_DOWN, SET_SPEED, PLAY_FILE, RELOAD_PLAYLIST,
         SET_PACE, SHOW_FRAME, CLEAR_FRAME, QUIT, SET_TCODE_ENABLED, SET_MAX_INTENSITY,
-        SET_VOLUME, DISPLAY_ON, DISPLAY_OFF,
+        SET_VOLUME, SHOW,
     }
     assert all(getattr(player_verbs, verb) == verb for verb in VERBS)
