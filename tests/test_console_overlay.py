@@ -10,9 +10,10 @@ from funestra_fakes import FakePlayer
 from shared_ui.spacing import BUTTON_SIZE_HUD
 
 from player_core.console import ConsoleModel, ModeHud, console_text
-from player_core.console_hud import _MARGIN
+from player_core.console_hud import MARGIN
 from player_core.console_overlay import ConsoleOverlay
 from player_core.drive_readout import DriveHud, drive_text
+from player_core.hud_corners import HudPlace
 from player_core.hud_overlay import HUD_OVERLAY_ID
 from player_core.hud_placement import HudCorner
 from player_core.modes import LengthMode, MainMode, Osr2State
@@ -220,7 +221,14 @@ class TestWhereTheConsoleIsDrawn:
         panel_w, panel_h = overlay._painter._image.size
 
         x, y, _bgra = player.overlays[HUD_OVERLAY_ID]
-        assert (x, y) == (WINDOW[0] - _MARGIN - panel_w, WINDOW[1] - _MARGIN - panel_h)
+        assert (x, y) == (WINDOW[0] - MARGIN - panel_w, WINDOW[1] - MARGIN - panel_h)
+
+    def test_its_place_is_the_corner_the_room_put_it_in_and_whether_it_is_minimized(
+            self, tmp_path):
+        overlay = _published(tmp_path, HudCorner.LOWER_LEFT, hud_minimized=True)
+
+        assert overlay.hud_place == HudPlace("main", HudCorner.LOWER_LEFT, MARGIN,
+                                             minimized=True)
 
     def test_closing_takes_the_panel_down(self, tmp_path):
         overlay = _published(tmp_path)

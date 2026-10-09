@@ -129,6 +129,13 @@ class TestDragging:
 
         assert hud.holding is False
 
+    def test_the_pointer_leaving_the_window_leaves_nothing_on_the_panel_lit(self):
+        pointer, hud, _asked = _pointer()
+
+        pointer.leave()
+
+        assert hud.motions == [(-1, -1)]
+
     def test_a_window_with_no_panel_has_nothing_to_tell(self):
         pointer, _hud, asked = _pointer(hud=False)
 

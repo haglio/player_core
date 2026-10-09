@@ -15,6 +15,7 @@ from typing import NamedTuple
 
 from .dashboard import ask
 from .drive_readout import DriveHud, read_drive
+from .hud_corners import HudPlace
 from .hud_placement import HudCorner, HudEdge, PointerReading, hud_origin
 from .hud_row import RowHud, RowPress, track_on_screen
 from .modes import Osr2State
@@ -149,6 +150,13 @@ class HudOverlay:
         self.targets: HudTargets = _EMPTY_TARGETS
 
     @property
+    def hud_place(self) -> HudPlace | None:
+        if self._model is None:
+            return None
+        return HudPlace(self._model.player, self._model.hud_corner, MARGIN,
+                        minimized=self._model.hud_minimized)
+
+    @property
     def edge(self) -> HudEdge:
         return self._model.hud_edge if self._model is not None else HudEdge.LOWER
 
@@ -188,7 +196,7 @@ class HudOverlay:
                 self._post(command)
 
     def press(self, x: int, y: int) -> bool:
-        if self._clicks is None or not self._covers(x, y):
+        if self._clicks is None or not self.covers(x, y):
             return False
         self._pointer_at = self._local(x, y)
         if self._row.press(*self._pointer_at, rect=self.targets.row,
@@ -208,7 +216,7 @@ class HudOverlay:
         """The wheel turned *steps* notches over the panel: the block at the
         foot takes it, and the rest of the panel is a surface with nothing to
         turn, which is still the panel's and not the picture's."""
-        if self._clicks is None or not self._covers(x, y):
+        if self._clicks is None or not self.covers(x, y):
             return False
         self._pointer_at = self._local(x, y)
         if self._foot_covers(*self._pointer_at):
@@ -279,7 +287,7 @@ class HudOverlay:
             self._player.remove_overlay(self.overlay_id)
             self._shown = False
 
-    def _covers(self, x: int, y: int) -> bool:
+    def covers(self, x: int, y: int) -> bool:
         if self._panel_size is None:
             return False
         left, top = self._origin

@@ -1,4 +1,5 @@
-"""What the mouse does to a Funestra's window: the panel, or the picture.
+"""What the mouse does to a Funestra's window: the panel, a corner the panel
+can be sent to, or the picture.
 
 The track, the time and the volume are a block of the panel now
 (:mod:`player_core.hud_row`), and the panel places a press on them itself, so
@@ -15,6 +16,7 @@ __all__ = [
 ]
 
 OMNIPAUSE_TOGGLE = "omnipause_toggle"
+NOWHERE = (-1, -1)
 
 
 def time_at(mx: int, *, win_w: int, duration_ms: float,
@@ -34,14 +36,16 @@ def _nothing() -> None:
 
 
 class Pointer:
-    def __init__(self, *, hud=None, picture: Callable[[], None] = _nothing) -> None:
+    def __init__(self, *, hud=None, corners=None,
+                 picture: Callable[[], None] = _nothing) -> None:
         self._hud = hud
+        self._corners = corners
         self._picture = picture
 
     def press(self, mx: int, my: int) -> None:
-        """The panel takes what is on it -- its buttons and the clip's row --
-        and a press anywhere else is a press on the picture."""
         if self._hud is not None and self._hud.press(mx, my):
+            return
+        if self._corners is not None and self._corners.press(mx, my):
             return
         self._picture()
 
@@ -53,10 +57,18 @@ class Pointer:
         if self._hud is not None:
             self._hud.release()
 
+    def leave(self) -> None:
+        if self._hud is not None:
+            self._hud.motion(*NOWHERE)
+        if self._corners is not None:
+            self._corners.leave()
+
     def motion(self, mx: int, my: int, *, held: bool) -> None:
         if self._hud is None:
             return
         self._hud.motion(mx, my)
+        if self._corners is not None:
+            self._corners.motion(mx, my)
         if not held:
             self._hud.release()
         elif self._hud.holding:

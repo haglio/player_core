@@ -14,6 +14,7 @@ from player_core.console import ConsoleModel, ModeHud, console_text
 from player_core.flick_picture import BACKDROP_OVERLAY_ID, FIRST_TILE_OVERLAY_ID, Picture
 from player_core.funestra import Channels, Funestra, User, _Nobody
 from player_core.hud_button import Button
+from player_core.hud_corners import CORNER_PLUS_OVERLAY_ID
 from player_core.hud_overlay import HUD_OVERLAY_ID
 from player_core.hud_placement import HudEdge
 from player_core.modes import LengthMode, MainMode, Osr2State
@@ -217,20 +218,21 @@ class TestTheWindowsClose:
         assert funestra.stopped is True
 
 
+def _wearing_a_panel(tmp_path, *, audible: bool = True):
+    funestra, player = _funestra(
+        tmp_path, [str(clip) for clip in _clips(tmp_path, "v0")],
+        hud=True, audible=audible)
+    _publish_panel(tmp_path)
+    funestra.tick(window=WINDOW)
+    return funestra, player
+
+
 class TestAPress:
     """On the row the panel draws, which is where the track, the time and the
     volume are now."""
 
-    def _wearing_a_panel(self, tmp_path, *, audible: bool = True):
-        funestra, player = _funestra(
-            tmp_path, [str(clip) for clip in _clips(tmp_path, "v0")],
-            hud=True, audible=audible)
-        _publish_panel(tmp_path)
-        funestra.tick(window=WINDOW)
-        return funestra, player
-
     def test_on_the_track_seeks_the_clip(self, tmp_path):
-        funestra, player = self._wearing_a_panel(tmp_path)
+        funestra, player = _wearing_a_panel(tmp_path)
         x0, x1 = bar_track_x(funestra._panel.row_rect[2])
 
         funestra.press(*_on_the_row(funestra, player), window=WINDOW)
@@ -239,7 +241,7 @@ class TestAPress:
         assert abs(player.seeks[0] - player.duration_ms / 2) <= player.duration_ms / (x1 - x0)
 
     def test_on_the_speaker_unmutes_this_player(self, tmp_path):
-        funestra, player = self._wearing_a_panel(tmp_path)
+        funestra, player = _wearing_a_panel(tmp_path)
 
         funestra.press(*_on_the_row(funestra, player, "speaker"), window=WINDOW)
 
@@ -247,14 +249,14 @@ class TestAPress:
         assert player.seeks == []
 
     def test_on_the_speaker_of_a_silent_build_sets_nothing(self, tmp_path):
-        funestra, player = self._wearing_a_panel(tmp_path, audible=False)
+        funestra, player = _wearing_a_panel(tmp_path, audible=False)
 
         funestra.press(*_on_the_row(funestra, player, "speaker"), window=WINDOW)
 
         assert player.muted is True
 
     def test_held_along_the_slider_keeps_setting_the_level(self, tmp_path):
-        funestra, player = self._wearing_a_panel(tmp_path)
+        funestra, player = _wearing_a_panel(tmp_path)
         at = _on_the_row(funestra, player, "slider")
 
         funestra.press(*at, window=WINDOW)
@@ -263,12 +265,56 @@ class TestAPress:
         assert player.volume == 100
 
     def test_anywhere_off_the_panel_asks_the_session_to_pause_everything(self, tmp_path):
-        funestra, player = self._wearing_a_panel(tmp_path)
+        funestra, player = _wearing_a_panel(tmp_path)
         left, top, panel = player.overlays[HUD_OVERLAY_ID]
 
         funestra.press(left + panel.shape[1] + 20, top + panel.shape[0] + 20, window=WINDOW)
 
         assert _asked(tmp_path) == ["omnipause_toggle"]
+
+
+class TestACornerTheHudIsNotIn:
+    def test_a_press_there_asks_the_room_to_open_the_hud_there(self, tmp_path):
+        funestra, _player = _wearing_a_panel(tmp_path)
+
+        funestra.press(WINDOW[0] - 2, WINDOW[1] - 2, window=WINDOW)
+
+        assert _asked(tmp_path) == ["portrait_hud_restore_at|lower_right"]
+
+    def test_a_press_beside_the_hud_in_its_own_corner_still_pauses_the_room(self, tmp_path):
+        funestra, _player = _wearing_a_panel(tmp_path)
+
+        funestra.press(2, 2, window=WINDOW)
+
+        assert _asked(tmp_path) == ["omnipause_toggle"]
+
+    def test_on_the_main_funestra_the_press_opens_the_console_there(self, tmp_path):
+        funestra, _player, _kino = _main(tmp_path)
+        funestra.tick(window=WINDOW)
+
+        funestra.press(2, WINDOW[1] - 2, window=WINDOW)
+
+        assert _asked(tmp_path) == ["main_hud_restore_at|lower_left"]
+
+    def test_the_pointer_there_puts_a_plus_where_the_minimized_hud_would_sit(self, tmp_path):
+        funestra, player = _wearing_a_panel(tmp_path)
+
+        funestra.motion(WINDOW[0] - 2, WINDOW[1] - 2, held=False, window=WINDOW)
+        funestra.tick(window=WINDOW)
+
+        left, top, plus = player.overlays[CORNER_PLUS_OVERLAY_ID]
+        assert (left + plus.shape[1], top + plus.shape[0]) == (WINDOW[0] - MARGIN,
+                                                               WINDOW[1] - MARGIN)
+
+    def test_the_pointer_leaving_the_window_takes_the_plus_down(self, tmp_path):
+        funestra, player = _wearing_a_panel(tmp_path)
+        funestra.motion(WINDOW[0] - 2, WINDOW[1] - 2, held=False, window=WINDOW)
+        funestra.tick(window=WINDOW)
+
+        funestra.leave()
+        funestra.tick(window=WINDOW)
+
+        assert CORNER_PLUS_OVERLAY_ID not in player.overlays
 
 
 def test_each_pass_carries_a_still_s_move_a_little_further(tmp_path):
@@ -676,6 +722,23 @@ class TestAUsersOwnPicture:
 
         assert {BACKDROP_OVERLAY_ID, FIRST_TILE_OVERLAY_ID, HUD_OVERLAY_ID} <= set(player.overlays)
         assert player.overlays[FIRST_TILE_OVERLAY_ID][2].shape[1] == WINDOW[0]
+
+    def test_a_corner_the_console_is_not_in_still_shows_its_plus_over_the_frame(
+            self, tmp_path):
+        funestra, player, _genau = self._genau_in_front(tmp_path)
+
+        funestra.motion(WINDOW[0] - 2, WINDOW[1] - 2, held=False, window=WINDOW)
+        funestra.tick(window=WINDOW)
+
+        assert CORNER_PLUS_OVERLAY_ID in player.overlays
+
+    def test_a_press_in_a_corner_the_console_is_not_in_asks_for_the_console_there(
+            self, tmp_path):
+        funestra, _player, _genau = self._genau_in_front(tmp_path)
+
+        funestra.press(WINDOW[0] - 2, WINDOW[1] - 2, window=WINDOW)
+
+        assert _asked(tmp_path) == ["main_hud_restore_at|lower_right"]
 
     def test_the_console_leads_with_what_it_says_it_is_playing(self, tmp_path):
         funestra, player, genau = self._genau_in_front(tmp_path)

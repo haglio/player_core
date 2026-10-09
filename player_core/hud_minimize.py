@@ -31,7 +31,7 @@ _TOOLTIP_ROOM_H = 26
 
 
 @lru_cache(maxsize=1)
-def _mark_font():
+def mark_font():
     return load_font(_MARK_FONT_PT)
 
 
@@ -41,6 +41,10 @@ def minimize_command(player: str) -> str:
 
 def restore_command(player: str) -> str:
     return f"{player}_hud_restore"
+
+
+def restore_at_command(player: str, place: str) -> str:
+    return f"{restore_command(player)}_at|{place}"
 
 
 def minimize_button(player: str) -> Button:
@@ -69,9 +73,9 @@ def collapsed_button(player: str, corner: HudCorner = HudCorner.UPPER_LEFT, *,
     image = Image.new("RGBA", size, (0, 0, 0, 0))
     rect = _button_rect(corner, size)
     draw_button(image, ImageDraw.Draw(image), rect, restore_button(player),
-                hovered=hover is not None, glyph_font=_mark_font(), word_font=_mark_font())
+                hovered=hover is not None, glyph_font=mark_font(), word_font=mark_font())
     if hover is not None:
-        draw_tooltip(ImageDraw.Draw(image), _mark_font(), RESTORE_TOOLTIP, hover, size)
+        draw_tooltip(ImageDraw.Draw(image), mark_font(), RESTORE_TOOLTIP, hover, size)
     return image, [(rect, restore_button(player))]
 
 

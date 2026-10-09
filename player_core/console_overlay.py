@@ -16,6 +16,7 @@ from .console import ConsoleModel, ModeHud, read_console
 from .console_hud import ConsoleHud, ConsolePainter, with_playback_speed
 from .dashboard import ask
 from .drive_readout import DriveHud, read_drive
+from .hud_corners import HudPlace
 from .hud_overlay import HUD_OVERLAY_ID
 from .hud_placement import HudEdge, PointerReading
 from .hud_row import RowHud, RowPress, track_on_screen
@@ -65,6 +66,10 @@ class ConsoleOverlay:
     def edge(self) -> HudEdge:
         return self._console.hud_edge
 
+    @property
+    def hud_place(self) -> HudPlace | None:
+        return self._painter.hud_place
+
     def tick(self, *, playback_speed: float, window: tuple[int, int],
              clip_row: RowHud | None = None, heatmap=None) -> None:
         self._console = read_console(self._console_file) or self._console
@@ -95,6 +100,9 @@ class ConsoleOverlay:
         loop's frames under it."""
         return track_on_screen(self._painter.row_rect, origin=self._origin,
                                panel_height=self._panel_height)
+
+    def covers(self, x: int, y: int) -> bool:
+        return self._painter.covers(x, y)
 
     def press(self, x: int, y: int) -> bool:
         if self._row.press(*self._local(x, y), rect=self._painter.row_rect,

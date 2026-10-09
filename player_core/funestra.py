@@ -7,6 +7,7 @@ import logging
 import threading
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
@@ -19,6 +20,7 @@ from .file_channel import consume_command_file, read_paused_state
 from .flick_picture import FlickPicture, Picture
 from .funestra_controls import VERBS, FunestraControls
 from .funestra_status import status_fields
+from .hud_corners import CORNER_PLUS_OVERLAY_ID, HudCorners
 from .hud_overlay import HUD_OVERLAY_ID, HudOverlay
 from .hud_placement import HudEdge
 from .hud_row import RowHud
@@ -150,7 +152,8 @@ class Funestra:
     IN_FRAME_OVERLAY_ID = 8
     OUT_FRAME_OVERLAY_ID = 9
     PANEL_OVERLAY_ID = HUD_OVERLAY_ID
-    OVERLAY_IDS = (IN_FRAME_OVERLAY_ID, OUT_FRAME_OVERLAY_ID, PANEL_OVERLAY_ID)
+    OVERLAY_IDS = (IN_FRAME_OVERLAY_ID, OUT_FRAME_OVERLAY_ID, PANEL_OVERLAY_ID,
+                   CORNER_PLUS_OVERLAY_ID)
 
     def __init__(
         self,
@@ -197,7 +200,10 @@ class Funestra:
         )
         self._panel = self._panel_for(channels, panel_surface or player, panel)
         self._users_picture = users_picture or FlickPicture(player)
-        self._pointer = Pointer(hud=self._panel, picture=self._press_on_the_picture(channels))
+        self._corners = None if self._panel is None or panel_surface is not None else HudCorners(
+            self._panel, player, post=self._where_the_panel_asks(channels))
+        self._pointer = Pointer(hud=self._panel, corners=self._corners,
+                                picture=self._press_on_the_picture(channels))
         self._controls = FunestraControls(
             self.playback, stop_event=self._stop,
             reload_playlist=None if self._follower is None else self._follower.read_now,
@@ -283,6 +289,11 @@ class Funestra:
             users=users, panel=panel, muted=muted,
         )
 
+    def _where_the_panel_asks(self, channels: Channels) -> Callable[[str], None]:
+        if channels.dashboard_cmd is not None:
+            return partial(ask, channels.dashboard_cmd)
+        return self._apply
+
     def _press_on_the_picture(self, channels: Channels) -> Callable[[], None]:
         """What a press off the panel does: in a session it asks the room to
         pause everything; on a window with no room to ask, what runs on the
@@ -326,6 +337,9 @@ class Funestra:
 
     def wheel(self, x: int, y: int, steps: int, *, window: tuple[int, int]) -> None:
         self._pointer.wheel(x, y, steps)
+
+    def leave(self) -> None:
+        self._pointer.leave()
 
     def tick(self, *, window: tuple[int, int]) -> None:
         channels = self._channels
@@ -381,10 +395,12 @@ class Funestra:
                               self.playback.speed)
             if self._panel_surface is None:
                 self._paint_loop_frames(window)
-            return
-        self._users_picture.show(picture, window)
-        self._paint_panel(window, picture_row(picture, self._volume.hud), None, 1.0)
-        self._take_the_loop_frames_down()
+        else:
+            self._users_picture.show(picture, window)
+            self._paint_panel(window, picture_row(picture, self._volume.hud), None, 1.0)
+            self._take_the_loop_frames_down()
+        if self._corners is not None:
+            self._corners.paint(window=window)
 
     def clip_row(self) -> RowHud | None:
         """Where the clip has got to, how long it runs, how loud it is and where
