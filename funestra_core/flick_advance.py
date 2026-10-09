@@ -29,6 +29,9 @@ DEFAULT_INTERVAL_S = 10
 MIN_INTERVAL_S = 1
 MAX_INTERVAL_S = 60
 
+# How many times a second the track at the console's foot moves.  The console
+# is repainted whenever its row moves, and the count moves every tick.
+TRACK_STEPS_PER_S = 20
 
 @dataclass
 class FlickAdvanceState:
@@ -47,8 +50,11 @@ class FlickAdvanceState:
 
     @property
     def elapsed(self) -> float:
-        """Seconds the flick on screen has had of its interval; none while held."""
-        return 0.0 if self.locked else self._elapsed
+        """Seconds the flick on screen has had of its interval, kept to the step
+        the track draws it at; none while held."""
+        if self.locked:
+            return 0.0
+        return round(self._elapsed * TRACK_STEPS_PER_S) / TRACK_STEPS_PER_S
 
 
 def set_locked(state: FlickAdvanceState, locked: bool) -> None:
