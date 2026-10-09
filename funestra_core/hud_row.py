@@ -1,4 +1,4 @@
-"""The scrubber, the volume chip and the playhead readout, drawn on a panel.
+"""The scrubber, the volume chip, the playhead readout and a flick's loop dial, drawn on a panel.
 
 Every Funestra here laid this row along the lower edge of its own video, which is
 where a video player has always put it — and where, in this family, it keeps
@@ -18,6 +18,7 @@ from dataclasses import dataclass
 import numpy as np
 from PIL import Image
 
+from .loop_dial import LoopDialPainter, dial_xy, on_dial, turn_at
 from .playhead import (
     PlayheadHud,
     PlayheadHudPainter,
@@ -45,6 +46,7 @@ SCRUBBER = "scrubber"
 READOUT = "readout"
 MUTE = "mute"
 VOLUME = "volume"
+DIAL = "dial"
 
 _CHIP_PARTS = {"mute": MUTE, "track": VOLUME}
 
@@ -69,6 +71,9 @@ class RowHud:
     playhead: PlayheadHud | None = None
     loop_bounds: tuple[float, float] | None = None
     record_in_ms: float | None = None
+    # How far round its loop a flick has turned, 0 to 1, drawn on the dial
+    # beside the track; None on a video's row, which has no dial.
+    loop_turn: float | None = None
 
 
 class RowSection:
@@ -77,6 +82,7 @@ class RowSection:
     def __init__(self) -> None:
         self._volume = VolumeHudPainter()
         self._readout = PlayheadHudPainter()
+        self._dial = LoopDialPainter()
 
     def least_width(self) -> int:
         """The narrowest panel the row can be laid out in."""
@@ -104,10 +110,15 @@ class RowSection:
             chip = _rgba(self._volume.bgra(row.volume))
             image.alpha_composite(chip, _offset((x, y), chip_xy(
                 win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT)))
+        if row.loop_turn is not None:
+            dial = _rgba(self._dial.bgra(LoopDialPainter.hand(row.loop_turn)))
+            image.alpha_composite(dial, _offset((x, y), dial_xy(
+                win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT)))
         if row.playhead is not None:
             pill = _rgba(self._readout.bgra(row.playhead))
             image.alpha_composite(pill, _offset((x, y), readout_xy(
-                pill.width, win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT)))
+                pill.width, win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT,
+                dial=row.loop_turn is not None)))
 
 
 def fitting(heatmap, width: int):
@@ -149,7 +160,7 @@ def _offset(origin: tuple[int, int], place: tuple[int, int]) -> tuple[int, int]:
     return origin[0] + place[0], origin[1] + place[1]
 
 
-def row_part(px: int, py: int, *, width: int) -> str:
+def row_part(px: int, py: int, *, width: int, dial: bool = False) -> str:
     """Which control a press at the row's own ``(px, py)`` is on, or "" for none.
 
     The row is a video's last rows drawn somewhere else, so it is hit-tested as
@@ -161,6 +172,8 @@ def row_part(px: int, py: int, *, width: int) -> str:
                                 timeline_h=TIMELINE_HEIGHT))
     if part:
         return _CHIP_PARTS[part]
+    if dial and on_dial(px, py, win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT):
+        return DIAL
     if on_readout(px, py, win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT):
         return READOUT
     return SCRUBBER if py >= height - TIMELINE_HEIGHT else ""
@@ -169,9 +182,9 @@ def row_part(px: int, py: int, *, width: int) -> str:
 class RowPress:
     """What a press on the clip's row asks of the window that draws it.
 
-    Every panel that hosts the row places a press on it with this, so the
-    track, the slider and the speaker answer the same way wherever the row is
-    drawn.  *rect* is where the row landed in the panel's own coordinates, and
+    The Funestra's own overlays place a press on the row with this, so the
+    track, the slider and the speaker answer the same way on each of them.
+    *rect* is where the row landed in the panel's own coordinates, and
     *duration_ms* how long the track spans -- the clip, or the window a loop
     being recorded has zoomed it to.
     """
@@ -235,3 +248,10 @@ def volume_to(px: int, py: int, *, width: int) -> int:
     height = lower_edge_height(width, timeline_h=TIMELINE_HEIGHT)
     return volume_at(chip_local(px, py, win_w=width, win_h=height,
                                 timeline_h=TIMELINE_HEIGHT)[0])
+
+
+def turn_to(px: int, py: int, *, width: int) -> float:
+    """The turn a press round the dial asks for, clockwise from twelve o'clock."""
+    return turn_at(px, py, win_w=width,
+                   win_h=lower_edge_height(width, timeline_h=TIMELINE_HEIGHT),
+                   timeline_h=TIMELINE_HEIGHT)

@@ -190,6 +190,26 @@ handover that swapped the windows), `clip_preload` (the window's first-clip prel
 imported by nothing), and the genau package's entry among the known HUD drawers
 (there is no genau package). `genau_controls` keeps its `hud` flag: the desktop's
 Genau sets it when it loses the window, and the engine stops rendering on it.
+## 2026-10-08 — a clip's track runs its time on screen, and a dial beside it goes round with the loop
+
+A clip has two senses of time, and its row at the console's foot showed the
+wrong one on the track: how far round its loop the motion had taken it, counted
+in frames. The track is a scrubber, so it now runs the time the clip has had of
+its turn on screen -- filled left to right over the seconds an unheld clip stays
+up, at its start while the clip is held -- and a press along it puts the clip
+that far into its interval. The loop has no start or end to scrub between, so
+it is a dial beside the track: a clock hand at twelve o'clock at the loop's A
+end and at six at its B end, going round once per turn, and a press on it puts
+the loop (and the device, whose picture the frame is) at that point.
+
+`loop_dial` (new, private): the dial, where it sits and what a press on it
+names. `RowHud.loop_turn` is what a row with a dial carries; `row_part(dial=)`
+says when a press is on it and `turn_to` where round it; `readout_xy(dial=)`
+moves a wide row's readout over to make room. `ClipAdvanceState.elapsed` and
+`set_elapsed` are the track's two halves, and
+`GenauRefreshController.seek_the_time_on_screen` is the press reaching the
+engine. `DIAL`, `turn_to` and `RowSection` are declared once genau and Fun Time
+reach for them, and `clip_playhead` leaves once neither does.
 
 ## 2026-10-08 — a window follows its playlist file, and fifteen HUD names are declared again
 
