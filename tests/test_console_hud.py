@@ -18,8 +18,8 @@ from player_core.console import (
     ConsoleModel,
 )
 from player_core.console_hud import (
-    _MARGIN,
     _PAD,
+    MARGIN,
     ConsoleHud,
     ConsolePainter,
     ModeHud,
@@ -39,6 +39,7 @@ from player_core.drive_readout import (
 )
 from player_core.geometry import Rect
 from player_core.hud_button import Button
+from player_core.hud_corners import HudPlace
 from player_core.hud_marks import BROKER_ICON, shared_mark
 from player_core.hud_minimize import minimize_command
 from player_core.hud_osr2 import COLORS as _OSR2_COLORS
@@ -1388,7 +1389,7 @@ class TestWhereTheConsoleSits:
 
         origin = painter.place(window=(1920, 1080), lower_edge=40)
 
-        assert origin == (1920 - _MARGIN - panel_w, 1080 - 40 - _MARGIN - panel_h)
+        assert origin == (1920 - MARGIN - panel_w, 1080 - 40 - MARGIN - panel_h)
 
     def test_a_press_lands_against_wherever_the_player_last_put_the_panel(self):
         painter = self._painted(HudCorner.LOWER_RIGHT)
@@ -1427,6 +1428,15 @@ class TestWhereTheConsoleSits:
         assert rect[2:] == (BUTTON, BUTTON)
         assert button.command == "main_hud_restore"
         assert painter.tracks == []
+
+    def test_it_says_where_the_hud_it_painted_sits_and_whether_it_is_minimized(self):
+        painter = self._painted(HudCorner.LOWER_LEFT, hud_minimized=True)
+
+        assert painter.hud_place == HudPlace("main", HudCorner.LOWER_LEFT, MARGIN,
+                                             minimized=True)
+
+    def test_before_it_has_painted_anything_it_says_nowhere(self):
+        assert ConsolePainter().hud_place is None
 
     def test_a_minimized_console_keeps_the_plus_in_its_own_corner(self):
         """The room's corner still pins it, so the plus is where the panel was:

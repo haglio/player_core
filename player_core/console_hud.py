@@ -51,6 +51,7 @@ from .drive_readout import (
     section_size,
 )
 from .geometry import Rect, contains
+from .hud_corners import HudPlace
 from .hud_minimize import collapsed_button, minimize_button, minimize_rect
 from .hud_osr2 import HEIGHT as _OSR2_H
 from .hud_osr2 import (
@@ -119,7 +120,7 @@ _SIZE_BODY = 11
 _SIZE_TINY = 8
 _PAD = 10
 DOT_GAP = 8  # the room between the active-player dot and the words beside it
-_MARGIN = 8    # inset from the window's top-left corner
+MARGIN = 8    # inset from the window's top-left corner
 _BLOCK_GAP = 4
 _SUBTITLE_GAP = 2  # between the status line and the file name under it
 
@@ -127,7 +128,7 @@ _SUBTITLE_GAP = 2  # between the status line and the file name under it
 def hud_xy() -> tuple[int, int]:
     """Where the panel goes: the window's top-left corner, the same place the
     satellites put theirs."""
-    return _MARGIN, _MARGIN
+    return MARGIN, MARGIN
 
 
 @dataclass(frozen=True)
@@ -336,12 +337,21 @@ class ConsolePainter:
         local = self._local(mx, my)
         return local if tooltip_at(self.buttons, *local) else None
 
+    @property
+    def hud_place(self) -> HudPlace | None:
+        painted = self._painted[0]
+        if painted is None:
+            return None
+        console = painted.console
+        return HudPlace(console.player, console.hud_corner, MARGIN,
+                        minimized=console.hud_minimized)
+
     def place(self, *, window: tuple[int, int], lower_edge: int = 0) -> tuple[int, int]:
         painted = self._painted[0] if self._painted is not None else None
         corner = painted.console.hud_corner if painted is not None else HudCorner.UPPER_LEFT
         size = self._image.size if self._image is not None else (0, 0)
         self._origin = hud_origin(corner, panel=size, window=window,
-                                  margin=_MARGIN, lower_edge=lower_edge)
+                                  margin=MARGIN, lower_edge=lower_edge)
         return self._origin
 
     def _local(self, mx: int, my: int) -> tuple[int, int]:

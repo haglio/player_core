@@ -12,8 +12,9 @@ from shared_ui.spacing import BUTTON_SIZE_HUD
 
 from player_core.drive_readout import DriveHud, publish_drive
 from player_core.hud_button import Button
+from player_core.hud_corners import HudPlace
 from player_core.hud_overlay import HudOverlay
-from player_core.hud_placement import HudEdge
+from player_core.hud_placement import HudCorner, HudEdge
 from player_core.hud_row import UNDER_THE_PANEL_GAP, RowHud
 from player_core.satellite_hud import MARGIN, PAD, HudModel
 from player_core.timeline import TIMELINE_HEIGHT, bar_track_x
@@ -640,6 +641,23 @@ def test_a_panel_collapsed_by_a_press_on_its_minus_draws_the_plus_alone(
 
     (_x, _y, bgra), = player.overlays.values()
     assert bgra.shape[:2] == (BUTTON_SIZE_HUD, BUTTON_SIZE_HUD)
+
+
+def test_its_place_is_the_corner_the_room_put_it_in_and_whether_it_is_minimized(
+        tmp_path: Path, panel: Path):
+    overlay = _panel_at(tmp_path, panel, FakePlayer(), hud_minimized=True,
+                        hud_corner="upper_right")
+
+    assert overlay.hud_place == HudPlace("portrait", HudCorner.UPPER_RIGHT, MARGIN,
+                                         minimized=True)
+
+
+def test_a_panel_with_nothing_published_has_no_place(tmp_path: Path):
+    overlay = _overlay(tmp_path, tmp_path / "unpublished.json", FakePlayer())
+
+    overlay.tick(window=(1200, 800))
+
+    assert overlay.hud_place is None
 
 
 def test_a_minimized_panel_is_the_plus_button_in_that_corner(tmp_path: Path, panel: Path):

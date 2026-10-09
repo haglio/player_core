@@ -27,9 +27,9 @@ class HudCorner(StrEnum):
 
     def toward(self, direction: str) -> HudCorner:
         if direction in _SIDES:
-            return _corner(right=_SIDES[direction], lower=self.lower)
+            return corner_at(right=_SIDES[direction], lower=self.lower)
         if direction in _ENDS:
-            return _corner(right=self.right, lower=_ENDS[direction])
+            return corner_at(right=self.right, lower=_ENDS[direction])
         return self
 
     def turned(self, *, clockwise: bool) -> HudCorner:
@@ -53,7 +53,7 @@ _EDGE_TOWARD = {"up": HudEdge.UPPER, "down": HudEdge.LOWER,
                 "left": HudEdge.LEFT, "right": HudEdge.RIGHT}
 
 
-def _corner(*, right: bool, lower: bool) -> HudCorner:
+def corner_at(*, right: bool, lower: bool) -> HudCorner:
     if lower:
         return HudCorner.LOWER_RIGHT if right else HudCorner.LOWER_LEFT
     return HudCorner.UPPER_RIGHT if right else HudCorner.UPPER_LEFT

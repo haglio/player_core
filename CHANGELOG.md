@@ -9,6 +9,28 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-10-09 — a click in any corner sends the HUD there
+
+`hud_corners` (new, private to this package): a press in a corner of a
+Funestra's picture that its HUD is not in asks for
+`<player>_hud_restore_at|<corner>` wherever the panel's own presses go -- the
+room, or the program running on the window -- which moves the HUD there and
+opens it if it was minimized; the pointer in such a corner puts a plus where
+the minimized HUD would sit, named "Move this HUD here", or "Show this HUD
+here" beside a minimized one. A press anywhere else on the picture is still a
+press on the picture, and so is one in the HUD's own corner. `Funestra.leave()`
+is the pointer leaving the window, which takes the plus down and the panel's
+tooltip with it.
+
+A panel says where its HUD sits as a `HudPlace` (whose HUD, which corner, how
+far in from the edges, whether minimized): `HudOverlay.hud_place`, and
+`ConsolePainter.hud_place` for the console. `plus_button` and `plus_bgra` draw
+the plus for a corner or a side, which is what the headset hangs beside its
+players.
+
+`console_hud._MARGIN` is `MARGIN` and `hud_minimize._mark_font` is `mark_font`
+now that the corners read them, and `hud_placement._corner` is `corner_at`.
+
 ## 2026-10-10 — `console.aim_row` is declared
 
 Origenerator takes the row that aims the device from here now (origenerator
