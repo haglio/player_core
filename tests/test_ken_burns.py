@@ -7,7 +7,7 @@ import random
 
 import numpy as np
 import pytest
-from one_move import CREEP, DRIFT, OneMove
+from dealt_moves import CREEP, DRIFT, Deals
 
 from player_core.ken_burns import (
     ZOOMED_IN,
@@ -96,8 +96,8 @@ def test_a_pan_sets_off_from_a_corner_so_it_crosses_whichever_way_the_picture_ha
         (-1.0, -1.0), (-1.0, 1.0), (1.0, -1.0), (1.0, 1.0)}
 
 
-def paced(seconds: float = 4.0, *, now_s: float = 100.0, deals: OneMove | None = None) -> KenBurns:
-    still = KenBurns(deals or OneMove(DRIFT))
+def paced(seconds: float = 4.0, *, now_s: float = 100.0, deals: Deals | None = None) -> KenBurns:
+    still = KenBurns(deals or Deals(DRIFT))
     still.set_pace(seconds, now_s=now_s)
     still.new_picture(now_s=now_s)
     return still
@@ -190,7 +190,7 @@ def test_letting_a_held_picture_go_carries_its_move_on_from_there():
 
 
 def test_a_picture_held_since_it_came_up_sets_off_zooming_in_from_the_whole_picture():
-    still = paced(0.0, deals=OneMove(DRIFT, from_rest=CREEP))
+    still = paced(0.0, deals=Deals(DRIFT, from_rest=CREEP))
 
     still.set_pace(4.0, now_s=110.0)
 
@@ -199,7 +199,7 @@ def test_a_picture_held_since_it_came_up_sets_off_zooming_in_from_the_whole_pict
 
 
 def test_a_new_picture_is_dealt_its_own_move_from_the_start():
-    deals = OneMove(DRIFT)
+    deals = Deals(DRIFT)
     still = paced(deals=deals)
 
     still.new_picture(now_s=102.0)
@@ -227,17 +227,44 @@ def test_a_held_picture_never_runs_out():
 def test_a_locked_picture_never_runs_out():
     still = paced()
 
-    still.set_looping(True)
+    still.set_looping(True, now_s=100.0)
 
     assert still.ran_out(now_s=1000.0) is False
 
 
-def test_a_locked_picture_makes_its_move_again_each_time_it_repeats():
-    still = paced()
+def test_a_locked_picture_makes_the_next_move_dealt_each_time_it_comes_round():
+    still = paced(deals=Deals(DRIFT, CREEP))
 
-    still.set_looping(True)
+    still.set_looping(True, now_s=100.0)
 
-    assert_along(still.view(now_s=106.0), DRIFT, 0.5)
+    assert_along(still.view(now_s=106.0), CREEP, 0.5)
+
+
+def test_a_locked_picture_keeps_one_move_the_whole_way_round():
+    still = paced(deals=Deals(DRIFT, CREEP, DRIFT))
+    still.set_looping(True, now_s=100.0)
+
+    views = [still.view(now_s=now) for now in (105.0, 106.0, 107.0)]
+
+    for view, progress in zip(views, (0.25, 0.5, 0.75), strict=True):
+        assert_along(view, CREEP, progress)
+
+
+def test_a_locked_picture_counts_its_rounds_from_when_it_came_up():
+    still = paced(deals=Deals(DRIFT, CREEP))
+    still.set_looping(True, now_s=100.0)
+
+    assert_along(still.view(now_s=113.0), CREEP, 0.25)
+
+
+def test_a_picture_let_go_of_its_lock_finishes_the_round_it_is_in():
+    still = paced(deals=Deals(DRIFT, CREEP))
+    still.set_looping(True, now_s=100.0)
+
+    still.set_looping(False, now_s=104.5)
+
+    assert_along(still.view(now_s=106.0), CREEP, 0.5)
+    assert_along(still.view(now_s=109.0), CREEP, 1.0)
 
 
 WIDE = (1920, 1080)

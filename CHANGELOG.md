@@ -9,6 +9,18 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-10-09 — a locked picture makes a new move each time it comes round
+
+A locked picture made the one move it was dealt over and over: the move changed
+only when its host opened the picture again, which a Funestra holding a lock
+never does. Locked, a picture is now dealt the next move each time its move has
+run its course -- never the kind it just made, as between two pictures -- and
+its rounds keep time from when it came up. Letting go of the lock finishes the
+round it is in, where it used to jump to the end of its move.
+
+`KenBurns` takes `looping` when it is made, and `set_looping` takes the time
+like every other change to it, so a lock let go just after a round ended still
+starts that round's move.
 ## 2026-10-09 — a Funestra wears the panel its own program hands it
 
 A standalone Origenerator's Slideshow runs on a Funestra now (step 4 of the

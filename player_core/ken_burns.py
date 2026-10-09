@@ -89,24 +89,25 @@ class RoomClock:
 
 
 class KenBurns:
-    def __init__(self, moves: Moves | None = None) -> None:
+    def __init__(self, moves: Moves | None = None, *, looping: bool = False) -> None:
         self._moves = moves or Moves()
         self._clock = RoomClock()
         self._move = STANDSTILL
         self._pace_s = 0.0
         self._started_s = 0.0
         self._held_progress = 0.0
-        self._looping = False
+        self._looping = looping
 
     @property
     def pace_s(self) -> float:
         return self._pace_s
 
-    def set_looping(self, looping: bool) -> None:
+    def set_looping(self, looping: bool, now_s: float) -> None:
+        self._reach(now_s)
         self._looping = looping
 
     def set_pace(self, seconds: float, now_s: float) -> None:
-        reached = self._progress(now_s)
+        reached = self._reach(now_s)
         if seconds and self._move is STANDSTILL:
             self._move = self._moves.from_rest()
         self._pace_s = seconds
@@ -127,13 +128,22 @@ class KenBurns:
             self._clock.thaw(now_s)
 
     def view(self, now_s: float) -> View:
-        return self._move.at(self._progress(now_s))
+        reached = self._reach(now_s)
+        return self._move.at(reached)
 
     def ran_out(self, now_s: float) -> bool:
-        return bool(self._pace_s) and self._progress(now_s) >= 1.0
+        return bool(self._pace_s) and self._reach(now_s) >= 1.0
 
-    def _progress(self, now_s: float) -> float:
+    def _reach(self, now_s: float) -> float:
         if not self._pace_s:
             return self._held_progress
         progress = (self._clock.read(now_s) - self._started_s) / self._pace_s
-        return progress % 1.0 if self._looping else min(progress, 1.0)
+        if self._looping and progress >= 1.0:
+            progress = self._come_round(progress)
+        return min(progress, 1.0)
+
+    def _come_round(self, progress: float) -> float:
+        rounds = math.floor(progress)
+        self._started_s += rounds * self._pace_s
+        self._move = self._moves.deal()
+        return progress - rounds

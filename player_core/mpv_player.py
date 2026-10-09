@@ -269,8 +269,7 @@ class _MpvControl:
         # A still's move runs on a clock of its own: mpv leaves a still's
         # playhead at nought and simply ends the file when the pace runs out
         # (verified against libmpv, 2026-09-19).
-        self._ken_burns = KenBurns(moves)
-        self._ken_burns.set_looping(looping)
+        self._ken_burns = KenBurns(moves, looping=looping)
         self._placed = (0.0, 0.0, 0.0)
         self._path: str | None = None
         self._reopened: str | None = None
@@ -529,7 +528,7 @@ class _MpvControl:
         satellite starts unlocked, the main player starts locked — but the switch is the same
         one, so "locked" means the same thing wherever it is said.
         """
-        self._ken_burns.set_looping(loop)
+        self._ken_burns.set_looping(loop, self._now())
         self._mpv.loop_file = "inf" if loop else "no"
 
     @mpv_call()
