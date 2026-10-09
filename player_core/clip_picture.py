@@ -18,7 +18,7 @@ from PIL import Image, ImageDraw
 
 from .hud_panel import load_font, text_width, to_bgra
 
-__all__: list[str] = []
+__all__ = ["Picture"]
 
 BACKDROP_OVERLAY_ID = 1
 FIRST_TILE_OVERLAY_ID = 2

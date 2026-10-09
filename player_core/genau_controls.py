@@ -77,7 +77,6 @@ from .robot_hand_beat import BeatEngine
 __all__ = [
     "VERBS",
     "GenauControls",
-    "apply_runtime_command",
 ]
 
 logger = logging.getLogger(__name__)

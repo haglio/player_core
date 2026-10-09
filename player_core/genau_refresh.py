@@ -334,7 +334,6 @@ class GenauRefreshController:
             self.cruise_control,
             learned=self.learned,
             clip_advance=self.clip_advance,
-            hud_active=self._over_a_video,
             clip=self.renderer.current_clip_path,
             flipped=self.flip.on,
             portrait=self.renderer.portrait,

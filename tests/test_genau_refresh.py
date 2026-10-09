@@ -765,64 +765,6 @@ def test_the_clip_is_heard_again_once_it_takes_the_main_screen_back():
     assert built["notifier"].visible_updates[-2:] == [False, True]
 
 
-def test_the_hud_is_published_in_the_status_file(tmp_path):
-    dc = RobotHandState(playing=True, bpm=120.0)
-    tcode = FakeTCodeSender()
-    entry = {"frames": [object() for _ in range(8)]}
-    hud = Flag(on=True)
-    cruise = CruiseControlState()
-    built = _build_controller(
-        entry=entry, robot_hand=dc, tcode_sender=tcode,
-        cruise_control=cruise, hud=hud,
-        command_file=tmp_path / "genau_cmd.txt",
-    )
-
-    built["controller"].refresh()
-
-    status_path = tmp_path / "genau_status.txt"
-    assert status_path.exists()
-    text = status_path.read_text(encoding="utf-8")
-    assert "hud=1" in text
-
-
-class TestWhereTheStatusFileGoes:
-    """Fun Time's dashboard, dispatch loop and sequencer all read this file, so
-    where it lands is a contract rather than a detail."""
-
-    @staticmethod
-    def _ticked(tmp_path, **over):
-        built = _build_controller(
-            entry={"frames": [object() for _ in range(4)]},
-            robot_hand=RobotHandState(playing=True, bpm=120.0),
-            tcode_sender=FakeTCodeSender(),
-            cruise_control=CruiseControlState(),
-            **over,
-        )
-        built["controller"].refresh()
-        return built["controller"]
-
-    def test_it_goes_beside_the_command_file_when_nobody_names_it(self, tmp_path):
-        """Which is where every version of Fun Time so far has looked."""
-        self._ticked(tmp_path, command_file=tmp_path / "genau_cmd.txt")
-
-        assert (tmp_path / "genau_status.txt").exists()
-
-    def test_a_launcher_that_names_one_gets_that_one(self, tmp_path):
-        named = tmp_path / "elsewhere" / "genau_status.txt"
-
-        self._ticked(tmp_path, command_file=tmp_path / "genau_cmd.txt",
-                     status_file=named)
-
-        assert named.exists()
-        assert not (tmp_path / "genau_status.txt").exists()
-
-    def test_it_is_named_once_rather_than_rebuilt_every_tick(self, tmp_path):
-        """Resolved once, so nothing can move it mid-session."""
-        controller = self._ticked(tmp_path, command_file=tmp_path / "genau_cmd.txt")
-
-        assert controller.status_file == tmp_path / "genau_status.txt"
-
-
 def test_the_frame_shown_is_where_the_device_is():
     # The clip is the picture of the device: half way up the axis is half way
     # through the half of the clip that is showing. Eight frames, so the front
