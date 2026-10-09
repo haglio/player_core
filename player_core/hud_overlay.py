@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .dashboard import ask
 from .drive_readout import DriveHud, read_drive
-from .hud_placement import HudCorner, HudEdge, hud_origin
+from .hud_placement import HudCorner, HudEdge, hud_origin, place_of
 from .hud_row import RowHud, RowPress, track_on_screen
 from .modes import Osr2State
 from .satellite_hud import (
@@ -103,6 +103,8 @@ class HudOverlay:
                     self._clicks = HudClicks(model.player)
                 self._clicks.active_loop = model.active_loop
                 self._clicks.active_filter = model.filter_query
+            if place_of(model) != place_of(self._model):
+                self._hover_loop = self._hover_tip = ""
             self._model = model
             redraw = True
         drive = self._motion()

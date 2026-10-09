@@ -68,6 +68,10 @@ def _next_round(ring, place, *, clockwise: bool):
     return order[(order.index(place) + 1) % len(order)]
 
 
+def place_of(panel) -> tuple[HudCorner, bool] | None:
+    return None if panel is None else (panel.hud_corner, panel.hud_minimized)
+
+
 def block_x(corner: HudCorner, *, panel_width: int, extent: int, pad: int) -> int:
     if not corner.right:
         return pad

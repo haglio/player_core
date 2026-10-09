@@ -548,12 +548,14 @@ class TestAPanelWithTheOsr2ItsOwnPlayerScripts:
         assert overlay.targets.tracks
 
 
-def _panel_at(tmp_path: Path, panel_path: Path, player, **panel_changes):
-    """The overlay after one tick in a 1200x800 window, with *panel_changes*
-    written into the published panel first."""
+def _publish(panel_path: Path, **panel_changes) -> None:
     published = json.loads(panel_path.read_text(encoding="utf-8"))
     published.update(panel_changes)
     panel_path.write_text(json.dumps(published), encoding="utf-8")
+
+
+def _panel_at(tmp_path: Path, panel_path: Path, player, **panel_changes):
+    _publish(panel_path, **panel_changes)
     overlay = _overlay(tmp_path, panel_path, player)
     overlay.tick(window=(1200, 800))
     return overlay
@@ -612,9 +614,7 @@ def test_a_panel_on_its_own_screen_holds_the_tooltips_room_from_the_start(
     pointer would carry the plus out from under it and the tooltip would
     flicker as the pointer lost and found it.  The room is there all along."""
     player = FakePlayer()
-    published = json.loads(panel.read_text(encoding="utf-8"))
-    published.update(hud_minimized=True)
-    panel.write_text(json.dumps(published), encoding="utf-8")
+    _publish(panel, hud_minimized=True)
     overlay = HudOverlay(hud_file=panel, command_file=tmp_path / "dashboard_cmd.txt",
                          player=player, clock=lambda: 0.0, over_the_video=False)
 
@@ -622,6 +622,23 @@ def test_a_panel_on_its_own_screen_holds_the_tooltips_room_from_the_start(
 
     (_x, _y, bgra), = player.overlays.values()
     assert bgra.shape[1] > BUTTON_SIZE_HUD
+
+
+def test_a_panel_collapsed_by_a_press_on_its_minus_draws_the_plus_alone(
+        tmp_path: Path, panel: Path):
+    player = FakePlayer()
+    overlay = _panel_at(tmp_path, panel, player, hud_corner="upper_left")
+    (left, top, _bgra), = player.overlays.values()
+    (x, y, w, h), _minus = next((rect, b) for rect, b in overlay.targets.buttons
+                                if b.command == "portrait_hud_minimize")
+    overlay.motion(left + x + w // 2, top + y + h // 2)
+    overlay.press(left + x + w // 2, top + y + h // 2)
+
+    _publish(panel, hud_minimized=True)
+    overlay.tick(window=(1200, 800))
+
+    (_x, _y, bgra), = player.overlays.values()
+    assert bgra.shape[:2] == (BUTTON_SIZE_HUD, BUTTON_SIZE_HUD)
 
 
 def test_a_minimized_panel_is_the_plus_button_in_that_corner(tmp_path: Path, panel: Path):
@@ -642,11 +659,9 @@ def test_a_panel_hanging_on_its_own_screen_keeps_its_default_justification(
     corner of the picture, so the corner the session moved it to says which side
     of the player it hangs against and nothing about how it is laid out."""
     player = FakePlayer()
-    published = json.loads(panel.read_text(encoding="utf-8"))
-    published.update(hud_corner="lower_right", hud_edge="right",
-                     rows=[[{"command": "portrait_next", "glyph": "N",
-                             "tooltip": "Next", "width": 18}]])
-    panel.write_text(json.dumps(published), encoding="utf-8")
+    _publish(panel, hud_corner="lower_right", hud_edge="right",
+             rows=[[{"command": "portrait_next", "glyph": "N",
+                     "tooltip": "Next", "width": 18}]])
     overlay = HudOverlay(
         hud_file=panel, command_file=tmp_path / "dashboard_cmd.txt",
         player=player, clock=lambda: 0.0, over_the_video=False)
