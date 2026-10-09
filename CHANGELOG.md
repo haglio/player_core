@@ -9,6 +9,18 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-10-09 — the Funestra declares what the Main Player reaches, and the second window's verbs go
+
+Fun Time's Main Player runs Kino and Genau on one Funestra now (fun_time #379,
+genau #152), so what it reaches is declared: `player_verbs.SHOW`, `clip_picture.Picture`
+and `funestra.User`. What served the second window goes: `DISPLAY_ON`/`DISPLAY_OFF`
+(nothing sends them -- the desktop's switch says SHOW, and the headset's main role
+answers SHOW), the `hud=` line of Genau's status (its one reader was the main-slot
+handover that swapped the windows), `clip_preload` (the window's first-clip preload,
+imported by nothing), and the genau package's entry among the known HUD drawers
+(there is no genau package). `genau_controls` keeps its `hud` flag: the desktop's
+Genau sets it when it loses the window, and the engine stops rendering on it.
+
 ## 2026-10-08 — a window follows its playlist file, and fifteen HUD names are declared again
 
 `PlaylistFollower` (new, private to this package): a window takes the list its

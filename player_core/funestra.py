@@ -36,6 +36,7 @@ from .volume_control import RoomVolume, VolumeControl
 __all__ = [
     "Channels",
     "Funestra",
+    "User",
 ]
 
 logger = logging.getLogger(__name__)

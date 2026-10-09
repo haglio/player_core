@@ -34,7 +34,6 @@ HUD_PAINTERS: dict[str, set[str] | None] = {
 
 KNOWN_DRAWERS = {
     ("fun_time", "fun_time_vr"),
-    ("genau", "genau"),
     ("origenerator", "origenerator"),
 }
 

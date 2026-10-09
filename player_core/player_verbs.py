@@ -22,8 +22,6 @@ from .playlist import PlaylistItem, item_line
 
 __all__ = [
     "CLEAR_FRAME",
-    "DISPLAY_OFF",
-    "DISPLAY_ON",
     "LOCK_OFF",
     "LOCK_ON",
     "NEXT",
@@ -39,6 +37,7 @@ __all__ = [
     "SET_SPEED",
     "SET_TCODE_ENABLED",
     "SET_VOLUME",
+    "SHOW",
     "SHOW_FRAME",
     "SPEED_DOWN",
     "SPEED_UP",
@@ -80,12 +79,8 @@ SET_TCODE_ENABLED = "SET_TCODE_ENABLED"
 SET_MAX_INTENSITY = "SET_MAX_INTENSITY"
 
 # What the source holds and the player cannot see: whether the list it was
-# handed is the narrowed one (SET_F_MODE 0|1), and whether the player owns its
-# rectangle right now -- told OFF it paints nothing, so a switch back to it does
-# not land on the frame it was paused on.
+# handed is the narrowed one (SET_F_MODE 0|1).
 SET_F_MODE = "SET_F_MODE"
-DISPLAY_ON = "DISPLAY_ON"
-DISPLAY_OFF = "DISPLAY_OFF"
 
 # How long a picture holds the screen before the list moves on (SET_PACE
 # <seconds>, 0 holding it until something else moves it).

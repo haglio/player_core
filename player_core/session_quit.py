@@ -19,7 +19,6 @@ from app_support.file_channel import append_command
 
 __all__ = [
     "SESSION_QUIT",
-    "quit_gesture",
 ]
 
 # The verb the dashboard's own Quit button posts, and the one the dispatch loop

@@ -12,7 +12,6 @@ from .learned_motion import LearnedMotionState
 from .robot_hand import RobotHandState, control_limits
 
 __all__ = [
-    "build_status_text",
 ]
 
 # Where the status goes when nobody names a path: beside the command file, which
@@ -31,7 +30,6 @@ def build_status_text(
     *,
     learned: LearnedMotionState | None = None,
     clip_advance: ClipAdvanceState | None = None,
-    hud_active: bool = False,
     clip: Path | None = None,
     flipped: bool = False,
     portrait: bool | None = None,
@@ -53,7 +51,6 @@ def build_status_text(
         f"ctr_at_min={'1' if limits.ctr_at_min else '0'}\n"
         f"spd_at_max={'1' if limits.spd_at_max else '0'}\n"
         f"spd_at_min={'1' if limits.spd_at_min else '0'}\n"
-        f"hud={'1' if hud_active else '0'}\n"
         f"playing={'1' if hand.playing else '0'}\n"
         f"interval={advance.interval}\n"
         f"max_intensity={hand.max_intensity}\n"
