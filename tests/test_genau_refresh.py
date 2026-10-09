@@ -1227,3 +1227,14 @@ def test_the_status_says_whether_the_flick_up_is_portrait(tmp_path):
 
     assert "portrait=1" in (tmp_path / "genau_status.txt").read_text(encoding="utf-8")
 
+class TestSeekingTheFlicksTimeOnScreen:
+    """A press along the track at the console's foot, which runs the time a flick
+    has had of its turn on screen rather than the loop of the flick itself."""
+
+    def test_it_puts_the_flick_that_far_into_its_interval(self):
+        advance = FlickAdvanceState(locked=False, interval=10)
+        controller = _build_controller(flick_advance=advance)["controller"]
+
+        controller.seek_the_time_on_screen(7.0)
+
+        assert advance.elapsed == 7.0

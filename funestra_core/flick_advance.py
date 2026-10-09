@@ -45,6 +45,11 @@ class FlickAdvanceState:
     _flick: Path | None = None
     _awaiting_switch: bool = False
 
+    @property
+    def elapsed(self) -> float:
+        """Seconds the flick on screen has had of its interval; none while held."""
+        return 0.0 if self.locked else self._elapsed
+
 
 def set_locked(state: FlickAdvanceState, locked: bool) -> None:
     """Hold the flick on screen, or let the interval carry it on.
@@ -71,6 +76,14 @@ def set_interval(state: FlickAdvanceState, seconds: int) -> None:
 
 def adjust_interval(state: FlickAdvanceState, delta: int) -> None:
     set_interval(state, state.interval + delta)
+
+
+def set_elapsed(state: FlickAdvanceState, seconds: float) -> None:
+    """A press along the track: put the flick *seconds* into its interval, unless
+    the next flick is already on its way."""
+    if state._awaiting_switch:
+        return
+    state._elapsed = max(0.0, min(float(state.interval), seconds))
 
 
 def tick_flick_advance(
