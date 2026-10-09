@@ -1,7 +1,14 @@
-"""The published panel kept on the picture: polled, rendered when it changes, composited, pressed."""
+"""The panel kept on the picture: taken from its source, rendered when it changes, composited, pressed.
+
+Two sources.  A session in another process publishes the panel to a file and
+takes its presses back on the dashboard's command file; a window's own
+program -- a standalone Origenerator building its Slideshow's panel -- hands
+the model over in-process and takes the presses itself.
+"""
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 
@@ -27,16 +34,66 @@ __all__ = [
 
 HUD_OVERLAY_ID = 10
 
+# What the panel posts about the block its source paints at its foot: the
+# source placed it and knows what is drawn where, so a press, a drag, the
+# button coming up and the wheel go back to it with where they landed, in the
+# block's own pixels.
+FOOT_PRESS = "foot_press"
+FOOT_DRAG = "foot_drag"
+FOOT_RELEASE = "foot_release"
+FOOT_WHEEL = "foot_wheel"
+
 _EMPTY_TARGETS = HudTargets(click=[], loop=[], filter=[], expand=None)
+
+
+class _PublishedPanel:
+    """The panel a session publishes to a file, and the file its presses go back on."""
+
+    def __init__(self, hud_file: Path, command_file: Path) -> None:
+        self._hud_file = Path(hud_file)
+        self._command_file = Path(command_file)
+        self._published = ""
+
+    def next(self, shown: HudModel | None) -> tuple[HudModel | None, bool]:
+        """The panel to show and whether it changed -- unchanged for a frame
+        that lost the race with the source replacing the file."""
+        try:
+            text = self._hud_file.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            text = ""
+        except OSError:
+            return shown, False
+        if text == self._published:
+            return shown, False
+        self._published = text
+        return (parse_hud(text) if text else None), True
+
+    def post(self, command: str) -> None:
+        ask(self._command_file, command)
+
+
+class _WindowsOwnPanel:
+    """The panel the window's own program hands over, and where its presses go."""
+
+    def __init__(self, panel: Callable[[], HudModel | None],
+                 post: Callable[[str], None]) -> None:
+        self._panel = panel
+        self.post = post
+
+    def next(self, shown: HudModel | None) -> tuple[HudModel | None, bool]:
+        model = self._panel()
+        return model, model != shown
 
 
 class HudOverlay:
     def __init__(
         self,
         *,
-        hud_file: Path,
-        command_file: Path,
         player,
+        hud_file: Path | None = None,
+        command_file: Path | None = None,
+        panel: Callable[[], HudModel | None] | None = None,
+        post: Callable[[str], None] | None = None,
         overlay_id: int = HUD_OVERLAY_ID,
         clock=time.monotonic,
         drive_file: Path | None = None,
@@ -46,19 +103,18 @@ class HudOverlay:
         set_volume=None,
         toggle_mute=None,
     ) -> None:
-        self._hud_file = Path(hud_file)
+        self._source = (_WindowsOwnPanel(panel, post) if panel is not None
+                        else _PublishedPanel(hud_file, command_file))
         self._drive_file = None if drive_file is None else Path(drive_file)
         self._drive_gate = drive_gate
         self._published_drive: DriveHud | None = None
         self._drive: DriveHud | None = None
-        self._command_file = Path(command_file)
         self._player = player
         self.overlay_id = overlay_id
         self._clock = clock
         self._over_the_video = over_the_video
         self._renderer: HudRenderer | None = None
         self._clicks: HudClicks | None = None
-        self._published = ""
         self._model: HudModel | None = None
         self._video = ""
         self._playback_speed: float | None = None
@@ -69,6 +125,8 @@ class HudOverlay:
         self._hover_loop = ""
         self._hover_tip = ""
         self._hover_pos = (0, 0)
+        self._pointer_at = (0, 0)
+        self._foot_held = False
         self._shown = False
         self._window: tuple[int, int] | None = None
         self._origin = (MARGIN, MARGIN)
@@ -86,7 +144,6 @@ class HudOverlay:
     def tick(self, video: str = "", playback_speed: float | None = None,
              window: tuple[int, int] | None = None,
              clip_row: RowHud | None = None, heatmap=None) -> None:
-        text = self._read()
         redraw = (video != self._video or playback_speed != self._playback_speed
                   or window != self._window
                   or clip_row != self._clip_row or heatmap is not self._heatmap)
@@ -94,9 +151,8 @@ class HudOverlay:
         self._playback_speed = playback_speed
         self._window = window
         self._clip_row, self._heatmap = clip_row, heatmap
-        if text is not None and text != self._published:
-            self._published = text
-            model = parse_hud(text) if text else None
+        model, changed = self._source.next(self._model)
+        if changed:
             if model is not None:
                 if self._renderer is None:
                     self._renderer = HudRenderer(model.player)
@@ -119,13 +175,29 @@ class HudOverlay:
     def press(self, x: int, y: int) -> bool:
         if self._clicks is None or not self._covers(x, y):
             return False
-        if self._row.press(*self._local(x, y), rect=self.targets.row,
+        self._pointer_at = self._local(x, y)
+        if self._row.press(*self._pointer_at, rect=self.targets.row,
                            duration_ms=self._track_duration()):
             return True
-        command = self._clicks.press(self.targets, *self._local(x, y), now=self._clock())
+        if self._foot_covers(*self._pointer_at):
+            self._foot_held = True
+            self._post_on_the_foot(FOOT_PRESS)
+            return True
+        command = self._clicks.press(self.targets, *self._pointer_at, now=self._clock())
         if command:
             self._post(command)
             self._draw()
+        return True
+
+    def wheel(self, x: int, y: int, steps: int) -> bool:
+        """The wheel turned *steps* notches over the panel: the block at the
+        foot takes it, and the rest of the panel is a surface with nothing to
+        turn, which is still the panel's and not the picture's."""
+        if self._clicks is None or not self._covers(x, y):
+            return False
+        self._pointer_at = self._local(x, y)
+        if self._foot_covers(*self._pointer_at):
+            self._post_on_the_foot(FOOT_WHEEL, steps)
         return True
 
     def _track_duration(self) -> float:
@@ -149,28 +221,36 @@ class HudOverlay:
 
     @property
     def holding(self) -> bool:
-        return self._row.holding or (
+        return self._row.holding or self._foot_held or (
             self._clicks is not None and self._clicks.holding)
 
     def drag_to(self, x: int, y: int) -> str:
         """The pointer held down and moving: the row goes on being set, and past
         the row, whatever the panel itself took hold of."""
-        if self._row.drag_to(*self._local(x, y), rect=self.targets.row,
+        self._pointer_at = self._local(x, y)
+        if self._row.drag_to(*self._pointer_at, rect=self.targets.row,
                              duration_ms=self._track_duration()):
             return ""
-        command = self._clicks.drag_to(*self._local(x, y)) if self._clicks is not None else ""
+        if self._foot_held:
+            self._post_on_the_foot(FOOT_DRAG)
+            return ""
+        command = self._clicks.drag_to(*self._pointer_at) if self._clicks is not None else ""
         if command:
             self._post(command)
         return command
 
     def release(self) -> None:
-        """Let go of whichever part of the row, or of the panel, a press took."""
+        """Let go of whichever part of the row, of the foot, or of the panel a press took."""
         self._row.release()
+        if self._foot_held:
+            self._foot_held = False
+            self._post_on_the_foot(FOOT_RELEASE)
         if self._clicks is not None:
             self._clicks.release()
 
     def motion(self, x: int, y: int) -> None:
         px, py = self._local(x, y)
+        self._pointer_at = (px, py)
         hover = hit_test_targets(self.targets.loop, px, py)
         tip = button_tooltip(self.targets, px, py)
         if hover == self._hover_loop and tip == self._hover_tip:
@@ -191,6 +271,18 @@ class HudOverlay:
         width, height = self._panel_size
         return left <= x < left + width and top <= y < top + height
 
+    def _foot_covers(self, px: int, py: int) -> bool:
+        foot = self.targets.foot
+        if foot is None:
+            return False
+        x, y, width, height = foot
+        return x <= px < x + width and y <= py < y + height
+
+    def _post_on_the_foot(self, verb: str, *values: int) -> None:
+        x, y, _width, _height = self.targets.foot
+        px, py = self._pointer_at
+        self._post("|".join(str(part) for part in (verb, *values, px - x, py - y)))
+
     def _local(self, x: int, y: int) -> tuple[int, int]:
         left, top = self._origin
         return x - left, y - top
@@ -199,16 +291,6 @@ class HudOverlay:
         if self._window is None:
             return MARGIN, MARGIN
         return hud_origin(corner, panel=size, window=self._window, margin=MARGIN)
-
-    def _read(self) -> str | None:
-        """The published panel's text, "" when there is none to show, or None
-        for a frame that lost the race with the source replacing the file."""
-        try:
-            return self._hud_file.read_text(encoding="utf-8")
-        except FileNotFoundError:
-            return ""
-        except OSError:
-            return None
 
     def _motion(self) -> DriveHud | None:
         if self._drive_file is None or self._model is None or not self._model.osr2:
@@ -225,8 +307,9 @@ class HudOverlay:
             self.close()
             return
         corner = self._model.hud_corner if self._over_the_video else HudCorner.UPPER_LEFT
+        drive = self._model.drive if self._drive_file is None else self._drive
         rendered = self._renderer.render(
-            replace(self._model, playback_speed=self._playback_speed, drive=self._drive,
+            replace(self._model, playback_speed=self._playback_speed, drive=drive,
                     drive_composed=self._drive_gate is not None, hud_corner=corner),
             video=self._video, hover_loop=self._hover_loop,
             hover_tip=self._hover_tip, hover_pos=self._hover_pos,
@@ -241,4 +324,4 @@ class HudOverlay:
         self._shown = True
 
     def _post(self, command: str) -> None:
-        ask(self._command_file, command)
+        self._source.post(command)

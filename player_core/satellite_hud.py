@@ -566,6 +566,9 @@ class HudTargets:
     # Where the clip's own row landed, for a press to be placed in its
     # coordinates (:func:`player_core.hud_row.row_part`).
     row: Rect | None = None
+    # Where the block the source paints at the foot landed: its presses and
+    # the wheel go back to the source in that block's own pixels.
+    foot: Rect | None = None
 
 
 def build_click_targets(

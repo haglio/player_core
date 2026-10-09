@@ -13,6 +13,7 @@ from .clip_picture import ClipPicture, Picture
 from .console import ModeHud
 from .console_overlay import ConsoleOverlay
 from .control_registry import look_up
+from .dashboard import ask
 from .drive_gate import DriveGate
 from .file_channel import consume_command_file, read_paused_state
 from .funestra_controls import VERBS, FunestraControls
@@ -25,7 +26,8 @@ from .playback import Playback, funscripts_of
 from .playhead import clip_playhead, video_playhead
 from .playlist import PlaylistItem
 from .playlist_follower import PlaylistFollower
-from .pointer import Pointer
+from .pointer import OMNIPAUSE_TOGGLE, Pointer
+from .satellite_hud import HudModel
 from .scrubber import HeatmapStrip, LoopThumbCapture, loop_thumbnail_xys
 from .session_quit import quit_gesture
 from .status import StatusWriter
@@ -132,6 +134,8 @@ class Funestra:
         locked: bool = False,
         sound_is_the_rooms: bool = False,
         users: Users | None = None,
+        panel: Callable[[], HudModel | None] | None = None,
+        muted: bool = True,
     ) -> None:
         self._player = player
         self._channels = channels
@@ -154,11 +158,11 @@ class Funestra:
         self._strip = HeatmapStrip()
         self._volume = (
             RoomVolume(player, dashboard_cmd_file=channels.dashboard_cmd, live=audible)
-            if sound_is_the_rooms else VolumeControl(player, live=audible)
+            if sound_is_the_rooms else VolumeControl(player, live=audible, muted=muted)
         )
-        self._panel = self._panel_for(channels, player)
+        self._panel = self._panel_for(channels, player, panel)
         self._clip_picture = ClipPicture(player)
-        self._pointer = Pointer(hud=self._panel, dashboard_cmd_file=channels.dashboard_cmd)
+        self._pointer = Pointer(hud=self._panel, picture=self._press_on_the_picture(channels))
         self._controls = FunestraControls(
             self.playback, stop_event=self._stop,
             reload_playlist=None if self._follower is None else self._follower.read_now,
@@ -180,14 +184,22 @@ class Funestra:
     def _top_block(self) -> ModeHud:
         return self._front.top_block()
 
-    def _panel_for(self, channels: Channels, player) -> HudOverlay | ConsoleOverlay | None:
+    def _panel_for(self, channels: Channels, player,
+                   panel: Callable[[], HudModel | None] | None) -> HudOverlay | ConsoleOverlay | None:
         """The one panel this window wears, which carries the clip's row: the
-        room's console on the main slot, else the published HUD.  Both place a
-        press on the row themselves, so each is handed what it asks of the
-        window when one lands.
+        room's console on the main slot, the published HUD, or the window's
+        own program's panel where no room publishes one.  Each places a press
+        on the row itself, so each is handed what it asks of the window when
+        one lands.
         """
         if channels.dashboard_cmd is None:
-            return None
+            if panel is None:
+                return None
+            return HudOverlay(
+                panel=panel, post=self._apply, player=player,
+                seek=self._seek_along_the_track, set_volume=self._volume.set_level,
+                toggle_mute=self._volume.toggle_mute,
+            )
         if channels.console is not None:
             return ConsoleOverlay(
                 console_file=channels.console, drive_file=channels.drive,
@@ -219,14 +231,28 @@ class Funestra:
     @classmethod
     def on_window(cls, wid: int, *, channels: Channels, playlist: list[PlaylistItem],
                   audible: bool = True, tiles: bool = False, locked: bool = False,
-                  sound_is_the_rooms: bool = False,
-                  users: Users | None = None) -> Funestra:
+                  sound_is_the_rooms: bool = False, users: Users | None = None,
+                  panel: Callable[[], HudModel | None] | None = None,
+                  muted: bool = True) -> Funestra:
         return cls(
-            MpvPlayer(wid, muted=True, loop_file=False, prefetch=True),
+            MpvPlayer(wid, muted=muted, loop_file=False, prefetch=True),
             channels=channels, playlist=playlist, tcode=osr2_line(channels),
             audible=audible, tiles=tiles, locked=locked, sound_is_the_rooms=sound_is_the_rooms,
-            users=users,
+            users=users, panel=panel, muted=muted,
         )
+
+    def _press_on_the_picture(self, channels: Channels) -> Callable[[], None]:
+        """What a press off the panel does: in a session it asks the room to
+        pause everything; on a window with no room to ask, what runs on the
+        window is asked instead."""
+        if channels.dashboard_cmd is not None:
+            return lambda: ask(channels.dashboard_cmd, OMNIPAUSE_TOGGLE)
+        return self._ask_what_runs_here_to_pause
+
+    def _ask_what_runs_here_to_pause(self) -> None:
+        for user in self._users.values():
+            if user.apply_command(OMNIPAUSE_TOGGLE):
+                return
 
     @property
     def stopped(self) -> bool:
@@ -236,18 +262,24 @@ class Funestra:
     def showing(self) -> str:
         return self._showing
 
+    def set_muted(self, muted: bool) -> None:
+        self._volume.set_muted(muted)
+
     def close_requested(self) -> None:
         if quit_gesture(self._channels.dashboard_cmd):
             self._stop.set()
 
     def press(self, x: int, y: int, *, window: tuple[int, int]) -> None:
-        self._pointer.press(x, y, win_w=window[0], win_h=window[1])
+        self._pointer.press(x, y)
 
     def release(self) -> None:
         self._pointer.release()
 
     def motion(self, x: int, y: int, *, held: bool, window: tuple[int, int]) -> None:
-        self._pointer.motion(x, y, held=held, win_w=window[0], win_h=window[1])
+        self._pointer.motion(x, y, held=held)
+
+    def wheel(self, x: int, y: int, steps: int, *, window: tuple[int, int]) -> None:
+        self._pointer.wheel(x, y, steps)
 
     def tick(self, *, window: tuple[int, int]) -> None:
         channels = self._channels
@@ -347,7 +379,7 @@ class Funestra:
             self._panel.tick(playback_speed=playback_speed, window=window,
                              clip_row=row, heatmap=colors)
         else:
-            self._panel.tick(video=self.playback.name_on_screen,
+            self._panel.tick(video=self._front.top_block().video or self.playback.name_on_screen,
                              playback_speed=playback_speed, window=window,
                              clip_row=row, heatmap=colors)
 

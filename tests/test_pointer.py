@@ -6,13 +6,10 @@ one any more.
 """
 from __future__ import annotations
 
-from pathlib import Path
+from player_core.pointer import Pointer
 
-from player_core.pointer import OMNIPAUSE_TOGGLE, Pointer
-
-WIN_W, WIN_H = 640, 480
 ON_THE_VIDEO = (300, 200)
-LOWER_EDGE = (300, WIN_H - 4)
+LOWER_EDGE = (300, 476)
 
 
 class _StubHud:
@@ -27,10 +24,15 @@ class _StubHud:
         self.presses: list[tuple[int, int]] = []
         self.motions: list[tuple[int, int]] = []
         self.drags: list[tuple[int, int]] = []
+        self.wheels: list[tuple[int, int, int]] = []
         self.holding = False
 
     def press(self, x: int, y: int) -> bool:
         self.presses.append((x, y))
+        return self._takes
+
+    def wheel(self, x: int, y: int, steps: int) -> bool:
+        self.wheels.append((x, y, steps))
         return self._takes
 
     def motion(self, x: int, y: int) -> None:
@@ -44,104 +46,93 @@ class _StubHud:
         self.holding = False
 
 
-def _asks(tmp_path) -> Path:
-    return tmp_path / "dashboard_cmd.txt"
-
-
-def _asked(tmp_path) -> list[str]:
-    path = _asks(tmp_path)
-    return path.read_text(encoding="utf-8").split() if path.exists() else []
-
-
-def _pointer(tmp_path, *, hud: bool = True,
-             hud_takes: bool = True, in_a_session: bool = True):
+def _pointer(*, hud: bool = True, hud_takes: bool = True):
     stub = _StubHud(takes=hud_takes) if hud else None
-    return Pointer(hud=stub,
-                   dashboard_cmd_file=_asks(tmp_path) if in_a_session else None), stub
-
-
-def _press(pointer, point) -> None:
-    pointer.press(*point, win_w=WIN_W, win_h=WIN_H)
-
-
-def _motion(pointer, point, *, held: bool) -> None:
-    pointer.motion(*point, held=held, win_w=WIN_W, win_h=WIN_H)
+    asked: list[str] = []
+    return Pointer(hud=stub, picture=lambda: asked.append("pause")), stub, asked
 
 
 class TestThePicture:
-    """A Funestra has no pause of its own to give — its paused state is the
-    room's flag file, re-read every pass — so a press on the picture asks
-    the session to pause or resume the whole room, and asks it off again."""
+    """A press the panel does not take is a press on the picture, which asks
+    whoever built the window -- the room, or the program running on it -- to
+    pause."""
 
-    def test_a_press_the_panel_refused_asks_the_room_to_pause(self, tmp_path):
-        pointer, hud = _pointer(tmp_path, hud_takes=False)
+    def test_a_press_the_panel_refused_asks_for_the_pause(self):
+        pointer, hud, asked = _pointer(hud_takes=False)
 
-        _press(pointer, ON_THE_VIDEO)
+        pointer.press(*ON_THE_VIDEO)
 
         assert hud.presses == [ON_THE_VIDEO]
-        assert _asked(tmp_path) == [OMNIPAUSE_TOGGLE]
+        assert asked == ["pause"]
 
-    def test_a_window_with_no_panel_asks_from_the_whole_picture(self, tmp_path):
-        pointer, _hud = _pointer(tmp_path, hud=False)
+    def test_a_window_with_no_panel_asks_from_the_whole_picture(self):
+        pointer, _hud, asked = _pointer(hud=False)
 
-        _press(pointer, ON_THE_VIDEO)
+        pointer.press(*ON_THE_VIDEO)
 
-        assert _asked(tmp_path) == [OMNIPAUSE_TOGGLE]
+        assert asked == ["pause"]
 
-    def test_a_press_the_panel_took_asks_for_nothing(self, tmp_path):
-        pointer, _hud = _pointer(tmp_path)
+    def test_a_press_the_panel_took_asks_for_nothing(self):
+        pointer, _hud, asked = _pointer()
 
-        _press(pointer, ON_THE_VIDEO)
+        pointer.press(*ON_THE_VIDEO)
 
-        assert _asked(tmp_path) == []
+        assert asked == []
 
-    def test_the_lower_edge_is_the_picture_now_that_no_row_is_drawn_there(self, tmp_path):
+    def test_the_lower_edge_is_the_picture_now_that_no_row_is_drawn_there(self):
         """The track used to span it; a press there is a press on the picture."""
-        pointer, _hud = _pointer(tmp_path, hud_takes=False)
+        pointer, _hud, asked = _pointer(hud_takes=False)
 
-        _press(pointer, LOWER_EDGE)
+        pointer.press(*LOWER_EDGE)
 
-        assert _asked(tmp_path) == [OMNIPAUSE_TOGGLE]
+        assert asked == ["pause"]
 
-    def test_a_window_with_no_session_to_ask_does_nothing(self, tmp_path):
-        pointer, _hud = _pointer(tmp_path, hud_takes=False, in_a_session=False)
+    def test_a_window_with_nobody_to_ask_does_nothing(self):
+        pointer = Pointer(hud=_StubHud(takes=False))
 
-        _press(pointer, ON_THE_VIDEO)
+        pointer.press(*ON_THE_VIDEO)
 
-        assert _asked(tmp_path) == []
+    def test_the_wheel_is_the_panels_alone(self):
+        pointer, hud, asked = _pointer(hud_takes=False)
+
+        pointer.wheel(*ON_THE_VIDEO, 3)
+
+        assert hud.wheels == [(*ON_THE_VIDEO, 3)]
+        assert asked == []
 
 
 class TestDragging:
     """Everything a held pointer can set is on the panel, so this is only about
     telling the panel where the pointer went and letting go of what it took."""
 
-    def test_the_panel_is_told_where_the_pointer_went_either_way(self, tmp_path):
-        pointer, hud = _pointer(tmp_path)
+    def test_the_panel_is_told_where_the_pointer_went_either_way(self):
+        pointer, hud, _asked = _pointer()
 
-        _motion(pointer, ON_THE_VIDEO, held=False)
-        _motion(pointer, LOWER_EDGE, held=True)
+        pointer.motion(*ON_THE_VIDEO, held=False)
+        pointer.motion(*LOWER_EDGE, held=True)
 
         assert hud.motions == [ON_THE_VIDEO, LOWER_EDGE]
 
-    def test_what_the_panel_took_hold_of_keeps_the_drag(self, tmp_path):
-        pointer, hud = _pointer(tmp_path)
+    def test_what_the_panel_took_hold_of_keeps_the_drag(self):
+        pointer, hud, _asked = _pointer()
         hud.holding = True
 
-        _motion(pointer, LOWER_EDGE, held=True)
+        pointer.motion(*LOWER_EDGE, held=True)
 
         assert hud.drags == [LOWER_EDGE]
 
-    def test_the_button_coming_up_lets_go_of_what_it_took(self, tmp_path):
-        pointer, hud = _pointer(tmp_path)
+    def test_the_button_coming_up_lets_go_of_what_it_took(self):
+        pointer, hud, _asked = _pointer()
         hud.holding = True
 
-        _motion(pointer, ON_THE_VIDEO, held=False)
+        pointer.motion(*ON_THE_VIDEO, held=False)
 
         assert hud.holding is False
 
-    def test_a_window_with_no_panel_has_nothing_to_tell(self, tmp_path):
-        pointer, _hud = _pointer(tmp_path, hud=False)
+    def test_a_window_with_no_panel_has_nothing_to_tell(self):
+        pointer, _hud, asked = _pointer(hud=False)
 
-        _motion(pointer, LOWER_EDGE, held=True)
+        pointer.motion(*LOWER_EDGE, held=True)
+        pointer.wheel(*LOWER_EDGE, 1)
 
-        assert _asked(tmp_path) == []
+        assert asked == []
