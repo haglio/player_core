@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from player_core.dashboard import ask
+from funestra_core.dashboard import ask
 
 
 def test_an_ask_goes_out_on_the_dashboards_channel(tmp_path: Path):

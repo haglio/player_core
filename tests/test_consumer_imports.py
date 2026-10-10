@@ -7,7 +7,8 @@ fail. `CLAUDE.md` says not to add one back, and this is not it.
 
 The answerable question is the one the consumers can answer. Every module
 declares its public API in ``__all__``; this reads the sibling checkouts,
-collects every name they import out of `player_core`, and holds the two
+collects every name they import out of `funestra_core` (or `player_core`,
+its old name), and holds the two
 against each other in both directions: a declared name no consumer reaches is
 a name published for nobody, and a name a consumer reaches that its module does
 not declare is an API the module never meant to have.  A module that declares
@@ -33,7 +34,8 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-PACKAGE = ROOT / "player_core"
+PACKAGE = ROOT / "funestra_core"
+PACKAGE_NAMES = ("funestra_core", "player_core")
 
 _NOT_SOURCE = {".venv", ".claude", "build", "__pycache__", "node_modules"}
 
@@ -53,6 +55,10 @@ def _primary_checkout(repo: Path) -> Path:
     except (OSError, subprocess.SubprocessError):
         return repo
     return (repo / common).resolve().parent
+
+
+def is_this_package(module: str | None) -> bool:
+    return (module or "").partition(".")[0] in PACKAGE_NAMES
 
 
 def _source_files(checkout: Path):
@@ -84,16 +90,16 @@ def _declared(module: Path) -> list[str] | None:
 
 
 def _names_reached_from(source: str) -> set[str]:
-    """The names one consumer module takes out of `player_core`.
+    """The names one consumer module takes out of this package, by either of its names.
 
-    Both spellings count: what a `from player_core.x import a` names directly,
-    and what is read off a module bound by `from player_core import x` or
-    `import player_core.x` -- the second is how most of the geometry and the
+    Both spellings count: what a `from funestra_core.x import a` names directly,
+    and what is read off a module bound by `from funestra_core import x` or
+    `import funestra_core.x` -- the second is how most of the geometry and the
     format helpers are reached.
 
-    A name reached only through a string -- `patch("player_core.x.name")` in
+    A name reached only through a string -- `patch("funestra_core.x.name")` in
     a consumer's test -- is not counted, on purpose. Reading those would mean matching
-    `player_core.x.name` anywhere in the text, which is also how these repos
+    `funestra_core.x.name` anywhere in the text, which is also how these repos
     *write about* each other in docstrings, and counting a mention as a use is
     the silent failure. Missing a genuine one is the loud failure: the name
     lands in the report with the checkouts that were read named beside it.
@@ -102,7 +108,7 @@ def _names_reached_from(source: str) -> set[str]:
     """
     # Most of a consumer's tree has nothing to do with this package, and parsing
     # it all costs more than the whole rest of this suite.
-    if "player_core" not in source:
+    if not any(name in source for name in PACKAGE_NAMES):
         return set()
     try:
         tree = ast.parse(source)
@@ -110,14 +116,14 @@ def _names_reached_from(source: str) -> set[str]:
         return set()
     modules, names = set(), set()
     for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("player_core"):
+        if isinstance(node, ast.ImportFrom) and is_this_package(node.module):
             if "." in node.module:
                 names.update(alias.name for alias in node.names)
             else:
                 modules.update((alias.asname or alias.name) for alias in node.names)
         elif isinstance(node, ast.Import):
             for alias in node.names:
-                if alias.name.startswith("player_core."):
+                if is_this_package(alias.name) and "." in alias.name:
                     modules.add(alias.asname or alias.name.split(".")[-1])
     for node in ast.walk(tree):
         if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
@@ -232,7 +238,7 @@ def reached_and_consumers():
     reached |= {renamed[name] for name in reached if name in renamed}
     if not consumers:
         pytest.skip(
-            "no sibling checkout beside this one imports player_core, so there is "
+            "no sibling checkout beside this one imports funestra_core, so there is "
             "nothing to compare the declared surface against -- this is what a "
             "public clone with nothing beside it looks like"
         )

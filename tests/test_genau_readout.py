@@ -11,25 +11,25 @@ import random
 
 import pytest
 
-from player_core import wave_stack
-from player_core.cruise_control import (
+from funestra_core import wave_stack
+from funestra_core.cruise_control import (
     CruiseControlState,
     enable_cruise_control,
     tick_cruise_control,
 )
-from player_core.drive_readout import TRACE_SAMPLES
-from player_core.flag import Flag
-from player_core.flick_advance import FlickAdvanceState
-from player_core.genau_controls import GenauControls
-from player_core.genau_readout import AutoMotion, GenauReadout
-from player_core.learned_model import LearnedModel, Phrase, classify
-from player_core.learned_motion import (
+from funestra_core.drive_readout import TRACE_SAMPLES
+from funestra_core.flag import Flag
+from funestra_core.flick_advance import FlickAdvanceState
+from funestra_core.genau_controls import GenauControls
+from funestra_core.genau_readout import AutoMotion, GenauReadout
+from funestra_core.learned_model import LearnedModel, Phrase, classify
+from funestra_core.learned_motion import (
     LearnedMotionState,
     enable_learned_motion,
     tick_learned_motion,
 )
-from player_core.robot_hand import MIN_BPM, RobotHandState, bpm_for_speed
-from player_core.robot_hand_beat import BeatEngine
+from funestra_core.robot_hand import MIN_BPM, RobotHandState, bpm_for_speed
+from funestra_core.robot_hand_beat import BeatEngine
 
 
 class FakeSender:

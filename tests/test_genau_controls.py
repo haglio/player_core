@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from player_core.control_registry import Control, Verb, bind
-from player_core.flag import Flag
-from player_core.genau_controls import CONTROLS, VERBS, GenauControls
-from player_core.robot_hand import RobotHandState
-from player_core.robot_hand_beat import BeatEngine
+from funestra_core.control_registry import Control, Verb, bind
+from funestra_core.flag import Flag
+from funestra_core.genau_controls import CONTROLS, VERBS, GenauControls
+from funestra_core.robot_hand import RobotHandState
+from funestra_core.robot_hand_beat import BeatEngine
 
 
 def _controls(**fields) -> GenauControls:
@@ -128,7 +128,7 @@ class TestAVerbIsSpelledInOneFile:
     @staticmethod
     def _files_naming(verb: str) -> set[str]:
 
-        package = Path(__file__).resolve().parents[1] / "player_core"
+        package = Path(__file__).resolve().parents[1] / "funestra_core"
         naming = set()
         for path in sorted(package.glob("*.py")):
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))

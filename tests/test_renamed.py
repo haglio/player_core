@@ -10,28 +10,28 @@ from pathlib import Path
 
 import pytest
 
-from player_core import flick_folder, playhead
-from player_core.cruise_control import CruiseControlState
-from player_core.flag import Flag
-from player_core.flick_cache import FlickCacheStore
-from player_core.flick_renderer import FlickRenderController
-from player_core.genau_controls import GenauControls, apply_runtime_command
-from player_core.genau_notifier import GenauNotifier
-from player_core.genau_status import build_status_text
-from player_core.renamed import method_of
-from player_core.robot_hand import RobotHandState
-from player_core.robot_hand_beat import BeatEngine
+from funestra_core import flick_folder, playhead
+from funestra_core.cruise_control import CruiseControlState
+from funestra_core.flag import Flag
+from funestra_core.flick_cache import FlickCacheStore
+from funestra_core.flick_renderer import FlickRenderController
+from funestra_core.genau_controls import GenauControls, apply_runtime_command
+from funestra_core.genau_notifier import GenauNotifier
+from funestra_core.genau_status import build_status_text
+from funestra_core.renamed import method_of
+from funestra_core.robot_hand import RobotHandState
+from funestra_core.robot_hand_beat import BeatEngine
 
 
 def test_an_old_module_path_gives_the_renamed_function():
-    from player_core.clip_folder import flat_clips_in  # noqa: PLC0415
+    from funestra_core.clip_folder import flat_clips_in  # noqa: PLC0415
 
     assert flat_clips_in is flick_folder.flat_flicks_in
 
 
 def test_an_old_module_path_refuses_a_name_it_never_had():
     with pytest.raises(ImportError):
-        from player_core.clip_folder import a_name_player_core_never_had  # noqa: F401, PLC0415
+        from funestra_core.clip_folder import a_name_funestra_core_never_had  # noqa: F401, PLC0415
 
 
 def test_a_function_renamed_in_place_answers_to_its_old_name():
@@ -58,7 +58,7 @@ def test_genaus_controls_take_the_collaborators_an_old_orchestrator_names():
 
 
 def test_an_old_seconds_verb_still_sets_the_pace():
-    from player_core.flick_advance import FlickAdvanceState  # noqa: PLC0415
+    from funestra_core.flick_advance import FlickAdvanceState  # noqa: PLC0415
 
     controls = GenauControls(engine=BeatEngine(last_tick=0.0), paused=Flag(), step_flick=lambda _step: None,
                              flick_advance_state=FlickAdvanceState())

@@ -10,9 +10,9 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from player_core import playlist_follower
-from player_core.playlist import PlaylistItem
-from player_core.playlist_follower import PlaylistFollower
+from funestra_core import playlist_follower
+from funestra_core.playlist import PlaylistItem
+from funestra_core.playlist_follower import PlaylistFollower
 
 
 def _write(playlist: Path, *names: str) -> None:

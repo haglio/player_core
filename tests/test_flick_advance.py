@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from player_core.flick_advance import (
+from funestra_core.flick_advance import (
     DEFAULT_INTERVAL_S,
     MAX_INTERVAL_S,
     MIN_INTERVAL_S,

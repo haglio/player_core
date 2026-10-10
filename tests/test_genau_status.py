@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from player_core import genau_status
-from player_core.cruise_control import CruiseControlState
-from player_core.flick_advance import FlickAdvanceState
-from player_core.genau_status import build_status_text, write_status_file
-from player_core.learned_motion import LearnedMotionState
-from player_core.robot_hand import RobotHandState, WaveformShape
+from funestra_core import genau_status
+from funestra_core.cruise_control import CruiseControlState
+from funestra_core.flick_advance import FlickAdvanceState
+from funestra_core.genau_status import build_status_text, write_status_file
+from funestra_core.learned_motion import LearnedMotionState
+from funestra_core.robot_hand import RobotHandState, WaveformShape
 
 
 def test_build_status_text_defaults():

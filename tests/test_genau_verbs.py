@@ -8,20 +8,20 @@ from pathlib import Path
 
 import pytest
 
-from player_core.cruise_control import CruiseControlState
-from player_core.flag import Flag
-from player_core.flick_advance import MAX_INTERVAL_S, MIN_INTERVAL_S, FlickAdvanceState
-from player_core.flick_flip import FlickFlip
-from player_core.genau_controls import (
+from funestra_core.cruise_control import CruiseControlState
+from funestra_core.flag import Flag
+from funestra_core.flick_advance import MAX_INTERVAL_S, MIN_INTERVAL_S, FlickAdvanceState
+from funestra_core.flick_flip import FlickFlip
+from funestra_core.genau_controls import (
     QUARTER_CYCLE_OFFSET_COMMAND,
     GenauControls,
     apply_runtime_command,
 )
-from player_core.learned_model import LearnedModel
-from player_core.learned_motion import LearnedMotionState
-from player_core.player_verbs import SET_MAX_INTENSITY
-from player_core.robot_hand import RobotHandState, WaveformShape
-from player_core.robot_hand_beat import BeatEngine
+from funestra_core.learned_model import LearnedModel
+from funestra_core.learned_motion import LearnedMotionState
+from funestra_core.player_verbs import SET_MAX_INTENSITY
+from funestra_core.robot_hand import RobotHandState, WaveformShape
+from funestra_core.robot_hand_beat import BeatEngine
 
 
 @contextmanager
@@ -33,7 +33,7 @@ def _nothing_logged():
         def emit(self, record: logging.LogRecord) -> None:
             records.append(record)
 
-    logger = logging.getLogger("player_core.genau_controls")
+    logger = logging.getLogger("funestra_core.genau_controls")
     handler = _Collect()
     logger.addHandler(handler)
     previous, logger.propagate = logger.propagate, False
@@ -875,7 +875,7 @@ class TestAnUnhandledCommand:
     """
 
     def _run(self, command, caplog, **collaborators):
-        with caplog.at_level("WARNING", logger="player_core.genau_controls"):
+        with caplog.at_level("WARNING", logger="funestra_core.genau_controls"):
             apply_runtime_command(command, GenauControls(
                 engine=BeatEngine(phase=0.0, last_tick=0.0),
                 paused=Flag(),

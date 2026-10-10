@@ -6,8 +6,8 @@ these press the rects the geometry hands out, rather than trusting them.
 """
 from __future__ import annotations
 
-from player_core import drive_layout as layout
-from player_core.geometry import contains
+from funestra_core import drive_layout as layout
+from funestra_core.geometry import contains
 
 
 def _by_action(controls):

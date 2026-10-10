@@ -12,7 +12,14 @@ from collections import defaultdict
 from pathlib import Path
 
 import pytest
-from test_consumer_imports import _names_reached_from, _primary_checkout, _source_files
+from test_consumer_imports import (
+    PACKAGE,
+    PACKAGE_NAMES,
+    _names_reached_from,
+    _primary_checkout,
+    _source_files,
+    is_this_package,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -45,7 +52,7 @@ def _is_painter(module: str, name: str) -> bool:
 
 
 def _painters_reached(source: str) -> set[str]:
-    if "player_core" not in source:
+    if not any(name in source for name in PACKAGE_NAMES):
         return set()
     try:
         tree = ast.parse(source)
@@ -54,7 +61,7 @@ def _painters_reached(source: str) -> set[str]:
     bound: dict[str, str] = {}
     reached: set[str] = set()
     for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and (node.module or "").startswith("player_core"):
+        if isinstance(node, ast.ImportFrom) and is_this_package(node.module):
             if "." in node.module:
                 module = node.module.split(".", 1)[1]
                 reached.update(f"{module}.{alias.name}" for alias in node.names
@@ -63,7 +70,7 @@ def _painters_reached(source: str) -> set[str]:
                 bound.update((alias.asname or alias.name, alias.name) for alias in node.names)
         elif isinstance(node, ast.Import):
             bound.update((alias.asname or alias.name.split(".")[-1], alias.name.split(".")[-1])
-                         for alias in node.names if alias.name.startswith("player_core."))
+                         for alias in node.names if is_this_package(alias.name) and "." in alias.name)
     for node in ast.walk(tree):
         if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
             module = bound.get(node.value.id)
@@ -97,14 +104,14 @@ def _drawers() -> tuple[dict[tuple[str, str], set[str]], list[str]]:
 def drawers_and_consumers():
     drawers, consumers = _drawers()
     if not consumers:
-        pytest.skip("no sibling checkout beside this one imports player_core, so there is "
+        pytest.skip("no sibling checkout beside this one imports funestra_core, so there is "
                     "nothing to hold the drawers against")
     return drawers, consumers
 
 
 def test_a_painter_names_a_module_this_package_has():
     missing = sorted(module for module in HUD_PAINTERS
-                     if not (ROOT / "player_core" / f"{module}.py").is_file())
+                     if not (PACKAGE / f"{module}.py").is_file())
     assert missing == []
 
 
@@ -130,12 +137,12 @@ def test_every_known_drawer_still_draws(drawers_and_consumers):
 
 
 def test_a_painter_reached_by_module_counts_as_well_as_one_imported_by_name():
-    by_name = _painters_reached("from player_core.console_hud import ConsolePainter\n")
+    by_name = _painters_reached("from funestra_core.console_hud import ConsolePainter\n")
     by_module = _painters_reached(
-        "from player_core import console_hud\npainter = console_hud.ConsolePainter()\n")
+        "from funestra_core import console_hud\npainter = console_hud.ConsolePainter()\n")
     by_dotted = _painters_reached(
-        "import player_core.playhead as playhead\npainter = playhead.PlayheadHudPainter()\n")
-    model_only = _painters_reached("from player_core.console_hud import ConsoleHud\n")
+        "import funestra_core.playhead as playhead\npainter = playhead.PlayheadHudPainter()\n")
+    model_only = _painters_reached("from funestra_core.console_hud import ConsoleHud\n")
 
     assert by_name == by_module == {"console_hud.ConsolePainter"}
     assert by_dotted == {"playhead.PlayheadHudPainter"}

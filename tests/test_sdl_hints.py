@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 
-from player_core.sdl_hints import FOCUS_CLICKTHROUGH_HINT, deliver_the_focusing_click
+from funestra_core.sdl_hints import FOCUS_CLICKTHROUGH_HINT, deliver_the_focusing_click
 
 
 class TestDeliverTheFocusingClick:

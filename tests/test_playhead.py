@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from player_core.playhead import (
+from funestra_core.playhead import (
     PlayheadHudPainter,
     flick_playhead,
     lower_edge_height,
@@ -11,8 +11,8 @@ from player_core.playhead import (
     readout_xy,
     video_playhead,
 )
-from player_core.timeline import TIMELINE_HEIGHT, bar_track_x
-from player_core.volume import CHIP_H, MARGIN, PAD, chip_xy
+from funestra_core.timeline import TIMELINE_HEIGHT, bar_track_x
+from funestra_core.volume import CHIP_H, MARGIN, PAD, chip_xy
 
 
 class TestWhatAVideosReadoutSays:

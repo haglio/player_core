@@ -16,9 +16,9 @@ from pathlib import Path
 import pytest
 from dealt_moves import DRIFT, Deals
 
-from player_core import audio_outputs
-from player_core.ken_burns import Move, zoom_in
-from player_core.mpv_player import (
+from funestra_core import audio_outputs
+from funestra_core.ken_burns import Move, zoom_in
+from funestra_core.mpv_player import (
     TILES_SHADER,
     _MpvControl,
     _shared_options,

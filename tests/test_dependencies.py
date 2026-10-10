@@ -22,7 +22,8 @@ PYPROJECT = ROOT / "pyproject.toml"
 
 def test_every_third_party_import_is_declared():
     assert_every_import_is_declared(
-        ROOT, [ROOT / "player_core"], PYPROJECT, local=("player_core",))
+        ROOT, [ROOT / "funestra_core", ROOT / "player_core"], PYPROJECT,
+        local=("funestra_core", "player_core"))
 
 
 def test_every_requirement_has_an_upper_bound():
@@ -31,7 +32,8 @@ def test_every_requirement_has_an_upper_bound():
 
 def test_every_sibling_this_repo_needs_is_declared():
     assert_every_sibling_is_declared(
-        ROOT, [ROOT / "player_core", ROOT / "tests", ROOT / "tools"], PYPROJECT)
+        ROOT, [ROOT / "funestra_core", ROOT / "player_core", ROOT / "tests", ROOT / "tools"],
+        PYPROJECT)
 
 
 def test_the_declared_floor_is_the_one_the_gate_runs():

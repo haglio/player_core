@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import OrderedDict
 from pathlib import Path
 
-from player_core.flick_cache import (
+from funestra_core.flick_cache import (
     DecodeRequestState,
     FlickCacheStore,
     trim_path_lru_cache,

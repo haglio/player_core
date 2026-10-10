@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from player_core.hud_row import (
+from funestra_core.hud_row import (
     MUTE,
     SCRUBBER,
     VOLUME,
@@ -18,15 +18,23 @@ from player_core.hud_row import (
     scrub_to,
     volume_to,
 )
-from player_core.playhead import lower_edge_height
-from player_core.timeline import (
+from funestra_core.playhead import lower_edge_height
+from funestra_core.timeline import (
     AMBER,
     HEATMAP_ALPHA,
     RED,
     TIMELINE_HEIGHT,
     bar_track_x,
 )
-from player_core.volume import CHIP_H, CHIP_W, MAX_VOLUME, MIN_VOLUME, SPEAKER_W, VolumeHud, chip_xy
+from funestra_core.volume import (
+    CHIP_H,
+    CHIP_W,
+    MAX_VOLUME,
+    MIN_VOLUME,
+    SPEAKER_W,
+    VolumeHud,
+    chip_xy,
+)
 
 
 def test_a_wide_panel_carries_the_whole_row_on_one_line():

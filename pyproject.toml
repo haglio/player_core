@@ -38,7 +38,7 @@ dev = [
     "pytest-timeout>=2.4,<3",
     "ruff==0.16.6",
     # The suite's, not the package's: the HUD paint tests read the family's
-    # colors, and `shared_ui.colors` builds them out of QColor. Nothing player_core
+    # colors, and `shared_ui.colors` builds them out of QColor. Nothing funestra_core
     # ships imports Qt, so it stays out of [project.dependencies] and the three
     # apps that install this package do not get a Qt wheel with it.
     "PyQt6>=6,<7",
@@ -57,13 +57,13 @@ dev = [
 siblings = ["app_support", "shared_ui"]
 
 [tool.setuptools.packages.find]
-include = ["player_core*"]
+include = ["funestra_core*", "player_core*"]
 
 # The learned motion's trained model ships inside the package: numbers only,
 # built by tools/train_learned_motion.py from a corpus that lives outside
 # every repo.
 [tool.setuptools.package-data]
-player_core = ["learned_motion.json.gz", "tiles.glsl"]
+funestra_core = ["learned_motion.json.gz", "tiles.glsl"]
 
 [tool.pytest.ini_options]
 # The content guard's tracked-tree check comes from app_support, not a copy

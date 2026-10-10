@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from funestra_fakes import make_playback
 
-from player_core.funestra_status import status_fields
-from player_core.status import PlayerStatus, parse_status
+from funestra_core.funestra_status import status_fields
+from funestra_core.status import PlayerStatus, parse_status
 
 
 class TestStatusFields:

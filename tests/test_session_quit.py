@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from player_core.session_quit import SESSION_QUIT, quit_gesture
+from funestra_core.session_quit import SESSION_QUIT, quit_gesture
 
 
 class TestQuitGesture:

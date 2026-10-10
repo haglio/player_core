@@ -1,8 +1,8 @@
 """Which sound output a player takes when it is told a device by name."""
 from __future__ import annotations
 
-from player_core import audio_outputs
-from player_core.audio_outputs import Endpoint, Output, pick_output, software_outputs
+from funestra_core import audio_outputs
+from funestra_core.audio_outputs import Endpoint, Output, pick_output, software_outputs
 
 HEADSET = "Headphones (Example Headset)"
 STREAMING = "Speakers (Example AirLink)"

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from player_core.robot_hand import (
+from funestra_core.robot_hand import (
     MAX_TICK_SECONDS,
     MIN_SPEED,
     PARK_CENTER,

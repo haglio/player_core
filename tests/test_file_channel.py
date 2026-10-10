@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from app_support import file_channel as the_familys
 
-from player_core import file_channel
+from funestra_core import file_channel
 
 
 def test_every_name_the_players_import_is_app_supports_own():

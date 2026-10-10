@@ -2,27 +2,27 @@ from __future__ import annotations
 
 import random
 
-from player_core import wave_stack
-from player_core.cruise_control import (
+from funestra_core import wave_stack
+from funestra_core.cruise_control import (
     CruiseControlState,
     enable_cruise_control,
     tick_cruise_control,
 )
-from player_core.funscript import HANDOFF_RAMP_MS
-from player_core.learned_model import LearnedModel, Phrase, classify
-from player_core.learned_motion import (
+from funestra_core.funscript import HANDOFF_RAMP_MS
+from funestra_core.learned_model import LearnedModel, Phrase, classify
+from funestra_core.learned_motion import (
     LearnedMotionState,
     enable_learned_motion,
     tick_learned_motion,
 )
-from player_core.robot_hand import (
+from funestra_core.robot_hand import (
     POSITION_MAX,
     RobotHandState,
     WaveformShape,
     bpm_for_speed,
 )
-from player_core.robot_hand_driver import DeviceHandoff, RobotHandTCodeDriver
-from player_core.tcode import HANDOFF_MS
+from funestra_core.robot_hand_driver import DeviceHandoff, RobotHandTCodeDriver
+from funestra_core.tcode import HANDOFF_MS
 
 
 class FakeTCodeSink:

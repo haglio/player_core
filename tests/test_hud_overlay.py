@@ -10,15 +10,15 @@ from funestra_fakes import FakePlayer
 from PIL import Image
 from shared_ui.spacing import BUTTON_SIZE_HUD
 
-from player_core.drive_readout import DriveHud, publish_drive
-from player_core.hud_button import Button
-from player_core.hud_corners import HudPlace
-from player_core.hud_overlay import HudOverlay
-from player_core.hud_placement import HudCorner, HudEdge
-from player_core.hud_row import UNDER_THE_PANEL_GAP, RowHud
-from player_core.satellite_hud import MARGIN, MINUS_INSET, PAD, HudModel
-from player_core.timeline import TIMELINE_HEIGHT, bar_track_x
-from player_core.volume import CHIP_H, CHIP_W, SPEAKER_W, VolumeHud, chip_xy
+from funestra_core.drive_readout import DriveHud, publish_drive
+from funestra_core.hud_button import Button
+from funestra_core.hud_corners import HudPlace
+from funestra_core.hud_overlay import HudOverlay
+from funestra_core.hud_placement import HudCorner, HudEdge
+from funestra_core.hud_row import UNDER_THE_PANEL_GAP, RowHud
+from funestra_core.satellite_hud import MARGIN, MINUS_INSET, PAD, HudModel
+from funestra_core.timeline import TIMELINE_HEIGHT, bar_track_x
+from funestra_core.volume import CHIP_H, CHIP_W, SPEAKER_W, VolumeHud, chip_xy
 
 
 @pytest.fixture
