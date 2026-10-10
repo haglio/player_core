@@ -23,7 +23,13 @@ import numpy as np
 from PIL import Image
 
 from .loop_dial import DIAL_SIZE, LoopDialPainter, on_dial, turn_at
-from .playhead import PlayheadHud, PlayheadHudPainter, flick_playhead, readout_width
+from .playhead import (
+    PlayheadHud,
+    PlayheadHudPainter,
+    flick_playhead,
+    readout_width,
+    video_playhead,
+)
 from .timeline import TIMELINE_HEIGHT, bar_track_x, progress_bar_bgra
 from .volume import (
     CHIP_H,
@@ -57,13 +63,14 @@ PARTS_Y = (ROW_H - CHIP_H) // 2
 GAP = 4
 GROUP_GAP = 10
 
-# The least track worth pressing.  Narrower than this the chip is pushed over
-# the track and the row is one control on top of another, so the panel widens
-# for the row the way it widens for its own rows.
-_LEAST_TRACK = 60
-
 # Between the panel's lower edge and the loop's two frames hanging under it.
 UNDER_THE_PANEL_GAP = 2
+
+# The readouts a panel is held wide enough for, so it keeps one width from one
+# flick or video to the next instead of moving with the digits of each: a flick
+# of up to 999 frames, and a video of under an hour at up to 60 frames a second.
+_HELD_FRAME_COUNT = flick_playhead(999, 999)
+_HELD_VIDEO_READOUT = video_playhead(3_599_000, 3_599_000, 60.0)
 
 
 @dataclass(frozen=True)
@@ -112,24 +119,30 @@ def _frame_count(row: RowHud) -> PlayheadHud | None:
     return None if row.loop is None else flick_playhead(*row.loop)
 
 
-def _before_the_track(row: RowHud) -> tuple[tuple[int, int] | None, int | None,
-                                           tuple[int, int] | None, int]:
+def _before_the_track(row: RowHud, *, held: bool = False) -> tuple[
+        tuple[int, int] | None, int | None, tuple[int, int] | None, int]:
     """The dial's place and its frame count's, the time's, and where the track
-    starts after them, from the row's own left edge."""
+    starts after them, from the row's own left edge; *held*, with each readout
+    as wide as the widest a panel is held for."""
     x = 0
     readout = dial = frame = None
     count = _frame_count(row)
     if count is not None:
         dial = x
         x += DIAL_SIZE + GAP
-        width = readout_width(count)
+        width = _width(count, _HELD_FRAME_COUNT if held else None)
         frame = (x, width)
         x += width + GROUP_GAP
     if row.playhead is not None:
-        width = readout_width(row.playhead)
+        width = _width(row.playhead, _HELD_VIDEO_READOUT if held and count is None else None)
         readout = (x, width)
         x += width + GAP
     return readout, dial, frame, x
+
+
+def _width(readout: PlayheadHud, held_for: PlayheadHud | None) -> int:
+    width = readout_width(readout)
+    return width if held_for is None else max(width, readout_width(held_for))
 
 
 def row_layout(row: RowHud, *, rect: tuple[int, int, int, int]) -> RowLayout:
@@ -147,8 +160,10 @@ class RowSection:
 
     @staticmethod
     def least_width(row: RowHud) -> int:
-        """The narrowest panel the row can be laid out in."""
-        return _before_the_track(row)[3] + _LEAST_TRACK + SLOT_W
+        """The narrowest panel the row can be laid out in: one that leaves the
+        track no shorter than everything else on the line, since the heatmap
+        and a seek are what the row is for."""
+        return 2 * (_before_the_track(row, held=True)[3] + SLOT_W)
 
     def draw(self, image: Image.Image, layout: RowLayout, row: RowHud,
              *, heatmap: np.ndarray | None = None) -> None:

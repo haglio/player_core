@@ -1019,11 +1019,11 @@ class TestAPanelBesideThePicture:
         """A console sized to its contents changes size between the modes and
         with the title, and a screen that grows and shrinks is a screen that
         moves; the surface says the one width it is held to."""
-        surface = _ASurface(width=380)
+        surface = _ASurface(width=600)
 
         self._main_beside(tmp_path, surface)
 
-        assert surface.overlays[HUD_OVERLAY_ID][2].shape[1] == 380
+        assert surface.overlays[HUD_OVERLAY_ID][2].shape[1] == 600
 
     def test_the_window_is_told_which_edge_of_the_picture_the_panel_hangs_along(self, tmp_path):
         """The room moves the panel between the picture's edges; a window that
