@@ -34,6 +34,9 @@ too narrow to leave the track at least as long as everything else on the line
 widens until it does, sizing itself for a flick of up to 999 frames and a video
 of under an hour so it keeps one width from one to the next; the console grows
 by about half in Genau mode, and a side player's panel as far as the row needs.
+A console held to one width, as the headset holds its own, is held at least as
+wide as the widest row it can carry (`RowSection.least_width_for_any_row`), so
+it keeps that one width whichever row it carries, or none.
 The row used to stack the time above the track on a panel narrower than 518
 pixels, start a wide row's track at a fixed 193, and keep a margin at each end.
 The time and the frame count are words alone, no longer in a pill like the

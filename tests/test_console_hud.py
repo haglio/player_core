@@ -55,6 +55,7 @@ from funestra_core.hud_panel import (
 from funestra_core.hud_placement import HudCorner
 from funestra_core.hud_row import SCRUBBER, RowHud, row_part
 from funestra_core.modes import LengthMode, MainMode, Osr2State
+from funestra_core.playhead import video_playhead
 from funestra_core.volume import VolumeHud
 
 MIXED, FULL, CLIPS = LengthMode.MIXED, LengthMode.FULL, LengthMode.CLIPS
@@ -200,7 +201,7 @@ class TestPainter:
         not change size with what is on it: the genau-mode rows are narrower
         than the kino-mode ones, and sized to its contents the screen jumped
         between the modes."""
-        painter = ConsolePainter(width=300)
+        painter = ConsolePainter(width=600)
 
         widths = {
             mode: painter.rgba(ConsoleHud(
@@ -211,16 +212,37 @@ class TestPainter:
             for mode in MainMode
         }
 
-        assert widths == {MainMode.KINO: 300, MainMode.GENAU: 300}
+        assert widths == {MainMode.KINO: 600, MainMode.GENAU: 600}
+
+    def test_held_to_a_width_it_keeps_one_width_whatever_row_it_carries(self):
+        """The rows a held console carries come and go: a flick's, a video's,
+        and none while a picture is up.  A screen in a scene that changes size
+        is a screen that moves, so it is as wide as the widest row would make
+        it whichever it carries."""
+        painter = ConsolePainter(width=300)
+        flick = RowHud(position_ms=4_000, duration_ms=10_000,
+                       playhead=video_playhead(4_000, 10_000, 0.0), loop=(6, 238))
+        video = RowHud(position_ms=42_000, duration_ms=195_000,
+                       playhead=video_playhead(42_000, 195_000, 30.0))
+
+        widths = {
+            painter.rgba(ConsoleHud(
+                modes=ModeHud(video="scene one"),
+                console=ConsoleModel(main_mode=mode, locked=False, rows=console_rows(mode)),
+                drive=_drive()), clip_row=row)[1][0]
+            for mode in MainMode for row in (flick, video, None)
+        }
+
+        assert len(widths) == 1
 
     def test_a_file_name_too_long_for_the_held_width_is_elided_rather_than_widening_it(self):
-        painter = ConsolePainter(width=300)
-        long_name = "Jane Doe - scene one - " + "a long descriptor " * 6
+        painter = ConsolePainter(width=600)
+        long_name = "Jane Doe - scene one - " + "a long descriptor " * 12
 
         _rgba, (width, _height) = painter.rgba(ConsoleHud(
             modes=ModeHud(video=long_name), console=ConsoleModel(main_mode=MainMode.KINO, locked=False)))
 
-        assert width == 300
+        assert width == 600
 
     def test_a_width_its_own_parts_cannot_fit_in_is_widened_not_clipped(self):
         """The rows, the readout and the OSR2 line are not text that can give way."""
@@ -230,7 +252,7 @@ class TestPainter:
         _rgba, (natural, _h) = ConsolePainter().rgba(hud)
         _rgba, (held, _h) = ConsolePainter(width=50).rgba(hud)
 
-        assert held == natural
+        assert held >= natural
 
     def test_a_tooltip_longer_than_the_panel_is_wide_stays_on_the_panel(self):
         """The widest tooltip on the console wants to be wider than the console

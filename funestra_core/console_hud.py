@@ -455,7 +455,9 @@ class ConsolePainter:
                 reserves[0] + text_x + text_width(self._tiny, filename),
             )
         else:
-            width = max(self._width, 2 * _PAD + parts_w)
+            any_row = (self._clip_row.least_width_for_any_row()
+                       + (minus_room if corner.lower else 0)) if whole else 0
+            width = max(self._width, 2 * _PAD + parts_w, 2 * _PAD + any_row)
             room = width - 2 * _PAD - text_x - reserves[0]
             status = fit_text(self._body, status, room)
             filename = fit_text(self._tiny, filename, room)
