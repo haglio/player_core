@@ -19,7 +19,7 @@ from .drive_readout import DriveHud, read_drive
 from .hud_corners import HudPlace
 from .hud_overlay import HUD_OVERLAY_ID
 from .hud_placement import HudEdge, PointerReading
-from .hud_row import RowHud, RowPress, track_on_screen
+from .hud_row import RowHud, RowLayout, RowPress, track_on_screen
 
 __all__ = []
 
@@ -100,24 +100,24 @@ class ConsoleOverlay:
         self._shown = True
 
     @property
-    def row_rect(self) -> tuple[int, int, int, int] | None:
-        """Where the flick's row landed in this panel, for a host measuring the
-        track it is to fill."""
-        return self._painter.row_rect
+    def row(self) -> RowLayout | None:
+        """Where the row landed in this panel and how it is laid out,
+        for a host measuring the track it is to fill."""
+        return self._painter.row
 
     @property
     def row_track(self) -> tuple[int, int, int] | None:
         """The row's track in the window's coordinates, for a host hanging the
         loop's frames under it."""
-        return track_on_screen(self._painter.row_rect, origin=self._origin,
+        return track_on_screen(self._painter.row, origin=self._origin,
                                panel_height=self._panel_height)
 
     def covers(self, x: int, y: int) -> bool:
         return self._painter.covers(x, y)
 
     def press(self, x: int, y: int) -> bool:
-        if self._row.press(*self._local(x, y), rect=self._painter.row_rect,
-                           duration_ms=self._track_duration(), dial=self._has_a_dial()):
+        if self._row.press(*self._local(x, y), layout=self._painter.row,
+                           duration_ms=self._track_duration()):
             return True
         asked = self._painter.press_at(x, y)
         if asked:
@@ -130,7 +130,7 @@ class ConsoleOverlay:
         return self._row.holding or self._painter.holding
 
     def drag_to(self, x: int, y: int) -> str:
-        if self._row.drag_to(*self._local(x, y), rect=self._painter.row_rect,
+        if self._row.drag_to(*self._local(x, y), layout=self._painter.row,
                              duration_ms=self._track_duration()):
             return ""
         dragged = self._painter.drag_to(x, y)
@@ -149,9 +149,6 @@ class ConsoleOverlay:
         """How long the track spans -- the clip, or the window a loop being
         recorded has zoomed it to, which is what the row was drawn from."""
         return 0.0 if self._clip_row is None else self._clip_row.duration_ms
-
-    def _has_a_dial(self) -> bool:
-        return self._clip_row is not None and self._clip_row.loop_turn is not None
 
     def motion(self, x: int, y: int) -> None:
         self._hover.take(self._painter.hover_at(x, y))

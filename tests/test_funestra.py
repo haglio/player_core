@@ -19,14 +19,15 @@ from funestra_core.hud_corners import CORNER_PLUS_OVERLAY_ID
 from funestra_core.hud_minimize import BUTTON
 from funestra_core.hud_overlay import HUD_OVERLAY_ID
 from funestra_core.hud_placement import HudEdge
-from funestra_core.loop_dial import DIAL_SIZE, dial_xy
+from funestra_core.hud_row import PARTS_Y
+from funestra_core.loop_dial import DIAL_SIZE
 from funestra_core.modes import LengthMode, MainMode, Osr2State
 from funestra_core.playhead import video_playhead
 from funestra_core.playlist import read_playlist
 from funestra_core.pointer import OMNIPAUSE_TOGGLE
 from funestra_core.satellite_hud import MARGIN, HudModel
 from funestra_core.session_quit import SESSION_QUIT
-from funestra_core.timeline import TIMELINE_HEIGHT, bar_track_x
+from funestra_core.timeline import TIMELINE_HEIGHT
 from funestra_core.volume import CHIP_H, CHIP_W, chip_xy
 
 WINDOW = (640, 480)
@@ -37,13 +38,13 @@ def _on_the_row(funestra, engine, part: str = "track", *, along: int | None = No
     its foot.  The panel is wherever the room put it, so this is read back off
     the overlay it was composited at."""
     left, top, _bgra = engine.overlays[HUD_OVERLAY_ID]
-    x, y, width, height = funestra._panel.row_rect
+    row = funestra._panel.row
+    x, y, width, height = row.rect
     if part == "track":
-        x0, x1 = bar_track_x(width)
+        x0, x1 = row.track
         return left + x + (along if along is not None else (x0 + x1) // 2), top + y + height - 4
     if part == "dial":
-        dx, dy = dial_xy(win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT)
-        return left + x + dx + DIAL_SIZE - 3, top + y + dy + DIAL_SIZE // 2  # quarter past
+        return left + x + row.dial + DIAL_SIZE - 3, top + y + PARTS_Y + DIAL_SIZE // 2  # quarter past
     cx, cy = chip_xy(win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT)
     across = 4 if part == "speaker" else CHIP_W - 6
     return left + x + cx + across, top + y + cy + CHIP_H // 2
@@ -137,7 +138,7 @@ def test_a_scripted_clips_track_is_filled_across_the_width_the_panel_drew_it_at(
     funestra.tick(window=WINDOW)
     funestra.tick(window=WINDOW)
 
-    x0, x1 = bar_track_x(funestra._panel.row_rect[2])
+    x0, x1 = funestra._panel.row.track
     assert len(funestra._strip.colors) == x1 - x0
 
 
@@ -150,7 +151,7 @@ def test_a_picture_on_screen_puts_no_row_on_the_panel(tmp_path):
     funestra.tick(window=WINDOW)
 
     assert funestra.clip_row() is None
-    assert funestra._panel.row_rect is None
+    assert funestra._panel.row is None
 
 
 def test_commands_drain_and_act_before_the_frame_is_published(tmp_path):
@@ -239,7 +240,7 @@ class TestAPress:
 
     def test_on_the_track_seeks_the_clip(self, tmp_path):
         funestra, engine = _wearing_a_panel(tmp_path)
-        x0, x1 = bar_track_x(funestra._panel.row_rect[2])
+        x0, x1 = funestra._panel.row.track
 
         funestra.press(*_on_the_row(funestra, engine), window=WINDOW)
 
@@ -789,7 +790,7 @@ class TestAUsersOwnPicture:
     def test_a_press_on_the_track_puts_its_picture_that_far_into_its_time_rather_than_the_video(
             self, tmp_path):
         funestra, engine, genau = self._genau_in_front(tmp_path)
-        x0, x1 = bar_track_x(funestra._panel.row_rect[2])
+        x0, x1 = funestra._panel.row.track
 
         funestra.press(*_on_the_row(funestra, engine), window=WINDOW)
 
@@ -1101,8 +1102,8 @@ class TestAPanelBesideThePicture:
         funestra, engine, surface = self._wearing_a_panel_beside(tmp_path)
         funestra.tick(window=WINDOW)
         left, top, _bgra = surface.overlays[HUD_OVERLAY_ID]
-        x, y, width, height = funestra._panel.row_rect
-        x0, x1 = bar_track_x(width)
+        x, y, _width, height = funestra._panel.row.rect
+        x0, x1 = funestra._panel.row.track
 
         funestra.press(left + x + (x0 + x1) // 2, top + y + height - 4, window=WINDOW)
 

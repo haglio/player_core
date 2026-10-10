@@ -9,7 +9,7 @@ pygame: the Funestra turns them into mpv overlays.
 from __future__ import annotations
 
 from .heatmap import build_heatmap
-from .timeline import TIMELINE_HEIGHT, bar_track_x, bar_x, progress_bar_bgra
+from .timeline import TIMELINE_HEIGHT, bar_x, progress_bar_bgra
 
 __all__: list[str] = []
 
@@ -76,11 +76,14 @@ class HeatmapStrip:
         video_key,
         funscript,
         duration_ms: float,
-        width: int,
+        track_w: int,
         *,
         mark_in_ms: float | None = None,
         position_ms: float = 0.0,
     ) -> None:
+        """The colors across a track *track_w* pixels wide, for *video_key*'s
+        *funscript*; 0 while no host has measured a track yet, which leaves
+        the first row plain."""
         if mark_in_ms is not None and funscript is not None:
             if self._zoom is None:
                 self._zoom = ZoomWindow(in_ms=mark_in_ms)
@@ -88,23 +91,18 @@ class HeatmapStrip:
         else:
             self._zoom = None
         self._duration_ms = duration_ms
-        if width <= 0:
-            # No host has measured a track yet, so there is nothing to measure
-            # the colors across.  The first row goes up plain.
+        if track_w <= 0:
             self._key, self._colors = None, []
             return
-        key = (video_key, width, self.window)
+        key = (video_key, track_w, self.window)
         if key == self._key:
             return
         self._key = key
         if funscript is None:
             self._colors = []
         else:
-            track_x0, track_x1 = bar_track_x(width)
             start, end = self.window
-            self._colors = build_heatmap(
-                funscript, track_x1 - track_x0, start_ms=start, end_ms=end,
-            )
+            self._colors = build_heatmap(funscript, track_w, start_ms=start, end_ms=end)
 
 
 def timeline_height(heatmap: HeatmapStrip) -> int:
@@ -190,18 +188,19 @@ def loop_thumbnail_xys(
     )
 
 
-def timeline_x(heatmap: HeatmapStrip, ms: float, width: int) -> int:
+def timeline_x(heatmap: HeatmapStrip, ms: float, track: tuple[int, int]) -> int:
+    """Where along *track* the cursor for *ms* is drawn."""
     start_ms, end_ms = heatmap.window
-    return bar_x(ms - start_ms, end_ms - start_ms, *bar_track_x(width))
+    return bar_x(ms - start_ms, end_ms - start_ms, *track)
 
 
 def timeline_bgra(heatmap: HeatmapStrip, position_ms: float, loop_bounds, width: int, *,
-                  record_in_ms=None):
+                  record_in_ms=None, track: tuple[int, int] | None = None):
     start_ms, end_ms = heatmap.window
     return progress_bar_bgra(
         position_ms - start_ms, end_ms - start_ms,
         None if loop_bounds is None else (loop_bounds[0] - start_ms, loop_bounds[1] - start_ms),
         width,
         record_in_ms=None if record_in_ms is None else record_in_ms - start_ms,
-        height=timeline_height(heatmap), heatmap=heatmap.colors,
+        height=timeline_height(heatmap), heatmap=heatmap.colors, track=track,
     )

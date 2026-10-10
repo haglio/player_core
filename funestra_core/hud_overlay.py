@@ -17,7 +17,7 @@ from .dashboard import ask
 from .drive_readout import DriveHud, read_drive
 from .hud_corners import HudPlace
 from .hud_placement import HudCorner, HudEdge, PointerReading
-from .hud_row import RowHud, RowPress, track_on_screen
+from .hud_row import RowHud, RowLayout, RowPress, track_on_screen
 from .modes import Osr2State
 from .renamed import answers_to_old_names
 from .satellite_hud import (
@@ -210,8 +210,8 @@ class HudOverlay:
         if self._clicks is None or not self.covers(x, y):
             return False
         self._pointer_at = self._local(x, y)
-        if self._row.press(*self._pointer_at, rect=self.targets.row,
-                           duration_ms=self._track_duration(), dial=self._has_a_dial()):
+        if self._row.press(*self._pointer_at, layout=self.targets.row,
+                           duration_ms=self._track_duration()):
             return True
         if self._foot_covers(*self._pointer_at):
             self._foot_held = True
@@ -239,13 +239,10 @@ class HudOverlay:
         recorded has zoomed it to, which is what the row was drawn from."""
         return 0.0 if self._clip_row is None else self._clip_row.duration_ms
 
-    def _has_a_dial(self) -> bool:
-        return self._clip_row is not None and self._clip_row.loop_turn is not None
-
     @property
-    def row_rect(self) -> tuple[int, int, int, int] | None:
-        """Where the flick's row landed in this panel, for a host measuring the
-        track it is to fill."""
+    def row(self) -> RowLayout | None:
+        """Where the row landed in this panel and how it is laid out,
+        for a host measuring the track it is to fill."""
         return self.targets.row
 
     @property
@@ -265,7 +262,7 @@ class HudOverlay:
         """The pointer held down and moving: the row goes on being set, and past
         the row, whatever the panel itself took hold of."""
         self._pointer_at = self._local(x, y)
-        if self._row.drag_to(*self._pointer_at, rect=self.targets.row,
+        if self._row.drag_to(*self._pointer_at, layout=self.targets.row,
                              duration_ms=self._track_duration()):
             return ""
         if self._foot_held:

@@ -15,8 +15,7 @@ from PIL import Image, ImageDraw
 from shared_ui.palette import BG_PRIMARY, BORDER_PANEL, TEXT_MUTED, TEXT_PRIMARY
 
 from .hud_panel import PILL_ALPHA, KeptBitmap
-from .timeline import bar_track_x
-from .volume import CHIP_H, MARGIN, chip_xy
+from .volume import CHIP_H
 
 __all__: list[str] = []  # package-internal: the row hosts it and hud_row says where
 
@@ -34,23 +33,16 @@ _HAND_REACH = DIAL_SIZE / 2 - 3
 _PIVOT = 1.5
 
 
-def dial_xy(*, win_w: int, win_h: int, timeline_h: int) -> tuple[int, int]:
-    """The dial's top-left: a margin short of the track's start, centered in
-    the track's row."""
-    track_x0 = bar_track_x(win_w)[0]
-    return max(0, track_x0 - MARGIN - DIAL_SIZE), chip_xy(
-        win_w=win_w, win_h=win_h, timeline_h=timeline_h)[1]
-
-
-def on_dial(px: int, py: int, *, win_w: int, win_h: int, timeline_h: int) -> bool:
-    x, y = dial_xy(win_w=win_w, win_h=win_h, timeline_h=timeline_h)
+def on_dial(px: int, py: int, *, at: tuple[int, int]) -> bool:
+    """Whether ``(px, py)`` is on a dial whose top-left corner is *at*."""
+    x, y = at
     return x <= px < x + DIAL_SIZE and y <= py < y + DIAL_SIZE
 
 
-def turn_at(px: int, py: int, *, win_w: int, win_h: int, timeline_h: int) -> float:
-    """The turn a press at ``(px, py)`` asks for: how far round the dial it is,
-    clockwise from twelve o'clock, 0 to 1."""
-    x, y = dial_xy(win_w=win_w, win_h=win_h, timeline_h=timeline_h)
+def turn_at(px: int, py: int, *, at: tuple[int, int]) -> float:
+    """The turn a press at ``(px, py)`` asks of a dial whose top-left corner is
+    *at*: how far round it the press is, clockwise from twelve o'clock, 0 to 1."""
+    x, y = at
     cx, cy = x + DIAL_SIZE / 2, y + DIAL_SIZE / 2
     return math.atan2(px + 0.5 - cx, cy - (py + 0.5)) / math.tau % 1.0
 

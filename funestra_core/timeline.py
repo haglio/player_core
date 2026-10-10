@@ -5,10 +5,11 @@ marks, filled with the colors of the video's funscript where it has one and
 with a dark translucent fill where it has none.  Every Funestra draws it, in
 separate processes and separate repos, so the whole of it lives here.
 
-The track stops short of the volume chip that shares its row — ``bar_track_x``
-subtracts :data:`funestra_core.volume.SLOT_W` — so the two never overlap and
-click-to-seek maps onto exactly the drawn track.  These are plain numpy arrays
-(BGRA, mpv's overlay format); no pygame.
+The track starts where the row's readout and dial end (``bar_track_x`` is told
+how far in by the row that lays them out) and stops short of the volume chip
+that shares its row — it subtracts :data:`funestra_core.volume.SLOT_W` — so none
+of them overlap and click-to-seek maps onto exactly the drawn track.  These
+are plain numpy arrays (BGRA, mpv's overlay format); no pygame.
 """
 from __future__ import annotations
 
@@ -34,10 +35,7 @@ AMBER = (235, 180, 60, 245)
 
 # The timeline — heatmap strip or plain bar — is drawn as one shared frame: an
 # inset, floated, bordered track with full-height marks.
-BAR_INSET_X = 40     # side margin so the timeline's start clears the left edge
-# A margin, the readout of a three-hour video at 60 frames a second, and a margin
-# back to the track.
-READOUT_SLOT_W = 193
+BAR_INSET_X = 40     # a row with nothing before its track: the start clears the left edge
 BAR_INSET_Y = 3      # upper/lower margin so the timeline floats off the edge
 BAR_FILL = (34, 34, 38, 165)       # dark translucent fill (plain bar only)
 BAR_BORDER = (215, 215, 220, 235)  # light inner border (reads on the dark fill)
@@ -51,23 +49,18 @@ MARK_W = 4                      # prominent loop in/out and record marks
 TIMELINE_HEIGHT = 24  # lower strip height when not recording
 
 
-def bar_track_x(width: int) -> tuple[int, int]:
+def bar_track_x(width: int, *, left: int = BAR_INSET_X) -> tuple[int, int]:
     """Left/right pixel bounds of the inset timeline track.
 
-    The start clears the playhead readout when the readout shares the row; the end
-    stops short of the volume control that shares the row, the way VLC's seek bar
-    stopped clear of its slider — :data:`funestra_core.volume.SLOT_W` is the room it leaves.
-    Clamped so the track never inverts on a very narrow window.  The heatmap strip,
-    the plain bar and click-to-seek all use this, so they agree on where the track
-    ends.
+    The start is *left*, where whatever the row lays out before the track
+    ends; the end stops short of the volume control that shares the row, the
+    way VLC's seek bar stopped clear of its slider —
+    :data:`funestra_core.volume.SLOT_W` is the room it leaves.  Clamped so the
+    track never inverts on a very narrow window.  The heatmap strip, the plain
+    bar and click-to-seek all use this, so they agree on where the track ends.
     """
-    inset = READOUT_SLOT_W if readout_shares_the_row(width) else BAR_INSET_X
-    inset = min(inset, max(0, width // 2 - 1))
+    inset = min(left, max(0, width // 2 - 1))
     return inset, max(inset + 1, width - _VOLUME_SLOT_W)
-
-
-def readout_shares_the_row(width: int) -> bool:
-    return width - _VOLUME_SLOT_W - READOUT_SLOT_W >= READOUT_SLOT_W
 
 
 def paint_rect(bgra, x0, x1, y0, y1, color):
@@ -111,11 +104,11 @@ def bar_x(ms, duration_ms, x0, x1):
     return x0 + int(frac * (x1 - x0 - 1))
 
 
-def framed_track(width, height):
+def framed_track(width, height, track=None):
     """A transparent full-width BGRA array plus the inset, floated track rect
     (x0, x1, y0, y1) that both the plain bar and the heatmap strip draw into."""
     bar = np.zeros((height, width, 4), dtype=np.uint8)
-    x0, x1 = bar_track_x(width)
+    x0, x1 = track or bar_track_x(width)
     return bar, x0, x1, BAR_INSET_Y, height - BAR_INSET_Y
 
 
@@ -138,13 +131,15 @@ def draw_track_marks(bgra, *, x0, x1, y0, y1, to_x, position_ms,
 
 
 def progress_bar_bgra(position_ms, duration_ms, loop_bounds, width,
-                      record_in_ms=None, height=TIMELINE_HEIGHT, *, heatmap=None):
+                      record_in_ms=None, height=TIMELINE_HEIGHT, *, heatmap=None,
+                      track=None):
     """A bordered, inset seek bar: the track floated in from the window edges
     under a light border, with a full-height white playcursor and full-height
     loop in/out marks (amber; the in point shows red while it is still being
     recorded).  *heatmap* is the funscript's color for each pixel of the track,
-    RGB, and fills it in place of the dark fill."""
-    bar, x0, x1, y0, y1 = framed_track(width, height)
+    RGB, and fills it in place of the dark fill; *track* is where the row put
+    the track's two ends, else they are where a bare row puts them."""
+    bar, x0, x1, y0, y1 = framed_track(width, height, track)
     if heatmap is None or not len(heatmap):
         paint_rect(bar, x0, x1, y0, y1, BAR_FILL)
     else:

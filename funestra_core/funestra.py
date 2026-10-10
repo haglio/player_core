@@ -452,8 +452,8 @@ class Funestra:
         colors have to cover.  A panel is as wide as what is on it, so there is
         no answer until one has been drawn: 0 leaves the first row plain.
         """
-        rect = None if self._panel is None else self._panel.row_rect
-        return 0 if rect is None else rect[2]
+        row = None if self._panel is None else self._panel.row
+        return 0 if row is None else row.track[1] - row.track[0]
 
     def _paint_panel(self, window: tuple[int, int], row: RowHud | None, colors,
                      playback_speed: float) -> None:

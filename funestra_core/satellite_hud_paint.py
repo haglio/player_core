@@ -55,7 +55,7 @@ from .hud_osr2 import (
     state_for,
 )
 from .hud_placement import block_x
-from .hud_row import RowHud, RowSection
+from .hud_row import ROW_H, RowHud, RowSection, row_layout
 from .hud_status import PLAYBACK_SPEED_LABEL
 from .playback_rate import format_rate
 from .satellite_hud import (
@@ -308,11 +308,9 @@ class HudRenderer:
                                 band_width,
                                 2 * PAD + device_w if device_w else 0,
                                 2 * PAD + foot_w if foot_w else 0,
-                                2 * PAD + self._clip_row.least_width()
+                                2 * PAD + self._clip_row.least_width(clip_row)
                                 if clip_row is not None else 0))
-        # Measured against the width that won: the row stacks its readout above
-        # the track on a panel too narrow to carry both on one line.
-        row_h = self._clip_row.size(width - 2 * PAD)[1] if clip_row is not None else 0
+        row_h = ROW_H if clip_row is not None else 0
         layout = panel_layout(
             status_h=self._status_height(),
             bands=len(rows), speed=model.playback_speed is not None, row_h=row_h,
@@ -376,11 +374,10 @@ class HudRenderer:
                       font=self._tiny, anchor="mm", fill=(*TEXT_PRIMARY, 255))
             buttons.extend(speed_buttons)
 
-        row_rect = None
+        row = None
         if clip_row is not None:
-            row_rect = (x, layout.row, width - 2 * PAD, row_h)
-            self._clip_row.draw(image, x, row_rect[1], row_rect[2], clip_row,
-                                heatmap=heatmap)
+            row = row_layout(clip_row, rect=(x, layout.row, width - 2 * PAD, row_h))
+            self._clip_row.draw(image, row, clip_row, heatmap=heatmap)
         device_buttons, bands = self._draw_device(
             image, draw, width, layout.device, model, osr2_line, drive_h,
             rows=device_rows, widths=device_row_widths)
@@ -399,7 +396,7 @@ class HudRenderer:
         if hover_tip:
             draw_tooltip(draw, self._tiny, hover_tip, hover_pos, (width, height))
         return RenderedHud(panel.to_bgra(), replace(
-            map_targets, tracks=bands, row=row_rect, foot=foot_rect, buttons=buttons,
+            map_targets, tracks=bands, row=row, foot=foot_rect, buttons=buttons,
             favorite=favorite))
 
     def _draw_map(self, image, draw, model: HudModel, top: int, width: int,
