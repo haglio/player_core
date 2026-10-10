@@ -30,6 +30,7 @@ class HudPlace:
     corner: HudCorner
     margin: int
     minimized: bool = False
+    inset: tuple[int, int] = (0, 0)
 
 
 def _corner_beside(place: HudPlace, x: int, y: int, *,
@@ -127,4 +128,5 @@ class HudCorners:
         button = self._button(place, corner)
         height, width = plus_bgra(button, corner).shape[:2]
         return _Plus(button, corner, hud_origin(
-            corner, panel=(width, height), window=window, margin=place.margin))
+            corner, panel=(width, height), window=window, margin=place.margin,
+            inset=place.inset))

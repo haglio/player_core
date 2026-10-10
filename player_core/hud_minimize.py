@@ -55,8 +55,12 @@ def restore_button(player: str) -> Button:
     return Button(restore_command(player), RESTORE_GLYPH, RESTORE_TOOLTIP)
 
 
-def minimize_rect(corner: HudCorner, *, panel_width: int, y: int, pad: int) -> Rect:
-    x = pad if corner.right else panel_width - pad - BUTTON
+def corner_button_rect(corner: HudCorner, *, panel: tuple[int, int],
+                       inset: tuple[int, int]) -> Rect:
+    width, height = panel
+    across, down = inset
+    x = width - across - BUTTON if corner.right else across
+    y = height - down - BUTTON if corner.lower else down
     return (x, y, BUTTON, BUTTON)
 
 
@@ -71,7 +75,7 @@ def collapsed_button(player: str, corner: HudCorner = HudCorner.UPPER_LEFT, *,
                      ) -> tuple[Image.Image, list[tuple[Rect, Button]]]:
     size = _collapsed_size(room_for_the_tooltip=room_for_the_tooltip or hover is not None)
     image = Image.new("RGBA", size, (0, 0, 0, 0))
-    rect = _button_rect(corner, size)
+    rect = corner_button_rect(corner, panel=size, inset=(0, 0))
     draw_button(image, ImageDraw.Draw(image), rect, restore_button(player),
                 hovered=hover is not None, glyph_font=mark_font(), word_font=mark_font())
     if hover is not None:
@@ -86,9 +90,3 @@ def collapsed_panel(player: str, corner: HudCorner = HudCorner.UPPER_LEFT, *,
                                       room_for_the_tooltip=room_for_the_tooltip)
     return to_bgra(image), buttons
 
-
-def _button_rect(corner: HudCorner, size: tuple[int, int]) -> Rect:
-    width, height = size
-    x = width - BUTTON if corner.right else 0
-    y = height - BUTTON if corner.lower else 0
-    return (x, y, BUTTON, BUTTON)

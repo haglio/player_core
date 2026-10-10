@@ -9,6 +9,23 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-10-09 — the minus sits where the plus does
+
+A panel's minus is in its corner nearest the window's, on the very spot the
+plus takes once the panel is minimized, so a second click without moving the
+mouse opens it again. In an upper corner the title moves over to make room; in
+a lower corner the console's last block does, and a satellite panel's map leaves
+that corner free already. The minimized plus, and the plus a corner shows, sit
+that far in from the window's corner too.
+
+`hud_minimize.minimize_rect` is gone for `corner_button_rect(corner, panel=,
+inset=)`; `hud_placement.hud_origin` takes an `inset` and `block_x` a
+`reserve`; `HudPlace` carries the panel's `inset`; `satellite_hud.MINUS_INSET`
+is the satellite panel's. `HudOverlay(minus_on_the_panel=False)`,
+`ConsolePainter(minus_on_the_panel=False)` and `HudRenderer.render(...,
+minus_on_the_panel=False)` leave the minus off for a host that hangs it outside
+the panel (FunTimeVR's), and an overlay that does draws nothing while minimized.
+
 ## 2026-10-09 — a click in any corner sends the HUD there
 
 `hud_corners` (new, private to this package): a press in a corner of a

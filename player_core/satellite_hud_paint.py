@@ -45,7 +45,7 @@ from player_core.hud_panel import (
 from .drive_readout import DriveSection, DriveTrack, readout_targets, section_size
 from .geometry import Rect, contains
 from .hud_minimize import ROOM as MINIMIZE_ROOM
-from .hud_minimize import collapsed_panel, minimize_button, minimize_rect
+from .hud_minimize import collapsed_panel, corner_button_rect, minimize_button
 from .hud_osr2 import HEIGHT as OSR2_H
 from .hud_osr2 import (
     Osr2Line,
@@ -72,10 +72,10 @@ from .satellite_hud import (
     MAP_COLUMN_H,
     MAP_GAP,
     MAP_THUMB_H,
+    MINUS_INSET,
     MODE_LABEL_PAD,
     PAD,
     ROW_LABEL_GUTTER,
-    STATUS_BAND_H,
     STATUS_BASELINE,
     STATUS_INDENT,
     STATUS_TEXT_X,
@@ -221,8 +221,9 @@ class HudRenderer:
                 [self._thumbnail(cell) for cell in model.actions])
 
     @staticmethod
-    def _block_x(model: HudModel, panel_width: int, extent: int) -> int:
-        return block_x(model.hud_corner, panel_width=panel_width, extent=extent, pad=PAD)
+    def _block_x(model: HudModel, panel_width: int, extent: int, reserve: int = 0) -> int:
+        return block_x(model.hud_corner, panel_width=panel_width, extent=extent, pad=PAD,
+                       reserve=reserve)
 
     def render(
         self,
@@ -235,6 +236,7 @@ class HudRenderer:
         hover_tip: str = "",
         hover_pos: tuple[int, int] = (0, 0),
         may_grow_on_hover: bool = True,
+        minus_on_the_panel: bool = True,
     ) -> RenderedHud:
         """The panel as a BGRA bitmap plus the rects its controls occupy.
 
@@ -323,21 +325,24 @@ class HudRenderer:
         image, draw = panel.image, panel.draw
 
         x = PAD
-        room = width - STATUS_TEXT_X - PAD - MINIMIZE_ROOM
+        minus_room = MINIMIZE_ROOM if minus_on_the_panel else 0
+        room = width - STATUS_TEXT_X - PAD - minus_room
         title = self._title_font(largest_size_that_fits(
             _SIZE_BODY, room,
             lambda size: text_width(self._title_font(size), model.lock_label)))
         favorite = self._draw_status_band(
             image, draw, PAD, model, width, title,
-            name_line(video, model.item_note, room, lambda text: text_width(self._tiny, text)))
+            name_line(video, model.item_note, room, lambda text: text_width(self._tiny, text)),
+            reserve=0 if model.hud_corner.lower else minus_room)
         y = layout.bands
-        buttons: list[tuple[Rect, Button]] = [(
-            minimize_rect(model.hud_corner, panel_width=width,
-                          y=PAD + (STATUS_BAND_H - CTRL_BTN) // 2, pad=PAD),
-            minimize_button(model.player))]
-        draw_button(image, draw, buttons[0][0], buttons[0][1],
-                    hovered=self._pointer_is_on(buttons[0][0]),
-                    glyph_font=self._glyph, word_font=self._tiny)
+        buttons: list[tuple[Rect, Button]] = []
+        if minus_on_the_panel:
+            minus = (corner_button_rect(model.hud_corner, panel=(width, height),
+                                        inset=MINUS_INSET),
+                     minimize_button(model.player))
+            draw_button(image, draw, *minus, hovered=self._pointer_is_on(minus[0]),
+                        glyph_font=self._glyph, word_font=self._tiny)
+            buttons.append(minus)
 
         # Laid out against the panel rather than against the map: they act on the
         # side and the clip on screen, and are there whether or not there is a map.
@@ -491,9 +496,11 @@ class HudRenderer:
         return self._titles[size]
 
     def _draw_status_band(self, image, draw, y: int, model: HudModel, width: int,
-                          title: ImageFont.FreeTypeFont, under_status: str) -> Rect | None:
+                          title: ImageFont.FreeTypeFont, under_status: str, *,
+                          reserve: int) -> Rect | None:
         status_x = self._block_x(model, width,
-                                 STATUS_INDENT + text_width(title, model.lock_label))
+                                 STATUS_INDENT + text_width(title, model.lock_label),
+                                 reserve=reserve)
         draw_active_dot(draw, status_x, y + 2, model.active)
         draw.text((status_x + STATUS_INDENT, y + STATUS_BASELINE), model.lock_label,
                   font=title, anchor="ls", fill=(*TEXT_PRIMARY, 255))
@@ -501,7 +508,8 @@ class HudRenderer:
             return None
         line_y = y + self._name_line_top()
         name_x = self._block_x(model, width,
-                              STATUS_INDENT + text_width(self._tiny, under_status))
+                              STATUS_INDENT + text_width(self._tiny, under_status),
+                              reserve=reserve)
         draw.text((name_x + STATUS_INDENT, line_y), under_status,
                   font=self._tiny, anchor="la", fill=(*TEXT_MUTED, 255))
         favorite = favorite_mark_rect(name_x, line_y, sum(self._tiny.getmetrics()))

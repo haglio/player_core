@@ -409,6 +409,7 @@ def ellipsis_rects(
 # word button as wide as its word (the painter measures it), and the wider gap
 # before a button that starts a group -- the way the console's rows break.
 CTRL_BTN = BUTTON_SIZE_HUD
+MINUS_INSET = (PAD, PAD + (STATUS_BAND_H - CTRL_BTN) // 2)
 CTRL_BAND_H = CTRL_BTN + BLOCK_GAP
 # Inside a word button, the room either side of its word.
 MODE_LABEL_PAD = 6

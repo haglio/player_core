@@ -8,6 +8,7 @@ import pytest
 from console_rows import console_rows, motion_rows, osr2_controls
 from shared_ui import colors
 from shared_ui.palette import BG_PRIMARY, BLUE, BORDER_PANEL, GREEN, MAGENTA, TEXT_MUTED, WHITE
+from shared_ui.spacing import BUTTON_GAP
 
 from player_core.console import (
     BUTTON,
@@ -41,6 +42,7 @@ from player_core.geometry import Rect
 from player_core.hud_button import Button
 from player_core.hud_corners import HudPlace
 from player_core.hud_marks import BROKER_ICON, shared_mark
+from player_core.hud_minimize import ROOM as MINUS_ROOM
 from player_core.hud_minimize import minimize_command
 from player_core.hud_osr2 import COLORS as _OSR2_COLORS
 from player_core.hud_osr2 import LABELS as _OSR2_LABELS
@@ -310,7 +312,7 @@ class TestPainter:
             bgra = ConsolePainter().bgra(
                 ConsoleHud(console=ConsoleModel(main_mode=MainMode.KINO, active=active)))
             body = sum(load_font(11).getmetrics())
-            cx, cy = PAD + 5, PAD + body // 2  # the dot's own centre
+            cx, cy = PAD + MINUS_ROOM + 5, PAD + body // 2  # the dot's own center
             return tuple(int(v) for v in _rgb(bgra)[cy, cx])
 
         assert np.allclose(dot(True), WHITE, atol=45)
@@ -1411,15 +1413,31 @@ class TestWhereTheConsoleSits:
                 > _button_rect(left, "broker_panel")[0]), "the line did not move"
         assert slider_past_broker(right) == slider_past_broker(left)
 
-    def test_the_minimize_button_sits_opposite_the_edge_the_console_is_justified_to(self):
-        left = self._painted(HudCorner.UPPER_LEFT)
-        right = self._painted(HudCorner.UPPER_RIGHT)
-        width = left._image.size[0]
+    @pytest.mark.parametrize("corner", [HudCorner.UPPER_LEFT, HudCorner.UPPER_RIGHT])
+    def test_the_title_moves_over_for_the_minus_in_the_panels_corner(self, corner):
+        painter = self._painted(corner)
+        x, y, w, h = _button_rect(painter, "main_hud_minimize")
+        rgba = np.asarray(painter._image).astype(int)
+        fill = rgba[y + h // 2, rgba.shape[1] // 2]
+        band = rgba[y:y + h, 2:rgba.shape[1] - 2]
+        drawn = [column + 2 for column in np.nonzero(
+            (np.abs(band - fill).sum(axis=2) > 12).any(axis=0))[0]
+            if not x <= column + 2 < x + w]
 
-        x, y, w, _h = _button_rect(left, "main_hud_minimize")
-        assert x + w == width - PAD
-        assert y < PAD + BUTTON
-        assert _button_rect(right, "main_hud_minimize")[0] == PAD
+        assert drawn, "the title drew nothing"
+        assert ((max(drawn) < x - BUTTON_GAP) if corner.right
+                else (min(drawn) >= x + w + BUTTON_GAP))
+
+    @pytest.mark.parametrize("corner", [HudCorner.LOWER_LEFT, HudCorner.LOWER_RIGHT])
+    def test_the_clips_row_moves_over_for_the_minus_in_a_lower_corner(self, corner):
+        painter = ConsolePainter(width=420)
+        painter.bgra(self._hud(corner), clip_row=RowHud(position_ms=1_000,
+                                                        duration_ms=60_000))
+        x, y, w, h = _button_rect(painter, "main_hud_minimize")
+        rx, ry, rw, rh = painter.row_rect
+
+        assert ry < y + h and y < ry + rh, "the minus is not beside the row"
+        assert (rx + rw <= x) if corner.right else (rx >= x + w)
 
     def test_a_minimized_console_is_the_restore_button_and_nothing_else(self):
         painter = self._painted(HudCorner.LOWER_LEFT, hud_minimized=True)
@@ -1433,7 +1451,7 @@ class TestWhereTheConsoleSits:
         painter = self._painted(HudCorner.LOWER_LEFT, hud_minimized=True)
 
         assert painter.hud_place == HudPlace("main", HudCorner.LOWER_LEFT, MARGIN,
-                                             minimized=True)
+                                             minimized=True, inset=(PAD, PAD))
 
     def test_before_it_has_painted_anything_it_says_nowhere(self):
         assert ConsolePainter().hud_place is None
@@ -1514,6 +1532,17 @@ class TestADeviceOnlyConsole:
         x, y, w, h = _button_rect(painter, "robot_hand_toggle_cruise")
 
         assert (_rgb(bgra)[y:y + h, x + w:-1] == BG_PRIMARY).all()
+
+    def test_it_keeps_no_room_for_a_minus_in_a_lower_corner(self):
+        painter = ConsolePainter(device_only=True)
+        painter.bgra(ConsoleHud(
+            modes=ModeHud(video="scene one"),
+            console=ConsoleModel(main_mode=MainMode.GENAU, osr2=Osr2State.ROBOT_HAND,
+                                 hud_corner=HudCorner.LOWER_LEFT, osr2_rows=motion_rows(),
+                                 osr2_controls=osr2_controls()),
+            drive=_drive()))
+
+        assert _button_rect(painter, "robot_hand_toggle_cruise")[0] == PAD
 
     def test_a_long_name_for_the_video_does_not_widen_it(self):
         def width(video: str) -> int:

@@ -16,7 +16,7 @@ from player_core.hud_corners import HudPlace
 from player_core.hud_overlay import HudOverlay
 from player_core.hud_placement import HudCorner, HudEdge
 from player_core.hud_row import UNDER_THE_PANEL_GAP, RowHud
-from player_core.satellite_hud import MARGIN, PAD, HudModel
+from player_core.satellite_hud import MARGIN, MINUS_INSET, PAD, HudModel
 from player_core.timeline import TIMELINE_HEIGHT, bar_track_x
 from player_core.volume import CHIP_H, CHIP_W, SPEAKER_W, VolumeHud, chip_xy
 
@@ -563,6 +563,25 @@ def _panel_at(tmp_path: Path, panel_path: Path, player, **panel_changes):
     return overlay
 
 
+@pytest.mark.parametrize("corner", list(HudCorner))
+def test_the_minus_sits_where_the_plus_of_the_minimized_panel_sits(
+        tmp_path: Path, panel: Path, corner: HudCorner):
+    """So a click that minimizes the panel, made again without moving the
+    mouse, opens it again."""
+    player = FakePlayer()
+    overlay = _panel_at(tmp_path, panel, player, hud_corner=corner.value)
+    (left, top, _bgra), = player.overlays.values()
+    (x, y, w, h), = [rect for rect, b in overlay.targets.buttons
+                     if b.command == "portrait_hud_minimize"]
+
+    _publish(panel, hud_minimized=True)
+    overlay.tick(window=(1200, 800))
+
+    (plus_left, plus_top, _bgra), = player.overlays.values()
+    ((px, py, pw, ph), _plus), = overlay.targets.buttons
+    assert (plus_left + px, plus_top + py, pw, ph) == (left + x, top + y, w, h)
+
+
 def test_the_panel_is_composited_in_the_corner_the_session_moved_it_to(
         tmp_path: Path, panel: Path):
     """Its own margin from the edges and nothing else: the track that used to
@@ -599,14 +618,14 @@ def test_the_plus_names_itself_where_the_panel_floats_over_a_picture(
     player = FakePlayer()
     overlay = _panel_at(tmp_path, panel, player, hud_minimized=True,
                         hud_corner="upper_left")
-    (_x, _y, resting), = [(x, y, bgra) for x, y, bgra in player.overlays.values()]
+    (left, top, resting), = [(x, y, bgra) for x, y, bgra in player.overlays.values()]
 
-    overlay.motion(MARGIN + BUTTON_SIZE_HUD // 2, MARGIN + BUTTON_SIZE_HUD // 2)
+    overlay.motion(left + BUTTON_SIZE_HUD // 2, top + BUTTON_SIZE_HUD // 2)
     (x, y, hovered), = [(x, y, bgra) for x, y, bgra in player.overlays.values()]
 
     assert resting.shape[:2] == (BUTTON_SIZE_HUD, BUTTON_SIZE_HUD)
     assert hovered.shape[1] > BUTTON_SIZE_HUD
-    assert (x, y) == (MARGIN, MARGIN)
+    assert (x, y) == (left, top)
 
 
 def test_a_panel_on_its_own_screen_holds_the_tooltips_room_from_the_start(
@@ -624,6 +643,38 @@ def test_a_panel_on_its_own_screen_holds_the_tooltips_room_from_the_start(
 
     (_x, _y, bgra), = player.overlays.values()
     assert bgra.shape[1] > BUTTON_SIZE_HUD
+
+
+class TestAPanelWhoseMinusHangsOutsideIt:
+    """In the headset the minus hangs on its own between the player and the
+    panel, where the plus hangs once the panel is minimized, so the panel
+    carries neither."""
+
+    @staticmethod
+    def _overlay(tmp_path: Path, panel: Path, player) -> HudOverlay:
+        return HudOverlay(hud_file=panel, command_file=tmp_path / "dashboard_cmd.txt",
+                          player=player, clock=lambda: 0.0, over_the_video=False,
+                          minus_on_the_panel=False)
+
+    def test_the_panel_draws_no_minus(self, tmp_path: Path, panel: Path):
+        player = FakePlayer()
+        overlay = self._overlay(tmp_path, panel, player)
+
+        overlay.tick()
+
+        assert player.overlays
+        assert not [b for _rect, b in overlay.targets.buttons
+                    if b.command == "portrait_hud_minimize"]
+
+    def test_a_minimized_panel_draws_nothing(self, tmp_path: Path, panel: Path):
+        player = FakePlayer()
+        _publish(panel, hud_minimized=True)
+        overlay = self._overlay(tmp_path, panel, player)
+
+        overlay.tick()
+
+        assert player.overlays == {}
+        assert overlay.targets.buttons == []
 
 
 def test_a_panel_collapsed_by_a_press_on_its_minus_draws_the_plus_alone(
@@ -649,7 +700,7 @@ def test_its_place_is_the_corner_the_room_put_it_in_and_whether_it_is_minimized(
                         hud_corner="upper_right")
 
     assert overlay.hud_place == HudPlace("portrait", HudCorner.UPPER_RIGHT, MARGIN,
-                                         minimized=True)
+                                         minimized=True, inset=MINUS_INSET)
 
 
 def test_a_panel_with_nothing_published_has_no_place(tmp_path: Path):
@@ -668,7 +719,8 @@ def test_a_minimized_panel_is_the_plus_button_in_that_corner(tmp_path: Path, pan
     height, width = bgra.shape[:2]
 
     assert (width, height) == (BUTTON_SIZE_HUD, BUTTON_SIZE_HUD)
-    assert (x, y) == (1200 - MARGIN - width, MARGIN)
+    across, down = MINUS_INSET
+    assert (x, y) == (1200 - MARGIN - across - width, MARGIN + down)
     assert [b.command for _rect, b in overlay.targets.buttons] == ["portrait_hud_restore"]
 
 

@@ -15,6 +15,7 @@ from player_core.flick_picture import BACKDROP_OVERLAY_ID, FIRST_TILE_OVERLAY_ID
 from player_core.funestra import Channels, Funestra, User, _Nobody
 from player_core.hud_button import Button
 from player_core.hud_corners import CORNER_PLUS_OVERLAY_ID
+from player_core.hud_minimize import BUTTON
 from player_core.hud_overlay import HUD_OVERLAY_ID
 from player_core.hud_placement import HudEdge
 from player_core.modes import LengthMode, MainMode, Osr2State
@@ -298,13 +299,18 @@ class TestACornerTheHudIsNotIn:
 
     def test_the_pointer_there_puts_a_plus_where_the_minimized_hud_would_sit(self, tmp_path):
         funestra, player = _wearing_a_panel(tmp_path)
-
         funestra.motion(WINDOW[0] - 2, WINDOW[1] - 2, held=False, window=WINDOW)
         funestra.tick(window=WINDOW)
-
         left, top, plus = player.overlays[CORNER_PLUS_OVERLAY_ID]
-        assert (left + plus.shape[1], top + plus.shape[0]) == (WINDOW[0] - MARGIN,
-                                                               WINDOW[1] - MARGIN)
+        shown_at = (left + plus.shape[1] - BUTTON, top + plus.shape[0] - BUTTON)
+
+        _publish_panel(tmp_path, hud_corner="lower_right", hud_minimized=True)
+        funestra.leave()
+        funestra.tick(window=WINDOW)
+
+        hud_left, hud_top, _bgra = player.overlays[HUD_OVERLAY_ID]
+        ((x, y, _w, _h), _restore), = funestra._panel.targets.buttons
+        assert shown_at == (hud_left + x, hud_top + y)
 
     def test_the_pointer_leaving_the_window_takes_the_plus_down(self, tmp_path):
         funestra, player = _wearing_a_panel(tmp_path)
@@ -341,8 +347,8 @@ def test_a_player_that_does_not_tile_is_never_asked_to(tmp_path):
     assert player.tiled_to == []
 
 
-def _publish_panel(tmp_path: Path) -> None:
-    (tmp_path / "portrait_hud.json").write_text(json.dumps({"player": "portrait"}),
+def _publish_panel(tmp_path: Path, **panel) -> None:
+    (tmp_path / "portrait_hud.json").write_text(json.dumps({"player": "portrait", **panel}),
                                                 encoding="utf-8")
 
 

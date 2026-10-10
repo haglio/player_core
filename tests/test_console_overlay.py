@@ -10,6 +10,7 @@ from funestra_fakes import FakePlayer
 from shared_ui.spacing import BUTTON_SIZE_HUD
 
 from player_core.console import ConsoleModel, ModeHud, console_text
+from player_core.console_hud import _PAD as PAD
 from player_core.console_hud import MARGIN
 from player_core.console_overlay import ConsoleOverlay
 from player_core.drive_readout import DriveHud, drive_text
@@ -228,7 +229,7 @@ class TestWhereTheConsoleIsDrawn:
         overlay = _published(tmp_path, HudCorner.LOWER_LEFT, hud_minimized=True)
 
         assert overlay.hud_place == HudPlace("main", HudCorner.LOWER_LEFT, MARGIN,
-                                             minimized=True)
+                                             minimized=True, inset=(PAD, PAD))
 
     def test_closing_takes_the_panel_down(self, tmp_path):
         overlay = _published(tmp_path)
@@ -344,6 +345,23 @@ class TestNamingTheButtonUnderThePointer:
 
         bgra = overlay._player.overlays[HUD_OVERLAY_ID][2]
         assert bgra.shape[:2] == (BUTTON_SIZE_HUD, BUTTON_SIZE_HUD)
+
+
+@pytest.mark.parametrize("corner", list(HudCorner))
+def test_the_minus_sits_where_the_plus_of_the_minimized_console_sits(tmp_path, corner):
+    """So a click that minimizes the console, made again without moving the
+    mouse, opens it again."""
+    overlay = _published(tmp_path, corner)
+    left, top, _bgra = overlay._player.overlays[HUD_OVERLAY_ID]
+    (x, y, w, h), = [rect for rect, b in overlay._painter.buttons
+                     if b.command.endswith("_hud_minimize")]
+
+    _publish(tmp_path, corner, hud_minimized=True)
+    _tick(overlay)
+
+    plus_left, plus_top, _bgra = overlay._player.overlays[HUD_OVERLAY_ID]
+    ((px, py, pw, ph), _plus), = overlay._painter.buttons
+    assert (plus_left + px, plus_top + py, pw, ph) == (left + x, top + y, w, h)
 
 
 @pytest.mark.parametrize("corner", list(HudCorner))
