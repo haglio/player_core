@@ -239,6 +239,12 @@ class HudOverlay:
         recorded has zoomed it to, which is what the row was drawn from."""
         return 0.0 if self._clip_row is None else self._clip_row.duration_ms
 
+    # Only the headset's old copies of the row, in checkouts from before
+    # haglio/fun_time#391, read row_rect; it answers until none of them is open.
+    @property
+    def row_rect(self) -> tuple[int, int, int, int] | None:
+        return None if self.targets.row is None else self.targets.row.rect
+
     @property
     def row(self) -> RowLayout | None:
         """Where the row landed in this panel and how it is laid out,

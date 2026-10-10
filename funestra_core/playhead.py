@@ -60,6 +60,10 @@ def flick_playhead(frame: int, frame_count: int) -> PlayheadHud | None:
 # The three below are what the Fun Time on main still imports of the row's old
 # placement, kept only until its next lands -- which lays the row out through
 # funestra_core.hud_row.row_layout and reaches none of them.
+# lower_edge_height, readout_xy and on_readout are reached only by the
+# headset's old copies of the row, in the checkouts from before
+# haglio/fun_time#391, and answer as the one-line row would, until none of
+# them is open.
 def lower_edge_height(win_w: int, *, timeline_h: int) -> int:
     return timeline_h
 

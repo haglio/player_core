@@ -276,7 +276,7 @@ class TestTheTimelineUnderAnItem:
         for position in range(100, 3900, 7):
             bar = timeline_bgra(strip, position, None, WIN_W)
             white = np.flatnonzero((bar[bar.shape[0] // 2] == 255).all(axis=1))
-            x = timeline_x(strip, position, bar_track_x(WIN_W))
+            x = timeline_x(strip, position, WIN_W)
             assert white.tolist() == [x - 1, x, x + 1]
 
 

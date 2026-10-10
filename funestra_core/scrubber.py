@@ -9,7 +9,7 @@ pygame: the Funestra turns them into mpv overlays.
 from __future__ import annotations
 
 from .heatmap import build_heatmap
-from .timeline import TIMELINE_HEIGHT, bar_x, progress_bar_bgra
+from .timeline import TIMELINE_HEIGHT, bar_track_x, bar_x, progress_bar_bgra
 
 __all__: list[str] = []
 
@@ -188,19 +188,21 @@ def loop_thumbnail_xys(
     )
 
 
-def timeline_x(heatmap: HeatmapStrip, ms: float, track: tuple[int, int]) -> int:
-    """Where along *track* the cursor for *ms* is drawn."""
+# timeline_x and timeline_bgra are reached only by the headset's old copies of
+# the row, in the checkouts from before haglio/fun_time#391; they keep the
+# signatures those copies call until none of them is open.
+def timeline_x(heatmap: HeatmapStrip, ms: float, width: int) -> int:
     start_ms, end_ms = heatmap.window
-    return bar_x(ms - start_ms, end_ms - start_ms, *track)
+    return bar_x(ms - start_ms, end_ms - start_ms, *bar_track_x(width))
 
 
 def timeline_bgra(heatmap: HeatmapStrip, position_ms: float, loop_bounds, width: int, *,
-                  record_in_ms=None, track: tuple[int, int] | None = None):
+                  record_in_ms=None):
     start_ms, end_ms = heatmap.window
     return progress_bar_bgra(
         position_ms - start_ms, end_ms - start_ms,
         None if loop_bounds is None else (loop_bounds[0] - start_ms, loop_bounds[1] - start_ms),
         width,
         record_in_ms=None if record_in_ms is None else record_in_ms - start_ms,
-        height=timeline_height(heatmap), heatmap=heatmap.colors, track=track,
+        height=timeline_height(heatmap), heatmap=heatmap.colors,
     )
