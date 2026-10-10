@@ -11,10 +11,11 @@ import time
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
+from typing import NamedTuple
 
 from .dashboard import ask
 from .drive_readout import DriveHud, read_drive
-from .hud_placement import HudCorner, HudEdge, hud_origin, place_of
+from .hud_placement import HudCorner, HudEdge, PointerReading, hud_origin
 from .hud_row import RowHud, RowPress, track_on_screen
 from .modes import Osr2State
 from .satellite_hud import (
@@ -49,6 +50,18 @@ FOOT_RELEASE = "foot_release"
 FOOT_WHEEL = "foot_wheel"
 
 _EMPTY_TARGETS = HudTargets(click=[], loop=[], filter=[], expand=None)
+
+
+class _Hover(NamedTuple):
+    loop: str
+    tip: str
+    at: tuple[int, int]
+
+    def is_on_the_same_control_as(self, other: _Hover) -> bool:
+        return (self.loop, self.tip) == (other.loop, other.tip)
+
+
+_ON_NO_CONTROL = _Hover("", "", (0, 0))
 
 
 class _PublishedPanel:
@@ -127,9 +140,7 @@ class HudOverlay:
         self._heatmap = None
         # The panel draws the clip's row, so it places a press on it too.
         self._row = RowPress(seek=seek, set_volume=set_volume, toggle_mute=toggle_mute)
-        self._hover_loop = ""
-        self._hover_tip = ""
-        self._hover_pos = (0, 0)
+        self._hover: PointerReading[_Hover] = PointerReading(_ON_NO_CONTROL)
         self._pointer_at = (0, 0)
         self._foot_held = False
         self._shown = False
@@ -164,8 +175,6 @@ class HudOverlay:
                     self._clicks = HudClicks(model.player)
                 self._clicks.active_loop = model.active_loop
                 self._clicks.active_filter = model.filter_query
-            if place_of(model) != place_of(self._model):
-                self._hover_loop = self._hover_tip = ""
             self._model = model
             redraw = True
         drive = self._motion()
@@ -258,11 +267,11 @@ class HudOverlay:
     def motion(self, x: int, y: int) -> None:
         px, py = self._local(x, y)
         self._pointer_at = (px, py)
-        hover = hit_test_targets(self.targets.loop, px, py)
-        tip = button_tooltip(self.targets, px, py)
-        if hover == self._hover_loop and tip == self._hover_tip:
+        hover = _Hover(hit_test_targets(self.targets.loop, px, py),
+                       button_tooltip(self.targets, px, py), (px, py))
+        if hover.is_on_the_same_control_as(self._hover.reading):
             return
-        self._hover_loop, self._hover_tip, self._hover_pos = hover, tip, (px, py)
+        self._hover.take(hover)
         self._draw()
 
     def close(self) -> None:
@@ -309,6 +318,7 @@ class HudOverlay:
             self._published_drive, device_drives_itself=self._model.osr2 == Osr2State.AUTO)
 
     def _draw(self) -> None:
+        hover = self._hover.on(self._model)
         if self._model is None or self._renderer is None:
             self.targets = _EMPTY_TARGETS
             self.close()
@@ -318,8 +328,7 @@ class HudOverlay:
         rendered = self._renderer.render(
             replace(self._model, playback_speed=self._playback_speed, drive=drive,
                     drive_composed=self._drive_gate is not None, hud_corner=corner),
-            video=self._video, hover_loop=self._hover_loop,
-            hover_tip=self._hover_tip, hover_pos=self._hover_pos,
+            video=self._video, hover_loop=hover.loop, hover_tip=hover.tip, hover_pos=hover.at,
             may_grow_on_hover=self._over_the_video,
             clip_row=self._clip_row, heatmap=self._heatmap,
         )

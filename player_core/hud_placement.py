@@ -68,8 +68,20 @@ def _next_round(ring, place, *, clockwise: bool):
     return order[(order.index(place) + 1) % len(order)]
 
 
-def place_of(panel) -> tuple[HudCorner, bool] | None:
-    return None if panel is None else (panel.hud_corner, panel.hud_minimized)
+class PointerReading[R]:
+    def __init__(self, nowhere: R) -> None:
+        self._nowhere = nowhere
+        self.reading: R = nowhere
+        self._place: tuple[HudCorner, bool] | None = None
+
+    def take(self, reading: R) -> None:
+        self.reading = reading
+
+    def on(self, panel) -> R:
+        place = None if panel is None else (panel.hud_corner, panel.hud_minimized)
+        if place != self._place:
+            self._place, self.reading = place, self._nowhere
+        return self.reading
 
 
 def block_x(corner: HudCorner, *, panel_width: int, extent: int, pad: int) -> int:

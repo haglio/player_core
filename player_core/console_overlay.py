@@ -17,7 +17,7 @@ from .console_hud import ConsoleHud, ConsolePainter, with_playback_speed
 from .dashboard import ask
 from .drive_readout import DriveHud, read_drive
 from .hud_overlay import HUD_OVERLAY_ID
-from .hud_placement import HudEdge, place_of
+from .hud_placement import HudEdge, PointerReading
 from .hud_row import RowHud, RowPress, track_on_screen
 
 __all__ = []
@@ -49,7 +49,7 @@ class ConsoleOverlay:
         self._painter = ConsolePainter(width=width)
         self._console = ConsoleModel()
         self._drive: DriveHud | None = None
-        self._hover: tuple[int, int] | None = None
+        self._hover: PointerReading[tuple[int, int] | None] = PointerReading(None)
         self._shown = False
         self._origin = (0, 0)
         self._panel_height = 0
@@ -67,10 +67,7 @@ class ConsoleOverlay:
 
     def tick(self, *, playback_speed: float, window: tuple[int, int],
              clip_row: RowHud | None = None, heatmap=None) -> None:
-        console = read_console(self._console_file) or self._console
-        if place_of(console) != place_of(self._console):
-            self._hover = None
-        self._console = console
+        self._console = read_console(self._console_file) or self._console
         if self._drive_file is not None:
             self._drive = read_drive(self._drive_file) or self._drive
         drive = self._drive_gate.readout(
@@ -80,7 +77,7 @@ class ConsoleOverlay:
             modes=self._top_block(),
             console=with_playback_speed(self._console, playback_speed),
             drive=drive,
-        ), hover=self._hover, clip_row=clip_row, heatmap=heatmap)
+        ), hover=self._hover.on(self._console), clip_row=clip_row, heatmap=heatmap)
         self._origin = self._painter.place(window=window)
         self._panel_height = bgra.shape[0]
         self._player.overlay(self.overlay_id, *self._origin, bgra)
@@ -135,7 +132,7 @@ class ConsoleOverlay:
         return 0.0 if self._clip_row is None else self._clip_row.duration_ms
 
     def motion(self, x: int, y: int) -> None:
-        self._hover = self._painter.hover_at(x, y)
+        self._hover.take(self._painter.hover_at(x, y))
 
     def close(self) -> None:
         if self._shown:
