@@ -1474,3 +1474,41 @@ class TestEverySectionIsSetOffFromTheNextByALine:
         assert controls[1] <= lines[1] < device[0]
         assert device[1] <= lines[2] < row_y
         assert (_rgb(bgra)[lines[0] + 1:controls[0], 1:-1] == BG_PRIMARY).all()
+
+
+class TestADeviceOnlyConsole:
+    @staticmethod
+    def _painted() -> tuple[ConsolePainter, np.ndarray]:
+        painter = ConsolePainter(device_only=True)
+        bgra = painter.bgra(ConsoleHud(
+            modes=ModeHud(video="scene one"),
+            console=ConsoleModel(main_mode=MainMode.GENAU, osr2=Osr2State.ROBOT_HAND,
+                                 rows=console_rows("genau"), osr2_rows=motion_rows(),
+                                 osr2_controls=osr2_controls()),
+            drive=_drive()), clip_row=RowHud(duration_ms=60_000))
+        return painter, bgra
+
+    def test_it_has_no_minus_since_nothing_under_it_could_be_uncovered(self):
+        painter, _bgra = self._painted()
+
+        assert minimize_command("main") not in [button.command for _r, button in painter.buttons]
+
+    def test_its_first_line_is_the_row_that_aims_the_device(self):
+        painter, bgra = self._painted()
+
+        assert _button_rect(painter, "robot_hand_toggle_cruise")[1] == PAD
+        assert _dividers(bgra) == []
+
+    def test_nothing_is_drawn_beside_the_row_that_aims_the_device(self):
+        painter, bgra = self._painted()
+        x, y, w, h = _button_rect(painter, "robot_hand_toggle_cruise")
+
+        assert (_rgb(bgra)[y:y + h, x + w:-1] == BG_PRIMARY).all()
+
+    def test_a_long_name_for_the_video_does_not_widen_it(self):
+        def width(video: str) -> int:
+            return ConsolePainter(device_only=True).rgba(ConsoleHud(
+                modes=ModeHud(video=video),
+                console=ConsoleModel(osr2_rows=motion_rows()), drive=_drive()))[1][0]
+
+        assert width("Jane Doe - scene one - " + "a long descriptor " * 6) == width("")

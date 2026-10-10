@@ -9,6 +9,15 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-10-09 — a console can be drawn as the device's section alone
+
+`ConsolePainter(device_only=True)` draws the rows that aim the device, the line
+naming who has it, and the readout, and nothing else: no minus, no status line
+or file name, none of the source's rows and no clip row. It is for a console a
+host sets into its own window with nothing playing under it -- Origenerator's
+main window, whose console drew a minus that did nothing and a status line about
+a slideshow that was not open.
+
 ## 2026-10-09 — a locked picture makes a new move each time it comes round
 
 A locked picture made the one move it was dealt over and over: the move changed

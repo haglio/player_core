@@ -220,7 +220,7 @@ class ConsolePainter:
     too.
     """
 
-    def __init__(self, *, width: int | None = None) -> None:
+    def __init__(self, *, width: int | None = None, device_only: bool = False) -> None:
         """*width* holds every panel to one width, whatever is on it.  A console
         hanging in a scene as a screen of its own (FunTimeVR's) otherwise changes
         size with its contents — the genau-mode rows are narrower than the
@@ -231,6 +231,7 @@ class ConsolePainter:
         sizes the panel to its contents, as one drawn over the player's own
         window is."""
         self._width = width
+        self._device_only = device_only
         self._body = load_font(_SIZE_BODY)
         self._tiny = load_font(_SIZE_TINY)
         self._glyph = load_font(_SIZE_BODY, SYMBOL_FONT)
@@ -400,13 +401,16 @@ class ConsolePainter:
         self._composed_drive = (
             drive if (drive is not None and drive.segments
                       and main_player_displays(console.main_mode)) else None)
-        rows = [[self._filled(button, hud) for button in row] for row in console.rows]
+        whole = not self._device_only
+        rows = [[self._filled(button, hud) for button in row]
+                for row in (console.rows if whole else ())]
         aim_rows = [[self._filled(button, hud) for button in row] for row in console.osr2_rows]
-        status = hud.status_line
-        filename = hud.modes.video
+        status = hud.status_line if whole else ""
+        filename = hud.modes.video if whole else ""
+        clip_row = clip_row if whole else None
         drive_w, drive_h = section_size() if drive is not None else (0, 0)
         body_ascent, body_descent = self._body.getmetrics()
-        top_h = body_ascent + body_descent
+        top_h = body_ascent + body_descent if whole else 0
         tiny_h = sum(self._tiny.getmetrics())
         filename_h = (_SUBTITLE_GAP + tiny_h) if filename else 0
 
@@ -447,11 +451,12 @@ class ConsolePainter:
         corner = console.hud_corner
         minimize = (minimize_rect(corner, panel_width=width, y=_PAD, pad=_PAD),
                     minimize_button(console.player))
-        draw_button(panel.image, draw, minimize[0], minimize[1],
-                    hovered=hover is not None and contains(minimize[0], *hover),
-                    glyph_font=self._glyph, word_font=self._tiny)
-        self._draw_top_block(draw, status_top, status, filename, console.active,
-                             width, corner)
+        if whole:
+            draw_button(panel.image, draw, minimize[0], minimize[1],
+                        hovered=hover is not None and contains(minimize[0], *hover),
+                        glyph_font=self._glyph, word_font=self._tiny)
+            self._draw_top_block(draw, status_top, status, filename, console.active,
+                                 width, corner)
         self.buttons = self._draw_rows(panel, rows, rows_top, corner, hover)
         self.tracks = []
 
@@ -480,7 +485,8 @@ class ConsolePainter:
             self.buttons.extend(targets)
             self.tracks.extend(bands)
 
-        self.buttons.append(minimize)
+        if whole:
+            self.buttons.append(minimize)
         self.row_rect = None
         if clip_row is not None:
             self.row_rect = (_PAD, row_top, width - 2 * _PAD, row_h)
