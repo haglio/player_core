@@ -56,3 +56,12 @@ def test_reaching_a_module_by_its_old_name_first_still_loads_it_once():
                             capture_output=True, text=True, check=True)
 
     assert result.stdout.split() == ["True", "True"]
+
+
+
+def test_an_old_module_path_under_the_old_package_name_still_answers_to_its_old_names():
+    from player_core.mpv_player import MpvPlayer  # noqa: PLC0415
+
+    from funestra_core.mpv_engine import MpvEngine  # noqa: PLC0415
+
+    assert MpvPlayer is MpvEngine

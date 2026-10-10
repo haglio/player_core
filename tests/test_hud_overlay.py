@@ -6,7 +6,7 @@ import math
 from pathlib import Path
 
 import pytest
-from funestra_fakes import FakePlayer
+from funestra_fakes import FakeEngine
 from PIL import Image
 from shared_ui.spacing import BUTTON_SIZE_HUD
 
@@ -37,10 +37,10 @@ def panel(tmp_path: Path) -> Path:
     return path
 
 
-def _overlay(tmp_path: Path, panel_path: Path, player, clock=None) -> HudOverlay:
+def _overlay(tmp_path: Path, panel_path: Path, engine, clock=None) -> HudOverlay:
     return HudOverlay(
         hud_file=panel_path, command_file=tmp_path / "dashboard_cmd.txt",
-        player=player, clock=clock or (lambda: 0.0),
+        engine=engine, clock=clock or (lambda: 0.0),
     )
 
 
@@ -69,16 +69,16 @@ class TestTheClipsRowAtItsFoot:
                   volume=VolumeHud(volume=80, muted=False))
 
     def test_a_window_handed_a_row_draws_it_on_the_panel(self, tmp_path, panel):
-        player = FakePlayer()
-        overlay = _overlay(tmp_path, panel, player)
+        engine = FakeEngine()
+        overlay = _overlay(tmp_path, panel, engine)
 
         overlay.tick(clip_row=self._ROW)
 
         assert overlay.targets.row is not None
 
     def test_a_picture_puts_no_row_on_the_panel(self, tmp_path, panel):
-        player = FakePlayer()
-        overlay = _overlay(tmp_path, panel, player)
+        engine = FakeEngine()
+        overlay = _overlay(tmp_path, panel, engine)
 
         overlay.tick(clip_row=None)
 
@@ -92,7 +92,7 @@ class TestTheClipsRowAtItsFoot:
         seeks: list[float] = []
         overlay = HudOverlay(
             hud_file=panel, command_file=tmp_path / "dashboard_cmd.txt",
-            player=FakePlayer(), clock=lambda: 0.0, seek=seeks.append,
+            engine=FakeEngine(), clock=lambda: 0.0, seek=seeks.append,
         )
         overlay.tick(clip_row=self._ROW)
         _x, _y, width, height = overlay.targets.row
@@ -107,7 +107,7 @@ class TestTheClipsRowAtItsFoot:
         seeks: list[float] = []
         overlay = HudOverlay(
             hud_file=panel, command_file=tmp_path / "dashboard_cmd.txt",
-            player=FakePlayer(), clock=lambda: 0.0, seek=seeks.append,
+            engine=FakeEngine(), clock=lambda: 0.0, seek=seeks.append,
         )
         overlay.tick(clip_row=self._ROW)
         _x, _y, width, height = overlay.targets.row
@@ -124,7 +124,7 @@ class TestTheClipsRowAtItsFoot:
         levels: list[int] = []
         overlay = HudOverlay(
             hud_file=panel, command_file=tmp_path / "dashboard_cmd.txt",
-            player=FakePlayer(), clock=lambda: 0.0,
+            engine=FakeEngine(), clock=lambda: 0.0,
             set_volume=levels.append, toggle_mute=lambda: mutes.append(1),
         )
         overlay.tick(clip_row=self._ROW)
@@ -140,7 +140,7 @@ class TestTheClipsRowAtItsFoot:
     def test_a_scripted_clip_colors_its_track(self, tmp_path, panel):
         """The host measures the track the panel drew and builds the script's
         colors across it; the panel fills the next one with them."""
-        plain, scripted = FakePlayer(), FakePlayer()
+        plain, scripted = FakeEngine(), FakeEngine()
         _overlay(tmp_path, panel, plain).tick(clip_row=self._ROW)
         colored = _overlay(tmp_path, panel, scripted)
         colored.tick(clip_row=self._ROW)
@@ -157,7 +157,7 @@ class TestTheClipsRowAtItsFoot:
         wrong length raises out of the track painter rather than stretching --
         which took the window's drawing down with it and left the main player
         showing no picture at all."""
-        plain, mismatched = FakePlayer(), FakePlayer()
+        plain, mismatched = FakeEngine(), FakeEngine()
         _overlay(tmp_path, panel, plain).tick(clip_row=self._ROW)
         overlay = _overlay(tmp_path, panel, mismatched)
         overlay.tick(clip_row=self._ROW)
@@ -170,19 +170,19 @@ class TestTheClipsRowAtItsFoot:
     def test_the_host_is_told_where_the_row_landed(self, tmp_path, panel):
         """Its width is what the colors must cover, and under it is where the
         loop's two frames hang."""
-        overlay = _overlay(tmp_path, panel, FakePlayer())
+        overlay = _overlay(tmp_path, panel, FakeEngine())
 
         overlay.tick(clip_row=self._ROW)
 
         x, _y, width, _height = overlay.row_rect
         x0, x1 = bar_track_x(width)
         left, top, _w, _h = (MARGIN, MARGIN, 0, 0)
-        panel_h = overlay._player.overlays[overlay.overlay_id][2].shape[0]
+        panel_h = overlay._engine.overlays[overlay.overlay_id][2].shape[0]
         assert overlay.row_track == (left + x + x0, left + x + x1,
                                      top + panel_h + UNDER_THE_PANEL_GAP)
 
     def test_a_picture_leaves_nothing_for_the_frames_to_hang_under(self, tmp_path, panel):
-        overlay = _overlay(tmp_path, panel, FakePlayer())
+        overlay = _overlay(tmp_path, panel, FakeEngine())
 
         overlay.tick(clip_row=None)
 
@@ -191,11 +191,11 @@ class TestTheClipsRowAtItsFoot:
 
 
 def test_tick_composites_the_panel_at_the_hud_inset(tmp_path: Path, panel: Path):
-    player = FakePlayer()
-    _overlay(tmp_path, panel, player).tick()
+    engine = FakeEngine()
+    _overlay(tmp_path, panel, engine).tick()
 
-    assert len(player.overlays) == 1
-    (x, y, bgra), = player.overlays.values()
+    assert len(engine.overlays) == 1
+    (x, y, bgra), = engine.overlays.values()
     assert (x, y) == (MARGIN, MARGIN)
     assert bgra.shape[2] == 4
 
@@ -203,18 +203,18 @@ def test_tick_composites_the_panel_at_the_hud_inset(tmp_path: Path, panel: Path)
 def test_tick_redraws_only_when_the_published_panel_changes(tmp_path: Path, panel: Path):
     """The source rewrites the file only on a real change, but the player polls it
     every frame — an unchanged read must not re-render the whole panel."""
-    player = FakePlayer()
-    overlay = _overlay(tmp_path, panel, player)
+    engine = FakeEngine()
+    overlay = _overlay(tmp_path, panel, engine)
 
     overlay.tick()
-    first = player.overlays[overlay.overlay_id][2]
+    first = engine.overlays[overlay.overlay_id][2]
     overlay.tick()
-    assert player.overlays[overlay.overlay_id][2] is first
+    assert engine.overlays[overlay.overlay_id][2] is first
 
     panel.write_text(panel.read_text(encoding="utf-8").replace(
         '"locked": false', '"locked": true'), encoding="utf-8")
     overlay.tick()
-    assert player.overlays[overlay.overlay_id][2] is not first
+    assert engine.overlays[overlay.overlay_id][2] is not first
 
 
 def test_tick_redraws_when_the_clip_on_screen_changes(tmp_path: Path, panel: Path):
@@ -222,22 +222,22 @@ def test_tick_redraws_when_the_clip_on_screen_changes(tmp_path: Path, panel: Pat
     its playlist by itself — the source republishes the panel only when the map under
     it moves, so the name has to redraw off the player's own answer or it would sit
     on a clip that had already rolled past."""
-    player = FakePlayer()
-    overlay = _overlay(tmp_path, panel, player)
+    engine = FakeEngine()
+    overlay = _overlay(tmp_path, panel, engine)
 
     overlay.tick(video="one")
-    first = player.overlays[overlay.overlay_id][2]
+    first = engine.overlays[overlay.overlay_id][2]
     overlay.tick(video="one")
-    assert player.overlays[overlay.overlay_id][2] is first
+    assert engine.overlays[overlay.overlay_id][2] is first
 
     overlay.tick(video="two")
-    assert player.overlays[overlay.overlay_id][2] is not first
+    assert engine.overlays[overlay.overlay_id][2] is not first
 
 
 def test_the_players_own_rate_brings_a_speed_row_whose_buttons_post_this_sides_speed(
         tmp_path: Path, panel: Path):
-    player = FakePlayer()
-    overlay = _overlay(tmp_path, panel, player)
+    engine = FakeEngine()
+    overlay = _overlay(tmp_path, panel, engine)
     overlay.tick(playback_speed=1.0)
     rect = {b.command: r for r, b in overlay.targets.buttons}["portrait_speed_up"]
 
@@ -247,36 +247,36 @@ def test_the_players_own_rate_brings_a_speed_row_whose_buttons_post_this_sides_s
 
 
 def test_tick_redraws_when_the_players_rate_changes(tmp_path: Path, panel: Path):
-    player = FakePlayer()
-    overlay = _overlay(tmp_path, panel, player)
+    engine = FakeEngine()
+    overlay = _overlay(tmp_path, panel, engine)
 
     overlay.tick(playback_speed=1.0)
-    first = player.overlays[overlay.overlay_id][2]
+    first = engine.overlays[overlay.overlay_id][2]
     overlay.tick(playback_speed=1.0)
-    assert player.overlays[overlay.overlay_id][2] is first
+    assert engine.overlays[overlay.overlay_id][2] is first
 
     overlay.tick(playback_speed=1.5)
-    assert player.overlays[overlay.overlay_id][2] is not first
+    assert engine.overlays[overlay.overlay_id][2] is not first
 
 
 def test_no_panel_file_means_no_overlay(tmp_path: Path):
     """A player its source has published no HUD for (an integration run, or
     before the first publish) simply shows no map."""
-    player = FakePlayer()
-    _overlay(tmp_path, tmp_path / "absent.json", player).tick()
+    engine = FakeEngine()
+    _overlay(tmp_path, tmp_path / "absent.json", engine).tick()
 
-    assert player.overlays == {}
+    assert engine.overlays == {}
 
 
 def test_the_overlay_is_removed_when_the_panel_goes_away(tmp_path: Path, panel: Path):
-    player = FakePlayer()
-    overlay = _overlay(tmp_path, panel, player)
+    engine = FakeEngine()
+    overlay = _overlay(tmp_path, panel, engine)
     overlay.tick()
 
     panel.unlink()
     overlay.tick()
 
-    assert player.overlays == {}
+    assert engine.overlays == {}
 
 
 def test_a_panel_that_cannot_be_read_this_frame_keeps_the_map_up(
@@ -289,10 +289,10 @@ def test_a_panel_that_cannot_be_read_this_frame_keeps_the_map_up(
     Tearing the overlay down for it, and rebuilding it on the next frame, is a
     HUD that blinks.
     """
-    player = FakePlayer()
-    overlay = _overlay(tmp_path, panel, player)
+    engine = FakeEngine()
+    overlay = _overlay(tmp_path, panel, engine)
     overlay.tick()
-    drawn = player.overlays[overlay.overlay_id][2]
+    drawn = engine.overlays[overlay.overlay_id][2]
 
     real_read_text = Path.read_text
 
@@ -304,15 +304,15 @@ def test_a_panel_that_cannot_be_read_this_frame_keeps_the_map_up(
     monkeypatch.setattr(Path, "read_text", refuse)
     overlay.tick()
 
-    assert player.overlays[overlay.overlay_id][2] is drawn
+    assert engine.overlays[overlay.overlay_id][2] is drawn
 
 
 def test_a_single_click_posts_the_switch_once_its_window_lapses(tmp_path: Path, panel: Path):
     """A click on a thumbnail could be the first half of a double-click, so the
     switch is posted by a later tick — not by the press itself."""
     now = [0.0]
-    player = FakePlayer()
-    overlay = _overlay(tmp_path, panel, player, clock=lambda: now[0])
+    engine = FakeEngine()
+    overlay = _overlay(tmp_path, panel, engine, clock=lambda: now[0])
     overlay.tick()
     corner_rect = overlay.targets.click[0][0]
 
@@ -327,8 +327,8 @@ def test_a_single_click_posts_the_switch_once_its_window_lapses(tmp_path: Path, 
 
 def test_a_double_click_locks_instead_of_switching(tmp_path: Path, panel: Path):
     now = [0.0]
-    player = FakePlayer()
-    overlay = _overlay(tmp_path, panel, player, clock=lambda: now[0])
+    engine = FakeEngine()
+    overlay = _overlay(tmp_path, panel, engine, clock=lambda: now[0])
     overlay.tick()
     x, y, _w, _h = overlay.targets.click[1][0]  # the seed thumbnail
 
@@ -342,8 +342,8 @@ def test_a_double_click_locks_instead_of_switching(tmp_path: Path, panel: Path):
 
 
 def test_a_loop_button_click_posts_at_once(tmp_path: Path, panel: Path):
-    player = FakePlayer()
-    overlay = _overlay(tmp_path, panel, player)
+    engine = FakeEngine()
+    overlay = _overlay(tmp_path, panel, engine)
     overlay.tick()
     rect = dict((kind, r) for r, kind in overlay.targets.loop)["seed"]
 
@@ -356,8 +356,8 @@ def test_a_press_outside_the_panel_posts_nothing_and_is_refused(
         tmp_path: Path, panel: Path):
     """Refused rather than merely silent: what the HUD does not take is a press
     on the picture, and the run loop has its own answer for one."""
-    player = FakePlayer()
-    overlay = _overlay(tmp_path, panel, player)
+    engine = FakeEngine()
+    overlay = _overlay(tmp_path, panel, engine)
     overlay.tick()
 
     taken = [
@@ -372,10 +372,10 @@ def test_a_press_outside_the_panel_posts_nothing_and_is_refused(
 def test_a_press_on_the_panel_s_own_background_is_the_hud_s(tmp_path: Path, panel: Path):
     """The slab is one surface: a press between its controls posts nothing and
     is still the HUD's, not the picture's."""
-    player = FakePlayer()
-    overlay = _overlay(tmp_path, panel, player)
+    engine = FakeEngine()
+    overlay = _overlay(tmp_path, panel, engine)
     overlay.tick()
-    _x, _y, bgra = player.overlays[overlay.overlay_id]
+    _x, _y, bgra = engine.overlays[overlay.overlay_id]
     height, width = bgra.shape[:2]
 
     taken = overlay.press(MARGIN + width - 1, MARGIN + height - 1)
@@ -385,30 +385,30 @@ def test_a_press_on_the_panel_s_own_background_is_the_hud_s(tmp_path: Path, pane
 
 
 def test_no_panel_on_screen_takes_no_press(tmp_path: Path):
-    player = FakePlayer()
-    overlay = _overlay(tmp_path, tmp_path / "absent.json", player)
+    engine = FakeEngine()
+    overlay = _overlay(tmp_path, tmp_path / "absent.json", engine)
     overlay.tick()
 
     assert overlay.press(MARGIN + 2, MARGIN + 2) is False
 
 
 def test_hovering_a_button_redraws_with_its_tooltip(tmp_path: Path, panel: Path):
-    player = FakePlayer()
-    overlay = _overlay(tmp_path, panel, player)
+    engine = FakeEngine()
+    overlay = _overlay(tmp_path, panel, engine)
     overlay.tick()
-    plain = player.overlays[overlay.overlay_id][2]
+    plain = engine.overlays[overlay.overlay_id][2]
     rect = dict((kind, r) for r, kind in overlay.targets.loop)["action"]
 
     overlay.motion(rect[0] + MARGIN + 2, rect[1] + MARGIN + 2)
 
-    hovered = player.overlays[overlay.overlay_id][2]
+    hovered = engine.overlays[overlay.overlay_id][2]
     assert bytes(hovered) != bytes(plain)  # the tooltip is in the pixels
 
     # Moving off the button clears it again: the redraw matches the pre-hover
     # pixels, not merely "some new object" (the old identity check held even
     # with the whole clear branch deleted).
     overlay.motion(MARGIN + 2, MARGIN + 2)
-    cleared = player.overlays[overlay.overlay_id][2]
+    cleared = engine.overlays[overlay.overlay_id][2]
     assert bytes(cleared) == bytes(plain)
 
 
@@ -416,10 +416,10 @@ def test_pressing_the_lit_filter_button_lifts_the_filter(tmp_path: Path, panel: 
     """The published filter is what makes the button a toggle, so a filter set any
     other way — spoken, or from the other side of the map — is lifted by pressing the
     button it lit."""
-    player = FakePlayer()
+    engine = FakeEngine()
     panel.write_text(panel.read_text(encoding="utf-8").replace(
         '"player": "portrait"', '"player": "portrait", "filter_query": "alpha"'), encoding="utf-8")
-    overlay = _overlay(tmp_path, panel, player)
+    overlay = _overlay(tmp_path, panel, engine)
     overlay.tick()
 
     rect = dict((name, r) for r, name in overlay.targets.filter)["alpha"]
@@ -429,8 +429,8 @@ def test_pressing_the_lit_filter_button_lifts_the_filter(tmp_path: Path, panel: 
 
 
 def test_pressing_an_unlit_filter_button_filters_to_its_act(tmp_path: Path, panel: Path):
-    player = FakePlayer()
-    overlay = _overlay(tmp_path, panel, player)
+    engine = FakeEngine()
+    overlay = _overlay(tmp_path, panel, engine)
     overlay.tick()
 
     rect = dict((name, r) for r, name in overlay.targets.filter)["gamma"]
@@ -442,8 +442,8 @@ def test_pressing_an_unlit_filter_button_filters_to_its_act(tmp_path: Path, pane
 def test_the_published_loop_state_wins_over_the_optimistic_one(tmp_path: Path, panel: Path):
     """A click lights the button before the source answers, but the published panel
     is authoritative — a loop that ended must not stay lit."""
-    player = FakePlayer()
-    overlay = _overlay(tmp_path, panel, player)
+    engine = FakeEngine()
+    overlay = _overlay(tmp_path, panel, engine)
     overlay.tick()
     rect = dict((kind, r) for r, kind in overlay.targets.loop)["seed"]
     overlay.press(rect[0] + MARGIN + 2, rect[1] + MARGIN + 2)
@@ -470,16 +470,16 @@ def _publish_motion(path: Path, offset: float) -> None:
         waveform=tuple(0.5 + 0.4 * math.sin(i / 6 + offset) for i in range(80))))
 
 
-def _overlay_with_the_motion(tmp_path: Path, panel: Path, player) -> HudOverlay:
+def _overlay_with_the_motion(tmp_path: Path, panel: Path, engine) -> HudOverlay:
     return HudOverlay(hud_file=panel, command_file=tmp_path / "dashboard_cmd.txt",
-                      player=player, clock=lambda: 0.0, drive_file=tmp_path / "drive.txt")
+                      engine=engine, clock=lambda: 0.0, drive_file=tmp_path / "drive.txt")
 
 
 class TestAPanelWithTheOsr2:
     def test_draws_the_motion_genau_publishes_under_the_osr2_line(self, tmp_path: Path, panel: Path):
         _give_it_the_osr2(panel)
         _publish_motion(tmp_path / "drive.txt", 0.0)
-        overlay = _overlay_with_the_motion(tmp_path, panel, FakePlayer())
+        overlay = _overlay_with_the_motion(tmp_path, panel, FakeEngine())
 
         overlay.tick()
 
@@ -488,19 +488,19 @@ class TestAPanelWithTheOsr2:
     def test_redraws_as_the_motion_moves(self, tmp_path: Path, panel: Path):
         _give_it_the_osr2(panel)
         _publish_motion(tmp_path / "drive.txt", 0.0)
-        player = FakePlayer()
-        overlay = _overlay_with_the_motion(tmp_path, panel, player)
+        engine = FakeEngine()
+        overlay = _overlay_with_the_motion(tmp_path, panel, engine)
         overlay.tick()
-        first = player.overlays[overlay.overlay_id][2].copy()
+        first = engine.overlays[overlay.overlay_id][2].copy()
 
         _publish_motion(tmp_path / "drive.txt", 3.0)
         overlay.tick()
 
-        assert not (player.overlays[overlay.overlay_id][2] == first).all()
+        assert not (engine.overlays[overlay.overlay_id][2] == first).all()
 
     def test_a_panel_without_it_draws_no_motion(self, tmp_path: Path, panel: Path):
         _publish_motion(tmp_path / "drive.txt", 0.0)
-        overlay = _overlay_with_the_motion(tmp_path, panel, FakePlayer())
+        overlay = _overlay_with_the_motion(tmp_path, panel, FakeEngine())
 
         overlay.tick()
 
@@ -509,7 +509,7 @@ class TestAPanelWithTheOsr2:
     def test_a_band_of_the_readout_keeps_a_drag_until_it_is_let_go(self, tmp_path: Path, panel: Path):
         _give_it_the_osr2(panel)
         _publish_motion(tmp_path / "drive.txt", 0.0)
-        overlay = _overlay_with_the_motion(tmp_path, panel, FakePlayer())
+        overlay = _overlay_with_the_motion(tmp_path, panel, FakeEngine())
         overlay.tick()
         x, y, w, h = next(band.rect for band in overlay.targets.tracks if band.axis == "speed")
 
@@ -540,7 +540,7 @@ class TestAPanelWithTheOsr2ItsOwnPlayerScripts:
                             waveform=tuple(0.2 for _ in range(80)))
         gate = _Gate(composed)
         overlay = HudOverlay(hud_file=panel, command_file=tmp_path / "dashboard_cmd.txt",
-                             player=FakePlayer(), clock=lambda: 0.0,
+                             engine=FakeEngine(), clock=lambda: 0.0,
                              drive_file=tmp_path / "drive.txt", drive_gate=gate)
 
         overlay.tick()
@@ -556,9 +556,9 @@ def _publish(panel_path: Path, **panel_changes) -> None:
     panel_path.write_text(json.dumps(published), encoding="utf-8")
 
 
-def _panel_at(tmp_path: Path, panel_path: Path, player, **panel_changes):
+def _panel_at(tmp_path: Path, panel_path: Path, engine, **panel_changes):
     _publish(panel_path, **panel_changes)
-    overlay = _overlay(tmp_path, panel_path, player)
+    overlay = _overlay(tmp_path, panel_path, engine)
     overlay.tick(window=(1200, 800))
     return overlay
 
@@ -568,16 +568,16 @@ def test_the_minus_sits_where_the_plus_of_the_minimized_panel_sits(
         tmp_path: Path, panel: Path, corner: HudCorner):
     """So a click that minimizes the panel, made again without moving the
     mouse, opens it again."""
-    player = FakePlayer()
-    overlay = _panel_at(tmp_path, panel, player, hud_corner=corner.value)
-    (left, top, _bgra), = player.overlays.values()
+    engine = FakeEngine()
+    overlay = _panel_at(tmp_path, panel, engine, hud_corner=corner.value)
+    (left, top, _bgra), = engine.overlays.values()
     (x, y, w, h), = [rect for rect, b in overlay.targets.buttons
                      if b.command == "portrait_hud_minimize"]
 
     _publish(panel, hud_minimized=True)
     overlay.tick(window=(1200, 800))
 
-    (plus_left, plus_top, _bgra), = player.overlays.values()
+    (plus_left, plus_top, _bgra), = engine.overlays.values()
     ((px, py, pw, ph), _plus), = overlay.targets.buttons
     assert (plus_left + px, plus_top + py, pw, ph) == (left + x, top + y, w, h)
 
@@ -587,11 +587,11 @@ def test_the_panel_is_composited_in_the_corner_the_session_moved_it_to(
     """Its own margin from the edges and nothing else: the track that used to
     run along the lower edge is a block of this panel now, so there is nothing
     down there to clear."""
-    player = FakePlayer()
+    engine = FakeEngine()
 
-    _panel_at(tmp_path, panel, player, hud_corner="lower_right")
+    _panel_at(tmp_path, panel, engine, hud_corner="lower_right")
 
-    (x, y, bgra), = player.overlays.values()
+    (x, y, bgra), = engine.overlays.values()
     height, width = bgra.shape[:2]
     assert x == 1200 - MARGIN - width
     assert y == 800 - MARGIN - height
@@ -599,11 +599,11 @@ def test_the_panel_is_composited_in_the_corner_the_session_moved_it_to(
 
 def test_a_press_in_a_lower_corner_reaches_the_button_drawn_there(
         tmp_path: Path, panel: Path):
-    player = FakePlayer()
-    overlay = _panel_at(tmp_path, panel, player, hud_corner="lower_right",
+    engine = FakeEngine()
+    overlay = _panel_at(tmp_path, panel, engine, hud_corner="lower_right",
                         rows=[[{"command": "portrait_next", "glyph": "N",
                                 "tooltip": "Next", "width": 18}]])
-    (left, top, _bgra), = player.overlays.values()
+    (left, top, _bgra), = engine.overlays.values()
     (bx, by, bw, bh), button = next(
         (rect, b) for rect, b in overlay.targets.buttons if b.command == "portrait_next")
 
@@ -615,13 +615,13 @@ def test_the_plus_names_itself_where_the_panel_floats_over_a_picture(
         tmp_path: Path, panel: Path):
     """The panel takes the tooltip's room only while the pointer is on the plus,
     so a press beside a collapsed HUD still reaches the video under it."""
-    player = FakePlayer()
-    overlay = _panel_at(tmp_path, panel, player, hud_minimized=True,
+    engine = FakeEngine()
+    overlay = _panel_at(tmp_path, panel, engine, hud_minimized=True,
                         hud_corner="upper_left")
-    (left, top, resting), = [(x, y, bgra) for x, y, bgra in player.overlays.values()]
+    (left, top, resting), = [(x, y, bgra) for x, y, bgra in engine.overlays.values()]
 
     overlay.motion(left + BUTTON_SIZE_HUD // 2, top + BUTTON_SIZE_HUD // 2)
-    (x, y, hovered), = [(x, y, bgra) for x, y, bgra in player.overlays.values()]
+    (x, y, hovered), = [(x, y, bgra) for x, y, bgra in engine.overlays.values()]
 
     assert resting.shape[:2] == (BUTTON_SIZE_HUD, BUTTON_SIZE_HUD)
     assert hovered.shape[1] > BUTTON_SIZE_HUD
@@ -634,14 +634,14 @@ def test_a_panel_on_its_own_screen_holds_the_tooltips_room_from_the_start(
     centered on the side it hangs against, so a panel that grew under the
     pointer would carry the plus out from under it and the tooltip would
     flicker as the pointer lost and found it.  The room is there all along."""
-    player = FakePlayer()
+    engine = FakeEngine()
     _publish(panel, hud_minimized=True)
     overlay = HudOverlay(hud_file=panel, command_file=tmp_path / "dashboard_cmd.txt",
-                         player=player, clock=lambda: 0.0, over_the_video=False)
+                         engine=engine, clock=lambda: 0.0, over_the_video=False)
 
     overlay.tick()
 
-    (_x, _y, bgra), = player.overlays.values()
+    (_x, _y, bgra), = engine.overlays.values()
     assert bgra.shape[1] > BUTTON_SIZE_HUD
 
 
@@ -651,37 +651,37 @@ class TestAPanelWhoseMinusHangsOutsideIt:
     carries neither."""
 
     @staticmethod
-    def _overlay(tmp_path: Path, panel: Path, player) -> HudOverlay:
+    def _overlay(tmp_path: Path, panel: Path, engine) -> HudOverlay:
         return HudOverlay(hud_file=panel, command_file=tmp_path / "dashboard_cmd.txt",
-                          player=player, clock=lambda: 0.0, over_the_video=False,
+                          engine=engine, clock=lambda: 0.0, over_the_video=False,
                           minus_on_the_panel=False)
 
     def test_the_panel_draws_no_minus(self, tmp_path: Path, panel: Path):
-        player = FakePlayer()
-        overlay = self._overlay(tmp_path, panel, player)
+        engine = FakeEngine()
+        overlay = self._overlay(tmp_path, panel, engine)
 
         overlay.tick()
 
-        assert player.overlays
+        assert engine.overlays
         assert not [b for _rect, b in overlay.targets.buttons
                     if b.command == "portrait_hud_minimize"]
 
     def test_a_minimized_panel_draws_nothing(self, tmp_path: Path, panel: Path):
-        player = FakePlayer()
+        engine = FakeEngine()
         _publish(panel, hud_minimized=True)
-        overlay = self._overlay(tmp_path, panel, player)
+        overlay = self._overlay(tmp_path, panel, engine)
 
         overlay.tick()
 
-        assert player.overlays == {}
+        assert engine.overlays == {}
         assert overlay.targets.buttons == []
 
 
 def test_a_panel_collapsed_by_a_press_on_its_minus_draws_the_plus_alone(
         tmp_path: Path, panel: Path):
-    player = FakePlayer()
-    overlay = _panel_at(tmp_path, panel, player, hud_corner="upper_left")
-    (left, top, _bgra), = player.overlays.values()
+    engine = FakeEngine()
+    overlay = _panel_at(tmp_path, panel, engine, hud_corner="upper_left")
+    (left, top, _bgra), = engine.overlays.values()
     (x, y, w, h), _minus = next((rect, b) for rect, b in overlay.targets.buttons
                                 if b.command == "portrait_hud_minimize")
     overlay.motion(left + x + w // 2, top + y + h // 2)
@@ -690,13 +690,13 @@ def test_a_panel_collapsed_by_a_press_on_its_minus_draws_the_plus_alone(
     _publish(panel, hud_minimized=True)
     overlay.tick(window=(1200, 800))
 
-    (_x, _y, bgra), = player.overlays.values()
+    (_x, _y, bgra), = engine.overlays.values()
     assert bgra.shape[:2] == (BUTTON_SIZE_HUD, BUTTON_SIZE_HUD)
 
 
 def test_its_place_is_the_corner_the_room_put_it_in_and_whether_it_is_minimized(
         tmp_path: Path, panel: Path):
-    overlay = _panel_at(tmp_path, panel, FakePlayer(), hud_minimized=True,
+    overlay = _panel_at(tmp_path, panel, FakeEngine(), hud_minimized=True,
                         hud_corner="upper_right")
 
     assert overlay.hud_place == HudPlace("portrait", HudCorner.UPPER_RIGHT, MARGIN,
@@ -704,7 +704,7 @@ def test_its_place_is_the_corner_the_room_put_it_in_and_whether_it_is_minimized(
 
 
 def test_a_panel_with_nothing_published_has_no_place(tmp_path: Path):
-    overlay = _overlay(tmp_path, tmp_path / "unpublished.json", FakePlayer())
+    overlay = _overlay(tmp_path, tmp_path / "unpublished.json", FakeEngine())
 
     overlay.tick(window=(1200, 800))
 
@@ -712,10 +712,10 @@ def test_a_panel_with_nothing_published_has_no_place(tmp_path: Path):
 
 
 def test_a_minimized_panel_is_the_plus_button_in_that_corner(tmp_path: Path, panel: Path):
-    player = FakePlayer()
-    overlay = _panel_at(tmp_path, panel, player, hud_minimized=True,
+    engine = FakeEngine()
+    overlay = _panel_at(tmp_path, panel, engine, hud_minimized=True,
                         hud_corner="upper_right")
-    (x, y, bgra), = player.overlays.values()
+    (x, y, bgra), = engine.overlays.values()
     height, width = bgra.shape[:2]
 
     assert (width, height) == (BUTTON_SIZE_HUD, BUTTON_SIZE_HUD)
@@ -729,19 +729,19 @@ def test_a_panel_hanging_on_its_own_screen_keeps_its_default_justification(
     """In the headset the panel is a screen of its own rather than a slab over a
     corner of the picture, so the corner the session moved it to says which side
     of the player it hangs against and nothing about how it is laid out."""
-    player = FakePlayer()
+    engine = FakeEngine()
     _publish(panel, hud_corner="lower_right", hud_edge="right",
              rows=[[{"command": "portrait_next", "glyph": "N",
                      "tooltip": "Next", "width": 18}]])
     overlay = HudOverlay(
         hud_file=panel, command_file=tmp_path / "dashboard_cmd.txt",
-        player=player, clock=lambda: 0.0, over_the_video=False)
+        engine=engine, clock=lambda: 0.0, over_the_video=False)
 
     overlay.tick(window=(1200, 800))
 
     assert overlay.edge is HudEdge.RIGHT
     assert min(rect[0] for rect, _b in overlay.targets.buttons) == PAD
-    (x, y, _bgra), = player.overlays.values()
+    (x, y, _bgra), = engine.overlays.values()
     assert (x, y) == (MARGIN, MARGIN)
 
 
@@ -758,11 +758,11 @@ class _Foot:
         return []
 
 
-def _a_windows_own_panel(player, *, foot=None, posts=None):
+def _a_windows_own_panel(engine, *, foot=None, posts=None):
     model = HudModel(player="portrait", lock_label="Unlocked",
                      rows=((Button("portrait_next", "N", "Next"),),), foot=foot)
     posted = [] if posts is None else posts
-    overlay = HudOverlay(panel=lambda: model, post=posted.append, player=player,
+    overlay = HudOverlay(panel=lambda: model, post=posted.append, engine=engine,
                          clock=lambda: 0.0)
     overlay.tick()
     return overlay, posted
@@ -770,8 +770,8 @@ def _a_windows_own_panel(player, *, foot=None, posts=None):
 
 class TestAWindowsOwnPanel:
     def test_a_press_on_a_button_goes_back_to_the_program_that_handed_the_panel_over(self):
-        player = FakePlayer()
-        overlay, posted = _a_windows_own_panel(player)
+        engine = FakeEngine()
+        overlay, posted = _a_windows_own_panel(engine)
         (x, y, w, h), _button = next((rect, b) for rect, b in overlay.targets.buttons
                                      if b.command == "portrait_next")
 
@@ -783,12 +783,12 @@ class TestAWindowsOwnPanel:
         """A session publishes no readout and the room's motion file fills one
         in; the window's own program composes the readout itself, and nothing
         here may wipe it."""
-        player = FakePlayer()
+        engine = FakeEngine()
         readout = DriveHud(speed=50, amplitude=80, center=50,
                            waveform=tuple(0.5 for _ in range(80)))
         model = HudModel(player="portrait", lock_label="Unlocked", osr2="robot_hand",
                          osr2_control="driving", drive=readout)
-        overlay = HudOverlay(panel=lambda: model, post=lambda command: None, player=player,
+        overlay = HudOverlay(panel=lambda: model, post=lambda command: None, engine=engine,
                              clock=lambda: 0.0)
 
         overlay.tick()
@@ -806,7 +806,7 @@ class TestTheBlockAtTheFoot:
         return MARGIN + x, MARGIN + y
 
     def test_a_press_on_the_block_is_the_sources_with_where_it_landed(self):
-        overlay, posted = _a_windows_own_panel(FakePlayer(), foot=_Foot())
+        overlay, posted = _a_windows_own_panel(FakeEngine(), foot=_Foot())
         left, top = self._foot_at(overlay)
 
         taken = overlay.press(left + 30, top + 7)
@@ -815,7 +815,7 @@ class TestTheBlockAtTheFoot:
         assert posted == ["foot_press|30|7"]
 
     def test_a_held_press_drags_and_the_button_coming_up_lets_go(self):
-        overlay, posted = _a_windows_own_panel(FakePlayer(), foot=_Foot())
+        overlay, posted = _a_windows_own_panel(FakeEngine(), foot=_Foot())
         left, top = self._foot_at(overlay)
         overlay.press(left + 30, top + 7)
 
@@ -827,7 +827,7 @@ class TestTheBlockAtTheFoot:
         assert overlay.holding is False
 
     def test_the_wheel_over_the_block_is_the_sources_too(self):
-        overlay, posted = _a_windows_own_panel(FakePlayer(), foot=_Foot())
+        overlay, posted = _a_windows_own_panel(FakeEngine(), foot=_Foot())
         left, top = self._foot_at(overlay)
 
         taken = overlay.wheel(left + 10, top + 10, -2)
@@ -836,13 +836,13 @@ class TestTheBlockAtTheFoot:
         assert posted == ["foot_wheel|-2|10|10"]
 
     def test_the_wheel_elsewhere_on_the_panel_turns_nothing_and_is_still_the_panels(self):
-        overlay, posted = _a_windows_own_panel(FakePlayer(), foot=_Foot())
+        overlay, posted = _a_windows_own_panel(FakeEngine(), foot=_Foot())
 
         assert overlay.wheel(MARGIN + 2, MARGIN + 2, 1) is True
         assert overlay.wheel(2000, 2000, 1) is False
         assert posted == []
 
     def test_a_panel_without_a_block_has_nothing_at_its_foot_to_press(self):
-        overlay, posted = _a_windows_own_panel(FakePlayer())
+        overlay, posted = _a_windows_own_panel(FakeEngine())
 
         assert overlay.targets.foot is None

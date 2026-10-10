@@ -24,7 +24,7 @@ from .hud_corners import CORNER_PLUS_OVERLAY_ID, HudCorners
 from .hud_overlay import HUD_OVERLAY_ID, HudOverlay
 from .hud_placement import HudEdge
 from .hud_row import RowHud
-from .mpv_player import MpvPlayer
+from .mpv_engine import MpvEngine
 from .play_points import PlayPoints
 from .playback import Playback, funscripts_of
 from .playhead import flick_playhead, video_playhead
@@ -100,7 +100,7 @@ class PanelSurface(Protocol):
 
 @runtime_checkable
 class UsersPicture(Protocol):
-    """Where a User's own picture goes up: over the player's picture, as
+    """Where a User's own picture goes up: over the engine's picture, as
     :class:`FlickPicture` tiles it, or wherever else the window shows one."""
 
     def show(self, picture: Picture, window: tuple[int, int]) -> None: ...
@@ -157,7 +157,7 @@ class Funestra:
 
     def __init__(
         self,
-        player,
+        engine,
         *,
         channels: Channels,
         playlist: list[PlaylistItem],
@@ -173,7 +173,7 @@ class Funestra:
         users_picture: UsersPicture | None = None,
         window_verbs: Callable[[str], bool] = _nothing_of_its_own,
     ) -> None:
-        self._player = player
+        self._engine = engine
         self._channels = channels
         self._tiles = tiles
         self._panel_surface = panel_surface
@@ -182,7 +182,7 @@ class Funestra:
         start_paused = (channels.paused is not None
                         and read_paused_state(channels.paused, logger=logger))
         self._playback = Playback(
-            [item.path for item in playlist], player=player, start_paused=start_paused,
+            [item.path for item in playlist], engine=engine, start_paused=start_paused,
             locked=locked, play_points=PlayPoints(channels.play_points),
             funscripts=funscripts_of(playlist), tcode=tcode,
         )
@@ -195,13 +195,13 @@ class Funestra:
         self._drive_gate = DriveGate(self.playback)
         self._strip = HeatmapStrip()
         self._volume = (
-            RoomVolume(player, dashboard_cmd_file=channels.dashboard_cmd, live=audible)
-            if sound_is_the_rooms else VolumeControl(player, live=audible, muted=muted)
+            RoomVolume(engine, dashboard_cmd_file=channels.dashboard_cmd, live=audible)
+            if sound_is_the_rooms else VolumeControl(engine, live=audible, muted=muted)
         )
-        self._panel = self._panel_for(channels, panel_surface or player, panel)
-        self._users_picture = users_picture or FlickPicture(player)
+        self._panel = self._panel_for(channels, panel_surface or engine, panel)
+        self._users_picture = users_picture or FlickPicture(engine)
         self._corners = None if self._panel is None or panel_surface is not None else HudCorners(
-            self._panel, player, post=self._where_the_panel_asks(channels))
+            self._panel, engine, post=self._where_the_panel_asks(channels))
         self._pointer = Pointer(hud=self._panel, corners=self._corners,
                                 picture=self._press_on_the_picture(channels))
         self._controls = FunestraControls(
@@ -242,7 +242,7 @@ class Funestra:
             if panel is None:
                 return None
             return HudOverlay(
-                panel=panel, post=self._apply, player=drawn_on,
+                panel=panel, post=self._apply, engine=drawn_on,
                 minus_on_the_panel=self._panel_surface is None,
                 seek=self._seek_along_the_track, set_volume=self._volume.set_level,
                 toggle_mute=self._volume.toggle_mute,
@@ -250,7 +250,7 @@ class Funestra:
         if channels.console is not None:
             return ConsoleOverlay(
                 console_file=channels.console, drive_file=channels.drive,
-                command_file=channels.dashboard_cmd, player=drawn_on,
+                command_file=channels.dashboard_cmd, engine=drawn_on,
                 drive_gate=self._drive_gate, top_block=self._top_block,
                 width=None if self._panel_surface is None else self._panel_surface.width,
                 minus_on_the_panel=self._panel_surface is None,
@@ -259,7 +259,7 @@ class Funestra:
             )
         if channels.hud is not None:
             return HudOverlay(
-                hud_file=channels.hud, command_file=channels.dashboard_cmd, player=drawn_on,
+                hud_file=channels.hud, command_file=channels.dashboard_cmd, engine=drawn_on,
                 drive_file=channels.drive, drive_gate=self._drive_gate,
                 over_the_video=self._panel_surface is None,
                 minus_on_the_panel=self._panel_surface is None,
@@ -286,7 +286,7 @@ class Funestra:
                   panel: Callable[[], HudModel | None] | None = None,
                   muted: bool = True) -> Funestra:
         return cls(
-            MpvPlayer(wid, muted=muted, loop_file=False, prefetch=True),
+            MpvEngine(wid, muted=muted, loop_file=False, prefetch=True),
             channels=channels, playlist=playlist, tcode=osr2_line(channels),
             audible=audible, tiles=tiles, locked=locked, sound_is_the_rooms=sound_is_the_rooms,
             users=users, panel=panel, muted=muted,
@@ -363,8 +363,8 @@ class Funestra:
         if self._status is not None:
             self._status.write(self.playback)
         if self._tiles:
-            self._player.tile_to_fill(*window)
-        self._player.push_still()
+            self._engine.tile_to_fill(*window)
+        self._engine.push_still()
         self._paint(window)
 
     def close(self) -> None:
@@ -416,7 +416,7 @@ class Funestra:
         the track spans, which is the whole clip until a loop being recorded
         zooms it in.
         """
-        playback, player = self.playback, self._player
+        playback, engine = self.playback, self._engine
         self._strip.update(playback.showing, playback.current_funscript,
                            playback.duration_ms, self._track_width(),
                            mark_in_ms=playback.mark, position_ms=playback.position_ms)
@@ -429,7 +429,7 @@ class Funestra:
             duration_ms=end_ms - start_ms,
             volume=self._volume.hud,
             playhead=video_playhead(playback.position_ms, playback.duration_ms,
-                                    player.frame_rate),
+                                    engine.frame_rate),
             loop_bounds=None if bounds is None else (bounds[0] - start_ms,
                                                      bounds[1] - start_ms),
             record_in_ms=None if playback.mark is None else playback.mark - start_ms,
@@ -458,10 +458,10 @@ class Funestra:
     def _paint_loop_frames(self, window: tuple[int, int]) -> None:
         """The loop's in and out frames, each hanging under the panel below its
         own mark on the track."""
-        playback, player, frames = self.playback, self._player, self._loop_frames
+        playback, engine, frames = self.playback, self._engine, self._loop_frames
         which = frames.needed(playback.ab_loop, playback.position_ms)
         if which is not None:
-            frames.set(which, player.screenshot_bgra())
+            frames.set(which, engine.screenshot_bgra())
         track = None if self._panel is None else self._panel.row_track
         if playback.ab_loop is None or track is None:
             self._take_the_loop_frames_down()
@@ -471,18 +471,18 @@ class Funestra:
             self._strip, frames, playback.ab_loop,
             track=(x0, x1), win_w=window[0], top=top)
         if in_at is not None:
-            player.overlay(self.IN_FRAME_OVERLAY_ID, *in_at, frames.in_thumb)
+            engine.overlay(self.IN_FRAME_OVERLAY_ID, *in_at, frames.in_thumb)
             self._loop_frames_up = True
         if out_at is not None:
-            player.overlay(self.OUT_FRAME_OVERLAY_ID, *out_at, frames.out_thumb)
+            engine.overlay(self.OUT_FRAME_OVERLAY_ID, *out_at, frames.out_thumb)
             self._loop_frames_up = True
 
     def _take_the_loop_frames_down(self) -> None:
         if not self._loop_frames_up:
             return
         self._loop_frames_up = False
-        self._player.remove_overlay(self.IN_FRAME_OVERLAY_ID)
-        self._player.remove_overlay(self.OUT_FRAME_OVERLAY_ID)
+        self._engine.remove_overlay(self.IN_FRAME_OVERLAY_ID)
+        self._engine.remove_overlay(self.OUT_FRAME_OVERLAY_ID)
 
 
 def picture_row(picture: Picture, volume) -> RowHud | None:

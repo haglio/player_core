@@ -22,8 +22,8 @@ __all__: list[str] = []
 
 
 class VolumeControl:
-    def __init__(self, player, *, live: bool = True, muted: bool = True) -> None:
-        self._player = player
+    def __init__(self, engine, *, live: bool = True, muted: bool = True) -> None:
+        self._engine = engine
         self._live = live
         self._hud = VolumeHud(volume=MAX_VOLUME if live else MIN_VOLUME, muted=muted)
 
@@ -44,17 +44,17 @@ class VolumeControl:
 
     def _set(self, hud: VolumeHud) -> None:
         self._hud = hud
-        self._player.set_volume(hud.volume)
-        self._player.set_muted(hud.muted)
+        self._engine.set_volume(hud.volume)
+        self._engine.set_muted(hud.muted)
 
 
 class RoomVolume:
-    def __init__(self, player, *, dashboard_cmd_file: Path | None, live: bool) -> None:
-        self._player = player
+    def __init__(self, engine, *, dashboard_cmd_file: Path | None, live: bool) -> None:
+        self._engine = engine
         self._dashboard_cmd_file = dashboard_cmd_file
         self._hud = VolumeHud()
         if live:
-            player.set_muted(False)
+            engine.set_muted(False)
 
     @property
     def hud(self) -> VolumeHud:
@@ -63,7 +63,7 @@ class RoomVolume:
     def set(self, level: int, muted: bool) -> None:
         level = max(MIN_VOLUME, min(MAX_VOLUME, level))
         self._hud = VolumeHud(volume=level, muted=muted)
-        self._player.set_volume(0 if muted else level)
+        self._engine.set_volume(0 if muted else level)
 
     def toggle_mute(self) -> None:
         self._hud = replace(self._hud, muted=not self._hud.muted)

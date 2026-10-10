@@ -156,9 +156,9 @@ def test_a_guarded_call_after_the_close_does_nothing_and_says_so():
     """Losing the shutdown race is the ordinary case, so it returns rather than
     raises: a worker thread raising on its last turn would bury the real reason
     the session ended under a traceback about a player nobody wants any more."""
-    player = Guarded()
-    assert player.position_ms() == 42.0
-    assert player._gate.close(timeout=5.0)
-    assert player.position_ms() == 0.0
-    assert player.seek() is None
-    assert player.calls == ["position_ms"]
+    engine = Guarded()
+    assert engine.position_ms() == 42.0
+    assert engine._gate.close(timeout=5.0)
+    assert engine.position_ms() == 0.0
+    assert engine.seek() is None
+    assert engine.calls == ["position_ms"]

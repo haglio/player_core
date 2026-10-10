@@ -16,6 +16,7 @@ from .funscript import load as load_funscript
 from .play_points import PlayPoints
 from .playback_rate import clamp_rate
 from .playlist import PlaylistItem
+from .renamed import answers_to_old_names
 from .scripted_device import REWIND_MS, ScriptedDevice
 from .seeking import OwedSeek, seek_if_taken
 
@@ -31,12 +32,13 @@ def funscripts_of(items: Iterable[PlaylistItem]) -> dict[Path, Path]:
     return {item.path: item.funscript for item in items if item.funscript is not None}
 
 
+@answers_to_old_names({"player": "engine"})
 class Playback:
     def __init__(
         self,
         playlist: list[Path],
         *,
-        player,
+        engine,
         start_paused: bool = False,
         locked: bool = False,
         play_points: PlayPoints | None = None,
@@ -50,7 +52,7 @@ class Playback:
         self._playlist = list(playlist)
         self._funscripts = dict(funscripts or {})
         self._loaded_funscript: tuple[Path | None, Funscript | None] = (None, None)
-        self._player = player
+        self._engine = engine
         self._paused = start_paused
         self._locked = locked
         self._speed = 1.0
@@ -64,7 +66,7 @@ class Playback:
         self._ab_loop: tuple[int, int] | None = None
         self._held_at: float | None = None
         if locked:
-            player.set_loop_file(True)
+            engine.set_loop_file(True)
         self.load(0)
 
     @property
@@ -93,7 +95,7 @@ class Playback:
 
     @property
     def portrait(self) -> bool | None:
-        width, height = self._player.source_dims
+        width, height = self._engine.source_dims
         return height > width if width and height else None
 
     def funscript_of(self, video: Path) -> Path | None:
@@ -114,7 +116,7 @@ class Playback:
         if self._ab_loop is not None:
             return script.looped(*self._ab_loop)
         if self._locked:
-            return script.looped(0, round(self._player.duration_ms))
+            return script.looped(0, round(self._engine.duration_ms))
         return script
 
     @property
@@ -145,13 +147,13 @@ class Playback:
 
     @property
     def idle(self) -> bool:
-        """Whether the player has nothing up at all: the item would not open,
+        """Whether the engine has nothing up at all: the item would not open,
         or it was let go of."""
-        return self._player.idle
+        return self._engine.idle
 
     def let_go(self) -> None:
         """Play nothing, so the file on screen can be moved or deleted."""
-        self._player.stop()
+        self._engine.stop()
 
     def step_version(self, versions: list[Path], delta: int) -> None:
         showing = self.showing
@@ -183,30 +185,30 @@ class Playback:
 
     @property
     def position_ms(self) -> float:
-        return self._player.position_ms
+        return self._engine.position_ms
 
     @property
     def duration_ms(self) -> float:
-        return self._player.duration_ms
+        return self._engine.duration_ms
 
     @property
     def showing_picture(self) -> bool:
-        return self._picture_put_up or self._player.showing_picture
+        return self._picture_put_up or self._engine.showing_picture
 
     def step(self, delta: int) -> None:
         self.load(self._index + delta)
 
     def seek_by(self, delta_ms: float) -> None:
-        self.seek_to(self._player.position_ms + delta_ms)
+        self.seek_to(self._engine.position_ms + delta_ms)
 
     def seek_to(self, ms: float) -> None:
         self._owed_seek.owe(ms)
-        self._owed_seek.pay(self._player, self._seek_now)
+        self._owed_seek.pay(self._engine, self._seek_now)
 
     def _seek_now(self, ms: float) -> bool:
         floor = 0.0 if self._mark is None else float(self._mark)
-        target = max(floor, min(self._player.duration_ms, ms))
-        taken = seek_if_taken(self._player, target)
+        target = max(floor, min(self._engine.duration_ms, ms))
+        taken = seek_if_taken(self._engine, target)
         if taken:
             self._device.take_over()
         return taken
@@ -225,21 +227,21 @@ class Playback:
     def set_ab_loop(self, in_ms: int, out_ms: int) -> None:
         self._mark = None
         self._ab_loop = (in_ms, out_ms)
-        self._player.set_ab_loop(in_ms, out_ms)
+        self._engine.set_ab_loop(in_ms, out_ms)
 
     def clear_ab_loop(self) -> None:
         self._mark = None
         self._ab_loop = None
-        self._player.clear_ab_loop()
+        self._engine.clear_ab_loop()
 
     def set_paused(self, paused: bool) -> None:
         if paused == self._paused:
             return
         self._paused = paused
-        self._player.set_paused(paused)
+        self._engine.set_paused(paused)
         if not paused:
             self._device.take_over()
-            self._held_at = self._player.position_ms
+            self._held_at = self._engine.position_ms
 
     @property
     def speed(self) -> float:
@@ -247,37 +249,37 @@ class Playback:
 
     def set_speed(self, speed: float) -> None:
         self._speed = clamp_rate(speed)
-        self._player.set_speed(self._speed)
+        self._engine.set_speed(self._speed)
         self._device.take_over()
 
     def set_pace(self, seconds: float) -> None:
-        self._player.set_pace(seconds)
+        self._engine.set_pace(seconds)
 
     def show_frame(self, frame: Path) -> None:
         self._frame_on_screen = frame
         self._picture_put_up = True
-        self._player.swap_still(frame)
+        self._engine.swap_still(frame)
 
     def clear_frame(self) -> None:
         if self._frame_on_screen is not None:
             self._frame_on_screen = None
-            self._player.swap_still(self.showing)
+            self._engine.swap_still(self.showing)
 
     def set_locked(self, locked: bool) -> None:
         self._locked = locked
-        self._player.set_loop_file(locked)
+        self._engine.set_loop_file(locked)
         if locked:
-            self._player.clear_next()
+            self._engine.clear_next()
         else:
             self._stage_next()
 
     def advance(self) -> None:
-        self._owed_seek.pay(self._player, self._seek_now)
-        position_ms = self._player.position_ms
-        self._play_points.observe(self.current_video, position_ms, self._player.duration_ms)
+        self._owed_seek.pay(self._engine, self._seek_now)
+        position_ms = self._engine.position_ms
+        self._play_points.observe(self.current_video, position_ms, self._engine.duration_ms)
         if self._paused:
             return
-        if not self._locked and self._player.advanced_to_next:
+        if not self._locked and self._engine.advanced_to_next:
             self._play_points.ended()
             self._frame_on_screen = None
             self._picture_put_up = False
@@ -285,7 +287,7 @@ class Playback:
             self._ab_loop = None
             self._index = (self._index + 1) % len(self._playlist)
             self._loads += 1
-            self._player.drop_consumed()
+            self._engine.drop_consumed()
             self._stage_next()
             self._owed_seek.owe(self._play_points.point_for(self.current_video) or None)
             self._device.take_over()
@@ -300,7 +302,7 @@ class Playback:
         first frame after it, a still counting as there at once."""
         if self._held_at is None:
             return True
-        if position_ms == self._held_at and not self._player.showing_picture:
+        if position_ms == self._held_at and not self._engine.showing_picture:
             return False
         self._held_at = None
         return True
@@ -366,8 +368,8 @@ class Playback:
         video = self._versions.get(clip, clip)
         logger.info("Loading: %s", video.name)
         self.clear_ab_loop()
-        self._player.load(video)
-        self._player.set_paused(self._paused)
+        self._engine.load(video)
+        self._engine.set_paused(self._paused)
         self._stage_next()
         self._owed_seek.owe(self._play_points.point_for(clip) or None)
         self._device.take_over()
@@ -377,9 +379,9 @@ class Playback:
         if self._locked:
             return
         nxt = self._playlist[(self._index + 1) % len(self._playlist)]
-        self._player.stage_next(self._versions.get(nxt, nxt))
+        self._engine.stage_next(self._versions.get(nxt, nxt))
 
     def close(self) -> None:
         self._play_points.leave()
         self._device.close()
-        self._player.close()
+        self._engine.close()

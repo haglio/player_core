@@ -84,10 +84,10 @@ class _Plus:
 
 
 class HudCorners:
-    def __init__(self, panel, player, *, post: Callable[[str], None],
+    def __init__(self, panel, engine, *, post: Callable[[str], None],
                  overlay_id: int = CORNER_PLUS_OVERLAY_ID) -> None:
         self._panel = panel
-        self._player = player
+        self._engine = engine
         self._post = post
         self._overlay_id = overlay_id
         self._window: tuple[int, int] | None = None
@@ -115,9 +115,9 @@ class HudCorners:
             return
         self._shown = plus
         if plus is None:
-            self._player.remove_overlay(self._overlay_id)
+            self._engine.remove_overlay(self._overlay_id)
         else:
-            self._player.overlay(self._overlay_id, *plus.origin,
+            self._engine.overlay(self._overlay_id, *plus.origin,
                                  plus_bgra(plus.button, plus.corner))
 
     @staticmethod

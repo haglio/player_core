@@ -109,8 +109,8 @@ class _ScaledFrames:
 
 
 class FlickPicture:
-    def __init__(self, player, *, cache_bytes: int = SCALED_FRAMES_BYTES) -> None:
-        self._player = player
+    def __init__(self, engine, *, cache_bytes: int = SCALED_FRAMES_BYTES) -> None:
+        self._engine = engine
         self._scaled = _ScaledFrames(cache_bytes)
         self._backdrop_at: tuple[int, int] | None = None
         self._tiles_of: tuple[int, tuple[int, int]] | None = None
@@ -119,7 +119,7 @@ class FlickPicture:
 
     def show(self, picture: Picture, window: tuple[int, int]) -> None:
         if self._backdrop_at != window:
-            self._player.overlay(BACKDROP_OVERLAY_ID, 0, 0, black_bgra(*window))
+            self._engine.overlay(BACKDROP_OVERLAY_ID, 0, 0, black_bgra(*window))
             self._backdrop_at = window
         self._show_the_frame(picture.frame, window)
         self._show_the_loading(picture.loading, window)
@@ -130,9 +130,9 @@ class FlickPicture:
             return
         rects = [] if frame is None else tile_rects((frame.shape[1], frame.shape[0]), window)
         for index, (x, y, w, h) in enumerate(rects):
-            self._player.overlay(FIRST_TILE_OVERLAY_ID + index, x, y, self._scaled.get(frame, (w, h)))
+            self._engine.overlay(FIRST_TILE_OVERLAY_ID + index, x, y, self._scaled.get(frame, (w, h)))
         for index in range(len(rects), self._tiles_up):
-            self._player.remove_overlay(FIRST_TILE_OVERLAY_ID + index)
+            self._engine.remove_overlay(FIRST_TILE_OVERLAY_ID + index)
         self._tiles_up = len(rects)
         self._tiles_of = tiles_of
 
@@ -140,17 +140,17 @@ class FlickPicture:
         if loading == self._loading and not loading:
             return
         if not loading:
-            self._player.remove_overlay(LOADING_OVERLAY_ID)
+            self._engine.remove_overlay(LOADING_OVERLAY_ID)
         else:
             notice = loading_notice_bgra(loading)
-            self._player.overlay(LOADING_OVERLAY_ID, window[0] - notice.shape[1] - _LOADING_INSET,
+            self._engine.overlay(LOADING_OVERLAY_ID, window[0] - notice.shape[1] - _LOADING_INSET,
                                  _LOADING_INSET, notice)
         self._loading = loading
 
     def hide(self) -> None:
         for ident in (BACKDROP_OVERLAY_ID, LOADING_OVERLAY_ID,
                       *(FIRST_TILE_OVERLAY_ID + index for index in range(self._tiles_up))):
-            self._player.remove_overlay(ident)
+            self._engine.remove_overlay(ident)
         self._backdrop_at = None
         self._tiles_of = None
         self._tiles_up = 0

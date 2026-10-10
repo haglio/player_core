@@ -43,32 +43,32 @@ def _never_reloads() -> None:
 
 
 def _controls(tmp_path, *, entries=3, **wired) -> FunestraControls:
-    playback, _player = make_playback(tmp_path, entries=entries)
+    playback, _engine = make_playback(tmp_path, entries=entries)
     return FunestraControls(playback, **{"reload_playlist": _never_reloads, **wired})
 
 
 class TestApplyCommand:
     def test_a_frame_goes_up_in_place_of_the_picture_until_it_is_cleared(self, tmp_path):
-        playback, player = make_playback(tmp_path)
+        playback, engine = make_playback(tmp_path)
         controls = FunestraControls(playback, reload_playlist=_never_reloads)
 
         assert apply_command(f"{SHOW_FRAME} C:/frames/run one-3.png", controls) is True
         assert apply_command(CLEAR_FRAME, controls) is True
-        assert player.swapped == [Path("C:/frames/run one-3.png"), playback.showing]
+        assert engine.swapped == [Path("C:/frames/run one-3.png"), playback.showing]
 
     def test_a_frame_verb_naming_no_file_is_refused(self, tmp_path):
-        playback, player = make_playback(tmp_path)
+        playback, engine = make_playback(tmp_path)
         controls = FunestraControls(playback, reload_playlist=_never_reloads)
 
         assert apply_command(f"{SHOW_FRAME}  ", controls) is False
-        assert player.swapped == []
+        assert engine.swapped == []
 
     def test_set_pace_is_how_long_a_picture_holds_the_screen(self, tmp_path):
-        playback, player = make_playback(tmp_path)
+        playback, engine = make_playback(tmp_path)
         controls = FunestraControls(playback, reload_playlist=_never_reloads)
 
         assert apply_command(f"{SET_PACE} 2.5", controls) is True
-        assert player.pace_s == 2.5
+        assert engine.pace_s == 2.5
 
     def test_next_and_prev_navigate(self, tmp_path):
         controls = _controls(tmp_path)
@@ -168,14 +168,14 @@ class TestApplyCommand:
         assert controls.playback.current_video.name == "v0.mp4"
 
     def test_seek_fwd_and_back_move_ten_seconds_through_the_clip_on_screen(self, tmp_path):
-        playback, player = make_playback(tmp_path, entries=2, duration_ms=60_000.0)
+        playback, engine = make_playback(tmp_path, entries=2, duration_ms=60_000.0)
         controls = FunestraControls(playback, reload_playlist=_never_reloads)
-        player.position_ms = 20_000.0
+        engine.position_ms = 20_000.0
 
         assert apply_command(SEEK_FWD, controls) is True
-        assert player.position_ms == 30_000.0
+        assert engine.position_ms == 30_000.0
         assert apply_command(SEEK_BACK, controls) is True
-        assert player.position_ms == 20_000.0
+        assert engine.position_ms == 20_000.0
         assert playback.current_video.name == "v0.mp4"
 
     def test_speed_up_and_down_move_the_rate_a_step_at_a_time(self, tmp_path):
@@ -205,7 +205,7 @@ class TestApplyCommand:
 
     def test_the_room_switches_its_line_to_the_osr2_on_and_off(self, tmp_path):
         tcode = FakeTCode()
-        playback, _player = make_playback(
+        playback, _engine = make_playback(
             tmp_path, funscripts={0: _one_stroke(tmp_path / "v0.funscript")}, tcode=tcode)
         controls = FunestraControls(playback, reload_playlist=_never_reloads)
 
@@ -218,7 +218,7 @@ class TestApplyCommand:
 
     def test_the_room_holds_its_script_under_the_max_intensity(self, tmp_path):
         tcode = FakeTCode()
-        playback, _player = make_playback(
+        playback, _engine = make_playback(
             tmp_path, funscripts={0: _one_stroke(tmp_path / "v0.funscript")}, tcode=tcode)
         controls = FunestraControls(playback, reload_playlist=_never_reloads)
 
@@ -253,37 +253,37 @@ class TestTheLock:
 
 class TestTheRoomsLevel:
     def _controls(self, tmp_path):
-        playback, player = make_playback(tmp_path)
-        volume = RoomVolume(player, dashboard_cmd_file=None, live=True)
-        return FunestraControls(playback, reload_playlist=_never_reloads, room_volume=volume), player, volume
+        playback, engine = make_playback(tmp_path)
+        volume = RoomVolume(engine, dashboard_cmd_file=None, live=True)
+        return FunestraControls(playback, reload_playlist=_never_reloads, room_volume=volume), engine, volume
 
     def test_set_volume_plays_and_shows_the_level(self, tmp_path):
-        controls, player, volume = self._controls(tmp_path)
+        controls, engine, volume = self._controls(tmp_path)
 
         assert apply_command(f"{SET_VOLUME} 70 0", controls) is True
 
-        assert (player.volume, volume.hud.volume, volume.hud.muted) == (70, 70, False)
+        assert (engine.volume, volume.hud.volume, volume.hud.muted) == (70, 70, False)
 
     def test_a_mute_plays_silent_but_the_chip_still_shows_where_it_was_set(self, tmp_path):
-        controls, player, volume = self._controls(tmp_path)
+        controls, engine, volume = self._controls(tmp_path)
 
         assert apply_command(f"{SET_VOLUME} 70 1", controls) is True
 
-        assert (player.volume, volume.hud.volume, volume.hud.muted) == (0, 70, True)
+        assert (engine.volume, volume.hud.volume, volume.hud.muted) == (0, 70, True)
 
     def test_without_a_mute_flag_the_level_is_not_muted(self, tmp_path):
-        controls, player, volume = self._controls(tmp_path)
+        controls, engine, volume = self._controls(tmp_path)
 
         assert apply_command(f"{SET_VOLUME} 40", controls) is True
 
-        assert (player.volume, volume.hud.muted) == (40, False)
+        assert (engine.volume, volume.hud.muted) == (40, False)
 
     def test_a_level_it_cannot_read_leaves_the_sound_alone(self, tmp_path):
-        controls, player, _volume = self._controls(tmp_path)
+        controls, engine, _volume = self._controls(tmp_path)
 
         assert apply_command(f"{SET_VOLUME} loud", controls) is False
         assert apply_command(SET_VOLUME, controls) is False
-        assert player.volume == 100
+        assert engine.volume == 100
 
     def test_a_funestra_whose_sound_is_its_own_refuses_the_rooms_level(self, tmp_path):
         controls = _controls(tmp_path)

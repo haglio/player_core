@@ -44,7 +44,7 @@ class RefusesSeeks:
             raise SystemError("Error running mpv command", -12)
 
 
-class FakePlayer(RefusesSeeks):
+class FakeEngine(RefusesSeeks):
     def __init__(self, duration_ms: float = 5_000.0) -> None:
         self.opened: list[Path] = []
         self.playlist: list[Path] = []
@@ -169,9 +169,9 @@ def make_playback(tmp_path, *, entries=1, start_paused=False, duration_ms=5_000.
         vid = tmp_path / f"v{i}.mp4"
         vid.write_text("fake")
         playlist.append(vid)
-    player = FakePlayer(duration_ms=duration_ms)
+    engine = FakeEngine(duration_ms=duration_ms)
     return Playback(
-        playlist, player=player, start_paused=start_paused, locked=locked, play_points=play_points,
+        playlist, engine=engine, start_paused=start_paused, locked=locked, play_points=play_points,
         funscripts={playlist[index]: script for index, script in (funscripts or {}).items()},
         tcode=tcode,
-    ), player
+    ), engine

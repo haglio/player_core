@@ -31,7 +31,7 @@ class ConsoleOverlay:
         console_file: Path,
         drive_file: Path | None,
         command_file: Path | None,
-        player,
+        engine,
         drive_gate,
         top_block: Callable[[], ModeHud],
         overlay_id: int = HUD_OVERLAY_ID,
@@ -44,7 +44,7 @@ class ConsoleOverlay:
         self._console_file = Path(console_file)
         self._drive_file = None if drive_file is None else Path(drive_file)
         self._command_file = command_file
-        self._player = player
+        self._engine = engine
         self._drive_gate = drive_gate
         self._top_block = top_block
         self.overlay_id = overlay_id
@@ -94,7 +94,7 @@ class ConsoleOverlay:
         ), hover=self._hover.on(self._console), clip_row=clip_row, heatmap=heatmap)
         self._origin = self._painter.place(window=window)
         self._panel_height = bgra.shape[0]
-        self._player.overlay(self.overlay_id, *self._origin, bgra)
+        self._engine.overlay(self.overlay_id, *self._origin, bgra)
         self._shown = True
 
     @property
@@ -153,5 +153,5 @@ class ConsoleOverlay:
 
     def close(self) -> None:
         if self._shown:
-            self._player.remove_overlay(self.overlay_id)
+            self._engine.remove_overlay(self.overlay_id)
             self._shown = False

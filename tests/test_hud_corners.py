@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from funestra_fakes import FakePlayer
+from funestra_fakes import FakeEngine
 from shared_ui.spacing import BUTTON_GAP
 
 from funestra_core.hud_corners import (
@@ -30,10 +30,10 @@ class _Panel:
 
 
 def _corners(panel: _Panel | None = None,
-             asked: list[str] | None = None) -> tuple[HudCorners, FakePlayer]:
-    player = FakePlayer()
+             asked: list[str] | None = None) -> tuple[HudCorners, FakeEngine]:
+    engine = FakeEngine()
     post = (asked if asked is not None else []).append
-    return HudCorners(panel or _Panel(), player, post=post), player
+    return HudCorners(panel or _Panel(), engine, post=post), engine
 
 
 def _pointed_at(corners: HudCorners, point: tuple[int, int]) -> None:
@@ -43,24 +43,24 @@ def _pointed_at(corners: HudCorners, point: tuple[int, int]) -> None:
 
 class TestThePlus:
     def test_the_pointer_over_the_panel_puts_no_plus_under_it(self):
-        corners, player = _corners(_Panel(covering=(0, 0, *WINDOW)))
+        corners, engine = _corners(_Panel(covering=(0, 0, *WINDOW)))
 
         _pointed_at(corners, LOWER_RIGHT)
 
-        assert CORNER_PLUS_OVERLAY_ID not in player.overlays
+        assert CORNER_PLUS_OVERLAY_ID not in engine.overlays
 
     def test_a_pointer_off_the_window_puts_no_plus_anywhere(self):
-        corners, player = _corners(_Panel(corner=HudCorner.LOWER_RIGHT))
+        corners, engine = _corners(_Panel(corner=HudCorner.LOWER_RIGHT))
 
         _pointed_at(corners, (-1, -1))
 
-        assert CORNER_PLUS_OVERLAY_ID not in player.overlays
+        assert CORNER_PLUS_OVERLAY_ID not in engine.overlays
 
 
 class TestAPress:
     def test_in_a_corner_the_hud_is_not_in_asks_for_the_hud_there(self):
         asked: list[str] = []
-        corners, _player = _corners(asked=asked)
+        corners, _engine = _corners(asked=asked)
         corners.paint(window=WINDOW)
 
         taken = corners.press(*LOWER_RIGHT)
@@ -69,14 +69,14 @@ class TestAPress:
 
     def test_in_the_huds_own_corner_is_left_to_the_picture(self):
         asked: list[str] = []
-        corners, _player = _corners(_Panel(corner=HudCorner.LOWER_RIGHT), asked)
+        corners, _engine = _corners(_Panel(corner=HudCorner.LOWER_RIGHT), asked)
         corners.paint(window=WINDOW)
 
         assert (corners.press(*LOWER_RIGHT), asked) == (False, [])
 
     def test_over_the_panel_is_left_to_the_panel(self):
         asked: list[str] = []
-        corners, _player = _corners(_Panel(covering=(0, 0, *WINDOW)), asked)
+        corners, _engine = _corners(_Panel(covering=(0, 0, *WINDOW)), asked)
         corners.paint(window=WINDOW)
 
         assert (corners.press(*LOWER_RIGHT), asked) == (False, [])
