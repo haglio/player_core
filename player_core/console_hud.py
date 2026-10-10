@@ -88,7 +88,6 @@ __all__ = [
     "ConsolePainter",
     "ModeHud",
     "hud_xy",
-    "with_playback_speed",
 ]
 
 # What the two length modes are called on the line.  MIXED is absent: it

@@ -25,7 +25,6 @@ __all__ = [
     "LOCK_OFF",
     "LOCK_ON",
     "NEXT",
-    "PLAY_FILE",
     "PREV",
     "QUIT",
     "RELOAD_PLAYLIST",
@@ -35,7 +34,6 @@ __all__ = [
     "SET_MAX_INTENSITY",
     "SET_PACE",
     "SET_SPEED",
-    "SET_TCODE_ENABLED",
     "SET_VOLUME",
     "SHOW",
     "SHOW_FRAME",
@@ -43,7 +41,6 @@ __all__ = [
     "SPEED_UP",
     "TOGGLE_LOCK",
     "TRASH",
-    "pace_seconds",
     "play_file",
     "step_version",
 ]

@@ -20,7 +20,6 @@ from app_support.file_channel import write_whole
 
 __all__ = [
     "PlaylistItem",
-    "item_from_line",
     "read_playlist",
     "write_playlist",
 ]

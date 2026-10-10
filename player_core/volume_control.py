@@ -18,9 +18,7 @@ from pathlib import Path
 from .dashboard import ask
 from .volume import MAX_VOLUME, MIN_VOLUME, VolumeHud
 
-__all__ = [
-    "VolumeControl",
-]
+__all__: list[str] = []
 
 
 class VolumeControl:

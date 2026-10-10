@@ -27,17 +27,7 @@ from shared_ui.palette import TEXT_MUTED, TEXT_PRIMARY
 from player_core.hud_panel import KeptBitmap, pill
 
 __all__ = [
-    "CHIP_H",
-    "CHIP_W",
     "MARGIN",
-    "PAD",
-    "SPEAKER_W",
-    "VolumeHud",
-    "VolumeHudPainter",
-    "chip_local",
-    "chip_xy",
-    "hit_part",
-    "volume_at",
 ]
 
 # The chip: a speaker at the left end, a slider filling the rest.  Sized for the

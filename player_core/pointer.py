@@ -12,7 +12,6 @@ from .timeline import bar_track_x
 
 __all__ = [
     "OMNIPAUSE_TOGGLE",
-    "time_at",
 ]
 
 OMNIPAUSE_TOGGLE = "omnipause_toggle"

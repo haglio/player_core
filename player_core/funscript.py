@@ -24,7 +24,6 @@ from .robot_hand import FULL_INTENSITY, toward_the_park
 __all__ = [
     "PARK_TOUCH_WAIT_CAP_MS",
     "Funscript",
-    "load",
     "snap_loop",
 ]
 

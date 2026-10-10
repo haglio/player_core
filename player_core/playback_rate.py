@@ -1,11 +1,7 @@
 from __future__ import annotations
 
 __all__ = [
-    "MAX_RATE",
-    "MIN_RATE",
     "RATE_STEP",
-    "clamp_rate",
-    "parse_rate",
 ]
 
 MIN_RATE = 0.25

@@ -4,10 +4,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
-__all__ = [
-    "OwedSeek",
-    "seek_if_taken",
-]
+__all__: list[str] = []
 
 logger = logging.getLogger(__name__)
 
