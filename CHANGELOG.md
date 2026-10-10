@@ -199,17 +199,22 @@ its turn on screen -- filled left to right over the seconds the clip gets, and
 round again while the clip is held, since the count runs under the lock too and
 the lock only decides whether the next clip comes at the end -- and a press
 along it puts the clip that far into its interval. The loop has no start or end
-to scrub between, so it is a dial after the time: a clock hand going round once
-per turn, a mark at twelve o'clock at the loop's A end and a dot at six at its
-B end, and a press on it puts the loop (and the device, whose picture the frame
-is) at that point. The frame count the row carried before stays, after the
-dial: "frame 7 / 20", the way a video's row counts its frames.
+to scrub between, so it is a dial at the row's left end: a clock hand going
+round once per turn, a mark at twelve o'clock at the loop's A end and a dot at
+six at its B end, and a press on it puts the loop (and the device, whose
+picture the frame is) at that point. The frame count the row carried before
+stays, beside the dial: "frame 7 / 20", the way a video's row counts its
+frames; the time sits beside the track it runs on.
 
-The row is one line now wherever it is drawn, laid out from what is on it --
-the time, a clip's dial and its frame count, the track, the chip -- where it
-used to stack the time above the track on a panel narrower than 518 pixels and
-start a wide row's track at a fixed 193. The time and the frame count are
-words alone, no longer in a pill like the chip's.
+The row is one line now wherever it is drawn, laid out from what is on it with
+the track as wide as the rest leaves it, since the heatmap and a seek are what
+need the room: a clip's dial with its frame count, then its time, each readout
+against the control it reads out, or a video's one readout; the track; and the
+volume chip, 64 pixels wide where it was 112, flush with the row's right end
+as the first readout is with its left, a few pixels between each part. The row
+used to stack the time above the track on a panel narrower than 518 pixels,
+start a wide row's track at a fixed 193, and keep a margin at each end. The
+time and the frame count are words alone, no longer in a pill like the chip's.
 
 `loop_dial` (new, private): the dial and what a press on it names.
 `RowHud.loop` is a clip's frames played of how many, which the dial goes round
@@ -219,7 +224,9 @@ part of the row landed, and `row_part`, `scrub_to`, `turn_to`, `volume_to` and
 and the overlays (`ConsoleOverlay.row`, `HudOverlay.row`) in place of a rect.
 `bar_track_x(left=)` takes where the track starts, and `progress_bar_bgra`,
 `HeatmapStrip.update` and `timeline_x` take the track. `readout_width` is the
-room a readout takes. `ClipAdvanceState.elapsed` and `set_elapsed` are the
+room a readout takes. `volume.TRACK_GAP` is what `MARGIN` was, the gap
+between the track and the chip, now the only room the chip keeps;
+`timeline.BAR_INSET_X` is gone with the margin. `ClipAdvanceState.elapsed` and `set_elapsed` are the
 track's two halves, `ClipRenderController.playhead` the dial's and the frame
 count's, and `GenauRefreshController.seek_the_time_on_screen` the press
 reaching the engine; `set_locked` and `toggle_lock` are gone, the flag being

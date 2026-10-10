@@ -10,7 +10,7 @@ from shared_ui.palette import TEXT_PRIMARY
 from .hud_panel import KeptBitmap, ink_center_offset, load_font, text_width
 from .hud_status import SEPARATOR
 from .renamed import old_name_getter
-from .volume import CHIP_H, MARGIN, chip_xy
+from .volume import CHIP_H, chip_xy
 
 __all__: list[str] = []
 
@@ -65,11 +65,11 @@ def lower_edge_height(win_w: int, *, timeline_h: int) -> int:
 
 
 def readout_xy(readout_w: int, *, win_w: int, win_h: int, timeline_h: int) -> tuple[int, int]:
-    return MARGIN, chip_xy(win_w=win_w, win_h=win_h, timeline_h=timeline_h)[1]
+    return 0, chip_xy(win_w=win_w, win_h=win_h, timeline_h=timeline_h)[1]
 
 
 def on_readout(x: int, y: int, *, win_w: int, win_h: int, timeline_h: int) -> bool:
-    return y >= win_h - timeline_h and x < MARGIN
+    return False
 
 
 @cache

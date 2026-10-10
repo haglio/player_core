@@ -9,6 +9,8 @@ from PIL import Image
 
 from funestra_core.hud_row import (
     DIAL,
+    GAP,
+    GROUP_GAP,
     MUTE,
     PARTS_Y,
     READOUT,
@@ -28,7 +30,6 @@ from funestra_core.loop_dial import DIAL_SIZE
 from funestra_core.playhead import PlayheadHud, flick_playhead, readout_width, video_playhead
 from funestra_core.timeline import (
     AMBER,
-    BAR_INSET_X,
     HEATMAP_ALPHA,
     RED,
     TIMELINE_HEIGHT,
@@ -36,10 +37,8 @@ from funestra_core.timeline import (
 from funestra_core.volume import (
     CHIP_H,
     CHIP_W,
-    MARGIN,
     MAX_VOLUME,
     MIN_VOLUME,
-    PAD,
     SLOT_W,
     SPEAKER_W,
     VolumeHud,
@@ -59,35 +58,37 @@ def _layout(row: RowHud, width: int = WIDTH, at: tuple[int, int] = (0, 0)):
 
 
 class TestHowTheRowIsLaidOut:
-    """One line, laid out from what is on it: the readout, a flick's dial, the
-    track, and the chip at the right end."""
+    """One line, laid out from what is on it, with the track as wide as the
+    rest leaves it: the readout, or a flick's dial and frame count and then its
+    time, at the row's left end, and the chip at its right."""
 
     def test_a_videos_row_is_its_readout_then_the_track_then_the_chip(self):
         layout = _layout(VIDEO)
 
         x, width = layout.readout
-        assert (x, width) == (MARGIN, readout_width(TIME))
+        assert (x, width) == (0, readout_width(TIME))
         assert layout.dial is None
-        assert layout.track == (x + width + MARGIN, WIDTH - SLOT_W)
+        assert layout.track == (width + GAP, WIDTH - SLOT_W)
 
-    def test_a_flicks_row_is_its_time_then_its_dial_then_its_frame_count_then_the_track(self):
-        """The order he asked for: the time, the dial, the frames, the
-        scrubber and the volume, on one row together."""
+    def test_a_flicks_row_is_its_dial_with_its_frame_count_then_its_time_with_the_track(self):
+        """The frames go with the dial and the time with the scrubber, each
+        readout against the control it reads out."""
         layout = _layout(CLIP)
 
-        x, width = layout.readout
-        assert layout.dial == x + width + PAD
-        assert layout.frame == (layout.dial + DIAL_SIZE + PAD, readout_width(FRAME))
-        assert layout.track[0] == layout.frame[0] + layout.frame[1] + MARGIN
+        assert layout.dial == 0
+        assert layout.frame == (DIAL_SIZE + GAP, readout_width(FRAME))
+        frames_end = layout.frame[0] + layout.frame[1]
+        assert layout.readout == (frames_end + GROUP_GAP, readout_width(TIME))
+        assert layout.track[0] == layout.readout[0] + layout.readout[1] + GAP
 
     def test_a_videos_row_counts_no_frames_of_its_own(self):
         assert _layout(VIDEO).frame is None
 
-    def test_a_row_with_nothing_before_its_track_starts_it_a_little_in(self):
+    def test_a_row_with_nothing_before_its_track_starts_it_at_the_edge(self):
         layout = _layout(RowHud(duration_ms=10_000))
 
         assert (layout.readout, layout.dial) == (None, None)
-        assert layout.track == (BAR_INSET_X, WIDTH - SLOT_W)
+        assert layout.track == (0, WIDTH - SLOT_W)
 
     def test_a_longer_video_moves_the_track_along_rather_than_the_readout_over_it(self):
         short = _layout(RowHud(duration_ms=195_000, playhead=video_playhead(0, 195_000, 30)))
@@ -95,16 +96,18 @@ class TestHowTheRowIsLaidOut:
                               playhead=video_playhead(0, 7_200_000, 60)))
 
         assert long.track[0] > short.track[0]
-        assert long.readout[0] == short.readout[0] == MARGIN
+        assert long.readout[0] == short.readout[0] == 0
 
-    def test_it_is_one_line_however_narrow_the_panel(self):
-        """The headset's console is 380 across; the row used to stack its
-        readout on a line of its own there, and now fits beside the track."""
-        layout = _layout(CLIP, width=380)
+    def test_the_track_keeps_most_of_a_narrow_panel_for_itself(self):
+        """The headset's console is 380 across.  The scrubber is what the
+        heatmap and a seek need room for, so the readouts, the dial and the
+        chip take only what they must and the track has the rest: more than
+        a third of a flick's row, nearly half of a video's."""
+        clip, video = _layout(CLIP, width=380), _layout(VIDEO, width=380)
 
-        assert layout.rect[3] == TIMELINE_HEIGHT
-        assert layout.track[0] > layout.dial + DIAL_SIZE
-        assert layout.track[1] - layout.track[0] >= 60
+        assert clip.rect[3] == TIMELINE_HEIGHT
+        assert clip.track[1] - clip.track[0] >= 140
+        assert video.track[1] - video.track[0] >= 180
 
     def test_the_narrowest_panel_still_leaves_the_track_room_to_press(self):
         for row in (VIDEO, CLIP, RowHud(duration_ms=10_000)):
@@ -139,9 +142,9 @@ def test_it_draws_each_part_where_it_laid_it_out_and_nothing_between_them():
     assert painted[middle, dial_x + DIAL_SIZE // 2, 3] > 0
     assert painted[PARTS_Y:PARTS_Y + CHIP_H, frame_x:frame_x + frame_w, 3].any()
     assert painted[ROW_H // 2, track_x0 + 5, 3] > 0
-    assert painted[middle, readout_x + readout_w + PAD // 2, 3] == 0
-    assert painted[middle, dial_x + DIAL_SIZE + PAD // 2, 3] == 0
-    assert painted[middle, frame_x + frame_w + MARGIN // 2, 3] == 0
+    assert painted[middle, dial_x + DIAL_SIZE + GAP // 2, 3] == 0
+    assert painted[middle, frame_x + frame_w + GROUP_GAP // 2, 3] == 0
+    assert painted[middle, readout_x + readout_w + GAP // 2, 3] == 0
 
 
 def test_the_frame_count_reads_as_a_flicks_readout_does():
@@ -369,12 +372,12 @@ class TestAFlicksDial:
 
         assert ink[cy + 2, cx + 7] > ink[cy - 2, cx - 7] + 150
 
-    def test_a_videos_row_has_no_dial_and_runs_its_track_where_one_would_be(self):
+    def test_a_videos_row_has_no_dial_and_starts_with_its_readout_instead(self):
         layout = _layout(VIDEO)
         cx, cy = self._dial_center(_layout(CLIP))
 
         assert layout.dial is None
-        assert row_part(cx, cy, layout) == SCRUBBER
+        assert row_part(cx, cy, layout) == READOUT
 
     def test_a_press_on_the_dial_is_on_the_dial_only_where_the_row_has_one(self):
         clip, video = _layout(CLIP), _layout(VIDEO)
