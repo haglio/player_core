@@ -46,7 +46,6 @@ __all__ = [
     "parse_console",
     "place_rows",
     "read_console",
-    "shape_label",
     "tooltip_at",
 ]
 
