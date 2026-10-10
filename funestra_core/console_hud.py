@@ -341,6 +341,12 @@ class ConsolePainter:
         local = self._local(mx, my)
         return local if tooltip_at(self.buttons, *local) else None
 
+    # Only Genau's old console panel, in checkouts from before its window went,
+    # reads row_rect; it answers until none of them is open.
+    @property
+    def row_rect(self) -> tuple[int, int, int, int] | None:
+        return None if self.row is None else self.row.rect
+
     @property
     def hud_place(self) -> HudPlace | None:
         painted = self._painted[0]

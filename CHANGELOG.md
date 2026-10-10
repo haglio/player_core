@@ -9,6 +9,56 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `funestra_core/` (until 2026-10-10 `player_core/`) and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-10-10 — a flick's track runs its time on screen, a dial beside it goes round with the loop, and the row is one line
+
+A flick has two senses of time, and its row at the console's foot showed the
+wrong one on the track: how far round its loop the motion had taken it, counted
+in frames. The track is a scrubber, so it now runs the time the flick has had of
+its turn on screen -- filled left to right over the seconds the flick gets, and
+round again while the flick is held, since the count runs under the lock too
+and the lock only decides whether the next flick comes at the end -- and a
+press along it puts the flick that far into its interval. The loop has no start
+or end to scrub between, so it is a dial at the row's left end: a clock hand
+going round once per turn, a mark at twelve o'clock at the loop's A end and a
+dot at six at its B end, and a press on it puts the loop (and the device, whose
+picture the frame is) at that point. The frame count stays, beside the dial,
+"frame 7 / 20"; the time sits beside the track it runs on.
+
+The row is one line now wherever it is drawn, laid out from what is on it with
+the track as wide as the rest leaves it, since the heatmap and a seek are what
+need the room: a flick's dial with its frame count, then its time, each readout
+against the control it reads out, or a video's one readout; the track; and the
+volume chip, 64 pixels wide where it was 112, flush with the row's right end as
+the first readout is with its left, a few pixels between each part. The row
+used to stack the time above the track on a panel narrower than 518 pixels,
+start a wide row's track at a fixed 193, and keep a margin at each end. The
+time and the frame count are words alone, no longer in a pill like the chip's.
+
+`loop_dial` (new, private): the dial and what a press on it names.
+`RowHud.loop` is a flick's frames played of how many, which the dial goes round
+with and the frame count counts; `RowLayout`, from `row_layout`, is where each
+part of the row landed, and `row_part`, `scrub_to`, `turn_to`, `volume_to` and
+`RowPress` read it, as do the panels (`ConsolePainter.row`, `HudTargets.row`)
+and the overlays (`ConsoleOverlay.row`, `HudOverlay.row`) in place of a rect.
+`bar_track_x(left=)` takes where the track starts, `progress_bar_bgra` takes the
+track, and `HeatmapStrip.update` is handed the track's width rather than the
+row's. `readout_width` is the room a readout takes, and `volume.TRACK_GAP` the
+gap between the track and the chip, which `MARGIN` was. `FlickAdvanceState`'s
+`elapsed` and `set_elapsed` are the track's two halves,
+`FlickRenderController.playhead` the dial's and the frame count's, and
+`GenauRefreshController.seek_the_time_on_screen` the press reaching the engine;
+`set_locked` and `toggle_lock` are gone, the flag being all that was left of
+them, and nothing outside this package ever called them. A `Picture` a User
+puts up carries both senses -- `played` and `count`, `elapsed_ms` and
+`interval_ms`, with `seek_time` and `seek_loop` for the two presses -- and
+still takes `seek` for `seek_loop`. `READOUT_SLOT_W`, `readout_shares_the_row`
+and `BAR_INSET_X` are gone with the stacked line and the margins;
+`lower_edge_height`, `readout_xy`, `on_readout`, `timeline_x`, `timeline_bgra`,
+`pointer.time_at`, `HudOverlay.row_rect` and `ConsolePainter.row_rect`, which
+only the headset's old copies of the row and Genau's old console panel reached,
+keep answering in their old shapes for the checkouts from before
+haglio/fun_time#391 still open on this machine.
+
 ## 2026-10-10 — `console.shape_label` is no longer offered
 
 Fun Time takes the row that aims the device from here too now (fun_time #394),
@@ -190,55 +240,6 @@ handover that swapped the windows), `clip_preload` (the window's first-clip prel
 imported by nothing), and the genau package's entry among the known HUD drawers
 (there is no genau package). `genau_controls` keeps its `hud` flag: the desktop's
 Genau sets it when it loses the window, and the engine stops rendering on it.
-## 2026-10-08 — a clip's track runs its time on screen, a dial beside it goes round with the loop, and the row is one line
-
-A clip has two senses of time, and its row at the console's foot showed the
-wrong one on the track: how far round its loop the motion had taken it, counted
-in frames. The track is a scrubber, so it now runs the time the clip has had of
-its turn on screen -- filled left to right over the seconds the clip gets, and
-round again while the clip is held, since the count runs under the lock too and
-the lock only decides whether the next clip comes at the end -- and a press
-along it puts the clip that far into its interval. The loop has no start or end
-to scrub between, so it is a dial at the row's left end: a clock hand going
-round once per turn, a mark at twelve o'clock at the loop's A end and a dot at
-six at its B end, and a press on it puts the loop (and the device, whose
-picture the frame is) at that point. The frame count the row carried before
-stays, beside the dial: "frame 7 / 20", the way a video's row counts its
-frames; the time sits beside the track it runs on.
-
-The row is one line now wherever it is drawn, laid out from what is on it with
-the track as wide as the rest leaves it, since the heatmap and a seek are what
-need the room: a clip's dial with its frame count, then its time, each readout
-against the control it reads out, or a video's one readout; the track; and the
-volume chip, 64 pixels wide where it was 112, flush with the row's right end
-as the first readout is with its left, a few pixels between each part. The row
-used to stack the time above the track on a panel narrower than 518 pixels,
-start a wide row's track at a fixed 193, and keep a margin at each end. The
-time and the frame count are words alone, no longer in a pill like the chip's.
-
-`loop_dial` (new, private): the dial and what a press on it names.
-`RowHud.loop` is a clip's frames played of how many, which the dial goes round
-with and the frame count counts; `RowLayout`, from `row_layout`, is where each
-part of the row landed, and `row_part`, `scrub_to`, `turn_to`, `volume_to` and
-`RowPress` read it, as do the panels (`ConsolePainter.row`, `HudTargets.row`)
-and the overlays (`ConsoleOverlay.row`, `HudOverlay.row`) in place of a rect.
-`bar_track_x(left=)` takes where the track starts, and `progress_bar_bgra`,
-`HeatmapStrip.update` and `timeline_x` take the track. `readout_width` is the
-room a readout takes. `volume.TRACK_GAP` is what `MARGIN` was, the gap
-between the track and the chip, now the only room the chip keeps;
-`timeline.BAR_INSET_X` is gone with the margin. `ClipAdvanceState.elapsed` and `set_elapsed` are the
-track's two halves, `ClipRenderController.playhead` the dial's and the frame
-count's, and `GenauRefreshController.seek_the_time_on_screen` the press
-reaching the engine; `set_locked` and `toggle_lock` are gone, the flag being
-all that was left of them. A `Picture` a User puts up carries both senses --
-`played` and `count`, `elapsed_ms` and `interval_ms`, with `seek_time` and
-`seek_loop` for the two presses -- and the Funestra's row and `RowPress` take
-the dial from it. `READOUT_SLOT_W` and `readout_shares_the_row` are gone with
-the stacked line; `lower_edge_height`, `readout_xy`, `on_readout`,
-`timeline_bgra` and `pointer.time_at` leave once the Fun Time on main, which
-still reaches them, has its next, and `DIAL`, `READOUT`, `turn_to`,
-`RowSection`, `RowLayout` and `row_layout` are declared then.
-
 ## 2026-10-08 — a window follows its playlist file, and fifteen HUD names are declared again
 
 `PlaylistFollower` (new, private to this package): a window takes the list its

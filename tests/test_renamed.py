@@ -19,6 +19,7 @@ from funestra_core.console import ConsoleModel, console_text, parse_console
 from funestra_core.cruise_control import CruiseControlState
 from funestra_core.flag import Flag
 from funestra_core.flick_cache import FlickCacheStore
+from funestra_core.flick_picture import Picture
 from funestra_core.flick_renderer import FlickRenderController
 from funestra_core.genau_controls import GenauControls, apply_runtime_command
 from funestra_core.genau_notifier import GenauNotifier
@@ -55,6 +56,16 @@ def test_a_class_takes_its_old_keyword_names_and_answers_to_its_old_attribute_na
 
     assert renderer.flick_store is store
     assert renderer.current_clip_path == Path("C:/flicks/alpha.mp4")
+
+
+def test_a_picture_takes_its_old_seek_for_the_seek_round_its_loop():
+    turns = []
+
+    picture = Picture(frame=None, seek=turns.append, clip=Path("C:/flicks/alpha.mp4"))
+    picture.seek(0.25)
+
+    assert turns == [0.25] and picture.seek_loop == turns.append
+    assert picture.flick == Path("C:/flicks/alpha.mp4")
 
 
 def test_genaus_controls_take_the_collaborators_an_old_orchestrator_names():
