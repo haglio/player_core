@@ -308,10 +308,10 @@ class TestAFlicksDial:
         section.draw(panel, 0, 0, width, RowHud(position_ms=4_000, duration_ms=10_000,
                                                 playhead=playhead, loop_turn=0.0))
 
-        pill_w = PlayheadHudPainter().bgra(playhead).shape[1]
-        x, y = readout_xy(pill_w, win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT,
+        readout_w = PlayheadHudPainter().bgra(playhead).shape[1]
+        x, y = readout_xy(readout_w, win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT,
                           dial=True)
         painted = np.asarray(panel)
-        assert painted[y + CHIP_H // 2, x + 3, 3] > 0
+        assert painted[y:y + CHIP_H, x:x + readout_w, 3].any()
         dx, dy = dial_xy(win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT)
         assert painted[dy + DIAL_SIZE // 2, dx + DIAL_SIZE // 2, 3] > 0

@@ -2,16 +2,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cache
 
-from PIL import Image
+from PIL import Image, ImageDraw
 from shared_ui.palette import TEXT_PRIMARY
 
-from .hud_panel import KeptBitmap, ink_center_offset, load_font, pill, text_width
+from .hud_panel import KeptBitmap, ink_center_offset, load_font, text_width
 from .hud_status import SEPARATOR
 from .loop_dial import DIAL_SIZE
 from .renamed import old_name_getter
 from .timeline import READOUT_SLOT_W, bar_track_x, readout_shares_the_row
-from .volume import CHIP_H, MARGIN, PAD, chip_xy
+from .volume import CHIP_H, MARGIN, chip_xy
 
 __all__: list[str] = []
 
@@ -84,13 +85,25 @@ def on_readout(x: int, y: int, *, win_w: int, win_h: int, timeline_h: int) -> bo
     return top <= y < top + CHIP_H and track_x0 <= x < track_x0 + _WIDEST_READOUT_W
 
 
+@cache
+def _font():
+    return load_font(_TEXT_PT)
+
+
+def readout_width(hud: PlayheadHud) -> int:
+    """The room the readout takes on the row: its widest words' worth."""
+    return text_width(_font(), hud.widest)
+
+
 class PlayheadHudPainter(KeptBitmap):
+    """The words alone, as tall as the chip and centered on the digits' ink."""
+
     def __init__(self) -> None:
         super().__init__()
-        self._font = load_font(_TEXT_PT)
-        self._top = (CHIP_H - 1) / 2 - ink_center_offset(self._font, "0")[1]
+        self._top = (CHIP_H - 1) / 2 - ink_center_offset(_font(), "0")[1]
 
     def _paint(self, hud: PlayheadHud) -> Image.Image:
-        image, draw = pill(text_width(self._font, hud.widest) + 2 * PAD, CHIP_H)
-        draw.text((PAD, self._top), hud.text, font=self._font, fill=(*TEXT_PRIMARY, 255))
+        image = Image.new("RGBA", (readout_width(hud), CHIP_H), (0, 0, 0, 0))
+        ImageDraw.Draw(image).text((0, self._top), hud.text, font=_font(),
+                                   fill=(*TEXT_PRIMARY, 255))
         return image

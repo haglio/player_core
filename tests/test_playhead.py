@@ -8,11 +8,12 @@ from funestra_core.playhead import (
     flick_playhead,
     lower_edge_height,
     on_readout,
+    readout_width,
     readout_xy,
     video_playhead,
 )
 from funestra_core.timeline import TIMELINE_HEIGHT, bar_track_x
-from funestra_core.volume import CHIP_H, MARGIN, PAD, chip_xy
+from funestra_core.volume import CHIP_H, MARGIN, chip_xy
 
 
 class TestWhatAVideosReadoutSays:
@@ -42,8 +43,8 @@ class TestWhatAVideosReadoutSays:
         assert video_playhead(1_000.0, 5_000.0, 0.0).text == "0:01 / 0:05"
 
     def test_the_widest_it_gets_is_what_it_says_on_the_last_frame(self):
-        """The pill is sized to this, so a frame count that gains a digit
-        partway through the video never pushes the clock along the row."""
+        """The readout's room is sized to this, so a frame count that gains a
+        digit partway through the video never pushes the clock along the row."""
         playhead = video_playhead(42_000.0, 2_715_000.0, 60.0)
 
         assert playhead.widest == "45:15 / 45:15 · frame 162900"
@@ -60,17 +61,27 @@ class TestWhatAClipsReadoutSays:
         assert flick_playhead(0, 0) is None
 
 
-class TestThePill:
+class TestTheReadout:
+    def test_it_is_the_words_alone_with_nothing_drawn_round_them(self):
+        """He asked that the time and the frames not sit in a bubble as if
+        they were a button: the panel under them is ground enough."""
+        bgra = PlayheadHudPainter().bgra(video_playhead(42_000.0, 195_000.0, 30.0))
+
+        painted = bgra[:, :, 3] > 0
+        assert painted.any()
+        assert painted.mean() < 0.5
+        assert not painted[0].any() and not painted[-1].any()
+
     def test_it_is_as_tall_as_the_volume_chip_at_the_other_end_of_the_row(self):
-        pill = PlayheadHudPainter().bgra(video_playhead(42_000.0, 195_000.0, 30.0))
+        bgra = PlayheadHudPainter().bgra(video_playhead(42_000.0, 195_000.0, 30.0))
 
-        assert pill.shape[0] == CHIP_H
+        assert bgra.shape[0] == CHIP_H
 
-    def test_a_video_that_runs_for_hours_gets_a_wider_pill_than_a_short_one(self):
-        short = PlayheadHudPainter().bgra(video_playhead(0.0, 195_000.0, 30.0))
-        long = PlayheadHudPainter().bgra(video_playhead(0.0, 7_200_000.0, 60.0))
+    def test_it_takes_the_room_its_widest_words_need(self):
+        hud = video_playhead(0.0, 7_200_000.0, 60.0)
 
-        assert long.shape[1] > short.shape[1]
+        assert PlayheadHudPainter().bgra(hud).shape[1] == readout_width(hud)
+        assert readout_width(hud) > readout_width(video_playhead(0.0, 195_000.0, 30.0))
 
     def test_it_shows_where_the_video_has_got_to_without_changing_size(self):
         painter = PlayheadHudPainter()
@@ -89,18 +100,18 @@ class TestThePill:
 
         assert painter.bgra(hud) is painter.bgra(hud)
 
-    def test_its_digits_sit_in_the_middle_of_the_pill(self):
+    def test_its_digits_sit_in_the_middle_of_the_row(self):
         """Centered on the digits' own ink.  Pillow's middle anchor centers the
         face's whole line, descender included, which sits a digit low."""
-        pill = PlayheadHudPainter().bgra(video_playhead(42_000.0, 195_000.0, 0.0))
+        bgra = PlayheadHudPainter().bgra(video_playhead(42_000.0, 195_000.0, 0.0))
 
-        first_digit = pill[:, PAD:PAD + 6, :3].sum(axis=2) > 600
+        first_digit = bgra[:, :6, 3] > 128
         rows = np.flatnonzero(first_digit.any(axis=1))
 
         assert abs((rows[0] + rows[-1]) / 2 - (CHIP_H - 1) / 2) <= 0.5
 
 
-class TestWhereThePillGoes:
+class TestWhereTheReadoutGoes:
     def test_it_sits_against_the_start_of_the_track_level_with_the_chip(self):
         x, y = readout_xy(131, win_w=1000, win_h=600, timeline_h=TIMELINE_HEIGHT)
 
