@@ -2,7 +2,7 @@
 flick is moved to, laid out the same way.
 
 Condemning does the least it can — one file move.  A flick's other traces (its
-metadata record, the clipper session it was cut from) stay where they are, and
+metadata record, the Genaumacher session it was cut from) stay where they are, and
 the filename carries which flick it was.
 """
 from __future__ import annotations
