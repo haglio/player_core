@@ -132,9 +132,6 @@ class TestDropCurrent:
 
 
 class TestMovingToAClip:
-    """Where a Genau arriving in a room goes: the clip the one with the room is
-    showing, found in its own order so stepping on from it walks that order."""
-
     def test_it_moves_to_the_clip_named(self):
         controller = ClipSequenceController(_paths())
 

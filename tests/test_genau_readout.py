@@ -1,16 +1,13 @@
-"""The two cadences, and what is asked for at which of them.
+"""The readout's cadence, and what goes out at it.
 
-Nothing had ever pinned either.  The readout goes out 25 times a second because
-its trace scrolls; the console around it is re-read five times a second because
-mode, OSR2 and broker move a few times a minute.  Drop either throttle and the
-app still works, faster and noisier -- a file written at the refresh rate and a
-file read at it -- which is why neither shows up as a failure anywhere else.
+Nothing had ever pinned it.  The readout goes out 25 times a second because its
+trace scrolls; drop the throttle and the app still works, faster and noisier --
+a file written at the refresh rate -- which is why it shows up as a failure
+nowhere else.
 """
 from __future__ import annotations
 
-import json
 import random
-from pathlib import Path
 
 import pytest
 
@@ -31,7 +28,6 @@ from player_core.learned_motion import (
     enable_learned_motion,
     tick_learned_motion,
 )
-from player_core.modes import MainMode
 from player_core.robot_hand import MIN_BPM, RobotHandState, bpm_for_speed
 from player_core.robot_hand_beat import BeatEngine
 
@@ -55,11 +51,6 @@ def _controls(**over) -> GenauControls:
     )
 
 
-def _publish(path: Path, mode: str) -> None:
-    """Write the console file the way Fun Time writes it."""
-    path.write_text(json.dumps({"main_mode": mode}), encoding="utf-8")
-
-
 def _readout(**over) -> GenauReadout:
     return GenauReadout(
         controls=over.pop("controls", None) or _controls(),
@@ -75,8 +66,6 @@ def _readout(**over) -> GenauReadout:
 # them.
 JUST_UNDER_DRIVE = 0.0390625     # 5/128, under 0.04
 JUST_OVER_DRIVE = 0.04296875     # 11/256, over 0.04
-JUST_UNDER_CONSOLE = 0.1953125   # 25/128, under 0.2
-JUST_OVER_CONSOLE = 0.203125     # 13/64, over 0.2
 
 
 class TestHowOftenTheReadoutGoesOut:
@@ -113,110 +102,30 @@ class TestHowOftenTheReadoutGoesOut:
         _readout().update(1.0)   # must not raise
 
 
-class TestHowOftenTheConsoleIsReRead:
-    def test_the_first_tick_reads_it(self, tmp_path):
-        console = tmp_path / "console.txt"
-        _publish(console, "kino")
-        shown = []
-        readout = _readout(console_file=console, set_console=shown.append)
 
-        readout.update(1.0)
+class TestWhatTheLineIsEachTime:
+    def test_under_the_broker_the_line_still_goes_out(self):
+        """The whole readout used to come down here, leaving the device running
+        itself with no line at all."""
+        readout = _readout()
 
-        assert shown[-1].console.main_mode is MainMode.KINO
+        readout.update(1.0, AutoMotion(phase=0.0, bpm=90.0))
 
-    def test_a_tick_too_soon_after_it_keeps_the_model_it_had(self, tmp_path):
-        console = tmp_path / "console.txt"
-        _publish(console, "kino")
-        shown = []
-        readout = _readout(console_file=console, set_console=shown.append)
-        readout.update(1.0)
-
-        _publish(console, "kino")
-        readout.update(1.0 + JUST_UNDER_CONSOLE)
-
-        assert shown[-1].console.main_mode is MainMode.KINO
-
-    def test_a_tick_far_enough_after_it_takes_the_new_one(self, tmp_path):
-        console = tmp_path / "console.txt"
-        _publish(console, "kino")
-        shown = []
-        readout = _readout(console_file=console, set_console=shown.append)
-        readout.update(1.0)
-
-        _publish(console, "kino")
-        readout.update(1.0 + JUST_OVER_CONSOLE)
-
-        assert shown[-1].console.main_mode is MainMode.KINO
-
-    def test_a_standalone_genau_names_itself(self, tmp_path):
-        """No file backing it, and the panel still draws sensibly."""
-        shown = []
-
-        _readout(set_console=shown.append).update(1.0)
-
-        assert shown[-1].console.main_mode is MainMode.GENAU
-
-    def test_a_half_written_file_keeps_the_last_one_rather_than_blanking(self, tmp_path):
-        """Fun Time replaces this file while Genau polls it, so a lost race must
-        not empty the panel for a frame."""
-        console = tmp_path / "console.txt"
-        _publish(console, "kino")
-        shown = []
-        readout = _readout(console_file=console, set_console=shown.append)
-        readout.update(1.0)
-
-        console.write_text("{\"mo", encoding="utf-8")   # caught mid-replace
-        readout.update(1.0 + JUST_OVER_CONSOLE)
-
-        assert shown[-1].console.main_mode is MainMode.KINO
-
-
-class TestWhatThePanelIsToldEachTime:
-    def test_the_clip_is_asked_for_as_the_panel_is_built(self, tmp_path):
-        """Captured when the readout was built, the panel would name the clip
-        the session opened on for the rest of the session."""
-        on_screen = [Path("first clip.mp4")]
-        shown = []
-        readout = _readout(set_console=shown.append,
-                           current_clip=lambda: on_screen[0])
-
-        readout.update(1.0)
-        on_screen[0] = Path("second clip.mp4")
-        readout.update(2.0)
-
-        assert [hud.modes.video for hud in shown] == ["first clip", "second clip"]
-
-    def test_with_no_clip_up_yet_the_panel_names_none(self):
-        shown = []
-
-        _readout(set_console=shown.append).update(1.0)
-
-        assert shown[-1].modes.video == ""
-
-    def test_under_the_broker_the_panel_still_goes_up(self):
-        """The whole console used to come down here -- the room's controls, the
-        OSR2 word and the line with them -- leaving the device running itself
-        with nothing at all on the screen."""
-        shown = []
-
-        _readout(set_console=shown.append).update(1.0, AutoMotion(phase=0.0, bpm=90.0))
-
-        assert shown[-1] is not None
+        assert readout.drive is not None
 
     def test_its_line_does_not_jump_where_the_beat_starts_round_again(self):
         """The broker's beat counts 0 to 1 and starts again, while the trace's
         knots stay put only on a phase counted up without wrapping: taken as it
         comes, the line jumped sideways at every wrap."""
-        wrapped, counted = [], []
-        wrapping = _readout(set_console=wrapped.append)
-        counting = _readout(set_console=counted.append)
+        wrapping = _readout()
+        counting = _readout()
 
         wrapping.update(1.0, AutoMotion(phase=0.99, bpm=87.0))
         wrapping.update(1.1, AutoMotion(phase=0.01, bpm=87.0))
         counting.update(1.0, AutoMotion(phase=0.99, bpm=87.0))
         counting.update(1.1, AutoMotion(phase=1.01, bpm=87.0))
 
-        assert wrapped[-1].drive == counted[-1].drive
+        assert wrapping.drive == counting.drive
 
 
 class TestTheSpanTheTraceIsDrawnOver:
@@ -226,11 +135,11 @@ class TestTheSpanTheTraceIsDrawnOver:
 
     @pytest.mark.parametrize("beats_per_loop", [2.0, 4.0, 8.0])
     def test_it_is_one_whole_cycle_at_the_slowest_speed(self, beats_per_loop):
+        readout = _readout(beats_per_loop=beats_per_loop)
 
-        shown = []
-        _readout(beats_per_loop=beats_per_loop, set_console=shown.append).update(1.0)
+        readout.update(1.0)
 
-        assert shown[-1].drive.trace_seconds == pytest.approx(
+        assert readout.drive.trace_seconds == pytest.approx(
             60.0 * beats_per_loop / MIN_BPM)
 
 
@@ -241,18 +150,18 @@ class TestTheTraceHoldsStillAndSlides:
 
     def test_the_wave_holds_its_picture_between_knots(self):
         sender = FakeSender()
-        shown = []
-        readout = _readout(tcode_sender=sender, set_console=shown.append)
+        readout = _readout(tcode_sender=sender)
         readout.update(1.0)
+        first = readout.drive
         # A twelfth of a knot on: the readout spans 12 s over 80 samples, and
         # at speed 50 the phase moves 0.0126 cycles in 0.05 s.
         sender.motion_phase = 0.0126
 
         readout.update(1.05)
 
-        assert shown[-1].drive.waveform == shown[-2].drive.waveform
-        assert shown[-1].drive.slide > shown[-2].drive.slide
-        assert shown[-1].drive.edge is not None
+        assert readout.drive.waveform == first.waveform
+        assert readout.drive.slide > first.slide
+        assert readout.drive.edge is not None
 
     def test_cruise_controls_sum_holds_its_picture_between_knots(self):
 
@@ -262,25 +171,25 @@ class TestTheTraceHoldsStillAndSlides:
         tick_cruise_control(hand, cruise, now=1.0)
         tick_cruise_control(hand, cruise, now=1.05)
         controls = _controls(direct=hand, cruise=cruise)
-        shown = []
-        readout = _readout(controls=controls, set_console=shown.append)
+        readout = _readout(controls=controls)
         readout.update(1.05)
+        first = readout.drive
         tick_cruise_control(hand, cruise, now=1.1)
 
         readout.update(1.1)
 
-        assert shown[-1].drive.waveform == pytest.approx(shown[-2].drive.waveform, abs=1e-4)
-        assert shown[-1].drive.slide > shown[-2].drive.slide
+        assert readout.drive.waveform == pytest.approx(first.waveform, abs=1e-4)
+        assert readout.drive.slide > first.slide
 
 
 class TestTheTraceUnderTheMaxIntensity:
     def test_the_readout_says_the_max_intensity_the_wave_is_held_to(self):
         hand = RobotHandState(playing=True, speed=90, amplitude=100, max_intensity=40)
-        shown = []
+        readout = _readout(controls=_controls(direct=hand))
 
-        _readout(controls=_controls(direct=hand), set_console=shown.append).update(1.0)
+        readout.update(1.0)
 
-        assert shown[-1].drive.max_intensity == 40
+        assert readout.drive.max_intensity == 40
 
     def test_a_stack_held_down_by_its_max_intensity_is_drawn_as_the_stack_it_leaves(self):
         hand = RobotHandState(playing=True, speed=90, amplitude=100, max_intensity=40)
@@ -288,12 +197,11 @@ class TestTheTraceUnderTheMaxIntensity:
         enable_cruise_control(cruise)
         tick_cruise_control(hand, cruise, now=1.0)
         tick_cruise_control(hand, cruise, now=1.05)
-        shown = []
+        readout = _readout(controls=_controls(direct=hand, cruise=cruise))
 
-        _readout(controls=_controls(direct=hand, cruise=cruise),
-                 set_console=shown.append).update(1.05)
+        readout.update(1.05)
 
-        drive = shown[-1].drive
+        drive = readout.drive
         heights, _slide = wave_stack.trace_window(
             cruise.stack, cruise.clock, TRACE_SAMPLES, drive.trace_seconds, max_intensity=40)
         assert drive.waveform == pytest.approx(tuple(heights[:TRACE_SAMPLES]))
@@ -309,16 +217,16 @@ class TestTheTraceUnderTheLearnedMotion:
         tick_learned_motion(hand, learned, now=1.0)
         controls = _controls(direct=hand)
         controls.learned_motion_state = learned
-        shown = []
+        readout = _readout(controls=controls)
 
-        _readout(controls=controls, set_console=shown.append).update(1.0)
+        readout.update(1.0)
 
-        heights = shown[-1].drive.waveform
+        heights = readout.drive.waveform
         assert heights[0] == pytest.approx(0.0)
         assert max(heights) == pytest.approx(0.8, abs=0.02)
         assert min(heights[1:]) == pytest.approx(0.2, abs=0.05)
-        assert shown[-1].drive.slide == 0.0
-        assert shown[-1].drive.edge is not None
+        assert readout.drive.slide == 0.0
+        assert readout.drive.edge is not None
 
     def test_it_holds_still_between_knots_and_slides(self):
         phrase = Phrase(tuple((500, 80 if i % 2 == 0 else 20) for i in range(16)))
@@ -330,37 +238,13 @@ class TestTheTraceUnderTheLearnedMotion:
         tick_learned_motion(hand, learned, now=1.0)
         controls = _controls(direct=hand)
         controls.learned_motion_state = learned
-        shown = []
-        readout = _readout(controls=controls, set_console=shown.append)
+        readout = _readout(controls=controls)
         readout.update(1.0)
+        first = readout.drive
         tick_learned_motion(hand, learned, now=1.05)
 
         readout.update(1.05)
 
-        assert shown[-1].drive.waveform == shown[-2].drive.waveform
-        assert shown[-1].drive.slide > shown[-2].drive.slide
+        assert readout.drive.waveform == first.waveform
+        assert readout.drive.slide > first.slide
 
-
-class TestAReadoutThatIsNotYetTheRooms:
-    """A Genau arriving beside the one that has the room draws its own console
-    but leaves the readout the room reads to the one publishing it."""
-
-    def test_nothing_goes_out_while_it_holds(self, tmp_path):
-        drive = tmp_path / "genau_drive.txt"
-        consoles = []
-        readout = _readout(drive_file=drive, set_console=consoles.append, publishing=False)
-
-        readout.update(1.0)
-
-        assert not drive.exists()
-        assert consoles
-
-    def test_it_goes_out_once_told_to(self, tmp_path):
-        drive = tmp_path / "genau_drive.txt"
-        readout = _readout(drive_file=drive, publishing=False)
-        readout.update(1.0)
-
-        readout.publishing = True
-        readout.update(1.05)
-
-        assert drive.exists()
