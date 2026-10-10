@@ -1,6 +1,6 @@
-"""What keeps a player's mpv alive while another thread is inside a call on it.
+"""What keeps an engine's mpv alive while another thread is inside a call on it.
 
-Every mpv-backed player here is driven from more than one thread, which is
+Every mpv-backed engine here is driven from more than one thread, which is
 libmpv's designed usage: the client API (property reads, commands, overlays) on
 one, the render API on another.  What is never safe is taking the thing away
 underneath.  ``mpv_terminate_destroy`` and ``mpv_render_context_free`` both
@@ -9,14 +9,14 @@ wider still — its ``terminate()`` nulls ``self.handle`` *before* the destroy, 
 a property read that began a moment earlier hands libmpv a NULL client and
 dereferences it.
 
-That is not a theory.  Closing a player from one thread while a worker read
+That is not a theory.  Closing an engine from one thread while a worker read
 ``time-pos`` from another reproduced an access violation on every attempt, the
 faulting thread being the worker at ``mpv_get_property`` (reading 0x48 — NULL
 plus a field offset) with the closer inside ``terminate()``.
 
 Joining the pump thread is not enough to rest shutdown on: a join that times
 out returns anyway, and even one that returns cleanly says nothing about the
-*other* threads a player is reachable from.  A lease needs no such guess.
+*other* threads an engine is reachable from.  A lease needs no such guess.
 Every call into mpv takes one; :meth:`CallGate.close` bars new leases — so a
 worker that never noticed the stop flag simply gets no-ops from here on — waits
 out the calls already inside, and only then says the handle may be freed.  If
@@ -105,13 +105,13 @@ class CallGate:
 
 
 def mpv_call(when_closed=None) -> Callable:
-    """Wrap a player method so mpv cannot be freed while it runs.
+    """Wrap an engine method so mpv cannot be freed while it runs.
 
     A call arriving after the gate is barred returns *when_closed* instead of
     reaching a handle that is on its way out.  It returns rather than raises
     because losing this race is the ordinary case at shutdown, not a fault: a
     worker thread that raised on its last turn would bury the real reason the
-    session ended under a traceback about a player nobody wanted any more.
+    session ended under a traceback about an engine nobody wanted any more.
     """
     def decorate(method):
         @functools.wraps(method)

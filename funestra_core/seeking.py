@@ -1,4 +1,4 @@
-"""A seek mpv can refuse, and one a player owes the file it is opening."""
+"""A seek mpv can refuse, and one a Funestra owes the file it is opening."""
 from __future__ import annotations
 
 import logging
@@ -11,9 +11,9 @@ logger = logging.getLogger(__name__)
 GIVE_UP_AFTER = 120
 
 
-def seek_if_taken(player, position_ms: float) -> bool:
+def seek_if_taken(engine, position_ms: float) -> bool:
     try:
-        player.seek_ms(position_ms)
+        engine.seek_ms(position_ms)
     except SystemError:
         return False
     return True
@@ -28,8 +28,8 @@ class OwedSeek:
         self._position_ms = position_ms
         self._asked = 0
 
-    def pay(self, player, seek: Callable[[float], bool]) -> None:
-        if self._position_ms is None or player.duration_ms <= 0:
+    def pay(self, engine, seek: Callable[[float], bool]) -> None:
+        if self._position_ms is None or engine.duration_ms <= 0:
             return
         self._asked += 1
         if seek(self._position_ms):

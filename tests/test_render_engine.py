@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from funestra_core import render_player
+from funestra_core import render_engine
 
 FILE_LOADED = 8
 PLAYBACK_RESTART = 21
@@ -83,25 +83,25 @@ def engine(monkeypatch):
         MpvEventID=SimpleNamespace(FILE_LOADED=FILE_LOADED, PLAYBACK_RESTART=PLAYBACK_RESTART),
         _mpv_render_context_get_info=_next_frame_info,
     )
-    monkeypatch.setattr(render_player, "_import_mpv", lambda: fake)
+    monkeypatch.setattr(render_engine, "_import_mpv", lambda: fake)
     return fake
 
 
 def test_a_file_asked_for_is_shown_as_itself_only_once_mpv_has_started_it(engine):
-    player = render_player.MpvRenderPlayer(lambda _name: 0)
-    handle = player._mpv
-    context = player._render_context
+    engine = render_engine.MpvRenderEngine(lambda _name: 0)
+    handle = engine._mpv
+    context = engine._render_context
     flat = Path("C:/videos/flat.mp4")
 
-    player.load(flat)
+    engine.load(flat)
     handle.report("path", str(flat))
     handle.send(FILE_LOADED)
     context.announce(FRAME_PRESENT)
-    assert player.has_picture_to_draw
-    assert player.render(0, 16, 9) is None
+    assert engine.has_picture_to_draw
+    assert engine.render(0, 16, 9) is None
 
     handle.send(PLAYBACK_RESTART)
     context.next_frame_flags = FRAME_PRESENT | FRAME_REDRAW
 
-    assert player.has_picture_to_draw
-    assert player.render(0, 16, 9) == str(flat)
+    assert engine.has_picture_to_draw
+    assert engine.render(0, 16, 9) == str(flat)

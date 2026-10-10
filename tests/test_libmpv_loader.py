@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 import funestra_core
-from funestra_core import mpv_player
+from funestra_core import mpv_engine
 from funestra_core.libmpv_loader import (
     add_libmpv_to_path,
     libmpv_dirs,
@@ -84,7 +84,7 @@ def test_the_engine_is_imported_once_the_folder_is_on_the_path():
         asked.append(name)
         return "the engine"
 
-    assert mpv_player._import_the_engine(load) == "the engine"
+    assert mpv_engine._import_the_engine(load) == "the engine"
     assert asked == ["mpv"]
 
 
@@ -101,7 +101,7 @@ def test_a_path_taken_out_from_under_it_is_put_back_and_the_import_retried():
             raise OSError("Cannot find mpv-1.dll, mpv-2.dll or libmpv-2.dll")
         return "the engine"
 
-    assert mpv_player._import_the_engine(load) == "the engine"
+    assert mpv_engine._import_the_engine(load) == "the engine"
     assert len(tries) == 3
 
 
@@ -110,7 +110,7 @@ def test_an_engine_that_is_really_not_there_says_where_it_looked():
         raise OSError("Cannot find mpv-1.dll, mpv-2.dll or libmpv-2.dll")
 
     with pytest.raises(OSError) as refused:
-        mpv_player._import_the_engine(load, tries=2)
+        mpv_engine._import_the_engine(load, tries=2)
 
     for folder in libmpv_dirs():
         assert str(folder) in str(refused.value)
@@ -125,8 +125,8 @@ def test_a_folder_that_cannot_be_looked_in_at_all_says_what_it_answered(monkeypa
         def is_file(self):
             raise PermissionError("[WinError 5] Access is denied")
 
-    monkeypatch.setattr(mpv_player, "libmpv_dirs", lambda: [Refuses("C:/nowhere")])
+    monkeypatch.setattr(mpv_engine, "libmpv_dirs", lambda: [Refuses("C:/nowhere")])
 
-    said = mpv_player._where_it_looked()
+    said = mpv_engine._where_it_looked()
 
     assert "could not be looked in" in said and "Access is denied" in said

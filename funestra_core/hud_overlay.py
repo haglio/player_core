@@ -19,6 +19,7 @@ from .hud_corners import HudPlace
 from .hud_placement import HudCorner, HudEdge, PointerReading
 from .hud_row import RowHud, RowPress, track_on_screen
 from .modes import Osr2State
+from .renamed import answers_to_old_names
 from .satellite_hud import (
     MARGIN,
     MINUS_INSET,
@@ -104,11 +105,12 @@ class _WindowsOwnPanel:
         return model, model != shown
 
 
+@answers_to_old_names({"player": "engine"})
 class HudOverlay:
     def __init__(
         self,
         *,
-        player,
+        engine,
         hud_file: Path | None = None,
         command_file: Path | None = None,
         panel: Callable[[], HudModel | None] | None = None,
@@ -129,7 +131,7 @@ class HudOverlay:
         self._drive_gate = drive_gate
         self._published_drive: DriveHud | None = None
         self._drive: DriveHud | None = None
-        self._player = player
+        self._engine = engine
         self.overlay_id = overlay_id
         self._clock = clock
         self._over_the_video = over_the_video
@@ -291,7 +293,7 @@ class HudOverlay:
     def close(self) -> None:
         self._panel_size = None
         if self._shown:
-            self._player.remove_overlay(self.overlay_id)
+            self._engine.remove_overlay(self.overlay_id)
             self._shown = False
 
     def covers(self, x: int, y: int) -> bool:
@@ -352,7 +354,7 @@ class HudOverlay:
         height, width = rendered.bgra.shape[:2]
         self._panel_size = (width, height)
         self._origin = self._place(corner, self._panel_size)
-        self._player.overlay(self.overlay_id, *self._origin, rendered.bgra)
+        self._engine.overlay(self.overlay_id, *self._origin, rendered.bgra)
         self._shown = True
 
     def _post(self, command: str) -> None:

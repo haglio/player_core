@@ -1,4 +1,5 @@
-"""A checkout from before Genau's clips became flicks still imports and runs.
+"""A checkout from before a rename still imports and runs: from before Genau's
+clips became flicks, and from before the Player became the Funestra.
 
 Every open branch of an app runs out of that app's one venv, so these are the
 names those branches spell until they are rebased. Each test is one thing such a
@@ -9,8 +10,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from funestra_fakes import FakeEngine
 
-from funestra_core import flick_folder, playhead
+from funestra_core import flick_folder, mpv_engine, playhead
 from funestra_core.cruise_control import CruiseControlState
 from funestra_core.flag import Flag
 from funestra_core.flick_cache import FlickCacheStore
@@ -18,7 +20,10 @@ from funestra_core.flick_renderer import FlickRenderController
 from funestra_core.genau_controls import GenauControls, apply_runtime_command
 from funestra_core.genau_notifier import GenauNotifier
 from funestra_core.genau_status import build_status_text
+from funestra_core.hud_overlay import HudOverlay
+from funestra_core.playback import Playback
 from funestra_core.renamed import method_of
+from funestra_core.render_engine import MpvRenderEngine
 from funestra_core.robot_hand import RobotHandState
 from funestra_core.robot_hand_beat import BeatEngine
 
@@ -98,3 +103,36 @@ def test_the_notifier_answers_to_its_old_method_name():
     GenauNotifier("127.0.0.1", 9999, sock=sock).notify_clip(Path("alpha.mp4"))
 
     assert sock.sent == [b"FLICK alpha", b"CLIP alpha"]
+
+
+def test_the_engines_old_module_paths_give_the_engines():
+    from funestra_core.mpv_player import MpvPlayer  # noqa: PLC0415
+    from funestra_core.render_player import MpvRenderPlayer  # noqa: PLC0415
+
+    assert MpvPlayer is mpv_engine.MpvEngine
+    assert MpvRenderPlayer is MpvRenderEngine
+
+
+def test_the_check_fun_time_runs_for_the_engine_still_reaches_its_loader():
+    from funestra_core.mpv_player import _import_mpv  # noqa: PLC0415
+
+    assert _import_mpv is mpv_engine._import_mpv
+
+
+def test_a_playback_takes_its_engine_under_the_old_keyword(tmp_path):
+    engine = FakeEngine()
+
+    Playback([tmp_path / "v0.mp4"], player=engine)
+
+    assert engine.opened == [tmp_path / "v0.mp4"]
+
+
+def test_a_hud_overlay_takes_its_engine_under_the_old_keyword(tmp_path):
+    hud_file = tmp_path / "portrait_hud.json"
+    hud_file.write_text('{"player": "portrait"}', encoding="utf-8")
+    engine = FakeEngine()
+
+    HudOverlay(player=engine, hud_file=hud_file, command_file=tmp_path / "cmd.txt",
+               clock=lambda: 0.0).tick()
+
+    assert len(engine.overlays) == 1
