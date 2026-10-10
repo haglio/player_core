@@ -1,99 +1,13 @@
-"""The order Genau browses its clips in, and where it is in that order."""
+"""What :mod:`player_core.flick_sequence` was called before Genau's clips became
+flicks, kept for the checkouts that still import it."""
 from __future__ import annotations
 
-from pathlib import Path
+from .renamed import old_name_getter
 
-__all__ = [
-    "ClipSequenceController",
-]
+__all__: list[str] = []
 
-def _index_of(clips: list[Path], wanted: Path | None) -> int | None:
-    """Where *wanted* sits in *clips*, or None for "not among them".
+_RENAMED = {
+    "ClipSequenceController": "FlickSequenceController",
+}
 
-    Compared case-insensitively: the path comes back through a status file
-    another process wrote, and Windows hands the same file back in either case.
-    """
-    if wanted is None:
-        return None
-    key = str(wanted).lower()
-    for index, clip in enumerate(clips):
-        if str(clip).lower() == key:
-            return index
-    return None
-
-
-class ClipSequenceController:
-    def __init__(self, clips: list[Path], *, start_at: Path | None = None):
-        """*start_at* is the clip to open on — where a reopened session picks up,
-        in whatever order *clips* were scanned in.  A clip that is no longer in
-        it (deleted, or condemned as weird since) simply is not found, and the
-        scan order stands from its top.
-        """
-        if not clips:
-            raise ValueError("ClipSequenceController requires at least one clip")
-        self._clips = list(clips)
-        self._index = _index_of(self._clips, start_at) or 0
-
-    @property
-    def count(self) -> int:
-        return len(self._clips)
-
-    @property
-    def current_number(self) -> int:
-        return self._index + 1
-
-    @property
-    def current_path(self) -> Path:
-        return self._clips[self._index]
-
-    def take_up(self, clips: list[Path], *, holding: Path | None = None) -> Path:
-        """Browse a freshly scanned list, from its top or from *holding* where
-        it is among them.
-
-        A reorder takes it from the top: it is asked for to see what the new
-        order puts first — the arrivals, under Latest — and holding position
-        would apply the order only *after* the clip that is up, so those
-        arrivals would never come round.
-
-        Refuses an empty list for the same reason building one does: Genau has to
-        keep something on screen.
-        """
-        if not clips:
-            raise ValueError("ClipSequenceController requires at least one clip")
-        self._clips = list(clips)
-        self._index = _index_of(self._clips, holding) or 0
-        return self.current_path
-
-    def move_to(self, clip: Path) -> bool:
-        index = _index_of(self._clips, clip)
-        if index is None:
-            return False
-        self._index = index
-        return True
-
-    def play(self, clip: Path) -> Path:
-        if not self.move_to(clip):
-            self._index += 1
-            self._clips.insert(self._index, clip)
-        return self.current_path
-
-    def step(self, delta: int) -> Path:
-        self._index = (self._index + delta) % len(self._clips)
-        return self.current_path
-
-    def remove_current(self) -> Path | None:
-        """Remove the current clip and return whichever one takes its place.
-
-        Returns None — and keeps the clip — when it is the only one left,
-        since a sequence with nothing in it has no frame to show.
-        """
-        if len(self._clips) <= 1:
-            return None
-        del self._clips[self._index]
-        self._index %= len(self._clips)
-        return self.current_path
-
-    def nearby_candidates(self) -> list[Path]:
-        if len(self._clips) <= 1:
-            return []
-        return [self._clips[(self._index + delta) % len(self._clips)] for delta in (1, -1)]
+__getattr__ = old_name_getter("player_core.flick_sequence", _RENAMED)

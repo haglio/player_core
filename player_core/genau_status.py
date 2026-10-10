@@ -5,9 +5,9 @@ from pathlib import Path
 
 from app_support.state_files import GENAU_STATUS
 
-from .clip_advance import ClipAdvanceState
 from .cruise_control import CruiseControlState
 from .file_channel import publish_whole
+from .flick_advance import FlickAdvanceState
 from .learned_motion import LearnedMotionState
 from .robot_hand import RobotHandState, control_limits
 
@@ -29,19 +29,21 @@ def build_status_text(
     cruise: CruiseControlState,
     *,
     learned: LearnedMotionState | None = None,
-    clip_advance: ClipAdvanceState | None = None,
-    clip: Path | None = None,
+    flick_advance: FlickAdvanceState | None = None,
+    flick: Path | None = None,
     flipped: bool = False,
     portrait: bool | None = None,
 ) -> str:
     limits = control_limits(hand)
-    advance = clip_advance or ClipAdvanceState()
+    advance = flick_advance or FlickAdvanceState()
     return (
         f"cruise={'1' if cruise.active else '0'}\n"
         f"learned={'1' if learned is not None and learned.active else '0'}\n"
         f"locked={'1' if advance.locked else '0'}\n"
-        # Which clip is up.  Empty until the first clip is on screen.
-        f"clip={clip if clip is not None else ''}\n"
+        # Which flick is up.  Empty until the first flick is on screen.
+        f"flick={flick if flick is not None else ''}\n"
+        # The same, under the key an orchestrator from before the rename reads.
+        f"clip={flick if flick is not None else ''}\n"
         f"flipped={'1' if flipped else '0'}\n"
         f"portrait={_flag_or_unknown(portrait)}\n"
         f"shape={hand.shape.value}\n"

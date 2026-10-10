@@ -70,7 +70,7 @@ def status_line(*, locked: bool, playing_set: str = "", order: str = "",
     Read left to right, the slots answer a reader's questions in the order they
     occur: what is playing (*playing_set* — a satellite's loop, the primary's
     compilation), whether it is being held (*locked*), how it moves on (*order* —
-    Latest/Shuffle, or the seconds an unheld clip stays up), and what has been cut
+    Latest/Shuffle, or the seconds an unheld flick stays up), and what has been cut
     out of it — *f_mode* first, cutting the whole library to the funscripted
     videos, then *enhanced*, keeping only the pictures Origenerator has enhanced
     (a slot of its own, so the HUD that carries the switch for it has the word

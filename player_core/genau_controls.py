@@ -1,10 +1,10 @@
 """What Genau's controls can reach, and every verb that moves one.
 
-Genau -- the family's clip player, whatever window or headset it is drawn in --
+Genau -- the family's flick player, whatever window or headset it is drawn in --
 is spoken to from two places: a verb in ``genau_cmd.txt`` and a press on the
 console.  Both of them have to be able to move the same
 handful of things: the hand's own state, the cruise stack, the learned motion,
-the clip advance, the two flags an orchestrator flips, the clip sequence.
+the flick advance, the two flags an orchestrator flips, the flick sequence.
 
 Passing those one at a time is what made adding a control a four-to-six file
 edit: a keyword parameter on the dispatcher, another on the refresh controller,
@@ -12,7 +12,7 @@ an attribute to store it and a line to hand it on.  They travel together here
 instead, built once where the app is wired and handed whole.
 
 Optional means *this build did not wire it* -- a Genau launched without a cruise
-stack, a test that only cares about the clip sequence.  A verb whose collaborator
+stack, a test that only cares about the flick sequence.  A verb whose collaborator
 is absent is refused and logged rather than half-acted-on, which is the behavior
 :func:`apply_runtime_command` documents.
 """
@@ -24,14 +24,6 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .clip_advance import (
-    ClipAdvanceState,
-    adjust_interval,
-    set_interval,
-    set_locked,
-    toggle_lock,
-)
-from .clip_flip import ClipFlip
 from .console import HELD_HEIGHT, OSR2_PARKED, OSR2_RETRACTED
 from .control_registry import Control, Verb, bind, look_up
 from .cruise_control import (
@@ -41,6 +33,14 @@ from .cruise_control import (
 )
 from .device_walk import RoomHold
 from .flag import Flag
+from .flick_advance import (
+    FlickAdvanceState,
+    adjust_interval,
+    set_interval,
+    set_locked,
+    toggle_lock,
+)
+from .flick_flip import FlickFlip
 from .learned_motion import (
     LearnedMotionState,
     disable_learned_motion,
@@ -61,6 +61,7 @@ from .player_verbs import (
     TOGGLE_LOCK,
 )
 from .playlist import item_from_line
+from .renamed import answers_to_old_names
 from .robot_hand import (
     RobotHandState,
     adjust_amplitude,
@@ -82,27 +83,34 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 
+@answers_to_old_names({
+    "clip_advance_state": "flick_advance_state",
+    "clip_flip": "flick_flip",
+    "condemn_clip": "condemn_flick",
+    "reorder_clips": "reorder_flicks",
+    "step_clip": "step_flick",
+})
 @dataclass
 class GenauControls:
     """Everything one command or console press may move."""
 
     engine: BeatEngine
     paused: Flag
-    step_clip: Callable[[int], None]
-    condemn_clip: Callable[[], None] | None = None
+    step_flick: Callable[[int], None]
+    condemn_flick: Callable[[], None] | None = None
     robot_hand: RobotHandState | None = None
     cruise_control_state: CruiseControlState | None = None
     learned_motion_state: LearnedMotionState | None = None
     set_motion_phase: Callable[[float], None] | None = None
-    clip_advance_state: ClipAdvanceState | None = None
+    flick_advance_state: FlickAdvanceState | None = None
     stop_event: threading.Event | None = None
     hud: Flag | None = None
     tcode_enabled: Flag = field(default_factory=lambda: Flag(on=True))
     set_volume: Callable[[int, bool], None] | None = None
-    reorder_clips: Callable[[bool], None] | None = None
+    reorder_flicks: Callable[[bool], None] | None = None
     keep_shapes: Callable[[bool, bool], None] | None = None
     play_file: Callable[[Path], None] | None = None
-    clip_flip: ClipFlip = field(default_factory=ClipFlip)
+    flick_flip: FlickFlip = field(default_factory=FlickFlip)
     room_hold: RoomHold = field(default_factory=RoomHold)
 
 
@@ -119,7 +127,7 @@ CRUISE_ON = "CRUISE_ON"
 CRUISE_OFF = "CRUISE_OFF"
 LEARNED_ON = "LEARNED_ON"
 LEARNED_OFF = "LEARNED_OFF"
-CLIP_SECONDS = "CLIP_SECONDS"
+FLICK_SECONDS = "FLICK_SECONDS"
 PAUSE = "PAUSE"
 RESUME = "RESUME"
 
@@ -224,33 +232,33 @@ def _learned_off(controls: GenauControls, _value: str) -> bool:
 
 
 def _lock_toggled(controls: GenauControls, _value: str) -> bool:
-    toggle_lock(controls.clip_advance_state)
+    toggle_lock(controls.flick_advance_state)
     return True
 
 
 def _lock_set(locked: bool) -> Act:
     def act(controls: GenauControls, _value: str) -> bool:
-        set_locked(controls.clip_advance_state, locked)
+        set_locked(controls.flick_advance_state, locked)
         return True
     return act
 
 
 def _interval_step(step: int) -> Act:
     def act(controls: GenauControls, _value: str) -> bool:
-        adjust_interval(controls.clip_advance_state, step)
+        adjust_interval(controls.flick_advance_state, step)
         return True
     return act
 
 
 def _interval_named(controls: GenauControls, value: str) -> bool:
-    """"clip seconds thirty" names the seconds a clip holds the screen.  It says
-    nothing about the lock: a held clip stays held, and this is the pace it will
+    """"flick seconds thirty" names the seconds a flick holds the screen.  It says
+    nothing about the lock: a held flick stays held, and this is the pace it will
     move at once it is let go."""
     try:
         seconds = int(value)
     except ValueError:
         return False
-    set_interval(controls.clip_advance_state, seconds)
+    set_interval(controls.flick_advance_state, seconds)
     return True
 
 
@@ -259,15 +267,15 @@ def _quit(controls: GenauControls, _value: str) -> bool:
     return True
 
 
-def _step_clip(step: int) -> Act:
+def _step_flick(step: int) -> Act:
     def act(controls: GenauControls, _value: str) -> bool:
-        controls.step_clip(step)
+        controls.step_flick(step)
         return True
     return act
 
 
 def _condemn(controls: GenauControls, _value: str) -> bool:
-    controls.condemn_clip()
+    controls.condemn_flick()
     return True
 
 
@@ -280,13 +288,13 @@ def _play_file(controls: GenauControls, value: str) -> bool:
 
 
 def _flip_ends(controls: GenauControls, _value: str) -> bool:
-    controls.clip_flip.toggle()
+    controls.flick_flip.toggle()
     return True
 
 
 def _reorder(recent: bool) -> Act:
     def act(controls: GenauControls, _value: str) -> bool:
-        controls.reorder_clips(recent)
+        controls.reorder_flicks(recent)
         return True
     return act
 
@@ -346,7 +354,7 @@ def _volume_shown(controls: GenauControls, value: str) -> bool:
     publishing.
 
     Genau neither owns the level (the orchestrator does, for the whole primary
-    display) nor plays the audio: a companion process carries the clip music.
+    display) nor plays the audio: a companion process carries the flick music.
     What arrives here is only what the chip Genau draws should show, which is why
     the mute rides alongside the level — a level of zero cannot say whether the
     speaker is off or turned all the way down, nor what unmuting returns to.
@@ -429,23 +437,28 @@ CONTROLS: tuple[Control, ...] = (
     # it is the same thing on both: hold what is on screen, or let it move on.
     Control(
         name="lock",
-        needs=("clip_advance_state",),
+        needs=("flick_advance_state",),
         verbs=(
             Verb(TOGGLE_LOCK, _lock_toggled),
             Verb(LOCK_ON, _lock_set(True)),
             Verb(LOCK_OFF, _lock_set(False)),
         ),
     ),
-    # How long a clip holds the screen, a second at a time.  Named for the number
+    # How long a flick holds the screen, a second at a time.  Named for the number
     # rather than for the auto-advance that spends it, so the verb reads as what
     # the orchestrator's reference shows and what its speaker says aloud.
     Control(
-        name="clip_seconds",
-        needs=("clip_advance_state",),
+        name="flick_seconds",
+        needs=("flick_advance_state",),
         verbs=(
+            Verb("FLICK_SECONDS_DOWN", _interval_step(-1)),
+            Verb("FLICK_SECONDS_UP", _interval_step(1)),
+            Verb(FLICK_SECONDS, _interval_named, takes_a_value=True),
+            # The spellings from before the flicks were renamed, which an
+            # orchestrator from before the rename still sends.
             Verb("CLIP_SECONDS_DOWN", _interval_step(-1)),
             Verb("CLIP_SECONDS_UP", _interval_step(1)),
-            Verb(CLIP_SECONDS, _interval_named, takes_a_value=True),
+            Verb("CLIP_SECONDS", _interval_named, takes_a_value=True),
         ),
     ),
     Control(
@@ -454,12 +467,12 @@ CONTROLS: tuple[Control, ...] = (
         verbs=(Verb(QUIT, _quit),),
     ),
     Control(
-        name="clip",
-        verbs=(Verb(PREV, _step_clip(-1)), Verb(NEXT, _step_clip(1))),
+        name="flick",
+        verbs=(Verb(PREV, _step_flick(-1)), Verb(NEXT, _step_flick(1))),
     ),
     Control(
         name="condemn",
-        needs=("condemn_clip",),
+        needs=("condemn_flick",),
         verbs=(Verb("WEIRD", _condemn),),
     ),
     Control(
@@ -473,11 +486,11 @@ CONTROLS: tuple[Control, ...] = (
     ),
     # The two browse orders every player in the room has, said to the one player
     # with no playlist file to hand it: Genau owns its own sequence, so the order
-    # is a verb rather than a rewritten list, and answering it rescans the clips
+    # is a verb rather than a rewritten list, and answering it rescans the flicks
     # folder — which is most of what Latest is for.
     Control(
         name="browse_order",
-        needs=("reorder_clips",),
+        needs=("reorder_flicks",),
         verbs=(Verb("LATEST", _reorder(True)), Verb("SHUFFLE", _reorder(False))),
     ),
     Control(

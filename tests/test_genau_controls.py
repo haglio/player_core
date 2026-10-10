@@ -17,7 +17,7 @@ def _controls(**fields) -> GenauControls:
     return GenauControls(
         engine=BeatEngine(phase=0.0, last_tick=0.0),
         paused=Flag(),
-        step_clip=lambda _step: None,
+        step_flick=lambda _step: None,
         **fields,
     )
 
@@ -94,9 +94,12 @@ WRITTEN_DOWN_VERBS = frozenset({
     "CENTER_DOWN", "CENTER_UP", "CYCLE_SHAPE", "CYCLE_SHAPE_PREV", "TOGGLE_CRUISE",
     "CRUISE_ON", "CRUISE_OFF", "TOGGLE_LEARNED", "LEARNED_ON", "LEARNED_OFF",
     "TOGGLE_LOCK", "LOCK_ON", "LOCK_OFF",
-    "CLIP_SECONDS_DOWN", "CLIP_SECONDS_UP", "HUD_ON", "HUD_OFF",
-    "AMP", "CENTER", "SPEED", "CLIP_SECONDS", "SET_VOLUME", "SET_TCODE_ENABLED", "SHAPES",
+    "FLICK_SECONDS_DOWN", "FLICK_SECONDS_UP", "HUD_ON", "HUD_OFF",
+    "AMP", "CENTER", "SPEED", "FLICK_SECONDS", "SET_VOLUME", "SET_TCODE_ENABLED", "SHAPES",
     "SET_MAX_INTENSITY", "PLAY_FILE",
+    # The seconds verbs as an orchestrator from before the flicks were renamed
+    # spells them.
+    "CLIP_SECONDS_DOWN", "CLIP_SECONDS_UP", "CLIP_SECONDS",
 })
 
 class TestTheVocabularyIsWrittenDown:

@@ -6,8 +6,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from player_core import clip_decode
-from player_core.clip_decode import load_clip_frames
+from player_core import flick_decode
+from player_core.flick_decode import load_flick_frames
 
 WIDTH, HEIGHT = 4, 2
 
@@ -25,9 +25,9 @@ class _FakeFfmpeg:
 @pytest.fixture
 def ffmpeg(monkeypatch):
     def install(raw: bytes, **kwargs):
-        monkeypatch.setattr(clip_decode.subprocess, "check_output",
+        monkeypatch.setattr(flick_decode.subprocess, "check_output",
                             lambda *_args, **_kw: f"{WIDTH}x{HEIGHT}\n")
-        monkeypatch.setattr(clip_decode.subprocess, "Popen",
+        monkeypatch.setattr(flick_decode.subprocess, "Popen",
                             lambda *_args, **_kw: _FakeFfmpeg(raw, **kwargs))
     return install
 
@@ -36,10 +36,10 @@ def _frame_bytes(value: int) -> bytes:
     return bytes([value]) * (WIDTH * HEIGHT * 3)
 
 
-def test_every_frame_of_the_clip_comes_back_as_a_picture_of_its_size(ffmpeg):
+def test_every_frame_of_the_flick_comes_back_as_a_picture_of_its_size(ffmpeg):
     ffmpeg(_frame_bytes(10) + _frame_bytes(20) + _frame_bytes(30))
 
-    frames = load_clip_frames(Path("scene one.mp4"))
+    frames = load_flick_frames(Path("scene one.mp4"))
 
     assert [frame.shape for frame in frames] == [(HEIGHT, WIDTH, 3)] * 3
     assert [int(frame[0, 0, 0]) for frame in frames] == [10, 20, 30]
@@ -49,24 +49,24 @@ def test_every_frame_of_the_clip_comes_back_as_a_picture_of_its_size(ffmpeg):
 def test_a_torn_last_frame_is_left_off(ffmpeg):
     ffmpeg(_frame_bytes(10) + _frame_bytes(20)[:5])
 
-    assert len(load_clip_frames(Path("scene one.mp4"))) == 1
+    assert len(load_flick_frames(Path("scene one.mp4"))) == 1
 
 
 def test_a_failed_decode_says_what_ffmpeg_said(ffmpeg):
     ffmpeg(b"", returncode=1, stderr=b"moov atom not found")
 
     with pytest.raises(RuntimeError, match="moov atom not found"):
-        load_clip_frames(Path("scene one.mp4"))
+        load_flick_frames(Path("scene one.mp4"))
 
 
-def test_a_clip_with_no_frames_is_refused(ffmpeg):
+def test_a_flick_with_no_frames_is_refused(ffmpeg):
     ffmpeg(b"")
 
     with pytest.raises(RuntimeError, match="No frames"):
-        load_clip_frames(Path("scene one.mp4"))
+        load_flick_frames(Path("scene one.mp4"))
 
 
-def test_a_caller_still_naming_the_old_frame_cache_folder_gets_the_clip_decoded(ffmpeg, tmp_path):
+def test_a_caller_still_naming_the_old_frame_cache_folder_gets_the_flick_decoded(ffmpeg, tmp_path):
     ffmpeg(_frame_bytes(10))
 
-    assert len(load_clip_frames(Path("scene one.mp4"), tmp_path / "frames")) == 1
+    assert len(load_flick_frames(Path("scene one.mp4"), tmp_path / "frames")) == 1

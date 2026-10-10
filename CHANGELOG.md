@@ -9,6 +9,33 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-10-10 — Genau's clips are flicks
+
+The word "clip" now means a video cut out of a whole one, so Genau's short
+looping videos needed a name of their own. The apps show and hear them in the
+word each one's content overlay gives under `genau_flick_words`, which is
+library vocabulary and so never in source; in source they are flicks. The eleven
+`clip_*` modules are `flick_*` modules, and every name in them and in the
+`genau_*` modules that said clip says flick: `FlickAdvanceState`,
+`FlickCacheStore`, `FlickLoadController`, `FlickRenderController`,
+`FlickSelectionController`, `FlickSequenceController`, `FlickFlip`,
+`FlickScrub`, `FlickPicture`, `flat_flicks_in`, `vr_flicks_in`, `scan_flicks`,
+`load_flick_frames`, `move_flick_to_weird`, `playhead.flick_playhead`, and the
+keyword names and attributes of each. Genau's seconds verbs are
+`FLICK_SECONDS_DOWN`, `FLICK_SECONDS_UP` and `FLICK_SECONDS`; its status says
+the flick on screen as `flick=`; its audio companion hears `FLICK <stem>`.
+
+Nothing from before the rename stops working yet. Every open branch of an app
+runs out of that app's one venv, and the everyday checkout goes on running the
+old spellings until the main verifier moves it, so the old names stay: each
+`clip_*` module forwards its old names to the `flick_*` one, the renamed
+classes take their old keyword names and answer to their old attribute names
+(`player_core.renamed`), the old seconds verbs are still answered, the status
+still carries `clip=` beside `flick=`, and the notifier says `CLIP <stem>` after `FLICK <stem>`. `tests/test_renamed.py` holds
+each of them, and `tests/test_consumer_imports.py` counts a name a consumer
+imports under its old spelling as reaching the name it became. They go, in one
+change, once no checkout of fun_time, genau or origenerator names them.
+
 ## 2026-10-10 — the row that aims the device is built here, and its waveform button wears the waveform
 
 Fun Time and Origenerator each declared the same row of buttons for the OSR2 --

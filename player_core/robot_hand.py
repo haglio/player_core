@@ -3,7 +3,7 @@ by speed, amplitude and center.
 
 It is what drives the OSR2 whenever no funscript has it — the family's own auto
 mode, made so the motion could be steered from the room instead of left to the
-device's built-in one.  Genau drives it from a clip's beats and visualizes it;
+device's built-in one.  Genau drives it from a flick's beats and visualizes it;
 Origenerator free-runs it over slideshows of stills.  Both take it from this one
 arithmetic, so :func:`phase_advanced` is offered here rather than owned here:
 what advances the phase is the caller's own clock.
@@ -339,7 +339,7 @@ def phase_for_position_fraction(
     cycle, so it takes each height twice and the caller has to say which visit it
     means.  Found by walking a sampled cycle rather than by four hand-written
     inversions -- a seek asks for this once, and half a degree of phase is finer
-    than the frame a clip can show for it.  With the amplitude turned down the
+    than the frame a flick can show for it.  With the amplitude turned down the
     wave never reaches the ends, and the nearest phase to an unreachable height
     is the peak or the trough, which is where the motion would put the picture.
     """

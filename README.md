@@ -8,10 +8,10 @@ take the HUDs and the motion without the player.
 
 | Consumer | Repo | What it takes |
 | --- | --- | --- |
-| Genau | `../genau` | the clip player's whole engine, under its pygame window |
-| Fun Time's main player | `../fun_time` | the player, the console, the drive readout, the T-Code driver |
+| Genau | `../genau` | the flick folder's layout, which its contract publishes |
+| Fun Time's main player | `../fun_time` | the player, the console, the drive readout, the T-Code driver, and the flick player's engine for its genau mode |
 | Fun Time's satellites | `../fun_time` | a Funestra, on each satellite's window |
-| Fun Time's VR player | `../fun_time` | the offscreen player, the T-Code driver, and the clip player's engine for its genau mode |
+| Fun Time's VR player | `../fun_time` | the offscreen player, the T-Code driver, and the flick player's engine for its genau mode |
 | Fun Time itself | `../fun_time` | the file channel, the playlist, the status line |
 | Origenerator | `../origenerator` | the console and the drive readout, over its slideshows |
 
@@ -33,13 +33,17 @@ another application's internals to get it. By what it is:
   `robot_hand_driver` (the motion on the wire, and the device changing hands),
   `wave_stack` / `cruise_control` (the motion varying itself), `broker_feed`
   (the beat the OSR2 broker publishes when it has the room).
-- **the clip player** — Genau, wherever it is drawn: `clip_folder`,
-  `clip_decode`, `clip_cache`, `clip_loader`, `clip_preload`, `clip_sequence`,
-  `clip_selection`, `clip_advance`, `clip_renderer` and `clip_scrub` get a clip
-  from a folder to the frame the motion is at, and `genau_controls`,
-  `genau_refresh`, `genau_readout`, `genau_status` and `genau_notifier` are its
-  verbs, its tick, and what it publishes. A shell — Genau's pygame window, Fun
-  Time's headset — supplies the surface and the loop.
+- **the flick player** — Genau, wherever it is drawn. A flick is one of the
+  short looping videos Genau scrubs to wherever the OSR2 is; the apps show and
+  hear it under the word their content overlays give it (`genau_flick_words`),
+  which is library vocabulary and so never in source. `flick_folder`,
+  `flick_decode`, `flick_cache`, `flick_loader`, `flick_sequence`,
+  `flick_selection`, `flick_advance`, `flick_flip`, `flick_renderer`,
+  `flick_scrub` and `flick_picture` get a flick from a folder to the frame the
+  motion is at, and `genau_controls`, `genau_refresh`, `genau_readout`,
+  `genau_status`, `genau_notifier` and `genau_arrival` are its verbs, its tick,
+  and what it publishes. A shell — Fun Time's Main Funestra, its headset —
+  supplies the surface and the loop.
 - **the chrome and what is drawn on it** — `hud_panel`, `hud_marks`,
   `geometry`, `timeline`, `volume`, `hud_status`, and then a model and a
   painter per HUD: `console` / `console_hud`, `drive_layout` / `drive_readout`,
@@ -97,7 +101,7 @@ reader in one module — so the two sides cannot spell a thing differently:
 A player answers the verbs it can (`TRASH` is a satellite's, `TOGGLE_LOCK` the
 main slot's) and refuses the rest on its log. It draws the buttons its source
 declared and nothing else, and posts each one's verb verbatim; a read-out
-whose number only the drawing host knows (the video's rate, a clip's pace)
+whose number only the drawing host knows (the video's rate, a flick's pace)
 names it in `host_value` and the painter fills it in. A panel declaring no
 buttons is drawn with none.
 
@@ -113,7 +117,7 @@ held a little closer -- never the same kind twice in a row, and never showing
 the window past the picture's edge. `aim_still(part, seconds)` takes it onto a
 part of the picture instead and holds it there until the next file.
 
-`clip_decode` reaches `app_support.subprocess_utils` for the one Windows fact
+`flick_decode` reaches `app_support.subprocess_utils` for the one Windows fact
 about launching ffmpeg (no console window), so `../app_support` has to be
 installed in any venv that imports this package — every consumer's already is.
 

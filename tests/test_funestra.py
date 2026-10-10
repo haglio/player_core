@@ -10,14 +10,14 @@ import numpy as np
 from console_rows import console_rows
 from funestra_fakes import FakePlayer
 
-from player_core.clip_picture import BACKDROP_OVERLAY_ID, FIRST_TILE_OVERLAY_ID, Picture
 from player_core.console import ConsoleModel, ModeHud, console_text
+from player_core.flick_picture import BACKDROP_OVERLAY_ID, FIRST_TILE_OVERLAY_ID, Picture
 from player_core.funestra import Channels, Funestra, User, _Nobody
 from player_core.hud_button import Button
 from player_core.hud_overlay import HUD_OVERLAY_ID
 from player_core.hud_placement import HudEdge
 from player_core.modes import LengthMode, MainMode, Osr2State
-from player_core.playhead import clip_playhead
+from player_core.playhead import flick_playhead
 from player_core.playlist import read_playlist
 from player_core.pointer import OMNIPAUSE_TOGGLE
 from player_core.satellite_hud import MARGIN, HudModel
@@ -374,7 +374,7 @@ class Genau(Kino):
         super().__init__(playback)
         self.video = "alpha"
         self.frame = np.zeros((8, 16, 3), dtype=np.uint8)
-        self.clip = Path("C:/clips/alpha.mp4")
+        self.flick = Path("C:/flicks/alpha.mp4")
         self.played, self.count = 3, 8
         self.sought: list[float] = []
 
@@ -390,7 +390,7 @@ class Genau(Kino):
 
     def picture(self) -> Picture | None:
         return Picture(frame=self.frame, played=self.played, count=self.count,
-                       seek=self.sought.append, clip=self.clip)
+                       seek=self.sought.append, flick=self.flick)
 
 
 def _main(tmp_path: Path, *, commands: str = "", user=Kino,
@@ -692,7 +692,7 @@ class TestAUsersOwnPicture:
         row = funestra._panel._clip_row
 
         assert (row.position_ms, row.duration_ms) == (genau.played, genau.count)
-        assert row.playhead == clip_playhead(genau.played, genau.count)
+        assert row.playhead == flick_playhead(genau.played, genau.count)
         assert row.volume is funestra._volume.hud
 
     def test_a_press_on_the_track_runs_its_picture_there_rather_than_the_video(self, tmp_path):
@@ -999,8 +999,8 @@ class TestAUsersOwnPictureElsewhere:
         funestra.tick(window=WINDOW)
 
         picture, window = surface.shown[-1]
-        assert (picture.frame, picture.played, picture.count, picture.clip, window) == (
-            genau.frame, genau.played, genau.count, genau.clip, WINDOW)
+        assert (picture.frame, picture.played, picture.count, picture.flick, window) == (
+            genau.frame, genau.played, genau.count, genau.flick, WINDOW)
         assert player.overlays == {}
 
     def test_it_is_told_when_no_picture_is_up(self, tmp_path):

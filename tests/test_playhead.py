@@ -5,7 +5,7 @@ import numpy as np
 
 from player_core.playhead import (
     PlayheadHudPainter,
-    clip_playhead,
+    flick_playhead,
     lower_edge_height,
     on_readout,
     readout_xy,
@@ -52,12 +52,12 @@ class TestWhatAVideosReadoutSays:
 class TestWhatAClipsReadoutSays:
     def test_a_clip_has_frames_and_no_clock(self):
         """Genau's clips are pictures the Robot Hand scrubs through, with no time in them."""
-        playhead = clip_playhead(7, 20)
+        playhead = flick_playhead(7, 20)
 
         assert (playhead.text, playhead.widest) == ("frame 7 / 20", "frame 20 / 20")
 
     def test_a_clip_still_decoding_has_no_readout(self):
-        assert clip_playhead(0, 0) is None
+        assert flick_playhead(0, 0) is None
 
 
 class TestThePill:

@@ -8,10 +8,10 @@ from pathlib import Path
 
 import pytest
 
-from player_core.clip_advance import MAX_INTERVAL_S, MIN_INTERVAL_S, ClipAdvanceState
-from player_core.clip_flip import ClipFlip
 from player_core.cruise_control import CruiseControlState
 from player_core.flag import Flag
+from player_core.flick_advance import MAX_INTERVAL_S, MIN_INTERVAL_S, FlickAdvanceState
+from player_core.flick_flip import FlickFlip
 from player_core.genau_controls import (
     QUARTER_CYCLE_OFFSET_COMMAND,
     GenauControls,
@@ -67,7 +67,7 @@ class TestApplyRuntimeCommand:
             "PREV",
             engine=engine,
             paused=paused,
-            step_clip=steps.append,
+            step_flick=steps.append,
         )
 
         assert handled is True
@@ -82,7 +82,7 @@ class TestApplyRuntimeCommand:
             "NEXT",
             engine=engine,
             paused=paused,
-            step_clip=steps.append,
+            step_flick=steps.append,
         )
 
         assert handled is True
@@ -96,7 +96,7 @@ class TestApplyRuntimeCommand:
             QUARTER_CYCLE_OFFSET_COMMAND,
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
         )
 
         assert handled is True
@@ -110,7 +110,7 @@ class TestApplyRuntimeCommand:
             QUARTER_CYCLE_OFFSET_COMMAND,
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
         )
 
         assert handled is True
@@ -131,7 +131,7 @@ class TestApplyRuntimeCommand:
             verb,
             engine=engine,
             paused=Flag(),
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             robot_hand=ds,
         )
 
@@ -147,7 +147,7 @@ class TestApplyRuntimeCommand:
             "PAUSE",
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
         )
 
         assert handled is True
@@ -161,7 +161,7 @@ class TestApplyRuntimeCommand:
             "RESUME",
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
         )
 
         assert handled is True
@@ -175,7 +175,7 @@ class TestApplyRuntimeCommand:
         apply_runtime_command("PAUSE", GenauControls(
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             robot_hand=ds,
         ))
 
@@ -189,7 +189,7 @@ class TestApplyRuntimeCommand:
         apply_runtime_command("RESUME", GenauControls(
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             robot_hand=ds,
         ))
 
@@ -204,7 +204,7 @@ class TestApplyRuntimeCommand:
             "SPEED_DOWN",
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             robot_hand=ds,
         )
 
@@ -220,7 +220,7 @@ class TestApplyRuntimeCommand:
             "SPEED_UP",
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             robot_hand=ds,
         )
 
@@ -236,7 +236,7 @@ class TestApplyRuntimeCommand:
             "AMPLITUDE_DOWN",
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             robot_hand=ds,
         )
 
@@ -252,7 +252,7 @@ class TestApplyRuntimeCommand:
             "AMPLITUDE_UP",
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             robot_hand=ds,
         )
 
@@ -268,7 +268,7 @@ class TestApplyRuntimeCommand:
             "CENTER_DOWN",
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             robot_hand=ds,
         )
 
@@ -284,7 +284,7 @@ class TestApplyRuntimeCommand:
             "CENTER_UP",
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             robot_hand=ds,
         )
 
@@ -301,7 +301,7 @@ class TestApplyRuntimeCommand:
             "CYCLE_SHAPE",
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             robot_hand=ds,
         )
 
@@ -318,7 +318,7 @@ class TestApplyRuntimeCommand:
             "CYCLE_SHAPE_PREV",
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             robot_hand=ds,
         )
 
@@ -334,7 +334,7 @@ class TestApplyRuntimeCommand:
             "TOGGLE_CRUISE",
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             cruise_control_state=auto,
         )
 
@@ -351,7 +351,7 @@ class TestApplyRuntimeCommand:
                 cmd,
                 engine=engine,
                 paused=paused,
-                step_clip=lambda _step: None,
+                step_flick=lambda _step: None,
             )
             assert handled is False, f"{cmd} should be ignored without robot_hand"
 
@@ -363,7 +363,7 @@ class TestApplyRuntimeCommand:
             "TOGGLE_CRUISE",
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
         )
 
         assert handled is False
@@ -377,7 +377,7 @@ class TestApplyRuntimeCommand:
             "CRUISE_ON",
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             cruise_control_state=cc,
         )
 
@@ -393,7 +393,7 @@ class TestApplyRuntimeCommand:
             "CRUISE_OFF",
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             cruise_control_state=cc,
         )
 
@@ -409,7 +409,7 @@ class TestApplyRuntimeCommand:
                 cmd,
                 engine=engine,
                 paused=paused,
-                step_clip=lambda _step: None,
+                step_flick=lambda _step: None,
             )
             assert handled is False, f"{cmd} should be ignored without cruise_control_state"
 
@@ -422,7 +422,7 @@ class TestApplyRuntimeCommand:
             "AMP 50",
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             robot_hand=ds,
         )
 
@@ -438,7 +438,7 @@ class TestApplyRuntimeCommand:
             "CENTER 80",
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             robot_hand=ds,
         )
 
@@ -454,7 +454,7 @@ class TestApplyRuntimeCommand:
             "SPEED 30",
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             robot_hand=ds,
         )
 
@@ -468,7 +468,7 @@ class TestApplyRuntimeCommand:
             f"{SET_MAX_INTENSITY} 40",
             engine=BeatEngine(phase=0.0, last_tick=0.0),
             paused=Flag(),
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             robot_hand=hand,
         )
 
@@ -484,7 +484,7 @@ class TestApplyRuntimeCommand:
                 cmd,
                 engine=engine,
                 paused=paused,
-                step_clip=lambda _step: None,
+                step_flick=lambda _step: None,
             )
             assert handled is False, f"{cmd} should be ignored without robot_hand"
 
@@ -497,7 +497,7 @@ class TestApplyRuntimeCommand:
             "AMP abc",
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             robot_hand=ds,
         )
 
@@ -512,7 +512,7 @@ class TestApplyRuntimeCommand:
             "QUIT",
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             stop_event=stop,
         )
 
@@ -527,7 +527,7 @@ class TestApplyRuntimeCommand:
             "QUIT",
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
         )
 
         assert handled is False
@@ -541,7 +541,7 @@ class TestApplyRuntimeCommand:
             "UNKNOWN",
             engine=engine,
             paused=paused,
-            step_clip=steps.append,
+            step_flick=steps.append,
         )
 
         assert handled is False
@@ -558,7 +558,7 @@ class TestApplyRuntimeCommand:
             "HUD_ON",
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             hud=hud,
         )
 
@@ -574,7 +574,7 @@ class TestApplyRuntimeCommand:
             "HUD_OFF",
             engine=engine,
             paused=paused,
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             hud=hud,
         )
 
@@ -590,20 +590,20 @@ class TestApplyRuntimeCommand:
                 cmd,
                 engine=engine,
                 paused=paused,
-                step_clip=lambda _step: None,
+                step_flick=lambda _step: None,
             )
             assert handled is False, f"{cmd} should be ignored without a hud flag"
 
 
 
-class TestClipAdvanceCommands:
+class TestFlickAdvanceCommands:
     def _apply(self, command, aa):
         return _answered(
             command,
             engine=BeatEngine(phase=0.0, last_tick=0.0),
             paused=Flag(),
-            step_clip=lambda _step: None,
-            clip_advance_state=aa,
+            step_flick=lambda _step: None,
+            flick_advance_state=aa,
         )
 
     def _apply_volume(self, command, on_volume):
@@ -611,17 +611,17 @@ class TestClipAdvanceCommands:
             command,
             engine=BeatEngine(phase=0.0, last_tick=0.0),
             paused=Flag(),
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             set_volume=lambda level, muted: on_volume((level, muted)),
         )
 
     def test_toggle_flips_the_lock(self):
-        aa = ClipAdvanceState(locked=True)
+        aa = FlickAdvanceState(locked=True)
         assert self._apply("TOGGLE_LOCK", aa) is True
         assert aa.locked is False
 
     def test_on_and_off_are_absolute(self):
-        aa = ClipAdvanceState(locked=True)
+        aa = FlickAdvanceState(locked=True)
         assert self._apply("LOCK_OFF", aa) is True
         assert aa.locked is False
         assert self._apply("LOCK_ON", aa) is True
@@ -630,23 +630,23 @@ class TestClipAdvanceCommands:
     def test_a_number_names_the_seconds_and_leaves_the_lock_alone(self):
         """Naming a pace used to arm the moving as well, which made it both a
         setting and a switch.  The padlock is the only switch."""
-        aa = ClipAdvanceState(locked=True)
-        assert self._apply("CLIP_SECONDS 30", aa) is True
+        aa = FlickAdvanceState(locked=True)
+        assert self._apply("FLICK_SECONDS 30", aa) is True
         assert aa.interval == 30
         assert aa.locked is True
 
     def test_a_named_pace_is_clamped_to_the_usable_range(self):
-        aa = ClipAdvanceState()
-        self._apply("CLIP_SECONDS 0", aa)
+        aa = FlickAdvanceState()
+        self._apply("FLICK_SECONDS 0", aa)
         assert aa.interval == MIN_INTERVAL_S
-        self._apply("CLIP_SECONDS 900", aa)
+        self._apply("FLICK_SECONDS 900", aa)
         assert aa.interval == MAX_INTERVAL_S
 
     def test_the_arrows_step_the_pace_a_second_at_a_time(self):
-        aa = ClipAdvanceState(interval=10)
-        assert self._apply("CLIP_SECONDS_UP", aa) is True
+        aa = FlickAdvanceState(interval=10)
+        assert self._apply("FLICK_SECONDS_UP", aa) is True
         assert aa.interval == 11
-        assert self._apply("CLIP_SECONDS_DOWN", aa) is True
+        assert self._apply("FLICK_SECONDS_DOWN", aa) is True
         assert aa.interval == 10
 
     def test_the_published_sound_level_reaches_the_chip(self):
@@ -678,36 +678,36 @@ class TestClipAdvanceCommands:
         that spends it.  The old spelling is gone rather than kept alongside:
         two verbs for one setting is how the two drift into meaning different
         things."""
-        aa = ClipAdvanceState(interval=10)
+        aa = FlickAdvanceState(interval=10)
         for cmd in ("ADVANCE_UP", "ADVANCE_DOWN", "ADVANCE 30"):
             assert self._apply(cmd, aa) is False, f"{cmd} should no longer be answered"
         assert aa.interval == 10
 
-    def test_ignored_without_clip_advance_state(self):
+    def test_ignored_without_flick_advance_state(self):
         engine = BeatEngine(phase=0.0, last_tick=0.0)
         for cmd in (
             "TOGGLE_LOCK", "LOCK_ON", "LOCK_OFF",
-            "CLIP_SECONDS_UP", "CLIP_SECONDS_DOWN", "CLIP_SECONDS 30",
+            "FLICK_SECONDS_UP", "FLICK_SECONDS_DOWN", "FLICK_SECONDS 30",
         ):
             handled = _answered(
                 cmd,
                 engine=engine,
                 paused=Flag(),
-                step_clip=lambda _step: None,
+                step_flick=lambda _step: None,
             )
-            assert handled is False, f"{cmd} should be ignored without clip_advance_state"
+            assert handled is False, f"{cmd} should be ignored without flick_advance_state"
 
 
 class TestWeirdCommand:
-    def test_weird_condemns_the_clip_on_screen(self):
+    def test_weird_condemns_the_flick_on_screen(self):
         calls: list[int] = []
 
         handled = _answered(
             "WEIRD",
             engine=BeatEngine(phase=0.0, last_tick=0.0),
             paused=Flag(),
-            step_clip=lambda _step: None,
-            condemn_clip=lambda: calls.append(1),
+            step_flick=lambda _step: None,
+            condemn_flick=lambda: calls.append(1),
         )
 
         assert handled is True
@@ -718,26 +718,26 @@ class TestWeirdCommand:
             "WEIRD",
             engine=BeatEngine(phase=0.0, last_tick=0.0),
             paused=Flag(),
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
         )
 
         assert handled is False
 
 
 class TestFlipEndsCommand:
-    def test_flip_ends_turns_the_clip_on_screen_over(self, tmp_path):
-        clip = tmp_path / "clips" / "scene one.mp4"
-        clip.parent.mkdir()
-        clip.touch()
-        flip = ClipFlip()
-        flip.follow(clip)
+    def test_flip_ends_turns_the_flick_on_screen_over(self, tmp_path):
+        flick = tmp_path / "flicks" / "scene one.mp4"
+        flick.parent.mkdir()
+        flick.touch()
+        flip = FlickFlip()
+        flip.follow(flick)
 
         handled = _answered(
             "FLIP_ENDS",
             engine=BeatEngine(phase=0.0, last_tick=0.0),
             paused=Flag(),
-            step_clip=lambda _step: None,
-            clip_flip=flip,
+            step_flick=lambda _step: None,
+            flick_flip=flip,
         )
 
         assert (handled, flip.on) == (True, True)
@@ -750,36 +750,36 @@ class TestPlayFileCommand:
             command,
             engine=BeatEngine(phase=0.0, last_tick=0.0),
             paused=Flag(),
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             play_file=played.append,
             **collaborators,
         )
         return handled, played
 
-    def test_it_plays_the_clip_the_line_names(self, tmp_path):
-        clip = tmp_path / "Scene One.mp4"
-        clip.touch()
+    def test_it_plays_the_flick_the_line_names(self, tmp_path):
+        flick = tmp_path / "Scene One.mp4"
+        flick.touch()
 
-        assert self._asked(f"PLAY_FILE {clip}") == (True, [clip])
+        assert self._asked(f"PLAY_FILE {flick}") == (True, [flick])
 
-    def test_a_funscript_after_the_clip_is_left_to_the_players_that_drive_by_one(self, tmp_path):
-        clip = tmp_path / "scene one.mp4"
-        clip.touch()
+    def test_a_funscript_after_the_flick_is_left_to_the_players_that_drive_by_one(self, tmp_path):
+        flick = tmp_path / "scene one.mp4"
+        flick.touch()
 
-        assert self._asked(f"PLAY_FILE {clip}\t{tmp_path / 'scene one.funscript'}") == (True, [clip])
+        assert self._asked(f"PLAY_FILE {flick}\t{tmp_path / 'scene one.funscript'}") == (True, [flick])
 
-    def test_a_clip_that_is_not_on_disk_is_refused(self, tmp_path):
+    def test_a_flick_that_is_not_on_disk_is_refused(self, tmp_path):
         assert self._asked(f"PLAY_FILE {tmp_path / 'gone.mp4'}") == (False, [])
 
-    def test_a_genau_that_cannot_play_a_named_clip_does_not_answer_it(self, tmp_path):
-        clip = tmp_path / "scene one.mp4"
-        clip.touch()
+    def test_a_genau_that_cannot_play_a_named_flick_does_not_answer_it(self, tmp_path):
+        flick = tmp_path / "scene one.mp4"
+        flick.touch()
 
         handled = _answered(
-            f"PLAY_FILE {clip}",
+            f"PLAY_FILE {flick}",
             engine=BeatEngine(phase=0.0, last_tick=0.0),
             paused=Flag(),
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
         )
 
         assert handled is False
@@ -788,7 +788,7 @@ class TestPlayFileCommand:
 class TestBrowseOrderCommands:
     """The two orders every player in the room browses in.  Genau owns its own
     sequence rather than being handed a playlist file, so the order arrives as a
-    verb and the answer is a rescan of the clips folder."""
+    verb and the answer is a rescan of the flicks folder."""
 
     def test_latest_asks_for_newest_first(self):
         asked: list[bool] = []
@@ -797,8 +797,8 @@ class TestBrowseOrderCommands:
             "LATEST",
             engine=BeatEngine(phase=0.0, last_tick=0.0),
             paused=Flag(),
-            step_clip=lambda _step: None,
-            reorder_clips=asked.append,
+            step_flick=lambda _step: None,
+            reorder_flicks=asked.append,
         )
 
         assert handled is True
@@ -811,8 +811,8 @@ class TestBrowseOrderCommands:
             "SHUFFLE",
             engine=BeatEngine(phase=0.0, last_tick=0.0),
             paused=Flag(),
-            step_clip=lambda _step: None,
-            reorder_clips=asked.append,
+            step_flick=lambda _step: None,
+            reorder_flicks=asked.append,
         )
 
         assert handled is True
@@ -824,15 +824,15 @@ class TestBrowseOrderCommands:
                 cmd,
                 engine=BeatEngine(phase=0.0, last_tick=0.0),
                 paused=Flag(),
-                step_clip=lambda _step: None,
+                step_flick=lambda _step: None,
             )
 
-            assert handled is False, f"{cmd} should be ignored without reorder_clips"
+            assert handled is False, f"{cmd} should be ignored without reorder_flicks"
 
 
 class TestShapeCommands:
-    """Which of the two shapes a clip can be mastered in Genau browses: the
-    headset's VR clips, the flat ones, or both.  A verb for the same reason the
+    """Which of the two shapes a flick can be mastered in Genau browses: the
+    headset's VR flicks, the flat ones, or both.  A verb for the same reason the
     browse order is one: Genau owns its sequence."""
 
     def _asked(self, command) -> tuple[bool, list[tuple[bool, bool]]]:
@@ -841,7 +841,7 @@ class TestShapeCommands:
             command,
             engine=BeatEngine(phase=0.0, last_tick=0.0),
             paused=Flag(),
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
             keep_shapes=lambda plays_vr, plays_flat: asked.append((plays_vr, plays_flat)),
         )
         return handled, asked
@@ -855,12 +855,12 @@ class TestShapeCommands:
     def test_a_word_that_is_no_shape_is_refused_rather_than_read_as_none(self):
         assert self._asked("SHAPES round") == (False, [])
 
-    def test_a_genau_with_one_shape_of_clip_does_not_answer_it(self):
+    def test_a_genau_with_one_shape_of_flick_does_not_answer_it(self):
         handled = _answered(
             "SHAPES vr",
             engine=BeatEngine(phase=0.0, last_tick=0.0),
             paused=Flag(),
-            step_clip=lambda _step: None,
+            step_flick=lambda _step: None,
         )
 
         assert handled is False
@@ -879,7 +879,7 @@ class TestAnUnhandledCommand:
             apply_runtime_command(command, GenauControls(
                 engine=BeatEngine(phase=0.0, last_tick=0.0),
                 paused=Flag(),
-                step_clip=lambda _step: None,
+                step_flick=lambda _step: None,
                 **collaborators,
             ))
 
@@ -911,7 +911,7 @@ class TestLearnedMotionVerbs:
         learned = self._learned()
 
         handled = _answered("TOGGLE_LEARNED", engine=BeatEngine(phase=0.0, last_tick=0.0),
-                            paused=Flag(), step_clip=lambda _step: None,
+                            paused=Flag(), step_flick=lambda _step: None,
                             learned_motion_state=learned)
 
         assert handled is True
@@ -920,7 +920,7 @@ class TestLearnedMotionVerbs:
     def test_learned_on_and_off_say_which_way(self):
         learned = self._learned(active=True)
         collaborators = dict(engine=BeatEngine(phase=0.0, last_tick=0.0), paused=Flag(),
-                             step_clip=lambda _step: None, learned_motion_state=learned)
+                             step_flick=lambda _step: None, learned_motion_state=learned)
 
         assert _answered("LEARNED_OFF", **collaborators) is True
         assert learned.active is False
@@ -929,14 +929,14 @@ class TestLearnedMotionVerbs:
 
     def test_learned_verbs_are_refused_without_the_learned_state(self):
         assert _answered("TOGGLE_LEARNED", engine=BeatEngine(phase=0.0, last_tick=0.0),
-                         paused=Flag(), step_clip=lambda _step: None) is False
+                         paused=Flag(), step_flick=lambda _step: None) is False
 
     def test_switching_learned_on_switches_cruise_off(self):
         learned = self._learned()
         cruise = CruiseControlState(active=True)
 
         _answered("LEARNED_ON", engine=BeatEngine(phase=0.0, last_tick=0.0), paused=Flag(),
-                  step_clip=lambda _step: None, learned_motion_state=learned,
+                  step_flick=lambda _step: None, learned_motion_state=learned,
                   cruise_control_state=cruise)
 
         assert learned.active is True
@@ -947,7 +947,7 @@ class TestLearnedMotionVerbs:
         cruise = CruiseControlState(active=False)
 
         _answered("TOGGLE_CRUISE", engine=BeatEngine(phase=0.0, last_tick=0.0), paused=Flag(),
-                  step_clip=lambda _step: None, learned_motion_state=learned,
+                  step_flick=lambda _step: None, learned_motion_state=learned,
                   cruise_control_state=cruise)
 
         assert cruise.active is True

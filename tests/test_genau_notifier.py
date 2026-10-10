@@ -17,13 +17,13 @@ class FakeSocket:
         self.closed = True
 
 
-def test_notify_clip_sends_clip_stem():
+def test_notify_flick_sends_flick_stem_and_says_it_again_for_a_companion_from_before_the_rename():
     sock = FakeSocket()
     notifier = GenauNotifier("127.0.0.1", 9999, sock=sock)
 
-    notifier.notify_clip(Path("demo.mp4"))
+    notifier.notify_flick(Path("demo.mp4"))
 
-    assert sock.sent == [(b"CLIP demo", ("127.0.0.1", 9999))]
+    assert sock.sent == [(b"FLICK demo", ("127.0.0.1", 9999)), (b"CLIP demo", ("127.0.0.1", 9999))]
 
 
 def test_notify_visible_deduplicates_repeated_state():
@@ -41,10 +41,10 @@ def test_notify_visible_deduplicates_repeated_state():
 
 
 def test_the_notifier_has_only_the_two_things_it_says():
-    """CLIP and VISIBLE, each with one caller.
+    """FLICK and VISIBLE, each with one caller.
 
     A third method wrapped them to send both at once, for a first tick that
-    had already had its CLIP sent by the clip selection a moment earlier --
+    had already had its FLICK sent by the flick selection a moment earlier --
     so it put the same datagram on the wire twice at every launch.
     """
     assert not hasattr(GenauNotifier, "announce_visible")
