@@ -8,11 +8,11 @@ from unittest.mock import MagicMock
 import pytest
 
 from player_core.broker_feed import BrokerFeed
-from player_core.clip_advance import ClipAdvanceState
-from player_core.clip_flip import ClipFlip
 from player_core.cruise_control import CruiseControlState
 from player_core.device_walk import BROKER_HOLD_DELAY_MS
 from player_core.flag import Flag
+from player_core.flick_advance import FlickAdvanceState
+from player_core.flick_flip import FlickFlip
 from player_core.funscript import PARK_SETTLE_MS
 from player_core.genau_controls import GenauControls
 from player_core.genau_refresh import GenauRefreshController
@@ -30,7 +30,7 @@ class FakeLoader:
         self.loaded_adopt_calls = 0
         self.prefetch_adopt_calls = 0
 
-    def adopt_loaded_clip_if_ready(self) -> None:
+    def adopt_loaded_flick_if_ready(self) -> None:
         self.loaded_adopt_calls += 1
 
     def adopt_prefetch_if_ready(self) -> None:
@@ -47,13 +47,13 @@ class FakeNotifier:
 
 class FakeRenderer:
     def __init__(self, *, path: Path | None = None, entry=None, current_frame_index: int | None = None):
-        self.current_clip_path = path
+        self.current_flick_path = path
         self._entry = entry
         self.current_frame_index = current_frame_index
         self.display_calls: list[int] = []
         self.portrait: bool | None = None
 
-    def current_clip_entry(self):
+    def current_flick_entry(self):
         return self._entry
 
     def show_frame_at(self, index: int) -> None:
@@ -62,14 +62,14 @@ class FakeRenderer:
 
 
 class FakeSelection:
-    def __init__(self, *, current_number: int = 2, count: int = 5, pending_clip_name: str | None = None):
+    def __init__(self, *, current_number: int = 2, count: int = 5, pending_flick_name: str | None = None):
         self.current_number = current_number
         self.count = count
         self.step_calls: list[int] = []
         self.discard_calls = 0
         self.prefetch_calls = 0
         self.adopt_calls = 0
-        self.pending_clip_name = pending_clip_name
+        self.pending_flick_name = pending_flick_name
 
     def step(self, delta: int) -> None:
         self.step_calls.append(delta)
@@ -78,7 +78,7 @@ class FakeSelection:
         self.discard_calls += 1
         return True
 
-    def adopt_pending_clip(self) -> bool:
+    def adopt_pending_flick(self) -> bool:
         self.adopt_calls += 1
         return False
 
@@ -150,20 +150,20 @@ def _build_controller(
     command: str | None = None,
     commands: list[str] | None = None,
     paused_state: bool = False,
-    pending_clip_name: str | None = None,
+    pending_flick_name: str | None = None,
     # The state the app itself opens on: not playing, mid speed.  Genau always
     # has one, so a test that does not care about it still gets it.
     robot_hand: RobotHandState | None = None,
     tcode_sender: FakeTCodeSender | None = None,
     cruise_control: CruiseControlState | None = None,
     learned: LearnedMotionState | None = None,
-    clip_advance: ClipAdvanceState | None = None,
+    flick_advance: FlickAdvanceState | None = None,
     hud: Flag | None = None,
     command_file: Path | None = None,
     status_file: Path | None = None,
     drive_file: Path | None = None,
     now_source=None,
-    clip_flip: ClipFlip | None = None,
+    flick_flip: FlickFlip | None = None,
 ):
     loading_texts: list[str | None] = []
     drained_from: list[Path] = []
@@ -179,27 +179,27 @@ def _build_controller(
         entry=entry,
         current_frame_index=current_frame_index,
     )
-    selection = FakeSelection(pending_clip_name=pending_clip_name)
+    selection = FakeSelection(pending_flick_name=pending_flick_name)
     engine = BeatEngine(phase=0.25, last_tick=5.0)
     logger = MagicMock()
     controls = GenauControls(
         engine=engine,
         paused=Flag(),
-        step_clip=selection.step,
-        condemn_clip=selection.condemn_current,
+        step_flick=selection.step,
+        condemn_flick=selection.condemn_current,
         robot_hand=robot_hand if robot_hand is not None else RobotHandState(),
         cruise_control_state=cruise_control,
         learned_motion_state=learned,
         set_motion_phase=(
             tcode_sender.set_motion_phase if tcode_sender is not None else None
         ),
-        clip_advance_state=clip_advance,
+        flick_advance_state=flick_advance,
         hud=hud,
         # A Genau with no chip to draw still answers SET_VOLUME: the level is the
         # orchestrator's, and refusing it would put an unhandled verb on the log
         # every time the room's volume moved.
         set_volume=lambda _level, _muted: None,
-        clip_flip=clip_flip if clip_flip is not None else ClipFlip(),
+        flick_flip=flick_flip if flick_flip is not None else FlickFlip(),
     )
     controller = GenauRefreshController(
         controls=controls,
@@ -302,7 +302,7 @@ def test_refresh_reads_paused_state_file_each_tick():
 
 def test_refresh_reports_exceptions():
     built = _build_controller(entry=None)
-    built["renderer"].current_clip_entry = MagicMock(side_effect=RuntimeError("kaboom"))
+    built["renderer"].current_flick_entry = MagicMock(side_effect=RuntimeError("kaboom"))
 
     built["controller"].refresh()
 
@@ -316,7 +316,7 @@ def test_a_fault_that_repeats_every_frame_is_said_once():
     persistent fault used to write thousands of tracebacks a second into the
     state directory the three other IPC files live in."""
     built = _build_controller(entry=None)
-    built["renderer"].current_clip_entry = MagicMock(side_effect=RuntimeError("kaboom"))
+    built["renderer"].current_flick_entry = MagicMock(side_effect=RuntimeError("kaboom"))
 
     for _ in range(100):
         built["controller"].refresh()
@@ -325,25 +325,25 @@ def test_a_fault_that_repeats_every_frame_is_said_once():
     assert built["logger"].debug.call_count == 99
 
 
-def test_refresh_sets_loading_text_when_pending_clip():
+def test_refresh_sets_loading_text_when_pending_flick():
     entry = {"frames": [object() for _ in range(4)]}
-    built = _build_controller(entry=entry, pending_clip_name="next.mp4")
+    built = _build_controller(entry=entry, pending_flick_name="next.mp4")
 
     built["controller"].refresh()
 
     assert built["loading_texts"][-1] == "Loading next.mp4"
 
 
-def test_refresh_clears_loading_text_when_no_pending_clip():
+def test_refresh_clears_loading_text_when_no_pending_flick():
     entry = {"frames": [object() for _ in range(4)]}
-    built = _build_controller(entry=entry, pending_clip_name=None)
+    built = _build_controller(entry=entry, pending_flick_name=None)
 
     built["controller"].refresh()
 
     assert built["loading_texts"][-1] is None
 
 
-def test_refresh_calls_adopt_pending_clip():
+def test_refresh_calls_adopt_pending_flick():
     entry = {"frames": [object() for _ in range(4)]}
     built = _build_controller(entry=entry)
 
@@ -509,11 +509,11 @@ def test_toggle_cruise_command_via_refresh():
 
 def test_toggle_lock_command_via_refresh():
     dc = RobotHandState(playing=True, bpm=120.0)
-    aa = ClipAdvanceState(locked=True)
+    aa = FlickAdvanceState(locked=True)
     entry = {"frames": [object() for _ in range(8)]}
     built = _build_controller(
         entry=entry, robot_hand=dc, tcode_sender=FakeTCodeSender(),
-        clip_advance=aa, command="TOGGLE_LOCK",
+        flick_advance=aa, command="TOGGLE_LOCK",
     )
 
     built["controller"].refresh()
@@ -539,12 +539,12 @@ def test_cruise_control_ticks_during_refresh():
     assert dc.speed != 50 or dc.amplitude != 100 or dc.center != 50
 
 
-def _run_clip_advance(*, playing: bool, seconds: float = 15.0, locked: bool = False):
+def _run_flick_advance(*, playing: bool, seconds: float = 15.0, locked: bool = False):
     dc = RobotHandState(playing=playing, bpm=120.0)
-    aa = ClipAdvanceState(locked=locked, interval=10)
+    aa = FlickAdvanceState(locked=locked, interval=10)
     entry = {"frames": [object() for _ in range(8)]}
     built = _build_controller(
-        entry=entry, robot_hand=dc, tcode_sender=FakeTCodeSender(), clip_advance=aa
+        entry=entry, robot_hand=dc, tcode_sender=FakeTCodeSender(), flick_advance=aa
     )
     tick = 0.0
     for _ in range(int(seconds / 0.1)):
@@ -554,23 +554,23 @@ def _run_clip_advance(*, playing: bool, seconds: float = 15.0, locked: bool = Fa
     return built["selection"].step_calls
 
 
-def test_an_unlocked_genau_advances_its_clip_during_refresh():
-    steps = _run_clip_advance(playing=True)
+def test_an_unlocked_genau_advances_its_flick_during_refresh():
+    steps = _run_flick_advance(playing=True)
     assert len(steps) >= 1
     assert all(c == 1 for c in steps)
 
 
-def test_a_locked_genau_stays_on_its_clip():
-    assert _run_clip_advance(playing=True, seconds=60.0, locked=True) == []
+def test_a_locked_genau_stays_on_its_flick():
+    assert _run_flick_advance(playing=True, seconds=60.0, locked=True) == []
 
 
-def test_the_clip_is_held_while_the_room_is_paused():
+def test_the_flick_is_held_while_the_room_is_paused():
     """OmniPause reaches Genau as PAUSE, which clears robot_hand.playing.
 
-    The advance has to read that: a paused room that keeps swapping clips
+    The advance has to read that: a paused room that keeps swapping flicks
     leaves the user looking at something they never chose to move to.
     """
-    assert _run_clip_advance(playing=False, seconds=60.0) == []
+    assert _run_flick_advance(playing=False, seconds=60.0) == []
 
 
 def test_broker_auto_uses_broker_bpm_for_phase():
@@ -637,7 +637,7 @@ def test_broker_auto_does_not_tick_cruise_control():
 
 def test_broker_auto_sync_pulses_never_move_the_cursor_backward():
     """A sync pulse under the broker holds a leading loop rather than dragging
-    its phase back, so the clip's cursor never runs backwards."""
+    its phase back, so the flick's cursor never runs backwards."""
     dc = RobotHandState(playing=False, bpm=60.0)
     state = BrokerFeed(auto_active=True, raw_bpm=120.0, sync_pulse_id=1)
     entry = {"frames": [object() for _ in range(8)]}
@@ -683,10 +683,10 @@ def test_multiline_commands_all_applied():
 
 
 @pytest.mark.parametrize(("hud_on", "heard"), [(True, False), (False, True)])
-def test_the_clip_is_heard_only_while_it_has_the_main_screen(hud_on, heard):
-    """As the transparent layer over a video, Genau's clip is not on screen, so
+def test_the_flick_is_heard_only_while_it_has_the_main_screen(hud_on, heard):
+    """As the transparent layer over a video, Genau's flick is not on screen, so
     its sound is not the room's: said visible there, the companion played the
-    hidden clip's music over the video every time the OSR2 went into auto."""
+    hidden flick's music over the video every time the OSR2 went into auto."""
     built = _build_controller(
         entry={"frames": [object() for _ in range(8)]}, hud=Flag(on=hud_on))
 
@@ -695,7 +695,7 @@ def test_the_clip_is_heard_only_while_it_has_the_main_screen(hud_on, heard):
     assert built["notifier"].visible_updates[-1] is heard
 
 
-def test_the_clip_is_heard_again_once_it_takes_the_main_screen_back():
+def test_the_flick_is_heard_again_once_it_takes_the_main_screen_back():
     hud = Flag(on=True)
     built = _build_controller(
         entry={"frames": [object() for _ in range(8)]}, hud=hud, commands=[])
@@ -708,8 +708,8 @@ def test_the_clip_is_heard_again_once_it_takes_the_main_screen_back():
 
 
 def test_the_frame_shown_is_where_the_device_is():
-    # The clip is the picture of the device: half way up the axis is half way
-    # through the half of the clip that is showing. Eight frames, so the front
+    # The flick is the picture of the device: half way up the axis is half way
+    # through the half of the flick that is showing. Eight frames, so the front
     # half is the last four of them and 5000 of 9999 lands in the middle of it.
     dc = RobotHandState(playing=True, bpm=120.0)
     tcode = FakeTCodeSender()
@@ -722,7 +722,7 @@ def test_the_frame_shown_is_where_the_device_is():
     assert built["renderer"].display_calls[-1] == 5
 
 
-def test_turning_at_the_top_puts_the_other_half_of_the_clip_on_the_way_down():
+def test_turning_at_the_top_puts_the_other_half_of_the_flick_on_the_way_down():
     # The one place the halves may be swapped is an end, where they show the
     # same frame — so the way down is the back half, and the height that showed
     # frame 5 climbing shows its opposite number in the loop coming back.
@@ -980,12 +980,12 @@ class TestTheOrderTheTickDoesThingsIn:
         self._before("self._drain_commands", "self.handoff.watch")
         self._before("self._drain_commands", "self.tcode_sender.maybe_send")
 
-    def test_the_clip_that_finished_decoding_is_adopted_before_it_is_drawn(self):
-        """Adopted after, a clip is one tick late on screen every time one
+    def test_the_flick_that_finished_decoding_is_adopted_before_it_is_drawn(self):
+        """Adopted after, a flick is one tick late on screen every time one
         loads, and the advance times its interval against the old one."""
         self._before("self._adopt_whatever_finished_decoding", "self._show_the_frame")
 
-    def test_the_flip_knows_the_clip_on_screen_before_a_command_can_flip_it(self):
+    def test_the_flip_knows_the_flick_on_screen_before_a_command_can_flip_it(self):
         self._before("self._adopt_whatever_finished_decoding", "self.flip.follow")
         self._before("self.flip.follow", "self._drain_commands")
 
@@ -1002,8 +1002,8 @@ class TestTheOrderTheTickDoesThingsIn:
         assert steps[-1] == "self._publish_status"
 
 
-class TestSeekingTheClip:
-    """A press on the clip's bar. The frame is a picture of where the device is,
+class TestSeekingTheFlick:
+    """A press on the flick's bar. The frame is a picture of where the device is,
     so putting the picture somewhere is putting the DEVICE somewhere -- and its
     sudden move along the axis is the point, not a side effect."""
 
@@ -1027,7 +1027,7 @@ class TestSeekingTheClip:
     def test_the_front_half_of_the_bar_is_the_device_on_its_way_up(self):
         controller = self._built()["controller"]
 
-        controller.seek_the_clip(0.25)
+        controller.seek_the_flick(0.25)
 
         assert controller._scrub.back_half is False
         assert self._height(controller) == pytest.approx(0.5, abs=0.01)
@@ -1035,7 +1035,7 @@ class TestSeekingTheClip:
     def test_the_back_half_is_the_same_heights_on_the_way_down(self):
         controller = self._built()["controller"]
 
-        controller.seek_the_clip(0.75)
+        controller.seek_the_flick(0.75)
 
         assert controller._scrub.back_half is True
         assert self._height(controller) == pytest.approx(0.5, abs=0.01)
@@ -1043,8 +1043,8 @@ class TestSeekingTheClip:
     def test_the_ends_of_the_bar_are_the_ends_of_the_stroke(self):
         parked, retracted = self._built()["controller"], self._built()["controller"]
 
-        parked.seek_the_clip(0.0)
-        retracted.seek_the_clip(0.5)
+        parked.seek_the_flick(0.0)
+        retracted.seek_the_flick(0.5)
 
         assert self._height(parked) == pytest.approx(0.0, abs=0.01)
         assert self._height(retracted) == pytest.approx(1.0, abs=0.01)
@@ -1052,27 +1052,27 @@ class TestSeekingTheClip:
     def test_a_press_past_either_end_lands_on_that_end(self):
         controller = self._built()["controller"]
 
-        controller.seek_the_clip(-2.0)
+        controller.seek_the_flick(-2.0)
         assert self._height(controller) == pytest.approx(0.0, abs=0.01)
 
-        controller.seek_the_clip(9.0)
+        controller.seek_the_flick(9.0)
         assert self._height(controller) == pytest.approx(0.0, abs=0.01)
 
     def test_the_next_tick_does_not_swap_the_half_back(self):
-        """The seek did not arrive at an end by travelling, and clip_scrub swaps
+        """The seek did not arrive at an end by travelling, and flick_scrub swaps
         halves on arriving at one -- so a seek would otherwise be undone by the
         tick that follows it."""
         controller = self._built()["controller"]
 
-        controller.seek_the_clip(0.6)
+        controller.seek_the_flick(0.6)
         controller.refresh()
 
         assert controller._scrub.back_half is True
 
-    def test_a_clip_still_decoding_is_not_seekable(self):
+    def test_a_flick_still_decoding_is_not_seekable(self):
         built = _build_controller(entry=None, tcode_sender=FakeTCodeSender())
 
-        built["controller"].seek_the_clip(0.5)
+        built["controller"].seek_the_flick(0.5)
 
         assert built["controller"].tcode_sender.motion_phase == 0.0
 
@@ -1115,37 +1115,37 @@ def test_the_learned_motion_ticks_during_refresh(tmp_path):
     assert "learned=1" in (tmp_path / "status.txt").read_text(encoding="utf-8")
 
 
-class TestAFlippedClip:
+class TestAFlippedFlick:
     @staticmethod
     def _metadata_root(tmp_path) -> Path:
         return tmp_path / "videos" / "metadata"
 
     @classmethod
     def _record(cls, tmp_path) -> Path:
-        return cls._metadata_root(tmp_path) / "genau" / "clips" / "scene one.json"
+        return cls._metadata_root(tmp_path) / "genau" / "flicks" / "scene one.json"
 
     @classmethod
-    def _clip(cls, tmp_path, *, flipped: bool = True) -> Path:
-        clip = tmp_path / "videos" / "genau" / "clips" / "scene one.mp4"
-        clip.parent.mkdir(parents=True)
-        clip.touch()
+    def _flick(cls, tmp_path, *, flipped: bool = True) -> Path:
+        flick = tmp_path / "videos" / "genau" / "flicks" / "scene one.mp4"
+        flick.parent.mkdir(parents=True)
+        flick.touch()
         if flipped:
             cls._record(tmp_path).parent.mkdir(parents=True)
             cls._record(tmp_path).write_text('{"genau": {"flipped": true}}', encoding="utf-8")
-        return clip
+        return flick
 
     @classmethod
-    def _flip(cls, tmp_path) -> ClipFlip:
-        return ClipFlip(cls._metadata_root(tmp_path))
+    def _flip(cls, tmp_path) -> FlickFlip:
+        return FlickFlip(cls._metadata_root(tmp_path))
 
     def test_the_frame_shown_is_half_a_loop_over_from_where_the_device_is(self, tmp_path):
         tcode = FakeTCodeSender()
         tcode._position = 5000
         built = _build_controller(
-            path=str(self._clip(tmp_path)),
+            path=str(self._flick(tmp_path)),
             entry={"frames": [object() for _ in range(8)]},
             robot_hand=RobotHandState(playing=True, bpm=120.0), tcode_sender=tcode,
-            clip_flip=self._flip(tmp_path),
+            flick_flip=self._flip(tmp_path),
         )
 
         built["controller"].refresh()
@@ -1154,26 +1154,26 @@ class TestAFlippedClip:
 
     def test_under_the_broker_it_is_half_a_loop_over_from_the_beat(self, tmp_path):
         built = _build_controller(
-            path=str(self._clip(tmp_path)),
+            path=str(self._flick(tmp_path)),
             broker=BrokerFeed(auto_active=True, raw_bpm=120.0),
             entry={"frames": [object() for _ in range(8)]},
             robot_hand=RobotHandState(playing=False, bpm=60.0),
-            clip_flip=self._flip(tmp_path),
+            flick_flip=self._flip(tmp_path),
         )
 
         built["controller"].refresh()
 
         assert built["renderer"].display_calls == [1]
 
-    def test_flip_ends_turns_over_the_clip_up_when_it_arrives(self, tmp_path):
-        clip = self._clip(tmp_path, flipped=False)
+    def test_flip_ends_turns_over_the_flick_up_when_it_arrives(self, tmp_path):
+        flick = self._flick(tmp_path, flipped=False)
         tcode = FakeTCodeSender()
         tcode._position = 5000
         built = _build_controller(
-            path=str(clip), command="FLIP_ENDS",
+            path=str(flick), command="FLIP_ENDS",
             entry={"frames": [object() for _ in range(8)]},
             robot_hand=RobotHandState(playing=True, bpm=120.0), tcode_sender=tcode,
-            clip_flip=self._flip(tmp_path),
+            flick_flip=self._flip(tmp_path),
         )
 
         built["controller"].refresh()
@@ -1183,31 +1183,31 @@ class TestAFlippedClip:
 
     def test_its_bar_starts_where_its_own_first_frame_puts_the_device(self, tmp_path):
         built = _build_controller(
-            path=str(self._clip(tmp_path)),
+            path=str(self._flick(tmp_path)),
             entry={"frames": [object()] * 20},
             robot_hand=RobotHandState(playing=True, speed=50, bpm=60.0),
             tcode_sender=FakeTCodeSender(),
-            clip_flip=self._flip(tmp_path),
+            flick_flip=self._flip(tmp_path),
         )
         controller = built["controller"]
         controller.refresh()
 
-        controller.seek_the_clip(0.0)
-        at_the_start = TestSeekingTheClip._height(controller)
-        controller.seek_the_clip(0.25)
+        controller.seek_the_flick(0.0)
+        at_the_start = TestSeekingTheFlick._height(controller)
+        controller.seek_the_flick(0.25)
 
         assert at_the_start == pytest.approx(1.0, abs=0.01)
-        assert (controller._scrub.back_half, TestSeekingTheClip._height(controller)) == (
+        assert (controller._scrub.back_half, TestSeekingTheFlick._height(controller)) == (
             True, pytest.approx(0.5, abs=0.01))
 
-    def test_the_status_says_the_clip_up_is_flipped(self, tmp_path):
+    def test_the_status_says_the_flick_up_is_flipped(self, tmp_path):
         built = _build_controller(
-            path=str(self._clip(tmp_path)),
+            path=str(self._flick(tmp_path)),
             entry={"frames": [object() for _ in range(8)]},
             robot_hand=RobotHandState(playing=True, bpm=120.0),
             tcode_sender=FakeTCodeSender(), cruise_control=CruiseControlState(),
             status_file=tmp_path / "genau_status.txt",
-            clip_flip=self._flip(tmp_path),
+            flick_flip=self._flip(tmp_path),
         )
 
         built["controller"].refresh()
@@ -1215,7 +1215,7 @@ class TestAFlippedClip:
         assert "flipped=1" in (tmp_path / "genau_status.txt").read_text(encoding="utf-8")
 
 
-def test_the_status_says_whether_the_clip_up_is_portrait(tmp_path):
+def test_the_status_says_whether_the_flick_up_is_portrait(tmp_path):
     built = _build_controller(
         entry={"frames": [object() for _ in range(8)]},
         cruise_control=CruiseControlState(),

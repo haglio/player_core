@@ -3,7 +3,7 @@
 The same console is drawn whichever player holds the slot: the main player over its video in
 kino mode, Genau into its own window in genau mode.  So the mode switch and the
 drive controls keep their places as you flip between modes — only the transport
-changes, because it steps the main player's video in one and Genau's clips in the other.
+changes, because it steps the main player's video in one and Genau's flicks in the other.
 
 Its top block is the main player's own answer to "what am I playing?" — the status line (the
 length mode, or the compilation and your place in it) beside the active-player
@@ -150,7 +150,7 @@ class ConsoleHud:
 
     @property
     def advance_interval(self) -> int:
-        """How long an unlocked Genau leaves each clip up.
+        """How long an unlocked Genau leaves each flick up.
 
         Genau owns the pace, so it rides its own drive readout rather than the
         console panel Fun Time publishes — and is read back off the readout
@@ -191,11 +191,11 @@ class ConsoleHud:
         # an empty slot takes no room, the way every other optional slot here does.
         order = "" if self.console.latest is None else (
             LATEST_LABEL if self.console.latest else SHUFFLE_LABEL)
-        # The pace an unheld Genau clip moves on at, after the order rather than in
-        # place of it: the order says which clip is next, the pace says when.  Only
+        # The pace an unheld Genau flick moves on at, after the order rather than in
+        # place of it: the order says which flick is next, the pace says when.  Only
         # while Genau is the one showing — kino mode draws the drive readout too, but
         # an unlocked main player there plays through a playlist rather than on a timer —
-        # and only unheld, since nothing is going to move a held clip.
+        # and only unheld, since nothing is going to move a held flick.
         if not main_player_displays(self.console.main_mode) and not self.console.locked and self.advance_interval:
             pace = f"{self.advance_interval}s"
             order = f"{order}{SEPARATOR}{pace}" if order else pace

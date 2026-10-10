@@ -10,13 +10,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
-from .clip_picture import ClipPicture, Picture
 from .console import ModeHud
 from .console_overlay import ConsoleOverlay
 from .control_registry import look_up
 from .dashboard import ask
 from .drive_gate import DriveGate
 from .file_channel import consume_command_file, read_paused_state
+from .flick_picture import FlickPicture, Picture
 from .funestra_controls import VERBS, FunestraControls
 from .funestra_status import status_fields
 from .hud_overlay import HUD_OVERLAY_ID, HudOverlay
@@ -25,7 +25,7 @@ from .hud_row import RowHud
 from .mpv_player import MpvPlayer
 from .play_points import PlayPoints
 from .playback import Playback, funscripts_of
-from .playhead import clip_playhead, video_playhead
+from .playhead import flick_playhead, video_playhead
 from .playlist import PlaylistItem
 from .playlist_follower import PlaylistFollower
 from .pointer import OMNIPAUSE_TOGGLE, Pointer
@@ -99,7 +99,7 @@ class PanelSurface(Protocol):
 @runtime_checkable
 class UsersPicture(Protocol):
     """Where a User's own picture goes up: over the player's picture, as
-    :class:`ClipPicture` tiles it, or wherever else the window shows one."""
+    :class:`FlickPicture` tiles it, or wherever else the window shows one."""
 
     def show(self, picture: Picture, window: tuple[int, int]) -> None: ...
 
@@ -196,7 +196,7 @@ class Funestra:
             if sound_is_the_rooms else VolumeControl(player, live=audible, muted=muted)
         )
         self._panel = self._panel_for(channels, panel_surface or player, panel)
-        self._users_picture = users_picture or ClipPicture(player)
+        self._users_picture = users_picture or FlickPicture(player)
         self._pointer = Pointer(hud=self._panel, picture=self._press_on_the_picture(channels))
         self._controls = FunestraControls(
             self.playback, stop_event=self._stop,
@@ -464,9 +464,9 @@ class Funestra:
 
 def picture_row(picture: Picture, volume) -> RowHud | None:
     """The row for a picture a User put up itself, counted in frames rather
-    than milliseconds -- a clip is a loop of frames and has no running time --
+    than milliseconds -- a flick is a loop of frames and has no running time --
     or None while there is none up."""
     if picture.count <= 0:
         return None
     return RowHud(position_ms=picture.played, duration_ms=picture.count, volume=volume,
-                  playhead=clip_playhead(picture.played, picture.count))
+                  playhead=flick_playhead(picture.played, picture.count))

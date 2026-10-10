@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from player_core import genau_status
-from player_core.clip_advance import ClipAdvanceState
 from player_core.cruise_control import CruiseControlState
+from player_core.flick_advance import FlickAdvanceState
 from player_core.genau_status import build_status_text, write_status_file
 from player_core.learned_motion import LearnedMotionState
 from player_core.robot_hand import RobotHandState, WaveformShape
@@ -124,35 +124,35 @@ def test_write_status_file_skips_when_unchanged(tmp_path: Path):
     assert path.stat().st_mtime_ns == written_at, "the file was rewritten anyway"
 
 
-def test_build_status_text_reports_the_clip_held_by_default():
+def test_build_status_text_reports_the_flick_held_by_default():
     text = build_status_text(RobotHandState(), CruiseControlState())
 
     assert "locked=1" in text
 
 
-def test_build_status_text_reports_a_released_clip():
-    aa = ClipAdvanceState(locked=False)
+def test_build_status_text_reports_a_released_flick():
+    aa = FlickAdvanceState(locked=False)
 
-    text = build_status_text(RobotHandState(), CruiseControlState(), clip_advance=aa)
+    text = build_status_text(RobotHandState(), CruiseControlState(), flick_advance=aa)
 
     assert "locked=0" in text
 
 
-def test_build_status_text_names_the_clip_on_screen():
-    """Which clip is up, so a reopened session can be pointed back at it."""
+def test_build_status_text_names_the_flick_on_screen():
+    """Which flick is up, so a reopened session can be pointed back at it."""
     text = build_status_text(
-        RobotHandState(), CruiseControlState(), clip=Path("C:/clips/alpha.mp4"),
+        RobotHandState(), CruiseControlState(), flick=Path("C:/flicks/alpha.mp4"),
     )
 
-    assert "clip=C:\\clips\\alpha.mp4" in text or "clip=C:/clips/alpha.mp4" in text
+    assert "flick=C:\\flicks\\alpha.mp4" in text or "flick=C:/flicks/alpha.mp4" in text
 
 
-def test_build_status_text_names_no_clip_before_one_is_up():
+def test_build_status_text_names_no_flick_before_one_is_up():
     """Genau publishes from its refresh loop, which can run a tick before the
-    first clip is decoded; an empty value reads as nothing to come back to."""
+    first flick is decoded; an empty value reads as nothing to come back to."""
     text = build_status_text(RobotHandState(), CruiseControlState())
 
-    assert "clip=\n" in text
+    assert "flick=\n" in text
 
 
 def test_build_status_text_says_whether_the_learned_motion_has_the_hand():
@@ -163,17 +163,17 @@ def test_build_status_text_says_whether_the_learned_motion_has_the_hand():
         RobotHandState(), CruiseControlState(), learned=LearnedMotionState(active=True))
 
 
-def test_build_status_text_says_whether_the_clip_on_screen_is_flipped():
+def test_build_status_text_says_whether_the_flick_on_screen_is_flipped():
     assert "flipped=0" in build_status_text(RobotHandState(), CruiseControlState())
     assert "flipped=1" in build_status_text(RobotHandState(), CruiseControlState(), flipped=True)
 
 
-def test_build_status_text_says_whether_the_clip_on_screen_is_portrait():
+def test_build_status_text_says_whether_the_flick_on_screen_is_portrait():
     assert "portrait=1\n" in build_status_text(RobotHandState(), CruiseControlState(), portrait=True)
     assert "portrait=0\n" in build_status_text(RobotHandState(), CruiseControlState(), portrait=False)
 
 
-def test_build_status_text_leaves_the_shape_empty_until_a_clip_is_up():
+def test_build_status_text_leaves_the_shape_empty_until_a_flick_is_up():
     assert "portrait=\n" in build_status_text(RobotHandState(), CruiseControlState())
 
 
@@ -194,10 +194,10 @@ def test_whether_the_hand_is_moving_is_said_for_a_genau_taking_its_place():
     assert "playing=0" in build_status_text(RobotHandState(playing=False), CruiseControlState())
 
 
-def test_the_seconds_a_clip_holds_the_screen_are_said_too():
-    advance = ClipAdvanceState(interval=25)
+def test_the_seconds_a_flick_holds_the_screen_are_said_too():
+    advance = FlickAdvanceState(interval=25)
     assert "interval=25" in build_status_text(
-        RobotHandState(), CruiseControlState(), clip_advance=advance)
+        RobotHandState(), CruiseControlState(), flick_advance=advance)
 
 
 def test_the_status_says_the_max_intensity_the_hand_is_held_to():

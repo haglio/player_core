@@ -3,7 +3,7 @@
 Whichever player holds the main slot draws it: the main player in kino mode, Genau in
 genau mode.  The console is the same in both, so the mode switch and the drive
 controls do not move as you flip between them; only the transport changes,
-because prev/next step the main player's video in kino mode and Genau's clips in genau.
+because prev/next step the main player's video in kino mode and Genau's flicks in genau.
 
 Kept free of Pillow, as :mod:`player_core.satellite_hud` is, so the
 geometry and the hit-testing are testable without a font.  :mod:`player_core.console_hud` paints them; the
@@ -188,7 +188,7 @@ class ConsoleModel:
     osr2_control: str = OSR2_CONTROL_UNANSWERED
     # Whether the player on the main slot is holding what is on screen rather
     # than letting it move on -- the main player's video in kino mode, Genau's
-    # clip in genau.  On is where both players open, so it is the default here
+    # flick in genau.  On is where both players open, so it is the default here
     # too: a console drawn before the first panel arrives must not show the lock
     # off when it is not.
     locked: bool = True
@@ -200,7 +200,7 @@ class ConsoleModel:
     # The main player's video playback rate, shown while the main player is on screen.  Not published —
     # The main player knows its own rate and folds it in; Genau leaves it at 1.
     playback_speed: float = 1.0
-    # Seconds an unlocked Genau leaves each clip on screen.  Also not published —
+    # Seconds an unlocked Genau leaves each flick on screen.  Also not published —
     # Genau owns the pace and says it on the drive readout, which whoever draws
     # the console folds in here.
     advance_interval: int = 0

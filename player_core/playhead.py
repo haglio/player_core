@@ -8,10 +8,15 @@ from shared_ui.palette import TEXT_PRIMARY
 
 from .hud_panel import KeptBitmap, ink_center_offset, load_font, pill, text_width
 from .hud_status import SEPARATOR
+from .renamed import old_name_getter
 from .timeline import READOUT_SLOT_W, bar_track_x, readout_shares_the_row
 from .volume import CHIP_H, MARGIN, PAD, chip_xy
 
 __all__: list[str] = []
+
+_RENAMED = {"clip_playhead": "flick_playhead"}
+
+__getattr__ = old_name_getter(__name__, _RENAMED)
 
 _TEXT_PT = 8
 # The same gap the main player's loop frames keep above the row they label.
@@ -48,7 +53,7 @@ def video_playhead(position_ms: float, duration_ms: float, frame_rate: float) ->
                        widest=_video_text(duration_ms, duration_ms, frame_rate))
 
 
-def clip_playhead(frame: int, frame_count: int) -> PlayheadHud | None:
+def flick_playhead(frame: int, frame_count: int) -> PlayheadHud | None:
     if frame_count <= 0:
         return None
     return PlayheadHud(text=f"frame {frame} / {frame_count}",

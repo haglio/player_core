@@ -122,11 +122,11 @@ _DECIDED_AHEAD_S = 60.0
 
 @dataclass
 class CruiseControlState:
-    """Hands-free variation of the motion itself — never of which clip plays.
+    """Hands-free variation of the motion itself — never of which flick plays.
 
-    Moving on to another clip is :mod:`genau.clip_advance`'s job, and the two are
-    independent: a session can vary the motion on one held clip, or hold the
-    motion steady while the clips change, or both.
+    Moving on to another flick is :mod:`player_core.flick_advance`'s job, and the two are
+    independent: a session can vary the motion on one held flick, or hold the
+    motion steady while the flicks change, or both.
 
     ``active`` is the only part of this a caller reads. The stack under it is
     what the device follows while it is set; ``clock`` is the motion's own

@@ -126,6 +126,16 @@ def _names_reached_from(source: str) -> set[str]:
     return names
 
 
+def _renamed_in(module: Path) -> dict[str, str]:
+    """The old names *module* still answers to, each with the name it became."""
+    tree = ast.parse(module.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+                isinstance(target, ast.Name) and target.id == "_RENAMED" for target in node.targets):
+            return {old.value: new.value for old, new in zip(node.value.keys, node.value.values, strict=True)}
+    return {}
+
+
 def _what_the_consumers_reach() -> tuple[set[str], list[str]]:
     """Every name the sibling checkouts import, and which ones import anything.
 
@@ -208,9 +218,18 @@ def test_the_walk_never_enters_a_tree_it_would_throw_away(tmp_path, monkeypatch)
             or any(part.endswith(".egg-info") for part in parts)] == []
 
 
+def test_an_old_name_a_module_still_answers_to_is_read_with_the_name_it_became(tmp_path):
+    module = tmp_path / "renamed_module.py"
+    module.write_text('_RENAMED = {"old_thing": "new_thing"}\n', encoding="utf-8")
+
+    assert _renamed_in(module) == {"old_thing": "new_thing"}
+
+
 @pytest.fixture(scope="module")
 def reached_and_consumers():
     reached, consumers = _what_the_consumers_reach()
+    renamed = {old: new for module in _modules() for old, new in _renamed_in(module).items()}
+    reached |= {renamed[name] for name in reached if name in renamed}
     if not consumers:
         pytest.skip(
             "no sibling checkout beside this one imports player_core, so there is "

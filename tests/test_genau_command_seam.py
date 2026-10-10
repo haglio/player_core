@@ -28,9 +28,9 @@ from test_genau_refresh import (
 )
 
 from player_core.broker_feed import BrokerFeed
-from player_core.clip_advance import ClipAdvanceState
 from player_core.cruise_control import CruiseControlState
 from player_core.flag import Flag
+from player_core.flick_advance import FlickAdvanceState
 from player_core.genau_controls import VERBS, GenauControls
 from player_core.genau_refresh import GenauRefreshController
 from player_core.learned_model import LearnedModel
@@ -66,7 +66,7 @@ class Seam:
         self.cruise = CruiseControlState(active=bool(start.get("cruise", False)))
         self.learned = LearnedMotionState(model=LearnedModel(),
                                           active=bool(start.get("learned", False)))
-        self.advance = ClipAdvanceState(
+        self.advance = FlickAdvanceState(
             locked=bool(start.get("locked", False)),
             interval=start.get("interval", 20),
         )
@@ -77,7 +77,7 @@ class Seam:
         self.reorders: list[bool] = []
         self.kept_shapes: list[tuple[bool, bool]] = []
         self.played: list[Path] = []
-        self.picked = tmp_path / "clips" / "Picked Scene.mp4"
+        self.picked = tmp_path / "flicks" / "Picked Scene.mp4"
         self.picked.parent.mkdir(exist_ok=True)
         self.picked.touch()
         self.stop_event = _Stop()
@@ -87,18 +87,18 @@ class Seam:
             controls=GenauControls(
                 engine=self.engine,
                 paused=self.paused,
-                step_clip=self.selection.step,
-                condemn_clip=self.selection.condemn_current,
+                step_flick=self.selection.step,
+                condemn_flick=self.selection.condemn_current,
                 robot_hand=self.direct,
                 cruise_control_state=self.cruise,
                 learned_motion_state=self.learned,
                 set_motion_phase=self.tcode.set_motion_phase,
-                clip_advance_state=self.advance,
+                flick_advance_state=self.advance,
                 stop_event=self.stop_event,
                 hud=self.hud,
                 tcode_enabled=self.tcode_enabled,
                 set_volume=lambda level, muted: self.volumes.append((level, muted)),
-                reorder_clips=self.reorders.append,
+                reorder_flicks=self.reorders.append,
                 keep_shapes=lambda plays_vr, plays_flat: self.kept_shapes.append(
                     (plays_vr, plays_flat)),
                 play_file=self.played.append,
@@ -106,7 +106,7 @@ class Seam:
             broker=BrokerFeed(),
             loader=FakeLoader(),
             notifier=FakeNotifier(),
-            renderer=FakeRenderer(path=tmp_path / "clips" / "example.mp4"),
+            renderer=FakeRenderer(path=tmp_path / "flicks" / "example.mp4"),
             selection=self.selection,
             command_file=self.command_file,
             paused_file=tmp_path / "genau_paused.txt",
@@ -168,7 +168,7 @@ class _Stop:
         return self._set
 
 
-PICKED = "<picked clip>"
+PICKED = "<picked flick>"
 
 # verb, what it starts from, and the ONLY keys it may move.
 SEAM = [
@@ -207,6 +207,8 @@ SEAM = [
     ("TOGGLE_LOCK", {"locked": True}, {"locked": False}),
     ("LOCK_ON", {}, {"locked": True}),
     ("LOCK_OFF", {"locked": True}, {"locked": False}),
+    ("FLICK_SECONDS_DOWN", {}, {"interval": 19}),
+    ("FLICK_SECONDS_UP", {}, {"interval": 21}),
     ("CLIP_SECONDS_DOWN", {}, {"interval": 19}),
     ("CLIP_SECONDS_UP", {}, {"interval": 21}),
     ("HUD_ON", {}, {"hud": True}),
@@ -216,6 +218,7 @@ SEAM = [
     ("AMP 80", {}, {"amplitude": 80}),
     ("CENTER 65", {}, {"center": 65, "intended_center": 65}),
     ("SPEED 90", {}, {"speed": 90}),
+    ("FLICK_SECONDS 30", {}, {"interval": 30}),
     ("CLIP_SECONDS 30", {}, {"interval": 30}),
     ("SET_VOLUME 40 1", {}, {"volumes": ((40, True),)}),
     ("SHAPES flat", {}, {"kept_shapes": ((False, True),)}),

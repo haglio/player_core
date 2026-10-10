@@ -7,6 +7,7 @@ from pathlib import Path
 from . import learned_motion, wave_stack
 from .drive_readout import TRACE_SAMPLES, DriveHud, publish_drive
 from .genau_controls import GenauControls
+from .renamed import answers_to_old_names
 from .robot_hand import (
     MIN_BPM,
     POSITION_MAX,
@@ -36,7 +37,7 @@ class AutoMotion:
     """The motion the OSR2 makes for itself, as much of it as the PC can see.
 
     ``phase`` is where the broker's beat has reached and ``bpm`` how fast it is
-    going round -- the same beat the clip's own frames are scrubbed by while the
+    going round -- the same beat the flick's own frames are scrubbed by while the
     device has the room, so the line and the picture move together.
     """
 
@@ -61,6 +62,7 @@ class AutoMotion:
         return heights[:TRACE_SAMPLES], slide, heights[TRACE_SAMPLES]
 
 
+@answers_to_old_names({"clip_advance": "flick_advance"})
 class GenauReadout:
     def __init__(
         self,
@@ -73,7 +75,7 @@ class GenauReadout:
         self.robot_hand = controls.robot_hand
         self.cruise_control = controls.cruise_control_state
         self.learned = controls.learned_motion_state
-        self.clip_advance = controls.clip_advance_state
+        self.flick_advance = controls.flick_advance_state
         self.beats_per_loop = beats_per_loop
         self.tcode_sender = tcode_sender
         self.drive_file = drive_file
@@ -140,7 +142,7 @@ class GenauReadout:
             shape=ds.shape.value,
             position=position,
             advance_interval=(
-                self.clip_advance.interval if self.clip_advance else 0
+                self.flick_advance.interval if self.flick_advance else 0
             ),
             spd_at_max=limits.spd_at_max,
             spd_at_min=limits.spd_at_min,

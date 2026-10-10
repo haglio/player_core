@@ -1,4 +1,4 @@
-"""The clips folder: the scan, its orders, and the condemned pile beside it."""
+"""The flicks folder: the scan, its orders, and the condemned pile beside it."""
 from __future__ import annotations
 
 import os
@@ -6,83 +6,83 @@ from pathlib import Path
 
 import pytest
 
-from player_core.clip_folder import (
-    flat_clips_in,
-    move_clip_to_weird,
-    scan_clips,
-    vr_clips_in,
-    weird_dir_for_clips_folder,
+from player_core.flick_folder import (
+    flat_flicks_in,
+    move_flick_to_weird,
+    scan_flicks,
+    vr_flicks_in,
+    weird_dir_for_flicks_folder,
     weird_folder_for,
 )
 
 # ---------------------------------------------------------------------------
-# scan_clips
+# scan_flicks
 # ---------------------------------------------------------------------------
 
-class TestScanClips:
+class TestScanFlicks:
     def test_finds_mp4_files(self, tmp_path: Path):
         (tmp_path / "a.mp4").touch()
         (tmp_path / "b.mp4").touch()
-        result = scan_clips(tmp_path, shuffle_on_load=False)
+        result = scan_flicks(tmp_path, shuffle_on_load=False)
         names = {p.name for p in result}
         assert names == {"a.mp4", "b.mp4"}
 
     def test_finds_mixed_extensions(self, tmp_path: Path):
         (tmp_path / "movie.mkv").touch()
-        (tmp_path / "clip.mp4").touch()
-        result = scan_clips(tmp_path, shuffle_on_load=False)
+        (tmp_path / "flick.mp4").touch()
+        result = scan_flicks(tmp_path, shuffle_on_load=False)
         assert len(result) == 2
 
     def test_ignores_non_video_files(self, tmp_path: Path):
         (tmp_path / "video.mp4").touch()
         (tmp_path / "notes.txt").touch()
         (tmp_path / "image.jpg").touch()
-        result = scan_clips(tmp_path, shuffle_on_load=False)
+        result = scan_flicks(tmp_path, shuffle_on_load=False)
         assert len(result) == 1
         assert result[0].name == "video.mp4"
 
     def test_ignores_subdirectories(self, tmp_path: Path):
         (tmp_path / "video.mp4").touch()
         (tmp_path / "subdir").mkdir()
-        result = scan_clips(tmp_path, shuffle_on_load=False)
+        result = scan_flicks(tmp_path, shuffle_on_load=False)
         assert len(result) == 1
 
-    def test_finds_the_clips_in_the_folders_inside_it(self, tmp_path: Path):
+    def test_finds_the_flicks_in_the_folders_inside_it(self, tmp_path: Path):
         for place in ("AI/a.mp4", "non_AI/b.mp4", "c.mp4"):
             (tmp_path / place).parent.mkdir(parents=True, exist_ok=True)
             (tmp_path / place).touch()
 
-        result = scan_clips(tmp_path, shuffle_on_load=False)
+        result = scan_flicks(tmp_path, shuffle_on_load=False)
 
         assert sorted(result) == [tmp_path / "AI" / "a.mp4", tmp_path / "c.mp4",
                                   tmp_path / "non_AI" / "b.mp4"]
 
     def test_raises_when_folder_empty(self, tmp_path: Path):
-        with pytest.raises(RuntimeError, match="No video clips found"):
-            scan_clips(tmp_path)
+        with pytest.raises(RuntimeError, match="No video flicks found"):
+            scan_flicks(tmp_path)
 
     def test_raises_when_only_non_video_files(self, tmp_path: Path):
         (tmp_path / "readme.txt").touch()
-        with pytest.raises(RuntimeError, match="No video clips found"):
-            scan_clips(tmp_path)
+        with pytest.raises(RuntimeError, match="No video flicks found"):
+            scan_flicks(tmp_path)
 
     def test_extension_matching_is_case_insensitive(self, tmp_path: Path):
-        (tmp_path / "clip.MP4").touch()
+        (tmp_path / "flick.MP4").touch()
         (tmp_path / "other.MKV").touch()
-        result = scan_clips(tmp_path, shuffle_on_load=False)
+        result = scan_flicks(tmp_path, shuffle_on_load=False)
         assert len(result) == 2
 
     def test_shuffle_off_gives_deterministic_order(self, tmp_path: Path):
         for name in ["c.mp4", "a.mp4", "b.mp4"]:
             (tmp_path / name).touch()
-        r1 = scan_clips(tmp_path, shuffle_on_load=False)
-        r2 = scan_clips(tmp_path, shuffle_on_load=False)
+        r1 = scan_flicks(tmp_path, shuffle_on_load=False)
+        r2 = scan_flicks(tmp_path, shuffle_on_load=False)
         assert r1 == r2
 
-    def test_shuffling_leaves_out_none_of_the_clips(self, tmp_path: Path):
+    def test_shuffling_leaves_out_none_of_the_flicks(self, tmp_path: Path):
         for name in ["x.mp4", "y.mp4", "z.mp4"]:
             (tmp_path / name).touch()
-        result = scan_clips(tmp_path, shuffle_on_load=True)
+        result = scan_flicks(tmp_path, shuffle_on_load=True)
         assert len(result) == 3
         assert {p.name for p in result} == {"x.mp4", "y.mp4", "z.mp4"}
 
@@ -104,16 +104,16 @@ class TestTheShuffleItself:
         def _z_to_a(files):
             files.sort(key=lambda path: path.name, reverse=True)
 
-        result = scan_clips(self._folder(tmp_path), shuffle_on_load=True,
+        result = scan_flicks(self._folder(tmp_path), shuffle_on_load=True,
                             shuffle=_z_to_a)
 
         assert [path.name for path in result] == [
             "gamma.mp4", "beta.mp4", "alpha.mp4"]
 
-    def test_it_is_asked_once_and_given_every_clip(self, tmp_path: Path):
+    def test_it_is_asked_once_and_given_every_flick(self, tmp_path: Path):
         asked = []
 
-        scan_clips(self._folder(tmp_path), shuffle_on_load=True,
+        scan_flicks(self._folder(tmp_path), shuffle_on_load=True,
                    shuffle=lambda files: asked.append(list(files)))
 
         assert len(asked) == 1
@@ -123,7 +123,7 @@ class TestTheShuffleItself:
     def test_it_is_not_asked_when_the_config_says_not_to(self, tmp_path: Path):
         asked = []
 
-        scan_clips(self._folder(tmp_path), shuffle_on_load=False,
+        scan_flicks(self._folder(tmp_path), shuffle_on_load=False,
                    shuffle=asked.append)
 
         assert asked == []
@@ -132,14 +132,14 @@ class TestTheShuffleItself:
         """Latest is an order; shuffling it would undo it."""
         asked = []
 
-        scan_clips(self._folder(tmp_path), shuffle_on_load=True, recent=True,
+        scan_flicks(self._folder(tmp_path), shuffle_on_load=True, recent=True,
                    shuffle=asked.append)
 
         assert asked == []
 
 
 class TestLatestOrder:
-    """Newest-first — the order "latest" asks for, so a clip that landed in the
+    """Newest-first — the order "latest" asks for, so a flick that landed in the
     folder minutes ago heads the sequence instead of sitting somewhere in it."""
 
     @staticmethod
@@ -149,12 +149,12 @@ class TestLatestOrder:
         os.utime(path, (mtime, mtime))
         return path
 
-    def test_newest_clip_comes_first(self, tmp_path: Path):
+    def test_newest_flick_comes_first(self, tmp_path: Path):
         self._aged(tmp_path, "old.mp4", 1_000)
         self._aged(tmp_path, "newest.mp4", 3_000)
         self._aged(tmp_path, "middle.mp4", 2_000)
 
-        result = scan_clips(tmp_path, recent=True)
+        result = scan_flicks(tmp_path, recent=True)
 
         assert [path.name for path in result] == ["newest.mp4", "middle.mp4", "old.mp4"]
 
@@ -164,79 +164,79 @@ class TestLatestOrder:
         self._aged(tmp_path, "old.mp4", 1_000)
         self._aged(tmp_path, "new.mp4", 2_000)
 
-        result = scan_clips(tmp_path, shuffle_on_load=True, recent=True)
+        result = scan_flicks(tmp_path, shuffle_on_load=True, recent=True)
 
         assert [path.name for path in result] == ["new.mp4", "old.mp4"]
 
 
 
-def test_weird_dir_sits_beside_the_clips_folder():
-    assert weird_dir_for_clips_folder(Path("C:/videos/genau/clips")) == Path(
+def test_weird_dir_sits_beside_the_flicks_folder():
+    assert weird_dir_for_flicks_folder(Path("C:/videos/genau/flicks")) == Path(
         "C:/videos/genau/weird"
     )
 
 
-def test_the_clips_folder_forks_into_the_2d_clips_and_the_vr_clips():
-    clips = Path("C:/videos/genau/clips")
+def test_the_flicks_folder_forks_into_the_2d_flicks_and_the_vr_flicks():
+    flicks = Path("C:/videos/genau/flicks")
 
-    assert (flat_clips_in(clips), vr_clips_in(clips)) == (clips / "2D", clips / "VR")
+    assert (flat_flicks_in(flicks), vr_flicks_in(flicks)) == (flicks / "2D", flicks / "VR")
 
 
-def test_a_clip_goes_to_its_own_place_in_the_weird_pile():
-    clips = Path("C:/videos/genau/clips")
+def test_a_flick_goes_to_its_own_place_in_the_weird_pile():
+    flicks = Path("C:/videos/genau/flicks")
 
-    assert weird_folder_for(clips / "2D" / "AI" / "loop one.mp4", clips) == Path(
+    assert weird_folder_for(flicks / "2D" / "AI" / "loop one.mp4", flicks) == Path(
         "C:/videos/genau/weird/2D/AI"
     )
 
 
-def test_a_clip_from_outside_the_clips_folder_goes_to_the_top_of_the_weird_pile():
-    clips = Path("C:/videos/genau/clips")
+def test_a_flick_from_outside_the_flicks_folder_goes_to_the_top_of_the_weird_pile():
+    flicks = Path("C:/videos/genau/flicks")
 
-    assert weird_folder_for(Path("D:/elsewhere/loop one.mp4"), clips) == Path(
+    assert weird_folder_for(Path("D:/elsewhere/loop one.mp4"), flicks) == Path(
         "C:/videos/genau/weird"
     )
 
 
-def test_move_takes_the_clip_out_of_rotation(tmp_path: Path):
-    clips = tmp_path / "clips"
-    clips.mkdir()
-    clip = clips / "odd.mp4"
-    clip.write_bytes(b"clip")
+def test_move_takes_the_flick_out_of_rotation(tmp_path: Path):
+    flicks = tmp_path / "flicks"
+    flicks.mkdir()
+    flick = flicks / "odd.mp4"
+    flick.write_bytes(b"flick")
     weird = tmp_path / "weird"
 
-    landed = move_clip_to_weird(clip, weird)
+    landed = move_flick_to_weird(flick, weird)
 
     assert landed == weird / "odd.mp4"
-    assert landed.read_bytes() == b"clip"
-    assert not clip.exists()
+    assert landed.read_bytes() == b"flick"
+    assert not flick.exists()
 
 
 def test_move_creates_the_weird_dir_on_first_use(tmp_path: Path):
-    clip = tmp_path / "odd.mp4"
-    clip.write_bytes(b"clip")
+    flick = tmp_path / "odd.mp4"
+    flick.write_bytes(b"flick")
     weird = tmp_path / "weird"
     assert not weird.exists()
 
-    move_clip_to_weird(clip, weird)
+    move_flick_to_weird(flick, weird)
 
     assert weird.is_dir()
 
 
-def test_a_clip_already_gone_is_not_an_error(tmp_path: Path):
-    """Two WEIRD verbs can race the same clip; the second must not crash Genau."""
+def test_a_flick_already_gone_is_not_an_error(tmp_path: Path):
+    """Two WEIRD verbs can race the same flick; the second must not crash Genau."""
     weird = tmp_path / "weird"
 
-    assert move_clip_to_weird(tmp_path / "missing.mp4", weird) is None
+    assert move_flick_to_weird(tmp_path / "missing.mp4", weird) is None
 
 
 class TestSeveralFoldersBrowsedAsOne:
-    """The headset browses its VR clips and the desktop's flat clips together,
+    """The headset browses its VR flicks and the desktop's flat flicks together,
     the way the main rotation joins the VR library to the desktop's."""
 
     @staticmethod
     def _two_folders(tmp_path: Path) -> tuple[Path, Path]:
-        vr, flat = tmp_path / "vr_clips", tmp_path / "clips"
+        vr, flat = tmp_path / "vr_flicks", tmp_path / "flicks"
         vr.mkdir()
         flat.mkdir()
         for name in ("alpha_180.mp4", "beta_180.mp4"):
@@ -245,13 +245,13 @@ class TestSeveralFoldersBrowsedAsOne:
             (flat / name).touch()
         return vr, flat
 
-    def test_every_folders_clips_are_in_the_sequence(self, tmp_path: Path):
+    def test_every_folders_flicks_are_in_the_sequence(self, tmp_path: Path):
         vr, flat = self._two_folders(tmp_path)
 
-        result = scan_clips((vr, flat), shuffle_on_load=False)
+        result = scan_flicks((vr, flat), shuffle_on_load=False)
 
         assert {p.name for p in result} == {"alpha_180.mp4", "beta_180.mp4", "gamma.mp4", "delta.mp4"}
-        assert [p.parent.name for p in result] == ["vr_clips", "vr_clips", "clips", "clips"]
+        assert [p.parent.name for p in result] == ["vr_flicks", "vr_flicks", "flicks", "flicks"]
 
     def test_latest_orders_them_together(self, tmp_path: Path):
         vr, flat = self._two_folders(tmp_path)
@@ -260,7 +260,7 @@ class TestSeveralFoldersBrowsedAsOne:
         os.utime(vr / "beta_180.mp4", (2_000, 2_000))
         os.utime(flat / "delta.mp4", (500, 500))
 
-        result = scan_clips((vr, flat), recent=True)
+        result = scan_flicks((vr, flat), recent=True)
 
         assert [p.name for p in result] == ["gamma.mp4", "beta_180.mp4", "alpha_180.mp4", "delta.mp4"]
 
@@ -268,7 +268,7 @@ class TestSeveralFoldersBrowsedAsOne:
         vr, flat = self._two_folders(tmp_path)
         asked = []
 
-        scan_clips((vr, flat), shuffle_on_load=True, shuffle=lambda files: asked.append(list(files)))
+        scan_flicks((vr, flat), shuffle_on_load=True, shuffle=lambda files: asked.append(list(files)))
 
         assert len(asked) == 1
         assert len(asked[0]) == 4
@@ -278,19 +278,19 @@ class TestSeveralFoldersBrowsedAsOne:
         empty = tmp_path / "empty"
         empty.mkdir()
 
-        result = scan_clips((vr, empty, flat), shuffle_on_load=False)
+        result = scan_flicks((vr, empty, flat), shuffle_on_load=False)
 
         assert len(result) == 4
 
-    def test_no_clips_anywhere_names_every_folder(self, tmp_path: Path):
+    def test_no_flicks_anywhere_names_every_folder(self, tmp_path: Path):
         one, two = tmp_path / "one", tmp_path / "two"
         one.mkdir()
         two.mkdir()
 
         with pytest.raises(RuntimeError, match=r"one.*two"):
-            scan_clips((one, two))
+            scan_flicks((one, two))
 
     def test_one_folder_still_reads_as_one(self, tmp_path: Path):
         vr, _flat = self._two_folders(tmp_path)
 
-        assert scan_clips(vr, shuffle_on_load=False) == scan_clips((vr,), shuffle_on_load=False)
+        assert scan_flicks(vr, shuffle_on_load=False) == scan_flicks((vr,), shuffle_on_load=False)

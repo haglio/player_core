@@ -1,4 +1,4 @@
-"""One turn of Genau's loop: the clip player's tick."""
+"""One turn of Genau's loop: the flick player's tick."""
 from __future__ import annotations
 
 import time
@@ -6,16 +6,17 @@ from functools import partial
 from pathlib import Path
 
 from .broker_feed import snapshot
-from .clip_advance import tick_clip_advance
-from .clip_renderer import display_index_for_phase
-from .clip_scrub import ClipScrub, scrub_clip
 from .cruise_control import tick_cruise_control
 from .device_walk import Walk, the_broker_holding, the_hand_taking_back
 from .file_channel import consume_command_file
+from .flick_advance import tick_flick_advance
+from .flick_renderer import display_index_for_phase
+from .flick_scrub import FlickScrub, scrub_flick
 from .genau_controls import GenauControls, apply_runtime_command
 from .genau_readout import AutoMotion, GenauReadout
 from .genau_status import GENAU_STATUS_FILENAME, build_status_text, write_status_file
 from .learned_motion import tick_learned_motion
+from .renamed import answers_to_old_names
 from .robot_hand import POSITION_MAX, phase_for_position_fraction
 from .robot_hand_beat import Beat, advance_beat
 from .robot_hand_driver import DeviceHandoff
@@ -28,6 +29,7 @@ __all__ = [
 consume_command_keeping_its_case = partial(consume_command_file, uppercase=False)
 
 
+@answers_to_old_names({"clip_advance": "flick_advance", "seek_the_clip": "seek_the_flick"})
 class GenauRefreshController:
     def __init__(
         self,
@@ -60,10 +62,10 @@ class GenauRefreshController:
         self.robot_hand = controls.robot_hand
         self.cruise_control = controls.cruise_control_state
         self.learned = controls.learned_motion_state
-        self.clip_advance = controls.clip_advance_state
+        self.flick_advance = controls.flick_advance_state
         self.hud = controls.hud
         self.tcode_enabled = controls.tcode_enabled
-        self.flip = controls.clip_flip
+        self.flip = controls.flick_flip
         self.room_hold = controls.room_hold
         self.broker = broker
         self.loader = loader
@@ -95,9 +97,9 @@ class GenauRefreshController:
             tcode_sender=tcode_sender,
             drive_file=drive_file,
         )
-        # Which half of the clip is showing, and what is known about the end
-        # the motion is at — see :meth:`_scrub_the_clip`.
-        self._scrub = ClipScrub()
+        # Which half of the flick is showing, and what is known about the end
+        # the motion is at — see :meth:`_scrub_the_flick`.
+        self._scrub = FlickScrub()
         self._walk: Walk | None = None
         self._held: float | None = None
         self._following = self.robot_hand.playing
@@ -116,13 +118,13 @@ class GenauRefreshController:
     def _refresh_once(self) -> None:
         now = self.now_source()
         self._adopt_whatever_finished_decoding()
-        self.flip.follow(self.renderer.current_clip_path)
+        self.flip.follow(self.renderer.current_flick_path)
         self._drain_commands()
 
         beat = self._who_is_driving(now)
 
         # Said every tick and heard once: the notifier drops a repeat.  The
-        # clip that goes with it is the clip selection's to announce, and it
+        # flick that goes with it is the flick selection's to announce, and it
         # already has by the time the first tick runs.
         self.notifier.notify_visible(not self._over_a_video)
 
@@ -158,16 +160,16 @@ class GenauRefreshController:
         self._follow_the_room_hold(now)
         self._show_the_frame(beat, now)
 
-        pending = self.selection.pending_clip_name
+        pending = self.selection.pending_flick_name
         self.set_loading_text(f"Loading {pending}" if pending else None)
 
         self.selection.request_nearby_prefetch()
         self._publish_status()
 
     def _adopt_whatever_finished_decoding(self) -> None:
-        self.loader.adopt_loaded_clip_if_ready()
+        self.loader.adopt_loaded_flick_if_ready()
         self.loader.adopt_prefetch_if_ready()
-        self.selection.adopt_pending_clip()
+        self.selection.adopt_pending_flick()
 
     def _drain_commands(self) -> None:
         for cmd in self.consume_command(self.command_file, logger=self.logger):
@@ -197,7 +199,7 @@ class GenauRefreshController:
 
     def _tick_the_hand(self, now: float) -> None:
         """The three things that move the hand on their own: the cruise stack
-        varying it, the learned motion replacing it, and the clip advance
+        varying it, the learned motion replacing it, and the flick advance
         letting the picture move on."""
         if self.cruise_control is not None:
             # The phase is only read on the tick that draws the waves: they
@@ -215,20 +217,20 @@ class GenauRefreshController:
                 self.robot_hand, self.learned, now,
                 start_fraction=self._where_the_device_is(),
             )
-        if self.clip_advance is not None:
-            # The interval is timed against the clip actually on screen — a
+        if self.flick_advance is not None:
+            # The interval is timed against the flick actually on screen — a
             # decoded, rendering one — so a slow load can't make a short
             # interval fire repeatedly and stack switches that never play.
-            entry = self.renderer.current_clip_entry()
-            on_screen_clip = (
-                self.renderer.current_clip_path if entry and entry.get("frames") else None
+            entry = self.renderer.current_flick_entry()
+            on_screen_flick = (
+                self.renderer.current_flick_path if entry and entry.get("frames") else None
             )
-            tick_clip_advance(
-                self.clip_advance,
+            tick_flick_advance(
+                self.flick_advance,
                 now,
                 playing=self.robot_hand.playing,
-                on_screen_clip=on_screen_clip,
-                step_clip=self.selection.step,
+                on_screen_flick=on_screen_flick,
+                step_flick=self.selection.step,
             )
 
     def _where_the_device_is(self) -> float:
@@ -256,19 +258,19 @@ class GenauRefreshController:
         self._held, self._following = held, following
 
     def _show_the_frame(self, beat: Beat, now: float) -> None:
-        """Which frame of the decoded clip to put up.
+        """Which frame of the decoded flick to put up.
 
         Driving its own hand, the frame is the picture of where the device is;
         under the broker it is where the engine's phase has reached.
         """
-        active_entry = self.renderer.current_clip_entry()
+        active_entry = self.renderer.current_flick_entry()
         if not (active_entry and active_entry["frames"]):
             return
         if beat.robot_hand_active and self._the_picture_holds_still:
             return
         frame_count = len(active_entry["frames"])
         display_phase = self.flip.applied_to(
-            self._scrub_the_clip(frame_count, now) if beat.robot_hand_active
+            self._scrub_the_flick(frame_count, now) if beat.robot_hand_active
             else self.engine.phase
         )
         self.renderer.show_frame_at(display_index_for_phase(display_phase, frame_count))
@@ -289,17 +291,17 @@ class GenauRefreshController:
             self.robot_hand,
             self.cruise_control,
             learned=self.learned,
-            clip_advance=self.clip_advance,
-            clip=self.renderer.current_clip_path,
+            flick_advance=self.flick_advance,
+            flick=self.renderer.current_flick_path,
             flipped=self.flip.on,
             portrait=self.renderer.portrait,
         ))
 
-    def seek_the_clip(self, fraction: float) -> None:
-        """Put the clip *fraction* of the way along its bar, and the device where
+    def seek_the_flick(self, fraction: float) -> None:
+        """Put the flick *fraction* of the way along its bar, and the device where
         that is.
 
-        The frame is a picture of where the device is (:mod:`player_core.clip_scrub`),
+        The frame is a picture of where the device is (:mod:`player_core.flick_scrub`),
         so seeking the picture is moving the device rather than moving the picture
         away from it.  Which half of the loop the fraction falls in says which way
         the motion is travelling -- the front half runs A to B, the back half back
@@ -307,7 +309,7 @@ class GenauRefreshController:
         jump is the point: it is what the hand would have had to travel to get the
         picture there.
         """
-        entry = self.renderer.current_clip_entry()
+        entry = self.renderer.current_flick_entry()
         if self.tcode_sender is None or not (entry and entry["frames"]):
             return
         fraction = self.flip.applied_to(min(1.0, max(0.0, fraction)))
@@ -325,10 +327,10 @@ class GenauRefreshController:
             rising=not back_half,
         ))
 
-    def _scrub_the_clip(self, frame_count: int, now: float) -> float:
+    def _scrub_the_flick(self, frame_count: int, now: float) -> float:
         if self.tcode_sender is None:
             return self.engine.phase
-        return scrub_clip(self._scrub, self._height_of_the_device(now), frame_count)
+        return scrub_flick(self._scrub, self._height_of_the_device(now), frame_count)
 
     def _height_of_the_device(self, now: float) -> float:
         live = self.tcode_sender.current_position() / POSITION_MAX

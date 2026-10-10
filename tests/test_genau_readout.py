@@ -12,7 +12,6 @@ import random
 import pytest
 
 from player_core import wave_stack
-from player_core.clip_advance import ClipAdvanceState
 from player_core.cruise_control import (
     CruiseControlState,
     enable_cruise_control,
@@ -20,6 +19,7 @@ from player_core.cruise_control import (
 )
 from player_core.drive_readout import TRACE_SAMPLES
 from player_core.flag import Flag
+from player_core.flick_advance import FlickAdvanceState
 from player_core.genau_controls import GenauControls
 from player_core.genau_readout import AutoMotion, GenauReadout
 from player_core.learned_model import LearnedModel, Phrase, classify
@@ -44,10 +44,10 @@ def _controls(**over) -> GenauControls:
     return GenauControls(
         engine=BeatEngine(phase=0.0, last_tick=0.0),
         paused=Flag(),
-        step_clip=lambda _step: None,
+        step_flick=lambda _step: None,
         robot_hand=over.get("direct") or RobotHandState(speed=50, amplitude=60),
         cruise_control_state=over.get("cruise") or CruiseControlState(),
-        clip_advance_state=ClipAdvanceState(interval=20),
+        flick_advance_state=FlickAdvanceState(interval=20),
     )
 
 

@@ -1,7 +1,7 @@
 """How a control is declared, for any player in this family.
 
 A control is one thing a person can move.  This module says what that record
-looks like and nothing about what any player's controls are: what a clip
+looks like and nothing about what any player's controls are: what a flick
 player's are lives in :mod:`player_core.genau_controls`, against its own set of
 collaborators, and another player declares its own registry the same way.
 

@@ -1,11 +1,11 @@
-"""Scrubbing the clip with the motion — the picture being *of* the device, and
+"""Scrubbing the flick with the motion — the picture being *of* the device, and
 the cursor only ever going forward.
 
 The frame shown is where the device is: parked shows A, fully retracted shows B,
 and a motion that only works part of the axis only shows that part of a half.
 The half showing is which way the device is going — front while it retracts,
 back while it returns — so a turn short of an end swaps halves and jumps the
-cursor forward rather than rewinding, and a full motion plays the whole clip
+cursor forward rather than rewinding, and a full motion plays the whole flick
 once.
 """
 from __future__ import annotations
@@ -14,13 +14,13 @@ from itertools import pairwise
 
 import pytest
 
-from player_core.clip_scrub import ClipScrub, scrub_clip
+from player_core.flick_scrub import FlickScrub, scrub_flick
 
 FRAMES = 120  # a whole loop; one frame is 1/120 of the display phase
 
 
 def _sweep(state, heights, frames=FRAMES):
-    return [scrub_clip(state, height, frames) for height in heights]
+    return [scrub_flick(state, height, frames) for height in heights]
 
 
 def _ramp(start, end, steps=200):
@@ -30,8 +30,8 @@ def _ramp(start, end, steps=200):
 def _from(height, frames=FRAMES):
     """A scrub already running, with the motion at *height* — so the first look
     is not mistaken for the start of a pass."""
-    state = ClipScrub()
-    scrub_clip(state, height, frames)
+    state = FlickScrub()
+    scrub_flick(state, height, frames)
     return state
 
 
@@ -47,9 +47,9 @@ def test_the_frame_is_where_the_device_is():
     # While the device retracts, the cursor rides its height through the front
     # half of the loop.
     state = _from(0.0)
-    assert scrub_clip(state, 0.5, FRAMES) == pytest.approx(0.25)
-    assert scrub_clip(state, 0.75, FRAMES) == pytest.approx(0.375)
-    assert scrub_clip(state, 0.9, FRAMES) == pytest.approx(0.45)
+    assert scrub_flick(state, 0.5, FRAMES) == pytest.approx(0.25)
+    assert scrub_flick(state, 0.75, FRAMES) == pytest.approx(0.375)
+    assert scrub_flick(state, 0.9, FRAMES) == pytest.approx(0.45)
 
 
 def test_a_turn_short_of_an_end_jumps_forward_into_the_other_half():
@@ -76,9 +76,9 @@ def test_the_extent_of_the_animation_is_the_extent_of_the_motor():
     assert all(not (0.9 < p < 1.0 or 0.0 < p < 0.1) for p in phases)    # nor the A end
 
 
-def test_a_full_sweep_plays_the_whole_clip_as_it_always_did():
+def test_a_full_sweep_plays_the_whole_flick_as_it_always_did():
     # The amplitude-100 groove: up the front half, over at B, down the back
-    # half, over at A — one trip through the clip per motion, with no jump.
+    # half, over at A — one trip through the flick per motion, with no jump.
     state = _from(0.0)
     climbing = _sweep(state, _ramp(0.0, 1.0))
     assert climbing == sorted(climbing)
@@ -110,30 +110,30 @@ def test_a_wobble_shorter_than_a_frame_holds_the_cursor():
     # A reading that dips by less than one frame does not move the cursor —
     # forward or back — so device jitter cannot make it flicker.
     state = _from(0.5)
-    up = scrub_clip(state, 0.60, FRAMES)
-    held = scrub_clip(state, 0.60 - 0.005, FRAMES)   # under one frame (1/120)
+    up = scrub_flick(state, 0.60, FRAMES)
+    held = scrub_flick(state, 0.60 - 0.005, FRAMES)   # under one frame (1/120)
     assert held == up
     assert state.back_half is False                  # no spurious swap
-    on = scrub_clip(state, 0.62, FRAMES)
+    on = scrub_flick(state, 0.62, FRAMES)
     assert on > up                                   # resumes forward
 
 
 def test_a_turn_of_more_than_a_frame_swaps_the_half():
     state = _from(0.5)
-    scrub_clip(state, 0.60, FRAMES)
-    scrub_clip(state, 0.60 - 0.02, FRAMES)           # more than one frame
+    scrub_flick(state, 0.60, FRAMES)
+    scrub_flick(state, 0.60 - 0.02, FRAMES)           # more than one frame
     assert state.back_half is True
 
 
 def test_the_ends_are_where_the_halves_show_the_same_moment():
     # Why a swap is invisible at an end: at B both halves put the frame at 0.5,
     # and at A they put it at the two ends of the loop, which are the same seam.
-    front, back = ClipScrub(), ClipScrub(back_half=True)
-    assert scrub_clip(front, 1.0, FRAMES) == pytest.approx(0.5)
-    assert scrub_clip(back, 1.0, FRAMES) == pytest.approx(0.5)
-    front, back = ClipScrub(), ClipScrub(back_half=True)
-    assert scrub_clip(front, 0.0, FRAMES) == pytest.approx(0.0)
-    assert scrub_clip(back, 0.0, FRAMES) == pytest.approx(1.0)
+    front, back = FlickScrub(), FlickScrub(back_half=True)
+    assert scrub_flick(front, 1.0, FRAMES) == pytest.approx(0.5)
+    assert scrub_flick(back, 1.0, FRAMES) == pytest.approx(0.5)
+    front, back = FlickScrub(), FlickScrub(back_half=True)
+    assert scrub_flick(front, 0.0, FRAMES) == pytest.approx(0.0)
+    assert scrub_flick(back, 0.0, FRAMES) == pytest.approx(1.0)
 
 
 def test_many_passes_never_step_the_cursor_backward():

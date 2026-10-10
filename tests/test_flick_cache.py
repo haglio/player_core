@@ -3,9 +3,9 @@ from __future__ import annotations
 from collections import OrderedDict
 from pathlib import Path
 
-from player_core.clip_cache import (
-    ClipCacheStore,
+from player_core.flick_cache import (
     DecodeRequestState,
+    FlickCacheStore,
     trim_path_lru_cache,
 )
 
@@ -15,7 +15,7 @@ class TestDecodeRequestState:
         state = DecodeRequestState(
             request_id=2,
             loading=False,
-            loaded_clip_path=Path("old.mp4"),
+            loaded_flick_path=Path("old.mp4"),
             loaded_frames=[1],
             load_error="boom",
             request_id_done=2,
@@ -26,18 +26,18 @@ class TestDecodeRequestState:
         assert request_id == 3
         assert state.loading is True
         assert state.decoding_path == Path("new.mp4")
-        assert state.loaded_clip_path is None
+        assert state.loaded_flick_path is None
         assert state.loaded_frames is None
         assert state.load_error is None
         assert state.request_id_done is None
 
     def test_taking_a_finished_decode_hands_it_over_and_leaves_the_slot_free(self):
         state = DecodeRequestState(request_id=4, loading=True)
-        state.record_success(Path("clip.mp4"), ["frame"], 4)
+        state.record_success(Path("flick.mp4"), ["frame"], 4)
 
         result = state.take_completed_result()
 
-        assert result == (Path("clip.mp4"), ["frame"], None)
+        assert result == (Path("flick.mp4"), ["frame"], None)
         assert state.loading is False
         assert state.request_id_done is None
 
@@ -50,26 +50,26 @@ class TestDecodeRequestState:
         assert result is None
         assert state.loading is True
         assert state.request_id_done is None
-        assert state.loaded_clip_path is None
+        assert state.loaded_flick_path is None
         assert state.loaded_frames is None
         assert state.load_error is None
 
 
-class TestClipCacheStore:
-    def test_clip_entry_for_marks_path_recently_used(self):
-        store = ClipCacheStore(limit=2)
+class TestFlickCacheStore:
+    def test_flick_entry_for_marks_path_recently_used(self):
+        store = FlickCacheStore(limit=2)
         first = Path("first.mp4")
         second = Path("second.mp4")
-        store.clip_cache[first] = {"frames": []}
-        store.clip_cache[second] = {"frames": []}
+        store.flick_cache[first] = {"frames": []}
+        store.flick_cache[second] = {"frames": []}
 
-        entry = store.clip_entry_for(first)
+        entry = store.flick_entry_for(first)
 
-        assert entry is store.clip_cache[first]
-        assert list(store.clip_cache) == [second, first]
+        assert entry is store.flick_cache[first]
+        assert list(store.flick_cache) == [second, first]
 
     def test_cache_decoded_frames_trims_unprotected_entries(self):
-        store = ClipCacheStore(limit=2)
+        store = FlickCacheStore(limit=2)
         first = Path("first.mp4")
         second = Path("second.mp4")
         third = Path("third.mp4")
@@ -80,21 +80,21 @@ class TestClipCacheStore:
 
         assert list(store.decoded_frame_cache) == [second, third]
 
-    def test_adopt_decoded_frames_populates_clip_cache_and_keeps_protected_current_clip(self):
-        store = ClipCacheStore(limit=2)
+    def test_adopt_decoded_frames_populates_flick_cache_and_keeps_protected_current_flick(self):
+        store = FlickCacheStore(limit=2)
         current = Path("current.mp4")
         next_path = Path("next.mp4")
-        store.clip_cache[current] = {"frames": ["old"]}
+        store.flick_cache[current] = {"frames": ["old"]}
         store.cache_decoded_frames(next_path, ["f1", "f2"])
 
         adopted = store.adopt_decoded_frames(next_path, protected_paths={current})
 
         assert adopted is True
-        assert store.clip_cache[current]["frames"] == ["old"]
-        assert store.clip_cache[next_path]["frames"] == ["f1", "f2"]
+        assert store.flick_cache[current]["frames"] == ["old"]
+        assert store.flick_cache[next_path]["frames"] == ["f1", "f2"]
 
     def test_frames_that_were_never_decoded_are_not_adopted(self):
-        store = ClipCacheStore(limit=1)
+        store = FlickCacheStore(limit=1)
 
         assert store.adopt_decoded_frames(Path("missing.mp4")) is False
 
