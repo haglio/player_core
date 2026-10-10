@@ -21,6 +21,7 @@ from .hud_row import RowHud, RowPress, track_on_screen
 from .modes import Osr2State
 from .satellite_hud import (
     MARGIN,
+    MINUS_INSET,
     HudClicks,
     HudModel,
     HudTargets,
@@ -117,6 +118,7 @@ class HudOverlay:
         drive_file: Path | None = None,
         drive_gate=None,
         over_the_video: bool = True,
+        minus_on_the_panel: bool = True,
         seek=None,
         set_volume=None,
         toggle_mute=None,
@@ -131,6 +133,7 @@ class HudOverlay:
         self.overlay_id = overlay_id
         self._clock = clock
         self._over_the_video = over_the_video
+        self._minus_on_the_panel = minus_on_the_panel
         self._renderer: HudRenderer | None = None
         self._clicks: HudClicks | None = None
         self._model: HudModel | None = None
@@ -154,7 +157,7 @@ class HudOverlay:
         if self._model is None:
             return None
         return HudPlace(self._model.player, self._model.hud_corner, MARGIN,
-                        minimized=self._model.hud_minimized)
+                        minimized=self._model.hud_minimized, inset=MINUS_INSET)
 
     @property
     def edge(self) -> HudEdge:
@@ -313,7 +316,9 @@ class HudOverlay:
     def _place(self, corner: HudCorner, size: tuple[int, int]) -> tuple[int, int]:
         if self._window is None:
             return MARGIN, MARGIN
-        return hud_origin(corner, panel=size, window=self._window, margin=MARGIN)
+        inset = MINUS_INSET if self._model.hud_minimized else (0, 0)
+        return hud_origin(corner, panel=size, window=self._window, margin=MARGIN,
+                          inset=inset)
 
     def _motion(self) -> DriveHud | None:
         if self._drive_file is None or self._model is None or not self._model.osr2:
@@ -326,7 +331,8 @@ class HudOverlay:
 
     def _draw(self) -> None:
         hover = self._hover.on(self._model)
-        if self._model is None or self._renderer is None:
+        if (self._model is None or self._renderer is None
+                or (self._model.hud_minimized and not self._minus_on_the_panel)):
             self.targets = _EMPTY_TARGETS
             self.close()
             return
@@ -337,6 +343,7 @@ class HudOverlay:
                     drive_composed=self._drive_gate is not None, hud_corner=corner),
             video=self._video, hover_loop=hover.loop, hover_tip=hover.tip, hover_pos=hover.at,
             may_grow_on_hover=self._over_the_video,
+            minus_on_the_panel=self._minus_on_the_panel,
             clip_row=self._clip_row, heatmap=self._heatmap,
         )
         self.targets = rendered.targets

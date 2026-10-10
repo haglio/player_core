@@ -9,6 +9,7 @@ from PIL import Image, ImageDraw
 from satellite_rows import player_rows, short_name
 from shared_ui import colors
 from shared_ui.palette import BLUE, BORDER_PANEL, GREEN, TEXT_MUTED, TEXT_PRIMARY, WHITE
+from shared_ui.spacing import BUTTON_GAP
 
 from player_core.console import OSR2_PARKED
 from player_core.drive_layout import MAX_INTENSITY, SECTION_W
@@ -22,6 +23,7 @@ from player_core.drive_readout import (
 from player_core.geometry import Rect
 from player_core.hud_button import Button
 from player_core.hud_minimize import RESTORE_TOOLTIP, minimize_command
+from player_core.hud_minimize import ROOM as MINUS_ROOM
 from player_core.hud_panel import ACTIVE_DOT, ICON_GRIDS
 from player_core.hud_placement import HudCorner
 from player_core.hud_row import SCRUBBER, RowHud, row_part
@@ -289,8 +291,10 @@ def test_the_dot_lights_up_only_on_the_active_side(thumb):
         rendered = HudRenderer("portrait").render(
             _model(active=active, lock_label="Unlocked · Shuffle",
                    corner=HudCell(path="c.mp4", thumb=thumb)))
-        # The dot's own square, left of where the status text starts.
-        return _rgb(rendered.bgra)[PAD + 2:PAD + 12, PAD:PAD + 10]
+        # The dot's own square, left of where the status text starts, past the
+        # minus in the panel's corner.
+        left = PAD + MINUS_ROOM
+        return _rgb(rendered.bgra)[PAD + 2:PAD + 12, left:left + 10]
 
     assert np.allclose(dot(True).reshape(-1, 3).mean(axis=0), WHITE, atol=40)
     assert np.allclose(dot(False).reshape(-1, 3).mean(axis=0), TEXT_MUTED, atol=40)
@@ -314,7 +318,7 @@ def test_the_status_text_starts_clear_of_the_dot(thumb):
     # STATUS_TEXT_X is absolute, so the gap runs from the dot's right edge to it —
     # skipping the 2px where the round dot's antialiased edge feathers out, which
     # is the dot, not text starting early.
-    gap = rgb[PAD:PAD + 14, PAD + STATUS_DOT + 2:STATUS_TEXT_X]
+    gap = rgb[PAD:PAD + 14, MINUS_ROOM + PAD + STATUS_DOT + 2:MINUS_ROOM + STATUS_TEXT_X]
     assert (gap > 200).all(axis=2).sum() == 0, "text ink in the gap before the text starts"
 
 
@@ -507,7 +511,7 @@ def test_the_star_is_centered_under_the_dot():
         video="example - scene one")
     rgb = _rgb(rendered.bgra).astype(int)
     _x, star_top, _w, star_h = rendered.targets.favorite
-    left_column = slice(0, STATUS_TEXT_X - 2)
+    left_column = slice(PAD + MINUS_ROOM - 2, MINUS_ROOM + STATUS_TEXT_X - 2)
     dot = (rgb[PAD:PAD + 14, left_column] > 200).all(axis=2)
     star_band = rgb[star_top:star_top + star_h, left_column]
     star = star_band[:, :, 1] - np.maximum(star_band[:, :, 0], star_band[:, :, 2]) > 40
@@ -1601,7 +1605,7 @@ def test_the_status_block_moves_to_the_corner_the_panel_sits_in(thumb):
     right = rendered(HudCorner.UPPER_RIGHT)
 
     assert left.targets.favorite is not None and right.targets.favorite is not None
-    assert left.targets.favorite[0] < PAD + STATUS_DOT
+    assert left.targets.favorite[0] < PAD + MINUS_ROOM + STATUS_DOT
     assert right.targets.favorite[0] > left.bgra.shape[1] // 2
 
 
@@ -1686,19 +1690,53 @@ def _button_rect(rendered, command: str) -> Rect:
     return rects[0]
 
 
-def test_the_minimize_button_sits_opposite_the_edge_the_panel_is_justified_to(thumb):
-    def rendered(corner):
-        return HudRenderer("portrait").render(
-            _model(hud_corner=corner, corner=HudCell(path="c.mp4", thumb=thumb)))
+def _drawn_columns(rendered, rows: range, *, leaving_out: Rect) -> list[int]:
+    """The columns of *rows* something is drawn in, other than the slab, its
+    border and the lines between its sections, and other than *leaving_out*."""
+    rgba = rendered.bgra[:, :, [2, 1, 0, 3]].astype(int)
+    width = rgba.shape[1]
+    fill = rgba[rows.start + len(rows) // 2, 2]
+    lx, ly, lw, lh = leaving_out
+    lines = set(_dividers(rendered))
+    return sorted({x for y in rows if y not in lines for x in range(2, width - 2)
+                   if not (lx <= x < lx + lw and ly <= y < ly + lh)
+                   and abs(rgba[y, x] - fill).sum() > 12})
 
-    left = rendered(HudCorner.UPPER_LEFT)
-    right = rendered(HudCorner.LOWER_RIGHT)
 
-    x, y, w, h = _button_rect(left, "portrait_hud_minimize")
-    assert (w, h) == (CTRL_BTN, CTRL_BTN)
-    assert x + w == left.bgra.shape[1] - PAD
-    assert PAD <= y < PAD + STATUS_BAND_H
-    assert _button_rect(right, "portrait_hud_minimize")[0] == PAD
+@pytest.mark.parametrize("corner", [HudCorner.UPPER_LEFT, HudCorner.UPPER_RIGHT])
+def test_the_title_moves_over_for_the_minus_in_the_panels_corner(thumb, corner):
+    rendered = HudRenderer("portrait").render(
+        _model(hud_corner=corner, corner=HudCell(path="c.mp4", thumb=thumb)), video="one.mp4")
+    minus = _button_rect(rendered, "portrait_hud_minimize")
+    first_band = min(rect[1] for rect, _button in _declared(rendered))
+
+    drawn = _drawn_columns(rendered, range(PAD, first_band), leaving_out=minus)
+
+    x, _y, w, _h = minus
+    assert drawn, "the title drew nothing"
+    assert ((max(drawn) < x - BUTTON_GAP) if corner.right
+            else (min(drawn) >= x + w + BUTTON_GAP))
+
+
+@pytest.mark.parametrize("corner", [HudCorner.LOWER_LEFT, HudCorner.LOWER_RIGHT])
+@pytest.mark.parametrize("cells", [0, 1, MAP_CELLS])
+def test_in_a_lower_corner_the_minus_sits_in_room_the_map_leaves_free(thumb, corner, cells):
+    """The map is the panel's last block whether or not it has anything on it,
+    and nothing it draws reaches the corner the minus takes."""
+    model = _model(
+        hud_corner=corner, current_action="alpha",
+        corner=HudCell(path="c.mp4", thumb=thumb) if cells else None,
+        seeds=tuple(HudCell(path=f"s{i}.mp4", thumb=thumb) for i in range(cells)),
+        actions=tuple(HudCell(path=f"a{i}.mp4", thumb=thumb, label=label)
+                      for i, label in zip(range(cells), ("alpha", "beta", "gamma"))))
+    with_it = HudRenderer("portrait").render(model, video="one.mp4")
+    without_it = HudRenderer("portrait").render(model, video="one.mp4", minus_on_the_panel=False)
+    x, y, w, h = _button_rect(with_it, "portrait_hud_minimize")
+
+    rgba = without_it.bgra[:, :, [2, 1, 0, 3]].astype(int)
+    fill = rgba[rgba.shape[0] // 2, 2]
+    spot = rgba[y:y + h, x:x + w]
+    assert (np.abs(spot - fill).sum(axis=2) <= 12).all(), "something is drawn where the minus sits"
 
 
 def test_the_pointer_on_a_minimized_panel_names_what_the_plus_does(thumb):

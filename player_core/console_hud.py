@@ -52,7 +52,8 @@ from .drive_readout import (
 )
 from .geometry import Rect, contains
 from .hud_corners import HudPlace
-from .hud_minimize import collapsed_button, minimize_button, minimize_rect
+from .hud_minimize import ROOM as MINUS_ROOM
+from .hud_minimize import collapsed_button, corner_button_rect, minimize_button
 from .hud_osr2 import HEIGHT as _OSR2_H
 from .hud_osr2 import (
     Osr2Line,
@@ -119,6 +120,7 @@ def compilation_label(title: str) -> str:
 _SIZE_BODY = 11
 _SIZE_TINY = 8
 _PAD = 10
+_MINUS_INSET = (_PAD, _PAD)
 DOT_GAP = 8  # the room between the active-player dot and the words beside it
 MARGIN = 8    # inset from the window's top-left corner
 _BLOCK_GAP = 4
@@ -220,7 +222,8 @@ class ConsolePainter:
     too.
     """
 
-    def __init__(self, *, width: int | None = None, device_only: bool = False) -> None:
+    def __init__(self, *, width: int | None = None, device_only: bool = False,
+                 minus_on_the_panel: bool = True) -> None:
         """*width* holds every panel to one width, whatever is on it.  A console
         hanging in a scene as a screen of its own (FunTimeVR's) otherwise changes
         size with its contents — the genau-mode rows are narrower than the
@@ -232,6 +235,7 @@ class ConsolePainter:
         window is."""
         self._width = width
         self._device_only = device_only
+        self._minus_on_the_panel = minus_on_the_panel
         self._body = load_font(_SIZE_BODY)
         self._tiny = load_font(_SIZE_TINY)
         self._glyph = load_font(_SIZE_BODY, SYMBOL_FONT)
@@ -344,25 +348,30 @@ class ConsolePainter:
             return None
         console = painted.console
         return HudPlace(console.player, console.hud_corner, MARGIN,
-                        minimized=console.hud_minimized)
+                        minimized=console.hud_minimized, inset=_MINUS_INSET)
 
     def place(self, *, window: tuple[int, int], lower_edge: int = 0) -> tuple[int, int]:
         painted = self._painted[0] if self._painted is not None else None
         corner = painted.console.hud_corner if painted is not None else HudCorner.UPPER_LEFT
         size = self._image.size if self._image is not None else (0, 0)
+        minimized = painted is not None and painted.console.hud_minimized
         self._origin = hud_origin(corner, panel=size, window=window,
-                                  margin=MARGIN, lower_edge=lower_edge)
+                                  margin=MARGIN, lower_edge=lower_edge,
+                                  inset=_MINUS_INSET if minimized else (0, 0))
         return self._origin
 
     def _local(self, mx: int, my: int) -> tuple[int, int]:
         left, top = self._origin
         return mx - left, my - top
 
-    def _block_x(self, corner: HudCorner, panel_width: int, extent: int) -> int:
-        return block_x(corner, panel_width=panel_width, extent=extent, pad=_PAD)
+    def _block_x(self, corner: HudCorner, panel_width: int, extent: int,
+                 reserve: int = 0) -> int:
+        return block_x(corner, panel_width=panel_width, extent=extent, pad=_PAD,
+                       reserve=reserve)
 
     def _draw_top_block(self, draw, y: int, status: str, filename: str,
-                        active: bool, width: int, corner: HudCorner) -> None:
+                        active: bool, width: int, corner: HudCorner, *,
+                        reserve: int) -> None:
         """The active-player dot and the status line — what is selecting this
         playlist — with the file on screen muted under it.
 
@@ -373,7 +382,7 @@ class ConsolePainter:
         ascent, descent = self._body.getmetrics()
         indent = ACTIVE_DOT + DOT_GAP
         status_x = self._block_x(corner, width,
-                                 indent + text_width(self._body, status))
+                                 indent + text_width(self._body, status), reserve)
         draw_active_dot(draw, status_x, y + (ascent + descent) // 2 - ACTIVE_DOT // 2,
                         active)
         if status:
@@ -381,15 +390,16 @@ class ConsolePainter:
                       anchor="ls", fill=(*TEXT_PRIMARY, 255))
         if filename:
             name_x = self._block_x(corner, width,
-                                   indent + text_width(self._tiny, filename))
+                                   indent + text_width(self._tiny, filename), reserve)
             draw.text((name_x + indent, y + ascent + descent + _SUBTITLE_GAP), filename,
                       font=self._tiny, anchor="la", fill=(*TEXT_MUTED, 255))
 
     def _draw_rows(self, panel: HudPanel, rows: list[list[Button]], y: int,
-                   corner: HudCorner, hover: tuple[int, int] | None,
+                   corner: HudCorner, hover: tuple[int, int] | None, reserve: int = 0,
                    ) -> list[tuple[Rect, Button]]:
         width = panel.image.width
-        placed = place_rows(rows, x=_PAD, y=y, ends_at=width - _PAD if corner.right else None)
+        placed = place_rows(rows, x=_PAD + (0 if corner.right else reserve), y=y,
+                            ends_at=width - _PAD - reserve if corner.right else None)
         row_top = None
         for rect, button in placed:
             draw_button(panel.image, panel.draw, rect, button,
@@ -423,25 +433,35 @@ class ConsolePainter:
         tiny_h = sum(self._tiny.getmetrics())
         filename_h = (_SUBTITLE_GAP + tiny_h) if filename else 0
 
+        corner = console.hud_corner
         text_x = ACTIVE_DOT + DOT_GAP
-        parts_w = max(_row_width(rows + aim_rows), drive_w,
-                      self._osr2_width(console) if console.has_osr2 else 0,
-                      self._clip_row.least_width() if clip_row is not None else 0)
+        widths = [0, _row_width(rows),
+                  max(_row_width(aim_rows), drive_w,
+                      self._osr2_width(console) if console.has_osr2 else 0),
+                  self._clip_row.least_width() if clip_row is not None else 0]
+        minus_room = MINUS_ROOM if whole and self._minus_on_the_panel else 0
+        last = max(index for index, used in enumerate(
+            (True, bool(rows), bool(aim_rows) or console.has_osr2 or drive is not None,
+             clip_row is not None)) if used)
+        reserves = [0, 0, 0, 0]
+        reserves[last if corner.lower else 0] = minus_room
+        parts_w = max(width_ + reserve for width_, reserve in zip(widths, reserves))
         if self._width is None:
             width = 2 * _PAD + max(
                 parts_w,
-                text_x + text_width(self._body, status),
-                text_x + text_width(self._tiny, filename),
+                reserves[0] + text_x + text_width(self._body, status),
+                reserves[0] + text_x + text_width(self._tiny, filename),
             )
         else:
             width = max(self._width, 2 * _PAD + parts_w)
-            room = width - 2 * _PAD - text_x
+            room = width - 2 * _PAD - text_x - reserves[0]
             status = fit_text(self._body, status, room)
             filename = fit_text(self._tiny, filename, room)
         # The clip's own row, under everything the console says about the room:
         # where the video is and how loud it is, drawn here rather than along
         # the lower edge of the picture (:mod:`player_core.hud_row`).
-        row_h = self._clip_row.size(width - 2 * _PAD)[1] if clip_row is not None else 0
+        row_h = (self._clip_row.size(width - 2 * _PAD - reserves[3])[1]
+                 if clip_row is not None else 0)
         sections = stack(_PAD, [
             top_h + filename_h,
             rows_height(rows),
@@ -457,33 +477,27 @@ class ConsolePainter:
             panel.divide(divider)
         draw = panel.draw
 
-        corner = console.hud_corner
-        minimize = (minimize_rect(corner, panel_width=width, y=_PAD, pad=_PAD),
-                    minimize_button(console.player))
         if whole:
-            draw_button(panel.image, draw, minimize[0], minimize[1],
-                        hovered=hover is not None and contains(minimize[0], *hover),
-                        glyph_font=self._glyph, word_font=self._tiny)
             self._draw_top_block(draw, status_top, status, filename, console.active,
-                                 width, corner)
-        self.buttons = self._draw_rows(panel, rows, rows_top, corner, hover)
+                                 width, corner, reserve=reserves[0])
+        self.buttons = self._draw_rows(panel, rows, rows_top, corner, hover, reserves[1])
         self.tracks = []
 
         y = device_top
         if aim_rows:
-            self.buttons.extend(self._draw_rows(panel, aim_rows, y, corner, hover))
+            self.buttons.extend(self._draw_rows(panel, aim_rows, y, corner, hover, reserves[2]))
             y += rows_height(aim_rows) + _BLOCK_GAP
 
         if console.has_osr2:
             osr2_line = self._osr2_line(console)
-            osr2_x = self._block_x(corner, width, self._osr2.width(osr2_line))
+            osr2_x = self._block_x(corner, width, self._osr2.width(osr2_line), reserves[2])
             self.buttons.extend(self._osr2.draw(panel.image, draw, osr2_x, y, osr2_line,
                                                 hover=hover))
             self.tracks.extend(self._osr2.bands(osr2_x, y, osr2_line))
             y += _OSR2_H + _BLOCK_GAP
 
         if drive is not None:
-            drive_x = self._block_x(corner, width, drive_w)
+            drive_x = self._block_x(corner, width, drive_w, reserves[2])
             # The panel's image rather than its pen: the readout supersamples
             # its trace and composites it back, which a pen cannot carry.
             self._drive.draw(panel.image, drive_x, y, drive)
@@ -494,12 +508,18 @@ class ConsolePainter:
             self.buttons.extend(targets)
             self.tracks.extend(bands)
 
-        if whole:
-            self.buttons.append(minimize)
+        if whole and self._minus_on_the_panel:
+            minus = (corner_button_rect(corner, panel=(width, height), inset=_MINUS_INSET),
+                     minimize_button(console.player))
+            draw_button(panel.image, draw, *minus,
+                        hovered=hover is not None and contains(minus[0], *hover),
+                        glyph_font=self._glyph, word_font=self._tiny)
+            self.buttons.append(minus)
         self.row_rect = None
         if clip_row is not None:
-            self.row_rect = (_PAD, row_top, width - 2 * _PAD, row_h)
-            self._clip_row.draw(panel.image, _PAD, self.row_rect[1], self.row_rect[2],
+            self.row_rect = (_PAD + (0 if corner.right else reserves[3]), row_top,
+                             width - 2 * _PAD - reserves[3], row_h)
+            self._clip_row.draw(panel.image, *self.row_rect[:3],
                                 clip_row, heatmap=heatmap)
 
         if hover is not None:

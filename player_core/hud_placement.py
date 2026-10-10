@@ -84,16 +84,19 @@ class PointerReading[R]:
         return self.reading
 
 
-def block_x(corner: HudCorner, *, panel_width: int, extent: int, pad: int) -> int:
+def block_x(corner: HudCorner, *, panel_width: int, extent: int, pad: int,
+            reserve: int = 0) -> int:
     if not corner.right:
-        return pad
-    return max(pad, panel_width - pad - extent)
+        return pad + reserve
+    return max(pad, panel_width - pad - reserve - extent)
 
 
 def hud_origin(corner: HudCorner, *, panel: tuple[int, int], window: tuple[int, int],
-               margin: int, lower_edge: int = 0) -> tuple[int, int]:
+               margin: int, lower_edge: int = 0,
+               inset: tuple[int, int] = (0, 0)) -> tuple[int, int]:
     panel_w, panel_h = panel
     win_w, win_h = window
-    x = win_w - margin - panel_w if corner.right else margin
-    y = win_h - lower_edge - margin - panel_h if corner.lower else margin
+    across, down = margin + inset[0], margin + inset[1]
+    x = win_w - across - panel_w if corner.right else across
+    y = win_h - lower_edge - down - panel_h if corner.lower else down
     return max(0, x), max(0, y)
