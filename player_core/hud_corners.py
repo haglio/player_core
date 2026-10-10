@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 
 import numpy as np
@@ -31,6 +31,11 @@ class HudPlace:
     margin: int
     minimized: bool = False
     inset: tuple[int, int] = (0, 0)
+
+    def origin(self, *, panel: tuple[int, int], window: tuple[int, int],
+               lower_edge: int = 0) -> tuple[int, int]:
+        return hud_origin(self.corner, panel=panel, window=window, margin=self.margin,
+                          lower_edge=lower_edge, inset=self.inset if self.minimized else (0, 0))
 
 
 def _corner_beside(place: HudPlace, x: int, y: int, *,
@@ -132,6 +137,5 @@ class HudCorners:
         place, corner = target
         button = self._button(place, corner)
         height, width = plus_bgra(button, corner).shape[:2]
-        return _Plus(button, corner, hud_origin(
-            corner, panel=(width, height), window=window, margin=place.margin,
-            inset=place.inset))
+        return _Plus(button, corner, replace(place, corner=corner, minimized=True).origin(
+            panel=(width, height), window=window))
