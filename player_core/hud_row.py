@@ -37,13 +37,7 @@ from .volume import (
 )
 
 __all__ = [
-    "MUTE",
-    "SCRUBBER",
-    "VOLUME",
     "RowHud",
-    "row_part",
-    "scrub_to",
-    "volume_to",
 ]
 
 # What a press on the row is on.  The chip's two halves are named apart because
