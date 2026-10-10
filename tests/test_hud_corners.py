@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 from funestra_fakes import FakePlayer
+from shared_ui.spacing import BUTTON_GAP
 
 from player_core.hud_corners import (
     CORNER_PLUS_OVERLAY_ID,
     HudCorners,
     HudPlace,
+    plus_bgra,
     plus_button,
+    tooltip_size,
 )
+from player_core.hud_minimize import BUTTON
 from player_core.hud_placement import HudCorner
 
 WINDOW = (1200, 800)
@@ -92,3 +96,12 @@ class TestWhatThePlusSays:
     def test_a_press_on_it_asks_for_the_hud_at_the_place_it_names(self):
         assert plus_button("landscape", "left", minimized=False).command == (
             "landscape_hud_restore_at|left")
+
+
+def test_the_plus_leaves_its_name_the_room_tooltip_size_gives_it():
+    button = plus_button("portrait", HudCorner.LOWER_RIGHT, minimized=False)
+    width, height = tooltip_size(button.tooltip)
+
+    drawn = plus_bgra(button, HudCorner.LOWER_RIGHT)
+
+    assert drawn.shape[:2] == (max(BUTTON, height), BUTTON + BUTTON_GAP + width)

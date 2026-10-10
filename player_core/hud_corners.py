@@ -50,11 +50,16 @@ def plus_button(player: str, place: str, *, minimized: bool) -> Button:
                   SHOW_TOOLTIP if minimized else MOVE_TOOLTIP)
 
 
+def tooltip_size(text: str) -> tuple[int, int]:
+    font = mark_font()
+    return (text_width(font, text) + 2 * (TOOLTIP_PAD + _TOOLTIP_EDGE),
+            sum(font.getmetrics()) + 2 * (TOOLTIP_PAD + _TOOLTIP_EDGE))
+
+
 @lru_cache(maxsize=16)
 def plus_bgra(button: Button, corner: HudCorner) -> np.ndarray:
     font = mark_font()
-    tooltip_w = text_width(font, button.tooltip) + 2 * (TOOLTIP_PAD + _TOOLTIP_EDGE)
-    tooltip_h = sum(font.getmetrics()) + 2 * (TOOLTIP_PAD + _TOOLTIP_EDGE)
+    tooltip_w, tooltip_h = tooltip_size(button.tooltip)
     width, height = BUTTON + BUTTON_GAP + tooltip_w, max(BUTTON, tooltip_h)
     image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
