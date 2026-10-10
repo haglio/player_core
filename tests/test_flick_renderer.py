@@ -97,9 +97,9 @@ def test_display_index_for_phase_clamps_past_end():
 
 
 class TestHowFarRoundTheLoopTheFlickIs:
-    """The dial's hand: counted UP while the frame that is up counts DOWN, since
-    a flick is shown from its last frame back (display_index_for_phase), so a
-    hand drawn straight off the index would go round the wrong way."""
+    """What the dial and the frame count show: frames played of the loop,
+    counted UP while the frame that is up counts DOWN, since a flick is shown
+    from its last frame back (display_index_for_phase)."""
 
     def _showing(self, index: int | None, count: int | None):
         controller, flick_store, _calls = _make_controller()
@@ -112,10 +112,10 @@ class TestHowFarRoundTheLoopTheFlickIs:
         return controller
 
     def test_it_goes_round_once_as_the_frames_run_back_to_the_first(self):
-        assert self._showing(19, 20).loop_turn == 0.0
-        assert self._showing(12, 20).loop_turn == 7 / 20
-        assert self._showing(0, 20).loop_turn == 19 / 20
+        assert self._showing(19, 20).playhead == (0, 20)
+        assert self._showing(12, 20).playhead == (7, 20)
+        assert self._showing(0, 20).playhead == (19, 20)
 
-    def test_there_is_no_turn_before_a_frame_is_up(self):
-        assert self._showing(None, 20).loop_turn is None
-        assert self._showing(None, None).loop_turn is None
+    def test_there_is_no_playhead_before_a_frame_is_up(self):
+        assert self._showing(None, 20).playhead is None
+        assert self._showing(None, None).playhead is None

@@ -493,10 +493,11 @@ class Funestra:
 
 def picture_row(picture: Picture, volume) -> RowHud | None:
     """The row for a picture a User put up itself: its time on screen on the
-    track and its loop on the dial, or None while there is none up."""
-    if picture.loop_turn is None:
+    track, and its loop on the dial and in the frame count, or None while
+    there is none up."""
+    if picture.count <= 0:
         return None
     return RowHud(position_ms=picture.elapsed_ms, duration_ms=picture.interval_ms,
                   volume=volume,
                   playhead=video_playhead(picture.elapsed_ms, picture.interval_ms, 0),
-                  loop_turn=picture.loop_turn)
+                  loop=(picture.played, picture.count))
