@@ -1,10 +1,11 @@
-"""How long a flick holds the screen, and the lock that stops it moving at all.
+"""How long a flick holds the screen, and the lock that keeps it there.
 
 Genau's flicks are fractions of a second long, so playing them the way a playlist
 plays videos would be a strobe: every flick has to repeat for a while before the
 next one arrives.  That "while" is the interval here.  The lock is the same lock
 every Funestra in this family has — repeat-one on what is on screen — and it is on
-by default, because a held flick is what Genau has always opened on.
+by default, because a held flick is what Genau has always opened on.  The count
+runs either way; the lock only decides what happens when it reaches the end.
 
 There is no separate "auto advance" switch: advancing is simply what an unlocked
 Genau does, and the interval is how fast.
@@ -35,7 +36,8 @@ TRACK_STEPS_PER_S = 20
 
 @dataclass
 class FlickAdvanceState:
-    # Locked, the flick on screen repeats and nothing moves it but a press.
+    # Locked, the flick on screen comes round again at the end of its interval
+    # instead of giving way to the next.
     locked: bool = True
     # Seconds each flick holds the screen while unlocked.
     interval: int = DEFAULT_INTERVAL_S
@@ -51,28 +53,8 @@ class FlickAdvanceState:
     @property
     def elapsed(self) -> float:
         """Seconds the flick on screen has had of its interval, kept to the step
-        the track draws it at; none while held."""
-        if self.locked:
-            return 0.0
+        the track draws it at."""
         return round(self._elapsed * TRACK_STEPS_PER_S) / TRACK_STEPS_PER_S
-
-
-def set_locked(state: FlickAdvanceState, locked: bool) -> None:
-    """Hold the flick on screen, or let the interval carry it on.
-
-    Unlocking starts the count fresh on whatever is on screen now, rather than
-    resuming a part-finished interval or acting on a switch left over from
-    before the lock — so the first flick after an unlock gets a full turn.
-    """
-    state.locked = locked
-    if not locked:
-        state._elapsed = 0.0
-        state._awaiting_switch = False
-        state._flick = None
-
-
-def toggle_lock(state: FlickAdvanceState) -> None:
-    set_locked(state, not state.locked)
 
 
 def set_interval(state: FlickAdvanceState, seconds: int) -> None:
@@ -107,7 +89,7 @@ def tick_flick_advance(
     # both land here as playing=False, and neither should leave the flick the
     # user walked away from.  The elapsed count simply stops rather than
     # resetting, so resuming finishes the interval it was part-way through.
-    if state.locked or not playing:
+    if not playing:
         return
 
     # Measure the interval from the flick that is actually on screen, not from
@@ -132,6 +114,10 @@ def tick_flick_advance(
         return
 
     state._elapsed += dt
-    if state._elapsed >= state.interval:
+    if state._elapsed < state.interval:
+        return
+    if state.locked:
+        state._elapsed %= state.interval
+    else:
         state._awaiting_switch = True
         step_flick(1)
