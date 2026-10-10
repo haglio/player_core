@@ -45,6 +45,13 @@ class TestThePlus:
 
         assert CORNER_PLUS_OVERLAY_ID not in player.overlays
 
+    def test_a_pointer_off_the_window_puts_no_plus_anywhere(self):
+        corners, player = _corners(_Panel(corner=HudCorner.LOWER_RIGHT))
+
+        _pointed_at(corners, (-1, -1))
+
+        assert CORNER_PLUS_OVERLAY_ID not in player.overlays
+
 
 class TestAPress:
     def test_in_a_corner_the_hud_is_not_in_asks_for_the_hud_there(self):

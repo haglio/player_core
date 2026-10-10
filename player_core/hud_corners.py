@@ -35,6 +35,8 @@ class HudPlace:
 def _corner_beside(place: HudPlace, x: int, y: int, *,
                    window: tuple[int, int]) -> HudCorner | None:
     width, height = window
+    if not (0 <= x < width and 0 <= y < height):
+        return None
     right, lower = x >= width - REACH, y >= height - REACH
     if not ((right or x < REACH) and (lower or y < REACH)):
         return None
