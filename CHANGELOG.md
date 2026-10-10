@@ -29,10 +29,15 @@ the track as wide as the rest leaves it, since the heatmap and a seek are what
 need the room: a flick's dial with its frame count, then its time, each readout
 against the control it reads out, or a video's one readout; the track; and the
 volume chip, 64 pixels wide where it was 112, flush with the row's right end as
-the first readout is with its left, a few pixels between each part. The row
-used to stack the time above the track on a panel narrower than 518 pixels,
-start a wide row's track at a fixed 193, and keep a margin at each end. The
-time and the frame count are words alone, no longer in a pill like the chip's.
+the first readout is with its left, a few pixels between each part. A panel
+too narrow to leave the track at least as long as everything else on the line
+widens until it does, sizing itself for a flick of up to 999 frames and a video
+of under an hour so it keeps one width from one to the next; the console grows
+by about half in Genau mode, and a side player's panel as far as the row needs.
+The row used to stack the time above the track on a panel narrower than 518
+pixels, start a wide row's track at a fixed 193, and keep a margin at each end.
+The time and the frame count are words alone, no longer in a pill like the
+chip's.
 
 `loop_dial` (new, private): the dial and what a press on it names.
 `RowHud.loop` is a flick's frames played of how many, which the dial goes round

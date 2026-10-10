@@ -98,22 +98,24 @@ class TestHowTheRowIsLaidOut:
         assert long.track[0] > short.track[0]
         assert long.readout[0] == short.readout[0] == 0
 
-    def test_the_track_keeps_most_of_a_narrow_panel_for_itself(self):
-        """The headset's console is 380 across.  The scrubber is what the
-        heatmap and a seek need room for, so the readouts, the dial and the
-        chip take only what they must and the track has the rest: more than
-        a third of a flick's row, nearly half of a video's."""
-        clip, video = _layout(CLIP, width=380), _layout(VIDEO, width=380)
-
-        assert clip.rect[3] == TIMELINE_HEIGHT
-        assert clip.track[1] - clip.track[0] >= 140
-        assert video.track[1] - video.track[0] >= 180
-
-    def test_the_narrowest_panel_still_leaves_the_track_room_to_press(self):
+    def test_the_narrowest_panel_leaves_the_track_no_shorter_than_the_rest_of_its_line(self):
         for row in (VIDEO, CLIP, RowHud(duration_ms=10_000)):
             layout = _layout(row, width=RowSection.least_width(row))
-            assert layout.track[1] - layout.track[0] >= 60
+            track = layout.track[1] - layout.track[0]
+            assert track >= layout.width - track
         assert RowSection.least_width(CLIP) > RowSection.least_width(VIDEO)
+
+    def test_the_narrowest_panel_is_one_width_from_one_flick_to_the_next(self):
+        def flick(frames: int) -> RowHud:
+            return RowHud(position_ms=4_000, duration_ms=10_000, playhead=TIME, loop=(6, frames))
+
+        assert RowSection.least_width(flick(20)) == RowSection.least_width(flick(238))
+
+    def test_the_narrowest_panel_is_one_width_from_one_video_to_the_next(self):
+        def video(ms: int) -> RowHud:
+            return RowHud(duration_ms=ms, playhead=video_playhead(0, ms, 30))
+
+        assert RowSection.least_width(video(195_000)) == RowSection.least_width(video(2_400_000))
 
 
 def _painted(row: RowHud, *, width: int = WIDTH, at: tuple[int, int] = (0, 0), heatmap=None):
