@@ -37,8 +37,6 @@ from .flick_advance import (
     FlickAdvanceState,
     adjust_interval,
     set_interval,
-    set_locked,
-    toggle_lock,
 )
 from .flick_flip import FlickFlip
 from .funestra_verbs import (
@@ -232,13 +230,13 @@ def _learned_off(controls: GenauControls, _value: str) -> bool:
 
 
 def _lock_toggled(controls: GenauControls, _value: str) -> bool:
-    toggle_lock(controls.flick_advance_state)
+    controls.flick_advance_state.locked = not controls.flick_advance_state.locked
     return True
 
 
 def _lock_set(locked: bool) -> Act:
     def act(controls: GenauControls, _value: str) -> bool:
-        set_locked(controls.flick_advance_state, locked)
+        controls.flick_advance_state.locked = locked
         return True
     return act
 

@@ -10,9 +10,7 @@ from funestra_core.flick_advance import (
     adjust_interval,
     set_elapsed,
     set_interval,
-    set_locked,
     tick_flick_advance,
-    toggle_lock,
 )
 
 
@@ -72,11 +70,12 @@ class TestTickFlickAdvance:
         assert _run(state, seconds=5.0, start=604.0) == []
         assert _run(state, seconds=2.0, start=609.0) == [1]
 
-    def test_locking_mid_interval_stops_the_clock(self):
+    def test_locking_mid_interval_holds_the_flick_while_its_count_goes_round(self):
         state = FlickAdvanceState(locked=False, interval=5)
         assert _run(state, seconds=3.0) == []
-        set_locked(state, True)
+        state.locked = True
         assert _run(state, seconds=60.0, start=3.0) == []
+        assert 0.0 < state.elapsed < 5.0
 
 
 class TestAdvanceMeasuresTheFlickOnScreen:
@@ -111,28 +110,17 @@ class TestAdvanceMeasuresTheFlickOnScreen:
 
 
 class TestTheLock:
-    def test_toggle_flips_it(self):
-        state = FlickAdvanceState()
-        toggle_lock(state)
-        assert state.locked is False
-        toggle_lock(state)
-        assert state.locked is True
-
-    def test_unlocking_starts_the_interval_fresh_on_the_flick_on_screen(self):
-        # Fire once so the state is left "awaiting" a switch that never comes,
-        # then lock and unlock: the flick is still on screen, and the release must
-        # count it afresh rather than sit forever waiting on the old request.
-        state = FlickAdvanceState(locked=False, interval=3)
-        assert len(_series(state, 0.0, 4.0, "A")) == 1
-        set_locked(state, True)
-        set_locked(state, False)
-        assert len(_series(state, 4.0, 8.0, "A")) == 1
-
-    def test_the_pace_survives_a_lock(self):
-        state = FlickAdvanceState(locked=False, interval=30)
-        toggle_lock(state)
-        toggle_lock(state)
-        assert state.interval == 30
+    def test_the_count_carries_on_through_a_lock_and_an_unlock(self):
+        """The lock decides only what happens when the count reaches the end:
+        held, the flick comes round again; released, the next flick comes when
+        the count next gets there, not a whole interval later."""
+        state = FlickAdvanceState(locked=False, interval=10)
+        assert _run(state, seconds=4.0) == []
+        state.locked = True
+        assert _run(state, seconds=3.0, start=4.0) == []
+        state.locked = False
+        assert _run(state, seconds=2.0, start=7.0) == []
+        assert _run(state, seconds=1.5, start=9.0) == [1]
 
 
 class TestTheInterval:
@@ -157,8 +145,8 @@ class TestTheInterval:
 
 
 class TestHowLongTheFlickHasBeenUp:
-    """What the track at the console's foot draws: how far an unheld flick has
-    got through its turn on screen."""
+    """What the track at the console's foot draws: how far the flick has got
+    through its turn on screen."""
 
     def test_it_counts_the_seconds_since_the_flick_came_on_screen(self):
         state = FlickAdvanceState(locked=False, interval=10)
@@ -166,15 +154,24 @@ class TestHowLongTheFlickHasBeenUp:
 
         assert state.elapsed == pytest.approx(4.0, abs=0.11)
 
-    def test_a_held_flick_has_nothing_elapsed_toward_a_switch(self):
-        """Locked, nothing is going to move the flick on, so the track sits at
-        its start -- not frozen part-way, which would promise a switch that is
-        not coming."""
-        state = FlickAdvanceState(locked=False, interval=10)
+    def test_a_held_flicks_count_goes_round_and_round(self):
+        """Locked, the flick comes round again when its count reaches the end,
+        so the cursor on the track keeps moving, round and round."""
+        state = FlickAdvanceState(locked=True, interval=10)
         _run(state, seconds=4.0)
-        set_locked(state, True)
+        assert state.elapsed == pytest.approx(4.0, abs=0.11)
 
-        assert state.elapsed == 0.0
+        assert _run(state, seconds=7.0, start=4.0) == []
+
+        assert state.elapsed == pytest.approx(1.0, abs=0.11)
+
+    def test_a_held_flicks_count_stops_while_the_room_is_paused(self):
+        state = FlickAdvanceState(locked=True, interval=10)
+        _run(state, seconds=4.0)
+
+        _run(state, playing=False, seconds=30.0, start=4.0)
+
+        assert state.elapsed == pytest.approx(4.0, abs=0.11)
 
 
 class TestAPressAlongTheTrack:
@@ -190,6 +187,16 @@ class TestAPressAlongTheTrack:
         assert state.elapsed == 7.0
         assert _run(state, seconds=2.8, start=2.0) == []
         assert _run(state, seconds=0.4, start=4.8) == [1]
+
+    def test_a_held_flicks_count_can_be_put_along_its_track_too(self):
+        state = FlickAdvanceState(locked=True, interval=10)
+        _run(state, seconds=2.0)
+
+        set_elapsed(state, 7.0)
+
+        assert state.elapsed == 7.0
+        assert _run(state, seconds=4.0, start=2.0) == []
+        assert state.elapsed == pytest.approx(1.0, abs=0.11)
 
     def test_once_the_switch_is_asked_for_the_track_stays_full(self):
         """The next flick is on its way; a press cannot call it back, so the

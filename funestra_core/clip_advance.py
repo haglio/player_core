@@ -13,9 +13,7 @@ _RENAMED = {
     "MIN_INTERVAL_S": "MIN_INTERVAL_S",
     "adjust_interval": "adjust_interval",
     "set_interval": "set_interval",
-    "set_locked": "set_locked",
     "tick_clip_advance": "tick_flick_advance",
-    "toggle_lock": "toggle_lock",
 }
 
 __getattr__ = old_name_getter("funestra_core.flick_advance", _RENAMED)
