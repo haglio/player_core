@@ -96,7 +96,7 @@ __all__ = [
 # applies no length filter at all, so it narrows nothing and prints nothing --
 # the same silence a satellite keeps where its act filter would go when it has
 # none.
-_LENGTH_LABELS = {LengthMode.FULL: "Full length", LengthMode.SHORTS: "Shorts"}
+_LENGTH_LABELS = {LengthMode.FULL: "Full", LengthMode.CLIPS: "Clips"}
 
 # A compilation is titled for a shelf: "various - Ultimate Example Studio Alpha
 # Collection - Volume 6 (v1)".  Everything up to the last dash is the series and
