@@ -30,8 +30,6 @@ __all__ = [
     "CHIP_H",
     "CHIP_W",
     "MARGIN",
-    "MAX_VOLUME",
-    "MIN_VOLUME",
     "PAD",
     "SPEAKER_W",
     "VolumeHud",

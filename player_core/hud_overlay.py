@@ -29,6 +29,11 @@ from .satellite_hud import (
 from .satellite_hud_paint import HudRenderer
 
 __all__ = [
+    "FOOT_DRAG",
+    "FOOT_PRESS",
+    "FOOT_RELEASE",
+    "FOOT_WHEEL",
+    "HUD_OVERLAY_ID",
     "HudOverlay",
 ]
 
