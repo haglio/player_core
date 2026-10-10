@@ -69,7 +69,7 @@ def _drive(offset: float = 0.0, **over) -> DriveHud:
 
 
 def _line(*, locked: bool = True, order_latest: bool = False, **modes) -> str:
-    """The status line for a main player in *modes*, with that lock and order."""
+    """The status line for a Main Funestra in *modes*, with that lock and order."""
     return ConsoleHud(modes=ModeHud(**modes),
                       console=ConsoleModel(main_mode=MainMode.KINO, locked=locked,
                                            latest=order_latest)).status_line
@@ -86,9 +86,9 @@ def _over(painter: ConsolePainter, command: str) -> tuple[int, int]:
 
 
 class TestLine:
-    def test_says_whether_the_main_player_is_holding_the_video_on_screen(self):
-        """Each satellite leads its line with this word, and the main player has the
-        same lock — one padlock, for whichever player holds the slot."""
+    def test_says_whether_the_main_funestra_is_holding_the_video_on_screen(self):
+        """Each satellite leads its line with this word, and the Main Funestra has the
+        same lock — one padlock, for whichever Funestra holds the slot."""
         assert _line(locked=True) == "Locked · Shuffle"
         assert _line(locked=False) == "Unlocked · Shuffle"
 
@@ -108,13 +108,13 @@ class TestLine:
 
     def test_claims_no_length_mode_without_a_library_backing_the_playlist(self):
         """A playlist Fun Time drives has no length filter of its own to report, so
-        that slot stays empty.  The lock is still said: it belongs to the main player
+        that slot stays empty.  The lock is still said: it belongs to the Main Funestra
         slot whatever is feeding it."""
         assert _line(length_mode=None) == "Locked · Shuffle"
 
     def test_a_genau_primary_says_its_order_and_the_pace_it_moves_at(self):
         """Genau has no library, no compilation and no filters.  What it has is the
-        same lock every player has, the same two browse orders, and — while that
+        same lock every Funestra has, the same two browse orders, and — while that
         lock is off — the seconds it leaves each clip up.  Order then pace, in the
         slot the satellites put theirs in: the order says which clip is next, the
         pace says when.  Held, there is no pace to report: the clip stays until
@@ -127,7 +127,7 @@ class TestLine:
         assert line(locked=True) == "Locked · Shuffle"
 
     def test_a_genau_primary_says_which_order_it_was_put_in(self):
-        """Genau browses in the same two orders every other player does, and asking
+        """Genau browses in the same two orders every other Funestra does, and asking
         it for one used to leave the answer nowhere on screen: this slot printed the
         pace instead, so "latest" changed the clips and said nothing."""
         def line(**over) -> str:
@@ -137,10 +137,10 @@ class TestLine:
         assert line(locked=False, latest=True) == "Unlocked · Latest · 5s"
         assert line(locked=True, latest=True) == "Locked · Latest"
 
-    def test_the_pace_belongs_to_genau_and_is_not_claimed_while_main_player_is_showing(self):
-        """Kino mode draws the readout, so the pace is there to read — but the main player is on
-        screen and an unlocked main player plays through its playlist rather than moving on
-        a timer, so saying seconds would describe the wrong player."""
+    def test_the_pace_belongs_to_genau_and_is_not_claimed_while_main_funestra_is_showing(self):
+        """Kino mode draws the readout, so the pace is there to read — but the Main Funestra is on
+        screen and an unlocked Main Funestra plays through its playlist rather than moving on
+        a timer, so saying seconds would describe the wrong Funestra."""
         assert ConsoleHud(console=ConsoleModel(main_mode=MainMode.KINO, locked=False, latest=False),
                           drive=_drive(advance_interval=5)).status_line == "Unlocked · Shuffle"
 
@@ -154,7 +154,7 @@ class TestLine:
                           drive=_drive(advance_interval=5)).status_line == "Unlocked · 5s"
 
     def test_names_the_compilation_and_where_you_are_in_it(self):
-        """A compilation is the main player's loop — a fixed set it plays through
+        """A compilation is the Main Funestra's loop — a fixed set it plays through
         rather than the browse it came from — so it leads the line the way a
         satellite's loop does, and displaces "Unlocked" there for the same reason:
         a loop is repeat-all, and nothing is being held.  "Locked" still joins it,
@@ -167,8 +167,8 @@ class TestLine:
         assert line(locked=True) == "Vol6 · 9/20 · Locked · Shuffle"
         assert line(locked=False, length_mode=SHORTS) == "Vol6 · 9/20 · Shuffle · Shorts"
 
-    def test_says_which_browse_order_the_main_player_is_in(self):
-        """The satellites have said Latest/Shuffle all along and the main player
+    def test_says_which_browse_order_the_main_funestra_is_in(self):
+        """The satellites have said Latest/Shuffle all along and the Main Funestra
         does now too, in the same slot — between the lock and the filters, since it
         is how the set advances rather than what is in it."""
         assert _line(order_latest=True) == "Locked · Latest"
@@ -270,7 +270,7 @@ class TestPainter:
 
     def test_the_status_leads_and_the_file_name_is_the_muted_line_under_it(self):
         """The satellites lead with what they are showing, not with a file name, so
-        the main player does too: the length mode or compilation in the body face, the
+        the Main Funestra does too: the length mode or compilation in the body face, the
         file beneath it in the muted one."""
         painter = ConsolePainter()
         bgra = painter.bgra(ConsoleHud(modes=ModeHud(
@@ -321,7 +321,7 @@ class TestPainter:
     def test_the_dot_does_not_shift_the_words_around(self):
         """The dot is always in the same place and the same size — active only
         recolours it — so the line beside it cannot jump when the floor moves to
-        another player."""
+        another Funestra."""
         painter = ConsolePainter()
 
         lit = painter.bgra(ConsoleHud(console=ConsoleModel(main_mode=MainMode.KINO, active=True)))
@@ -368,7 +368,7 @@ class TestPainter:
     def test_the_mode_you_are_in_lights_blue(self):
         """Every button carries a lit ground now, so one shade lighter was too
         small a difference to find the selected mode at a glance.  Blue — the
-        one the broker wears — and the satellite HUD's Player/Origenerator pair
+        one the broker wears — and the satellite HUD's Funestra/Origenerator pair
         lights the same, because it is the same question about the other half
         of the room.
 
@@ -397,7 +397,7 @@ class TestPainter:
 
         assert shade == blue
 
-    def test_a_choice_the_player_is_holding_but_not_applying_fills_the_gray(self):
+    def test_a_choice_the_funestra_is_holding_but_not_applying_fills_the_gray(self):
         """A compilation replaces the browse order and the length filter while it
         plays and gives them back on the way out, so those buttons say "set, not
         in force" — the family's active gray, which is neither the blue of
@@ -433,7 +433,7 @@ class TestPainter:
 
     def test_the_broker_wears_the_face_it_had_on_the_dashboard(self):
         """Its own magenta mark on blue while the service is up and red while it is
-        down — the broker acts on the room's own service rather than on a player,
+        down — the broker acts on the room's own service rather than on a Funestra,
         so it does not take the on/off colors the controls beside it use."""
         for broker, fill in ((True, (48, 128, 224)), (False, (255, 60, 60))):
             pixels = self._broker_pixels(broker)
@@ -804,7 +804,7 @@ class TestDeclaredRows:
         assert 3 + np.nonzero(inked)[0].min() <= PAD + 2
 
 
-class TestAConsoleAnotherPlayerTookTheOsr2From:
+class TestAConsoleAnotherFunestraTookTheOsr2From:
     @staticmethod
     def _painted(*, has_osr2: bool) -> tuple[ConsolePainter, np.ndarray]:
         painter = ConsolePainter()
@@ -831,8 +831,8 @@ class TestAConsoleAnotherPlayerTookTheOsr2From:
 
 
 class TestPlaybackSpeed:
-    def test_the_drawing_player_folds_in_its_own_rate(self):
-        """Fun Time does not publish the main player's video rate — the main player knows it and adds it
+    def test_the_drawing_funestra_folds_in_its_own_rate(self):
+        """Fun Time does not publish the Main Funestra's video rate — the Main Funestra knows it and adds it
         at draw time, so the console shows the rate the video is really playing."""
         console = with_playback_speed(ConsoleModel(main_mode=MainMode.KINO), 1.75)
 
@@ -840,7 +840,7 @@ class TestPlaybackSpeed:
 
     def test_the_painter_writes_the_hosts_numbers_into_the_read_outs_that_name_them(self):
         """The row names the number ("playback_speed", "advance_interval") and
-        the painter fills it from whoever is drawing: the main player's rate
+        the painter fills it from whoever is drawing: the Main Funestra's rate
         under a video, Genau's pace off its readout in genau mode."""
         def readouts(hud: ConsoleHud) -> list[str]:
             painter = ConsolePainter()
@@ -932,8 +932,8 @@ class TestEveryConsolePaints:
 
     The pill's Buffer state shipped referencing a name this module never
     imported, and no test painted a kino-mode console with a composed drive — so
-    every suite was green while the real main player crashed on its first console
-    frame and the session came up with no main player at all.  A paint smoke
+    every suite was green while the real Main Funestra crashed on its first console
+    frame and the session came up with no Main Funestra at all.  A paint smoke
     over the whole grid makes that class of crash impossible to ship quietly.
     """
 
@@ -1293,7 +1293,7 @@ class TestTheRowTheConsoleCarriesForItsVideo:
         return ConsoleHud(modes=ModeHud(video="scene one"),
                           console=ConsoleModel(main_mode=MainMode.KINO, locked=False))
 
-    def test_a_player_that_hands_over_no_row_grows_none(self):
+    def test_a_funestra_that_hands_over_no_row_grows_none(self):
         painter = ConsolePainter()
         row = RowHud(position_ms=30_000, duration_ms=60_000, volume=VolumeHud(volume=40))
 
@@ -1303,7 +1303,7 @@ class TestTheRowTheConsoleCarriesForItsVideo:
         assert with_row > without
 
     def test_the_clip_s_funscript_colors_fill_that_track(self):
-        """The main player laid its heatmap along the lower edge of the video;
+        """The Main Funestra laid its heatmap along the lower edge of the video;
         on the console it is the track's own fill, as it is on a show's panel."""
         painter = ConsolePainter()
         row = RowHud(position_ms=0, duration_ms=60_000)
@@ -1393,7 +1393,7 @@ class TestWhereTheConsoleSits:
 
         assert origin == (1920 - MARGIN - panel_w, 1080 - 40 - MARGIN - panel_h)
 
-    def test_a_press_lands_against_wherever_the_player_last_put_the_panel(self):
+    def test_a_press_lands_against_wherever_the_funestra_last_put_the_panel(self):
         painter = self._painted(HudCorner.LOWER_RIGHT)
         left, top = painter.place(window=(1920, 1080))
         (x, y, w, h), button = painter.buttons[0]

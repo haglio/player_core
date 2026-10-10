@@ -1,11 +1,11 @@
-"""The mark a player puts up while its video is opening."""
+"""The mark a Funestra puts up while its video is opening."""
 from __future__ import annotations
 
 from funestra_core.loading_mark import WORD, LoadingMarkPainter, loading_mark, loading_xy
 
 
 def test_a_video_with_no_length_yet_is_still_opening():
-    """A video off a cloud drive can take seconds to open, and the player that
+    """A video off a cloud drive can take seconds to open, and the Funestra that
     goes on showing the last one says nothing about the wait."""
     assert loading_mark(0) == WORD
 

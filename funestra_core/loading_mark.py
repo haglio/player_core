@@ -1,4 +1,4 @@
-"""What a player shows where its video will be, while the video is opening."""
+"""What a Funestra shows where its video will be, while the video is opening."""
 from __future__ import annotations
 
 from PIL import Image
@@ -15,7 +15,7 @@ _PAD_Y = 9
 
 
 def loading_mark(duration_ms: float) -> str:
-    """The word to show over a player with no video up yet, or "" once it has one.
+    """The word to show over a Funestra with no video up yet, or "" once it has one.
 
     mpv has the length the moment the file is open, and nothing before that, so
     a length is the first thing that says the wait is over.

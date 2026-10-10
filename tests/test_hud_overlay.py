@@ -28,7 +28,7 @@ def panel(tmp_path: Path) -> Path:
     Image.new("RGB", (40, 60), (90, 90, 90)).save(thumb)
     path = tmp_path / "portrait_hud.json"
     path.write_text(json.dumps({
-        "player": "portrait", "locked": False, "lock_label": "Unlocked",
+        "funestra": "portrait", "locked": False, "lock_label": "Unlocked",
         "current_action": "alpha",
         "corner": {"path": "C:/v/cur.mp4", "thumb": str(thumb)},
         "seeds": [{"path": "C:/v/s1.mp4", "thumb": str(thumb)}],
@@ -155,7 +155,7 @@ class TestTheClipsRowAtItsFoot:
         """A panel is as wide as what is on it, so a host measures one panel and
         fills the next, and between the two the panel can change width.  The
         wrong length raises out of the track painter rather than stretching --
-        which took the window's drawing down with it and left the main player
+        which took the window's drawing down with it and left the Main Funestra
         showing no picture at all."""
         plain, mismatched = FakeEngine(), FakeEngine()
         _overlay(tmp_path, panel, plain).tick(clip_row=self._ROW)
@@ -201,7 +201,7 @@ def test_tick_composites_the_panel_at_the_hud_inset(tmp_path: Path, panel: Path)
 
 
 def test_tick_redraws_only_when_the_published_panel_changes(tmp_path: Path, panel: Path):
-    """The source rewrites the file only on a real change, but the player polls it
+    """The source rewrites the file only on a real change, but the Funestra polls it
     every frame — an unchanged read must not re-render the whole panel."""
     engine = FakeEngine()
     overlay = _overlay(tmp_path, panel, engine)
@@ -218,9 +218,9 @@ def test_tick_redraws_only_when_the_published_panel_changes(tmp_path: Path, pane
 
 
 def test_tick_redraws_when_the_clip_on_screen_changes(tmp_path: Path, panel: Path):
-    """The HUD names the file the player has open, and a player left alone walks
+    """The HUD names the file the engine has open, and a Funestra left alone walks
     its playlist by itself — the source republishes the panel only when the map under
-    it moves, so the name has to redraw off the player's own answer or it would sit
+    it moves, so the name has to redraw off the engine's own answer or it would sit
     on a clip that had already rolled past."""
     engine = FakeEngine()
     overlay = _overlay(tmp_path, panel, engine)
@@ -234,7 +234,7 @@ def test_tick_redraws_when_the_clip_on_screen_changes(tmp_path: Path, panel: Pat
     assert engine.overlays[overlay.overlay_id][2] is not first
 
 
-def test_the_players_own_rate_brings_a_speed_row_whose_buttons_post_this_sides_speed(
+def test_the_funestras_own_rate_brings_a_speed_row_whose_buttons_post_this_sides_speed(
         tmp_path: Path, panel: Path):
     engine = FakeEngine()
     overlay = _overlay(tmp_path, panel, engine)
@@ -246,7 +246,7 @@ def test_the_players_own_rate_brings_a_speed_row_whose_buttons_post_this_sides_s
     assert _commands(tmp_path) == ["portrait_speed_up"]
 
 
-def test_tick_redraws_when_the_players_rate_changes(tmp_path: Path, panel: Path):
+def test_tick_redraws_when_the_funestras_rate_changes(tmp_path: Path, panel: Path):
     engine = FakeEngine()
     overlay = _overlay(tmp_path, panel, engine)
 
@@ -260,7 +260,7 @@ def test_tick_redraws_when_the_players_rate_changes(tmp_path: Path, panel: Path)
 
 
 def test_no_panel_file_means_no_overlay(tmp_path: Path):
-    """A player its source has published no HUD for (an integration run, or
+    """A Funestra its source has published no HUD for (an integration run, or
     before the first publish) simply shows no map."""
     engine = FakeEngine()
     _overlay(tmp_path, tmp_path / "absent.json", engine).tick()
@@ -282,7 +282,7 @@ def test_the_overlay_is_removed_when_the_panel_goes_away(tmp_path: Path, panel: 
 def test_a_panel_that_cannot_be_read_this_frame_keeps_the_map_up(
     tmp_path: Path, panel: Path, monkeypatch: pytest.MonkeyPatch
 ):
-    """The source replaces this file while the player polls it 60x/s, so a read can
+    """The source replaces this file while the Funestra polls it 60x/s, so a read can
     lose that race and come back as a sharing violation.
 
     That is not the panel going away — it is one frame that could not see it.
@@ -418,7 +418,7 @@ def test_pressing_the_lit_filter_button_lifts_the_filter(tmp_path: Path, panel: 
     button it lit."""
     engine = FakeEngine()
     panel.write_text(panel.read_text(encoding="utf-8").replace(
-        '"player": "portrait"', '"player": "portrait", "filter_query": "alpha"'), encoding="utf-8")
+        '"funestra": "portrait"', '"funestra": "portrait", "filter_query": "alpha"'), encoding="utf-8")
     overlay = _overlay(tmp_path, panel, engine)
     overlay.tick()
 
@@ -450,7 +450,7 @@ def test_the_published_loop_state_wins_over_the_optimistic_one(tmp_path: Path, p
     assert overlay.active_loop == "seed"
 
     panel.write_text(panel.read_text(encoding="utf-8").replace(
-        '"player": "portrait"', '"player": "portrait", "active_loop": ""'), encoding="utf-8")
+        '"funestra": "portrait"', '"funestra": "portrait", "active_loop": ""'), encoding="utf-8")
     overlay.tick()
 
     assert overlay.active_loop == ""
@@ -532,8 +532,8 @@ class _Gate:
         return self._composed
 
 
-class TestAPanelWithTheOsr2ItsOwnPlayerScripts:
-    def test_draws_genaus_motion_with_the_players_own_script_folded_in(self, tmp_path, panel):
+class TestAPanelWithTheOsr2ItsOwnFunestraScripts:
+    def test_draws_genaus_motion_with_the_funestras_own_script_folded_in(self, tmp_path, panel):
         _give_it_the_osr2(panel)
         _publish_motion(tmp_path / "drive.txt", 0.0)
         composed = DriveHud(speed=50, amplitude=80, center=50, driven="funscript",
@@ -646,7 +646,7 @@ def test_a_panel_on_its_own_screen_holds_the_tooltips_room_from_the_start(
 
 
 class TestAPanelWhoseMinusHangsOutsideIt:
-    """In the headset the minus hangs on its own between the player and the
+    """In the headset the minus hangs on its own between the picture and the
     panel, where the plus hangs once the panel is minimized, so the panel
     carries neither."""
 
@@ -728,7 +728,7 @@ def test_a_panel_hanging_on_its_own_screen_keeps_its_default_justification(
         tmp_path: Path, panel: Path):
     """In the headset the panel is a screen of its own rather than a slab over a
     corner of the picture, so the corner the session moved it to says which side
-    of the player it hangs against and nothing about how it is laid out."""
+    of the Funestra it hangs against and nothing about how it is laid out."""
     engine = FakeEngine()
     _publish(panel, hud_corner="lower_right", hud_edge="right",
              rows=[[{"command": "portrait_next", "glyph": "N",
@@ -759,7 +759,7 @@ class _Foot:
 
 
 def _a_windows_own_panel(engine, *, foot=None, posts=None):
-    model = HudModel(player="portrait", lock_label="Unlocked",
+    model = HudModel(funestra="portrait", lock_label="Unlocked",
                      rows=((Button("portrait_next", "N", "Next"),),), foot=foot)
     posted = [] if posts is None else posts
     overlay = HudOverlay(panel=lambda: model, post=posted.append, engine=engine,
@@ -786,7 +786,7 @@ class TestAWindowsOwnPanel:
         engine = FakeEngine()
         readout = DriveHud(speed=50, amplitude=80, center=50,
                            waveform=tuple(0.5 for _ in range(80)))
-        model = HudModel(player="portrait", lock_label="Unlocked", osr2="robot_hand",
+        model = HudModel(funestra="portrait", lock_label="Unlocked", osr2="robot_hand",
                          osr2_control="driving", drive=readout)
         overlay = HudOverlay(panel=lambda: model, post=lambda command: None, engine=engine,
                              clock=lambda: 0.0)

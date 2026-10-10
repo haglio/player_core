@@ -1,9 +1,9 @@
 """The controls on the main console, and where they sit.
 
-Whichever player holds the main slot draws it: the main player in kino mode, Genau in
-genau mode.  The console is the same in both, so the mode switch and the drive
+The Main Funestra draws it, whether Kino or Genau runs on it.  The console is the
+same under both, so the mode switch and the drive
 controls do not move as you flip between them; only the transport changes,
-because prev/next step the main player's video in kino mode and Genau's flicks in genau.
+because prev/next step Kino's video in kino mode and Genau's flicks in genau.
 
 Kept free of Pillow, as :mod:`funestra_core.satellite_hud` is, so the
 geometry and the hit-testing are testable without a font.  :mod:`funestra_core.console_hud` paints them; the
@@ -25,6 +25,7 @@ from .hud_button import BUTTON, Button, buttons_from_raw, buttons_raw, rows_from
 from .hud_marks import shared_mark
 from .hud_placement import HudCorner, HudEdge
 from .modes import LengthMode, MainMode, Osr2State, read_mode
+from .renamed import answers_to_old_names
 from .robot_hand import WaveformShape
 
 __all__ = [
@@ -76,7 +77,7 @@ def shape_label(shape: str) -> str:
 
 @dataclass(frozen=True)
 class ModeHud:
-    """The main player's own answer to "what am I playing?" — what only the player knows.
+    """What runs on a Funestra says about what it is playing — what only it knows.
 
     *video* is the name of the clip on screen, drawn as the muted line beneath
     the status.  *length_mode* is the library's filter, empty when there is no
@@ -84,7 +85,7 @@ class ModeHud:
     playlist, with *position*/*total* placing the current video in it;
     *scripted_filter* is Fun Time's F-mode over whichever of those runs, keeping
     the videos that have a funscript.  All empty in genau mode, where there is
-    no main player playlist to describe.
+    no Kino playlist to describe.
     """
 
     video: str = ""
@@ -162,34 +163,35 @@ def aim_row(*, cruise: bool, learned: bool, shape: str, control: str) -> tuple[B
     )
 
 
+@answers_to_old_names({"player": "funestra"})
 @dataclass(frozen=True)
 class ConsoleModel:
-    """What Fun Time tells the main player about its slot, so the console can
-    draw it — none of which the player can see for itself.
+    """What Fun Time tells the Main Funestra about its slot, so the console can
+    draw it — none of which the Funestra can see for itself.
 
     Everything here arrives published (``main_player_console.json``) except
-    ``playback_speed``, which is the main player's own and folded in by whoever is drawing.
+    ``playback_speed``, which is Kino's own and folded in by whoever is drawing.
     """
 
     main_mode: MainMode = MainMode.KINO
-    player: str = "main"
+    funestra: str = "main"
     hud_corner: HudCorner = HudCorner.UPPER_LEFT
     hud_edge: HudEdge = HudEdge.LOWER
     hud_minimized: bool = False
-    # The dot: whether a bare, player-less command ("next", "lock") lands on the
-    # main player rather than on a satellite.
+    # The dot: whether a bare command naming no Funestra ("next", "lock") lands
+    # on the Main Funestra rather than on a satellite.
     active: bool = False
     # What is driving the OSR2 right now.
     osr2: Osr2State = Osr2State.OFF
     # And what this app is doing to it, which is a different question: one of
     # OSR2_CONTROL_BUTTONS' four states, or OSR2_CONTROL_UNANSWERED from a host
     # that has no such switch.  Published like the rest of this, because the
-    # state is the orchestrator's and the player drawing the console is not
+    # state is the orchestrator's and the Funestra drawing the console is not
     # always the one it is about.
     osr2_control: str = OSR2_CONTROL_UNANSWERED
-    # Whether the player on the main slot is holding what is on screen rather
-    # than letting it move on -- the main player's video in kino mode, Genau's
-    # flick in genau.  On is where both players open, so it is the default here
+    # Whether what runs on the Main Funestra is holding what is on screen rather
+    # than letting it move on -- Kino's video in kino mode, Genau's flick in
+    # genau.  On is where both open, so it is the default here
     # too: a console drawn before the first panel arrives must not show the lock
     # off when it is not.
     locked: bool = True
@@ -198,8 +200,8 @@ class ConsoleModel:
     # order to name -- Origenerator's motion panel, whose slides are a show's
     # own set.
     latest: bool | None = None
-    # The main player's video playback rate, shown while the main player is on screen.  Not published —
-    # The main player knows its own rate and folds it in; Genau leaves it at 1.
+    # Kino's video playback rate, shown while Kino is on screen.  Not published —
+    # Kino knows its own rate and folds it in; Genau leaves it at 1.
     playback_speed: float = 1.0
     # Seconds an unlocked Genau leaves each flick on screen.  Also not published —
     # Genau owns the pace and says it on the drive readout, which whoever draws
@@ -221,8 +223,8 @@ class ConsoleModel:
         Neither driver reaches it there: the broker stops forwarding the
         script's T-Code and Genau is not sending.  So the picture is the
         device's own motion rather than a handoff between the two, which is
-        what both players hanging this console over a video ask before they
-        let the gate fold a script in.
+        what every Funestra hanging this console over a video asks before it
+        lets the gate fold a script in.
         """
         return self.osr2 == Osr2State.AUTO
 
@@ -231,7 +233,7 @@ def read_console(path: Path) -> ConsoleModel | None:
     """The console panel Fun Time published, or None when there is not a whole one.
 
     None means "keep the console you have": Fun Time replaces this file while the
-    player polls it, so a lost race must not empty the panel for a frame.
+    Funestra polls it, so a lost race must not empty the panel for a frame.
     """
     try:
         text = path.read_text(encoding="utf-8")
@@ -243,12 +245,14 @@ def read_console(path: Path) -> ConsoleModel | None:
 def console_text(model: ConsoleModel) -> str:
     """*model* as the text Fun Time publishes, and :func:`parse_console` reads back.
 
-    Only what the room knows and the player cannot see goes out; the rate and
+    Only what the room knows and the Funestra cannot see goes out; the rate and
     the pace, which the drawing host folds in for itself, come back at rest.
     """
     return json.dumps({
         "main_mode": model.main_mode,
-        "player": model.player,
+        "funestra": model.funestra,
+        # The same, under the key a reader from before the rename looks for.
+        "player": model.funestra,
         "hud_corner": model.hud_corner,
         "hud_edge": model.hud_edge,
         "hud_minimized": model.hud_minimized,
@@ -275,7 +279,7 @@ def parse_console(text: str) -> ConsoleModel | None:
         return None
     return ConsoleModel(
         main_mode=read_mode(MainMode, raw.get("main_mode"), MainMode.KINO),
-        player=str(raw.get("player", "") or "main"),
+        funestra=str(raw.get("funestra") or raw.get("player") or "main"),
         hud_corner=read_mode(HudCorner, raw.get("hud_corner"), HudCorner.UPPER_LEFT),
         hud_edge=read_mode(HudEdge, raw.get("hud_edge"), HudEdge.LOWER),
         hud_minimized=bool(raw.get("hud_minimized", False)),
@@ -300,8 +304,8 @@ def max_intensity_from_raw(raw) -> int | None:
         return None
 
 
-def main_player_displays(main_mode: MainMode) -> bool:
-    """Whether the main player's video is on the main slot — kino mode."""
+def kino_shows(main_mode: MainMode) -> bool:
+    """Whether Kino is what the Main Funestra shows."""
     return main_mode == MainMode.KINO
 
 

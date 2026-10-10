@@ -1,4 +1,4 @@
-"""The chrome the players' in-video HUDs are drawn on."""
+"""The chrome the Funestras' in-video HUDs are drawn on."""
 from __future__ import annotations
 
 import numpy as np
@@ -64,7 +64,7 @@ def test_point_sizes_become_pixels_at_96_dpi():
 
 
 def test_a_missing_face_falls_back_instead_of_raising():
-    """A font the machine does not have must not take the player down mid-render:
+    """A font the machine does not have must not take the Funestra down mid-render:
     the HUD is drawn every frame, so an OSError here is a crash, not a blank."""
     assert load_font(11, "no-such-face.ttf") is not None
 
@@ -77,7 +77,7 @@ def test_text_width_measures_the_drawn_string():
 
 
 def test_the_active_dot_is_lit_or_gray_but_never_absent():
-    """An absent dot cannot be told from an idle one, so only the player holding the
+    """An absent dot cannot be told from an idle one, so only the Funestra holding the
     floor would say anything — and a reader would have to check every screen to
     learn what one mark should tell them."""
     def dot(active: bool) -> tuple[int, ...]:
@@ -145,13 +145,13 @@ def test_a_glyph_is_centered_on_its_ink_not_on_the_fonts_bounds():
     font = load_font(20, "seguisym.ttf")
 
     for glyph in ("⏮", "\U0001F512", "−", "∿"):
-        centred = _ink_center(60, lambda d, g=glyph: draw_glyph(
+        centered = _ink_center(60, lambda d, g=glyph: draw_glyph(
             d, 30, 30, g, font, (255, 255, 255, 255)))
         by_metrics = _ink_center(60, lambda d, g=glyph: d.text(
             (30, 30), g, font=font, anchor="mm", fill=(255, 255, 255, 255)))
 
-        assert abs(centred[1] - 30) <= 0.5, glyph
-        assert by_metrics[1] > centred[1], glyph  # the old way sat lower
+        assert abs(centered[1] - 30) <= 0.5, glyph
+        assert by_metrics[1] > centered[1], glyph  # the old way sat lower
 
 
 def _icon_cells(letter: str, size: int = 18) -> list[str]:

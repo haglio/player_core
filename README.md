@@ -1,29 +1,30 @@
 # player_core
 
-The shared playback core backing the video players in this project family.
-
-Six players and hosts across three repos read it. Four of them embed a video
-player and are driven by an orchestrator through files on disk; the other two
-take the HUDs and the motion without the player.
+The Funestra, and everything the programs that open one share. The package is
+`funestra_core`; until 2026-10-10 it was `player_core`, as this repo still is,
+and `player_core.<module>` still imports, as the very same module, for every
+branch written before the rename. A Funestra is a window of Fun Time: it plays
+what it is handed, draws the HUD, and is driven through files by whatever runs
+on it.
 
 | Consumer | Repo | What it takes |
 | --- | --- | --- |
 | Genau | `../genau` | the flick folder's layout, which its contract publishes |
-| Fun Time's main player | `../fun_time` | the player, the console, the drive readout, the T-Code driver, and the flick player's engine for its genau mode |
+| Fun Time's Main Funestra | `../fun_time` | a Funestra, with Kino or Genau running on it, and the flick engine for its genau mode |
 | Fun Time's satellites | `../fun_time` | a Funestra, on each satellite's window |
-| Fun Time's VR player | `../fun_time` | the offscreen player, the T-Code driver, and the flick player's engine for its genau mode |
+| Fun Time's headset | `../fun_time` | the same three Funestras over the offscreen engine, drawn into the headset |
 | Fun Time itself | `../fun_time` | the file channel, the playlist, the status line |
-| Origenerator | `../origenerator` | the console and the drive readout, over its slideshows |
+| Origenerator | `../origenerator` | a Funestra for a Standalone Slideshow, and the console and drive readout over its shows |
 
 Everything they had to agree on lives here, so none of them has to import
 another application's internals to get it. By what it is:
 
-- **the engine** — `mpv_player`, its offscreen twin `render_player`, the
+- **the engine** — `mpv_engine`, its offscreen twin `render_engine`, the
   `libmpv_loader` that puts the vendored DLL on `%PATH%` first, which is the
   only way python-mpv finds it on Windows, and `audio_outputs`, which says
   which of the machine's outputs a session means by the device name it
   configures.
-- **the player contract** — what a content source hands a player and what
+- **the Funestra contract** — what a content source hands a Funestra and what
   it gets back, each format written and read in one module; see below.
   `session_quit` is beside them (a close on one window of a session asks the
   session).
@@ -33,7 +34,7 @@ another application's internals to get it. By what it is:
   `robot_hand_driver` (the motion on the wire, and the device changing hands),
   `wave_stack` / `cruise_control` (the motion varying itself), `broker_feed`
   (the beat the OSR2 broker publishes when it has the room).
-- **the flick player** — Genau, wherever it is drawn. A flick is one of the
+- **Genau** — wherever it runs. A flick is one of the
   short looping videos Genau scrubs to wherever the OSR2 is; the apps show and
   hear it under the word their content overlays give it (`genau_flick_words`),
   which is library vocabulary and so never in source. `flick_folder`,
@@ -53,7 +54,7 @@ another application's internals to get it. By what it is:
   it on ONE panel rather than stacking a console under a lock HUD.
 - **the Funestra** — a window of Fun Time: `funestra` builds one on a way of
   playing (`Funestra.on_window` opens mpv on a window handle; the base takes
-  any player with the same interface) and the files its User drives it through
+  any engine with the same interface) and the files its User drives it through
   (`Channels`), plays what it is handed (`playback`, with `funestra_controls`
   answering the verbs, `funestra_status` publishing the status, `play_points`,
   `seeking` and `scripted_device` under it), and draws the published panel —
@@ -69,36 +70,37 @@ another application's internals to get it. By what it is:
   files from another; none draws on it.  `tests/test_hud_drawers.py` holds the
   consumers to that: a package that imports a painter out of here is drawing a
   HUD itself, and only the ones still to move onto a Funestra are listed.
-- **the window** — `sdl_hints`, the SDL facts every player here has to get
+- **the window** — `sdl_hints`, the SDL facts every Funestra here has to get
   right before it opens one (its taskbar identity it claims through
   `app_support.win32`, like every other process in the family).
-- **the loop** — `control_registry` (how any player declares a control and the
+- **the loop** — `control_registry` (how anything that answers verbs declares a control and the
   verbs that move it), `flag` (a bit two parts of an app share, with its
   edge), `tick_failures` (a frame loop's fault, said once).
 
 Nothing app-specific belongs here. A module earns a place only once a second
 repo needs it; until then it stays with the app that owns it. Genau's engine is
-here because two shells run it: Genau's own window, and Fun Time's VR player,
-whose genau mode runs the same tick against a headset texture.
+here because two shells run it: Fun Time's Main Funestra on the desktop, and the
+same Funestra in the headset, whose genau mode runs the same tick against a
+headset texture.
 
-## The player contract
+## The Funestra contract
 
-A player shows what a content source hands it and tells the source what it is
-showing. Today the source is Fun Time and the players are its main player, its
-two satellites and their headset twins; the contract is what lets a second
-source drive the same players. Every part of it is a pair — a writer and a
-reader in one module — so the two sides cannot spell a thing differently:
+A Funestra shows what a content source hands it and tells the source what it is
+showing. Today the source is Fun Time and the Funestras are its Main, Portrait
+and Landscape Funestras and their headset twins; the contract is what lets a
+second source drive the same Funestras. Every part of it is a pair — a writer
+and a reader in one module — so the two sides cannot spell a thing differently:
 
-| The source hands the player… | …through | …and reads back |
+| The source hands the Funestra… | …through | …and reads back |
 | --- | --- | --- |
 | a playlist: one `PlaylistItem` per line, a video and its funscript, or a picture | `playlist` (`write_playlist` / `read_playlist`; `item_line` / `item_from_line` is the line, and `PLAY_FILE`'s value) | |
-| verbs on its command file, spelled in `player_verbs` | `file_channel` (`append_command` / `consume_command_file`); the player answers the ones it declares in a `control_registry` | |
-| the pace a picture holds the screen for: `SET_PACE <seconds>`, 0 holding it | `player_verbs.pace_seconds` reads the value, `set_pace` hands it to mpv | |
+| verbs on its command file, spelled in `funestra_verbs` | `file_channel` (`append_command` / `consume_command_file`); the Funestra answers the ones it declares in a `control_registry` | |
+| the pace a picture holds the screen for: `SET_PACE <seconds>`, 0 holding it | `funestra_verbs.pace_seconds` reads the value, `set_pace` hands it to mpv | |
 | the paused flag | `app_support.file_channel.write_flag` / `file_channel.read_paused_state` | |
 | its HUD: a `HudModel` for a satellite, a `ConsoleModel` for the main slot, each carrying the buttons the source declares — rows of `hud_button.Button`: the verb a press posts, the face, the tooltip, lit or dim, where a group starts | `satellite_hud` (`hud_text` / `parse_hud`), `console` (`console_text` / `parse_console`) | |
-| | `status` (`status_fields` / `parse_status`, published by `StatusWriter`) | a `PlayerStatus`: the item on screen, the playhead, paused, locked, the rate it plays at, whether the item is a picture — and after those seven lines, whatever that player adds of its own |
+| | `status` (`status_fields` / `parse_status`, published by `StatusWriter`) | a `FunestraStatus`: the item on screen, the playhead, paused, locked, the rate it plays at, whether the item is a picture — and after those seven lines, whatever that Funestra adds of its own |
 
-A player answers the verbs it can (`TRASH` is a satellite's, `TOGGLE_LOCK` the
+A Funestra answers the verbs it can (`TRASH` is a satellite's, `TOGGLE_LOCK` the
 main slot's) and refuses the rest on its log. It draws the buttons its source
 declared and nothing else, and posts each one's verb verbatim; a read-out
 whose number only the drawing host knows (the video's rate, a flick's pace)
@@ -107,7 +109,7 @@ buttons is drawn with none.
 
 A picture is shown by libmpv itself: it holds the frame for the pace and then
 ends the file the way a finished video ends, so a picture moves on, holds under
-a lock and waits out a pause exactly as a video does, and a player opens at 4
+a lock and waits out a pause exactly as a video does, and a Funestra opens at 4
 seconds until a source sets a pace. Whether an item is a picture is mpv's to
 say once the file is open (`showing_picture`), so a playlist line carries no
 kind; the still a HUD map draws for one is its cell's `thumb`, as for a video.
@@ -198,7 +200,7 @@ version change gets a reason written down.
 ```
 
 There is no venv in this repo — run the suite with a consumer's venv, each of
-which has this package installed. The half of `mpv_player` that drives an mpv
+which has this package installed. The half of `mpv_engine` that drives an mpv
 handle is unit-tested against a fake; what needs the DLL and a real window is
-constructing an `MpvPlayer`, and that is exercised by Fun Time's hidden-desktop
-integration suite, which launches the real player.
+constructing an `MpvEngine`, and that is exercised by Fun Time's hidden-desktop
+integration suite, which launches the real Funestras.

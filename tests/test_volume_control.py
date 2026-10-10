@@ -32,7 +32,7 @@ class TestWhatItOpensAt:
 
 
 class TestWhatTheTwoVerbsSet:
-    def test_the_mute_unmutes_the_player_and_mutes_it_again(self):
+    def test_the_mute_unmutes_the_engine_and_mutes_it_again(self):
         volume, engine = _volume()
 
         volume.toggle_mute()
@@ -43,7 +43,7 @@ class TestWhatTheTwoVerbsSet:
         assert volume.hud.muted is True
         assert engine.muted is True
 
-    def test_a_level_is_set_on_the_player_and_lifts_the_mute(self):
+    def test_a_level_is_set_on_the_engine_and_lifts_the_mute(self):
         volume, engine = _volume()
 
         volume.set_level(50)
@@ -79,17 +79,17 @@ class TestTheRoomsVolume:
 
         assert (control.hud.volume, control.hud.muted) == (100, False)
 
-    def test_a_live_build_unmutes_its_player_so_the_rooms_level_can_be_heard(self, tmp_path):
+    def test_a_live_build_unmutes_its_engine_so_the_rooms_level_can_be_heard(self, tmp_path):
         _control, engine = self._control(tmp_path, live=True)
 
         assert engine.muted is False
 
-    def test_a_silent_build_leaves_its_player_muted(self, tmp_path):
+    def test_a_silent_build_leaves_its_engine_muted(self, tmp_path):
         _control, engine = self._control(tmp_path, live=False)
 
         assert engine.muted is True
 
-    def test_the_rooms_answer_is_what_the_chip_shows_and_what_the_player_plays(self, tmp_path):
+    def test_the_rooms_answer_is_what_the_chip_shows_and_what_the_engine_plays(self, tmp_path):
         control, engine = self._control(tmp_path)
 
         control.set(40, muted=False)
@@ -120,7 +120,7 @@ class TestTheRoomsVolume:
 
         assert control.hud.muted is True
         assert self._asks(tmp_path) == ["audio_mute"]
-        assert engine.volume == 100, "the room answers; the chip does not set the player itself"
+        assert engine.volume == 100, "the room answers; the chip does not set the engine itself"
 
     def test_muting_again_asks_for_the_unmute(self, tmp_path):
         control, _engine = self._control(tmp_path)

@@ -6,8 +6,8 @@ float above the desktop.
 
 The slab it is drawn on — the rounded translucent panel, the palette, the Segoe
 face sized the way Qt sized it, the BGRA hand-off — comes from
-:mod:`funestra_core.hud_panel`, which the main player's own HUD is drawn on too, so the two
-players go on looking like one another.  The layout and hit-test rects come from
+:mod:`funestra_core.hud_panel`, which the Main Funestra's own HUD is drawn on too, so the two
+Funestras go on looking like one another.  The layout and hit-test rects come from
 :mod:`funestra_core.satellite_hud`, so what is drawn and what is clickable cannot drift apart.
 """
 from __future__ import annotations
@@ -177,8 +177,8 @@ class HudRenderer:
     that is still valid is still the right image.
     """
 
-    def __init__(self, player: str) -> None:
-        self._player = player
+    def __init__(self, funestra: str) -> None:
+        self._funestra = funestra
         self._body = load_font(_SIZE_BODY)
         self._titles: dict[int, ImageFont.FreeTypeFont] = {_SIZE_BODY: self._body}
         self._tiny = load_font(_SIZE_TINY)
@@ -187,14 +187,14 @@ class HudRenderer:
         self._glyph = load_font(_SIZE_BODY, SYMBOL_FONT)
         self._thumbs: dict[str, Image.Image] = {}
         # The main console's own two blocks, hosted here for a panel whose
-        # player has the OSR2 -- see HudModel.osr2.
+        # Funestra has the OSR2 -- see HudModel.osr2.
         self._osr2 = Osr2Section()
         self._drive = DriveSection()
         self._readout = ReadoutResolver()
         self._clip_row = RowSection()
 
     def _thumbnail(self, cell: HudCell) -> Image.Image:
-        slot_w = slot_width(self._player)
+        slot_w = slot_width(self._funestra)
         if cell.thumb:
             cached = self._thumbs.get(cell.thumb)
             if cached is None:
@@ -250,15 +250,15 @@ class HudRenderer:
 
         *clip_row* is where the clip on screen has got to and how loud it is, with
         *heatmap* its funscript's colors for a host that has one: the row every
-        player used to lay along the lower edge of its own picture, drawn here
+        Funestra used to lay along the lower edge of its own picture, drawn here
         instead (:mod:`funestra_core.hud_row`).  Like *video* it comes from the
-        player rather than from *model*, being what is decoding rather than what
+        Funestra rather than from *model*, being what is decoding rather than what
         the source published.
 
         *video* is the file on screen, named under the status line.  It comes from
-        the player rather than from *model*: the published panel is fun_time's answer
-        to what this side is browsing, and what is actually decoding is the player's
-        own — the same split the main player draws, which names its file from its own
+        the Funestra rather than from *model*: the published panel is fun_time's answer
+        to what this side is browsing, and what is actually decoding is the Funestra's
+        own — the same split the Main Funestra draws, which names its file from its own
         session and takes the rest of its console off the wire.
         """
         # Where the pointer is for this frame, or None off the panel.  The
@@ -267,7 +267,7 @@ class HudRenderer:
         self._pointer = hover_pos if hover_tip else None
         if model.hud_minimized:
             bgra, buttons = collapsed_panel(
-                model.player, model.hud_corner, hover=self._pointer,
+                model.funestra, model.hud_corner, hover=self._pointer,
                 room_for_the_tooltip=not may_grow_on_hover)
             return RenderedHud(bgra, HudTargets(click=[], loop=[], filter=[], expand=None,
                                                 buttons=buttons))
@@ -303,7 +303,7 @@ class HudRenderer:
         drive_w, drive_h = section_size() if model.drive is not None else (0, 0)
         device_w = max(self._osr2.width(osr2_line) if model.osr2 else 0, drive_w)
         foot_w, foot_h = model.foot.size() if model.foot is not None else (0, 0)
-        width = panel_width(model.player, text_width(self._tiny, video),
+        width = panel_width(model.funestra, text_width(self._tiny, video),
                             content_width=max(
                                 band_width,
                                 2 * PAD + device_w if device_w else 0,
@@ -339,7 +339,7 @@ class HudRenderer:
         if minus_on_the_panel:
             minus = (corner_button_rect(model.hud_corner, panel=(width, height),
                                         inset=MINUS_INSET),
-                     minimize_button(model.player))
+                     minimize_button(model.funestra))
             draw_button(image, draw, *minus, hovered=self._pointer_is_on(minus[0]),
                         glyph_font=self._glyph, word_font=self._tiny)
             buttons.append(minus)
@@ -358,13 +358,13 @@ class HudRenderer:
             y += CTRL_BAND_H
 
         # The rate this side plays at, its own row under the bands -- drawn here
-        # rather than declared, since only the drawing player knows the number.
+        # rather than declared, since only the drawing Funestra knows the number.
         # Its two buttons still register as declared buttons, so a press posts
         # the side's speed verb and a hover names it like any other.
         if model.playback_speed is not None:
             label_width = text_width(self._tiny, PLAYBACK_SPEED_LABEL) + BUTTON_GROUP_GAP
             speed_x = self._block_x(model, width, speed_row_width(label_width))
-            speed_buttons, rate_rect = speed_row(model.player, speed_x, layout.speed,
+            speed_buttons, rate_rect = speed_row(model.funestra, speed_x, layout.speed,
                                                  label_width=label_width)
             draw.text((speed_x, layout.speed + CTRL_BTN / 2), PLAYBACK_SPEED_LABEL,
                       font=self._tiny, anchor="lm", fill=(*TEXT_MUTED, 255))
@@ -406,12 +406,12 @@ class HudRenderer:
                   counts: tuple[str, ...], thumbs, windows, hover_loop: str) -> HudTargets:
         corner_thumb, seed_thumbs, action_thumbs = thumbs
         seed_win, action_win = windows
-        gutter_x = self._block_x(model, width, map_block_width(model.player))
+        gutter_x = self._block_x(model, width, map_block_width(model.funestra))
         self._draw_counts(draw, gutter_x, top, counts)
         map_x = gutter_x + ROW_LABEL_GUTTER + ELLIPSIS_ROOM
         map_y = top + COL_LABEL_H + COL_LABEL_GAP + ELLIPSIS_ROOM
         corner_rect, seed_rects, action_rects = slot_rects(
-            map_x=map_x, map_y=map_y, slot_w=slot_width(model.player),
+            map_x=map_x, map_y=map_y, slot_w=slot_width(model.funestra),
             seeds=len(seed_thumbs), actions=len(action_thumbs), playing=model.playing)
         column_rect = column_anchor_rect(model.playing, corner_rect, seed_rects)
 
@@ -431,7 +431,7 @@ class HudRenderer:
         self._draw_filter_buttons(draw, filter_rects, model)
 
         loop_action_rect, loop_seed_rect = loop_button_rects(
-            corner_rect, row_end=map_x + map_row_width(model.player),
+            corner_rect, row_end=map_x + map_row_width(model.funestra),
             column_end=map_y + MAP_COLUMN_H, reserve=ELLIPSIS_ROOM, column_rect=column_rect)
         expand_rect = expand_button_rect(loop_seed_rect)
         self._draw_loop_controls(image, draw, corner_rect, column_rect, loop_action_rect,
@@ -711,7 +711,7 @@ class HudRenderer:
         Off, the square sits on the family's own button ground -- an outline over
         the slab and nothing else read as a gap cut in the panel rather than as
         the raised button every window here offers -- with an edge in the muted
-        gray the rest of the chrome uses, and the MARK is full-strength -- the same way the main player's console
+        gray the rest of the chrome uses, and the MARK is full-strength -- the same way the Main Funestra's console
         draws its own.  Both were muted here, which left these panels reading as
         dim and half-disabled beside the console's, for controls that were
         neither.  On, the square fills *on_color*: the family's ACTIVE ground, one

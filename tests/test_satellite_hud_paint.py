@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from PIL import Image, ImageDraw
-from satellite_rows import player_rows, short_name
+from satellite_rows import funestra_rows, short_name
 from shared_ui import colors
 from shared_ui.palette import BLUE, BORDER_PANEL, GREEN, TEXT_MUTED, TEXT_PRIMARY, WHITE
 from shared_ui.spacing import BUTTON_GAP
@@ -90,8 +90,8 @@ CLIP_SHAPES = {
 @pytest.fixture
 def clip_thumb(tmp_path: Path):
     """``(side, shape) -> thumbnail path`` for the shapes above."""
-    def make(player: str, shape: tuple[int, int]) -> str:
-        path = tmp_path / f"{player}-{shape[0]}x{shape[1]}.jpg"
+    def make(funestra: str, shape: tuple[int, int]) -> str:
+        path = tmp_path / f"{funestra}-{shape[0]}x{shape[1]}.jpg"
         if not path.exists():
             Image.new("RGB", shape, (30, 30, 30)).save(path)
         return str(path)
@@ -99,15 +99,15 @@ def clip_thumb(tmp_path: Path):
 
 
 def _sides_and_shapes() -> list[tuple[str, tuple[int, int]]]:
-    return [(player, shape) for player, shapes in CLIP_SHAPES.items() for shape in shapes]
+    return [(funestra, shape) for funestra, shapes in CLIP_SHAPES.items() for shape in shapes]
 
 
 def _model(**overrides) -> HudModel:
-    """A player's panel, with the band its source declares unless *rows* says
+    """A Funestra's panel, with the band its source declares unless *rows* says
     otherwise."""
-    base = dict(player="portrait", locked=True, lock_label="Locked")
+    base = dict(funestra="portrait", locked=True, lock_label="Locked")
     base.update(overrides)
-    base.setdefault("rows", player_rows(base["player"]))
+    base.setdefault("rows", funestra_rows(base["funestra"]))
     return HudModel(**base)
 
 
@@ -140,10 +140,10 @@ def test_render_fills_the_panel_and_draws_the_map(thumb):
     assert (rendered.bgra[:, :, 3] > 0).mean() > 0.5
 
 
-def _crowded(player: str, thumb: str) -> HudModel:
+def _crowded(funestra: str, thumb: str) -> HudModel:
     """A side with more seeds and more acts than any map draws."""
     return _model(
-        player=player, locked=False, lock_label="Unlocked · Shuffle", current_action="Alpha",
+        funestra=funestra, locked=False, lock_label="Unlocked · Shuffle", current_action="Alpha",
         corner=HudCell(path="c.mp4", thumb=thumb),
         seeds=tuple(HudCell(path=f"s{i}.mp4", thumb=thumb) for i in range(6)),
         actions=tuple(HudCell(path=f"a{i}.mp4", thumb=thumb, label="Alpha") for i in range(4)),
@@ -151,9 +151,9 @@ def _crowded(player: str, thumb: str) -> HudModel:
     )
 
 
-@pytest.mark.parametrize("player,shape", _sides_and_shapes())
-def test_the_map_is_three_cells_a_side_whatever_shape_its_clips_are(player, shape, clip_thumb):
-    rendered = HudRenderer(player).render(_crowded(player, clip_thumb(player, shape)))
+@pytest.mark.parametrize("funestra,shape", _sides_and_shapes())
+def test_the_map_is_three_cells_a_side_whatever_shape_its_clips_are(funestra, shape, clip_thumb):
+    rendered = HudRenderer(funestra).render(_crowded(funestra, clip_thumb(funestra, shape)))
 
     rects = [rect for rect, _path in rendered.targets.click]
     columns = {x for x, _y, _w, _h in rects}
@@ -161,14 +161,14 @@ def test_the_map_is_three_cells_a_side_whatever_shape_its_clips_are(player, shap
     assert (len(columns), len(rows)) == (MAP_CELLS, MAP_CELLS)
 
 
-@pytest.mark.parametrize("player,shape", _sides_and_shapes())
-def test_the_panel_stops_where_its_last_controls_do(player, shape, clip_thumb):
+@pytest.mark.parametrize("funestra,shape", _sides_and_shapes())
+def test_the_panel_stops_where_its_last_controls_do(funestra, shape, clip_thumb):
     """No slab past the map wherever the map is what set the width: the expand
     button ends one margin in from the right edge and the action-loop button one
     margin up from the lower edge, so every pixel of the panel is carrying something —
     for a wide cell as much as a narrow one.  (A status longer than the map is the
     other case, and there it is the line that reaches the far edge.)"""
-    rendered = HudRenderer(player).render(_crowded(player, clip_thumb(player, shape)))
+    rendered = HudRenderer(funestra).render(_crowded(funestra, clip_thumb(funestra, shape)))
     height, width = rendered.bgra.shape[:2]
 
     ex, _ey, ew, _eh = rendered.targets.expand
@@ -178,14 +178,14 @@ def test_the_panel_stops_where_its_last_controls_do(player, shape, clip_thumb):
     assert ly + lh == height - PAD
 
 
-@pytest.mark.parametrize("player", CLIP_SHAPES)
+@pytest.mark.parametrize("funestra", CLIP_SHAPES)
 def test_the_map_holds_its_cells_and_buttons_in_place_whatever_shape_its_clips_are(
-        player, clip_thumb):
-    renderer = HudRenderer(player)
-    lone = renderer.render(_model(player=player, corner=HudCell(
-        path="c.mp4", thumb=clip_thumb(player, CLIP_SHAPES[player][0]))))
-    crowded = [renderer.render(_crowded(player, clip_thumb(player, shape)))
-               for shape in CLIP_SHAPES[player]]
+        funestra, clip_thumb):
+    renderer = HudRenderer(funestra)
+    lone = renderer.render(_model(funestra=funestra, corner=HudCell(
+        path="c.mp4", thumb=clip_thumb(funestra, CLIP_SHAPES[funestra][0]))))
+    crowded = [renderer.render(_crowded(funestra, clip_thumb(funestra, shape)))
+               for shape in CLIP_SHAPES[funestra]]
 
     assert len({rendered.bgra.shape for rendered in [lone, *crowded]}) == 1
     assert len({tuple(rect for rect, _path in rendered.targets.click)
@@ -275,7 +275,7 @@ def test_render_without_a_corner_still_draws_the_shell():
     """A satellite with no clip yet gets the lock band and nothing else — and no
     click targets, so a stray press over the empty panel posts nothing."""
     rendered = HudRenderer("landscape").render(
-        HudModel(player="landscape", locked=False, lock_label="Unlocked"))
+        HudModel(funestra="landscape", locked=False, lock_label="Unlocked"))
 
     assert (rendered.bgra[:, :, 3] > 0).any()
     assert rendered.targets.click == []
@@ -286,7 +286,7 @@ def test_the_dot_lights_up_only_on_the_active_side(thumb):
     """The dot beside the status line says whether a bare "lock" or "next" would
     land here.  Lit is white, idle is the palette's gray — never absent, because a
     missing dot could not be told from an idle one, and then the lit one on the
-    other player would be the only readable state."""
+    other Funestra would be the only readable state."""
     def dot(active: bool) -> np.ndarray:
         rendered = HudRenderer("portrait").render(
             _model(active=active, lock_label="Unlocked · Shuffle",
@@ -439,9 +439,9 @@ def test_render_exposes_the_controls_it_drew(thumb):
 
 def test_a_panel_that_declares_no_buttons_holds_no_band_open_for_them():
     renderer = HudRenderer("landscape")
-    bare = renderer.render(HudModel(player="landscape", lock_label="Unlocked"))
-    one_row = renderer.render(HudModel(player="landscape", lock_label="Unlocked",
-                                       rows=(player_rows("landscape")[-1],)))
+    bare = renderer.render(HudModel(funestra="landscape", lock_label="Unlocked"))
+    one_row = renderer.render(HudModel(funestra="landscape", lock_label="Unlocked",
+                                       rows=(funestra_rows("landscape")[-1],)))
 
     assert _declared(bare) == []
     assert one_row.bgra.shape[0] - bare.bgra.shape[0] == CTRL_BTN + 2 * SECTION_GAP + DIVIDER_H
@@ -452,7 +452,7 @@ def test_render_draws_the_sides_own_controls_even_with_no_clip():
     first clip arrives — a satellite that came up empty can still be stepped off
     it, and still narrowed to its favorites."""
     rendered = HudRenderer("landscape").render(
-        _model(player="landscape", locked=False, lock_label="Unlocked"))
+        _model(funestra="landscape", locked=False, lock_label="Unlocked"))
 
     assert _names(rendered) == [
         "prev", "next", "lock", "trash", "fmode", "reset", "minimize",
@@ -465,7 +465,7 @@ def test_the_minimize_button_wears_a_bar_rather_than_a_font_glyph():
     drawn: one horizontal run of ink across the middle of the button, wider than it
     is tall, which is what a title bar's minimize looks like everywhere."""
     rendered = HudRenderer("landscape").render(
-        _model(player="landscape", lock_label="Unlocked"))
+        _model(funestra="landscape", lock_label="Unlocked"))
     x, y, w, h = _rects(rendered)["minimize"]
     # The button's own outline is its border, so only the interior is the mark --
     # and the interior is the button's ground now, itself gray, so the mark is
@@ -487,13 +487,13 @@ def _lit_ink(rect, rendered) -> int:
 
 def test_the_state_controls_and_favorite_mark_light_up_when_they_apply():
     """Green is what the dashboard's panel used, so everything that is a *state*
-    keeps it: the lock button while the player is locked, the F button while
-    the player is in F-mode, the star while the clip is a favorite."""
+    keeps it: the lock button while the Funestra is locked, the F button while
+    the Funestra is in F-mode, the star while the clip is a favorite."""
     def rendered_with(*, locked=False, favorites=False, is_favorite=False):
         return HudRenderer("landscape").render(
-            _model(player="landscape", locked=locked, lock_label="Unlocked",
+            _model(funestra="landscape", locked=locked, lock_label="Unlocked",
                    is_favorite=is_favorite,
-                   rows=player_rows("landscape", locked=locked, favorites=favorites)),
+                   rows=funestra_rows("landscape", locked=locked, favorites=favorites)),
             video="example - scene one")
 
     off = rendered_with()
@@ -507,7 +507,7 @@ def test_the_state_controls_and_favorite_mark_light_up_when_they_apply():
 
 def test_the_star_is_centered_under_the_dot():
     rendered = HudRenderer("landscape").render(
-        HudModel(player="landscape", lock_label="Unlocked", active=True, is_favorite=True),
+        HudModel(funestra="landscape", lock_label="Unlocked", active=True, is_favorite=True),
         video="example - scene one")
     rgb = _rgb(rendered.bgra).astype(int)
     _x, star_top, _w, star_h = rendered.targets.favorite
@@ -528,7 +528,7 @@ def test_the_bin_draws_red_because_it_takes_something_away():
     appears, so the drawn button is what has to be red — a table saying which
     control is destructive says nothing about what came out on the panel."""
     rendered = HudRenderer("landscape").render(
-        _model(player="landscape", lock_label="Unlocked"))
+        _model(funestra="landscape", lock_label="Unlocked"))
     rects = _rects(rendered)
 
     def red_ink(name: str) -> int:
@@ -548,8 +548,8 @@ def test_f_mode_wears_its_own_badge_rather_than_a_typed_letter():
     is beneath it changes."""
     for favorites in (False, True):
         rendered = HudRenderer("landscape").render(_model(
-            player="landscape", lock_label="Unlocked",
-            rows=player_rows("landscape", favorites=favorites)))
+            funestra="landscape", lock_label="Unlocked",
+            rows=funestra_rows("landscape", favorites=favorites)))
         x, y, w, h = _rects(rendered)["fmode"]
         pixels = _rgb(rendered.bgra)[y:y + h, x:x + w]
         magenta = (pixels == np.array((200, 80, 160), dtype=pixels.dtype)).all(axis=2)
@@ -1011,7 +1011,7 @@ def test_hovering_a_button_draws_its_tooltip(thumb):
 
 def test_a_panel_with_no_clip_yet_still_names_the_button_under_the_pointer():
     renderer = HudRenderer("landscape")
-    model = _model(player="landscape", lock_label="Unlocked")
+    model = _model(funestra="landscape", lock_label="Unlocked")
     x, y, _w, _h = _rects(renderer.render(model))["lock"]
 
     short_tip = renderer.render(model, hover_tip="Lock", hover_pos=(x + 2, y + 2))
@@ -1047,12 +1047,12 @@ def test_a_tooltip_longer_than_the_panel_is_wide_stays_on_the_panel(thumb):
 
 
 def test_the_reset_button_is_never_lit():
-    """The lock and F-mode are states the player sits in, so they light while
+    """The lock and F-mode are states the Funestra sits in, so they light while
     they are on; a reset is over the moment it lands, and a button that stayed
-    lit would say the player was sitting in one."""
+    lit would say the Funestra was sitting in one."""
     def rendered_with(**state):
         return HudRenderer("landscape").render(_model(
-            player="landscape", lock_label="Locked", rows=player_rows("landscape", **state)))
+            funestra="landscape", lock_label="Locked", rows=funestra_rows("landscape", **state)))
 
     resting = rendered_with()
     lit = rendered_with(locked=True, favorites=True)
@@ -1083,7 +1083,7 @@ def test_the_mode_pair_renders_and_is_pressable(thumb):
     # targets, and a press posts the other mode's activation verbatim.
     rendered = HudRenderer("portrait").render(
         _model(corner=HudCell(path="c.mp4", thumb=thumb),
-               rows=player_rows("portrait", mode="kino"))
+               rows=funestra_rows("portrait", mode="kino"))
     )
 
     assert _names(rendered)[:2] == ["satellites_kino_activate", "origenerator_activate"]
@@ -1099,7 +1099,7 @@ def test_the_mode_row_leads_and_minimize_rides_it(thumb):
     rides that row rather than sitting among the transport."""
     rendered = HudRenderer("portrait").render(
         _model(corner=HudCell(path="c.mp4", thumb=thumb),
-               rows=player_rows("portrait", mode="kino"))
+               rows=funestra_rows("portrait", mode="kino"))
     )
 
     by_name = _rects(rendered)
@@ -1126,7 +1126,7 @@ def test_a_mode_label_stays_white_on_its_blue(thumb):
     renderer = HudRenderer("portrait")
     rendered = renderer.render(_model(
         corner=HudCell(path="c.mp4", thumb=thumb),
-        rows=player_rows("portrait", mode="origenerator"),
+        rows=funestra_rows("portrait", mode="origenerator"),
     ))
     rect = _rects(rendered)["origenerator_activate"]
     x, y, w, h = rect
@@ -1141,7 +1141,7 @@ def test_the_unlit_mode_keeps_its_ordinary_ink(thumb):
     renderer = HudRenderer("portrait")
     rendered = renderer.render(_model(
         corner=HudCell(path="c.mp4", thumb=thumb),
-        rows=player_rows("portrait", mode="origenerator"),
+        rows=funestra_rows("portrait", mode="origenerator"),
     ))
     rect = _rects(rendered)["satellites_kino_activate"]
     x, y, w, h = rect
@@ -1161,8 +1161,8 @@ def _blue_ink(rect, rendered) -> int:
 
 def _order_band(*, newest: bool | None = None, **overrides):
     return HudRenderer("landscape").render(_model(
-        player="landscape", lock_label="Unlocked",
-        rows=player_rows("landscape", newest=newest), **overrides))
+        funestra="landscape", lock_label="Unlocked",
+        rows=funestra_rows("landscape", newest=newest), **overrides))
 
 
 def test_exactly_one_of_the_browse_order_pair_is_lit_and_it_lights_blue():
@@ -1190,7 +1190,7 @@ def test_the_panel_is_wide_enough_for_the_band_it_grew():
     assert last + PAD <= width
 
 
-def test_a_player_that_says_its_rate_carries_a_playback_speed_row():
+def test_a_funestra_that_says_its_rate_carries_a_playback_speed_row():
     def names(**overrides):
         return _names(_order_band(**overrides))
 
@@ -1235,8 +1235,8 @@ def test_the_enhanced_switch_wears_amber_and_fills_with_it_when_on():
     would say the wrong thing about what was kept."""
     def rendered_with(on: bool):
         return HudRenderer("landscape").render(_model(
-            player="landscape", lock_label="Unlocked",
-            rows=player_rows("landscape", enhanced=on)))
+            funestra="landscape", lock_label="Unlocked",
+            rows=funestra_rows("landscape", enhanced=on)))
 
     off, on = rendered_with(False), rendered_with(True)
     rect = _rects(on)["enhanced"]
@@ -1252,7 +1252,7 @@ def test_the_enhanced_switch_keeps_its_place_under_a_mode_row(thumb):
     whose map is narrower than its controls, still holds the whole row."""
     rendered = HudRenderer("portrait").render(
         _model(corner=HudCell(path="c.mp4", thumb=thumb),
-               rows=player_rows("portrait", mode="origenerator", enhanced=False)))
+               rows=funestra_rows("portrait", mode="origenerator", enhanced=False)))
     by_name = _rects(rendered)
     width = rendered.bgra.shape[1]
 
@@ -1277,7 +1277,7 @@ class TestTheDeviceOnAHostThatDrivesItself:
             _model(lock_label="Unlocked", **extra))
 
     def test_a_source_that_names_no_driver_grows_no_device_line(self):
-        """Every satellite is one: fun_time's players report the set and
+        """Every satellite is one: fun_time's Funestras report the set and
         nothing about the OSR2, and their panel must not change shape."""
         assert self._rendered().bgra.shape == self._rendered().bgra.shape
         assert (self._rendered(osr2=Osr2State.ROBOT_HAND).bgra.shape[0]
@@ -1396,7 +1396,7 @@ class TestTheReadoutIsDrawnAsTheMainConsoleDrawsIt:
 
         assert not np.array_equal(moving, still)
 
-    def test_a_players_own_composed_trace_keeps_sliding_with_the_device_off(self):
+    def test_a_funestras_own_composed_trace_keeps_sliding_with_the_device_off(self):
         renderer = HudRenderer("portrait")
         first = renderer.render(_model(osr2=Osr2State.OFF, drive=_wave(0.0),
                                        drive_composed=True)).bgra.copy()
@@ -1440,7 +1440,7 @@ class _Block:
 
 
 class TestTheBlockASourcePaintsAtTheFoot:
-    """A host that is more than a player says the rest of it here.
+    """A host that is more than a Funestra says the rest of it here.
 
     Everything above is the panel's own — the set, and the device on a host
     that drives one — and a host with work of its own to report would need a
@@ -1546,7 +1546,7 @@ class TestTheRowThePanelCarriesForItsClip:
         return HudRenderer("portrait").render(
             _model(lock_label="Unlocked", **extra), clip_row=row)
 
-    def test_a_player_that_hands_over_no_row_grows_none(self):
+    def test_a_funestra_that_hands_over_no_row_grows_none(self):
         row = RowHud(position_ms=1_000, duration_ms=60_000, volume=VolumeHud(volume=40))
         assert (self._rendered(row).bgra.shape[0]
                 > self._rendered().bgra.shape[0])

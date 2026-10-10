@@ -1,11 +1,11 @@
-"""The volume chip every player in this family draws in its timeline row.
+"""The volume chip every Funestra in this family draws in its timeline row.
 
-A speaker and a slider, sized for the corner of a video: the main player and Genau each draw
+A speaker and a slider, sized for the corner of a video: the Main Funestra and Genau each draw
 it live and report presses to Fun Time (which holds the authoritative level for
 the whole primary display); a silent satellite draws the same chip as a muted
-*indicator*.  Because those players are separate processes in separate repos,
+*indicator*.  Because those Funestras are separate processes in separate repos,
 the chip lives here in the shared engine rather than in any of them — and it is
-painted into both an mpv overlay bitmap and a pygame surface, since the players
+painted into both an mpv overlay bitmap and a pygame surface, since the Funestras
 that draw it live do not share a renderer.
 
 It shows the level *and* the mute as separate facts.  Fun Time silences a sink by
@@ -49,7 +49,7 @@ MAX_VOLUME = 100
 # subtracts it, so the two agree on where the track ends and the chip begins.
 SLOT_W = MARGIN + CHIP_W + MARGIN
 
-# The row the chip is centred in when the player under it draws no scrubber: the
+# The row the chip is centered in when the Funestra under it draws no scrubber: the
 # height the scrubber would have had, ``funestra_core.timeline.TIMELINE_HEIGHT``.
 # Restated rather than imported, because ``timeline`` reads ``SLOT_W`` from here
 # and the import cannot go both ways; ``test_volume`` pins the two together.
@@ -57,7 +57,7 @@ ROW_H = 24
 
 
 def chip_xy(*, win_w: int, win_h: int, timeline_h: int) -> tuple[int, int]:
-    """The chip's top-left: the right end of the timeline row, centred in its height.
+    """The chip's top-left: the right end of the timeline row, centered in its height.
 
     Beside the scrubber, the way VLC laid the seek bar and the volume out
     together, rather than floating in a row of its own above it.  The track leaves
@@ -65,8 +65,8 @@ def chip_xy(*, win_w: int, win_h: int, timeline_h: int) -> tuple[int, int]:
     window smaller than the chip shrinks the margin instead of pushing it off
     screen.
 
-    A player with no scrubber passes ``timeline_h=0`` and is centred in
-    :data:`ROW_H` regardless, so its chip lands exactly where a player with the
+    A Funestra with no scrubber passes ``timeline_h=0`` and is centered in
+    :data:`ROW_H` regardless, so its chip lands exactly where a Funestra with the
     row puts one.
     """
     row_h = timeline_h if timeline_h > 0 else ROW_H

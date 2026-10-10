@@ -1,8 +1,8 @@
-"""The timing questions every scripted player asks of a funscript.
+"""The timing questions every scripted Funestra asks of a funscript.
 
 A funscript is a JSON list of (time, position) actions authored against one
 video; what the document itself is belongs to the whole family and lives in
-:mod:`app_support.funscript`.  What is here is what a *player* asks of one:
+:mod:`app_support.funscript`.  What is here is what a *Funestra* asks of one:
 where sustained action begins (so the OSR2 rests through a long quiet lead-in
 instead of drifting toward it), whether a given playhead sits in a quiet stretch
 (``is_resting_at`` — what the kino-mode handoff hands to the Robot Hand), where

@@ -3,7 +3,7 @@ from __future__ import annotations
 from funestra_fakes import make_playback
 
 from funestra_core.funestra_status import status_fields
-from funestra_core.status import PlayerStatus, parse_status
+from funestra_core.status import FunestraStatus, parse_status
 
 
 class TestStatusFields:
@@ -63,7 +63,7 @@ class TestStatusFields:
             "has_funscript", "funscript_resting", "handoff_touch_ms", "portrait",
         ]
 
-    def test_the_shape_of_the_item_is_published_once_the_player_has_measured_it(self, tmp_path):
+    def test_the_shape_of_the_item_is_published_once_the_funestra_has_measured_it(self, tmp_path):
         playback, engine = make_playback(tmp_path)
 
         assert status_fields(playback, None)["portrait"] == ""
@@ -91,11 +91,11 @@ class TestStatusFields:
 
         assert status_fields(playback, None)["speed"] == "1.5"
 
-    def test_the_seven_every_player_leads_with_read_back_as_the_familys_record(self, tmp_path):
+    def test_the_seven_every_funestra_leads_with_read_back_as_the_familys_record(self, tmp_path):
         playback, engine = make_playback(tmp_path)
         engine.position_ms = 1_500.0
 
-        assert parse_status(status_fields(playback, None)) == PlayerStatus(
+        assert parse_status(status_fields(playback, None)) == FunestraStatus(
             video=str(tmp_path / "v0.mp4"), position_ms=1500, duration_ms=5000)
 
     def test_flags_follow_the_playback(self, tmp_path):

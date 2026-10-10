@@ -217,7 +217,7 @@ class TestRestingAtTheFloor:
         assert sink.sent[1].startswith("L00000")
 
     def test_losing_the_device_rests_the_published_motion_too(self):
-        """The readout the main player draws through a funscript's turn samples forward from
+        """The readout the Main Funestra draws through a funscript's turn samples forward from
         ``motion_phase`` — rested at the floor the moment Genau loses the
         device, so the waiting motion on screen is the one that will resume."""
         sink = FakeTCodeSink()

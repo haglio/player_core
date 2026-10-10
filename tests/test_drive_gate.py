@@ -57,7 +57,7 @@ def _script() -> Funscript:
 
 
 class FakeSession:
-    """What the gate reads off the player: where it is, in what, how fast."""
+    """What the gate reads off the Funestra: where it is, in what, how fast."""
 
     def __init__(self) -> None:
         self.funscript_as_played = _script()
@@ -174,7 +174,7 @@ class TestAChoiceThatIsHeld:
 
     def test_a_pause_still_running_does_not_move_it(self):
         """The choice goes when the playhead moves again, not while it waits:
-        the picture on a paused player is the one it was already showing."""
+        the picture on a paused Funestra is the one it was already showing."""
         gate, _session = _gate_holding_a_forecast()
 
         for _ in range(40):
@@ -330,7 +330,7 @@ class TestHowFastTheVideoIsRunning:
     def test_the_touch_is_chosen_at_the_rate_the_video_is_playing_at(self):
         """The trace covers wall-clock time, so at double speed twice as much
         of the script goes past inside it and the touch the device will be set
-        down on is a different one.  The player knows the rate; nothing else does."""
+        down on is a different one.  The Funestra knows the rate; nothing else does."""
         session = FakeSession()
         session.speed = 2.0
         gate = DriveGate(session)
@@ -405,8 +405,8 @@ class TestWhetherGenauHasBeenSeenLiveHere:
         assert hud.let_go == 0.44
 
 
-class TestALoopingPlayer:
-    def test_the_trace_is_drawn_from_the_script_as_the_player_will_play_it(self):
+class TestALoopingFunestra:
+    def test_the_trace_is_drawn_from_the_script_as_the_funestra_will_play_it(self):
         swings = Funscript(actions=[(0, 0), (1_250, 100), (2_500, 0), (3_760, 100), (5_010, 0)])
         session = FakeSession()
         session.current_funscript = swings
@@ -418,7 +418,7 @@ class TestALoopingPlayer:
         assert hud.segments == ((0, DRIVEN_BY_FUNSCRIPT),)
 
 
-class TestAPlayerHeldDownByTheMaxIntensity:
+class TestAFunestraHeldDownByTheMaxIntensity:
     def test_its_script_is_drawn_as_shallow_as_it_is_sent(self):
         swings = Funscript(actions=[(t, 0 if (t // 200) % 2 else 100)
                                     for t in range(0, 20_001, 200)])
@@ -432,7 +432,7 @@ class TestAPlayerHeldDownByTheMaxIntensity:
             0, round(SPAN_S * 1000), TRACE_SAMPLES, max_intensity=30)[0][:TRACE_SAMPLES]
 
 
-class TestAPlayerThatDoesNotSayHowItPlaysItsScript:
+class TestAFunestraThatDoesNotSayHowItPlaysItsScript:
     def test_is_drawn_from_the_script_it_has(self):
         session = FakeSession()
         session.current_funscript = session.funscript_as_played

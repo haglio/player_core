@@ -1,13 +1,13 @@
-"""The chrome the players' in-video HUDs are drawn on.
+"""The chrome the Funestras' in-video HUDs are drawn on.
 
-Every player in this family paints its HUD into the video as a BGRA bitmap mpv
+Every Funestra in this family paints its HUD into the video as a BGRA bitmap mpv
 composites, rather than into a window of its own: an mpv overlay has no z-order,
 so it can neither fall beneath the video nor float above the desktop.
 
 What the HUDs share is the look, not the contents: a rounded translucent slab,
 the Segoe UI face sized the way Qt sized it, and the RGBA -> BGRA hand-off mpv
 wants.  What each one *says* is its own business — the satellite draws a map of
-clips, the main player a couple of mode lines — so this owns the chrome and stops there.
+clips, the Main Funestra's console a couple of mode lines — so this owns the chrome and stops there.
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from shared_ui.icons_pil import paste_glyph
 
 # The palette is shared_ui's, read without Qt: shared_ui.palette imports
 # nothing, and these HUDs are Pillow.  Every HUD painter reads it there too,
-# so a player reaching for its own blue has the family's to reach for.
+# so a Funestra reaching for its own blue has the family's to reach for.
 from shared_ui.palette import (
     AMBER,
     BG_BUTTON,
@@ -153,7 +153,7 @@ def draw_glyph(draw: ImageDraw.ImageDraw, cx: float, cy: float, glyph: str,
 
 def draw_mark(image: Image.Image, name: str, rect: tuple[int, int, int, int],
               fill) -> None:
-    """One of the family's marks, centred in *rect*.
+    """One of the family's marks, centered in *rect*.
 
     The same drawing the apps' Qt chrome paints -- shared_ui holds the geometry
     and each side renders it -- so a trash can on a HUD is the trash can on
@@ -170,17 +170,17 @@ def draw_mark(image: Image.Image, name: str, rect: tuple[int, int, int, int],
 
 
 # The dot at the head of every HUD's status line, saying whether a bare, unaddressed
-# command lands on this player.  Same size and same corner on all three, because a
+# command lands on this Funestra.  Same size and same corner on all three, because a
 # reader glancing across two screens is looking for one mark in one place.
 ACTIVE_DOT = 10
 
 
 def draw_active_dot(draw: ImageDraw.ImageDraw, x: int, y: int, active: bool) -> None:
-    """The active-player dot, its top-left at ``(x, y)``.
+    """The active-Funestra dot, its top-left at ``(x, y)``.
 
-    White while a bare command would land on this player, the palette's gray
+    White while a bare command would land on this Funestra, the palette's gray
     otherwise — and always drawn, never hidden.  An absent dot and an idle dot look
-    the same, and then only the player that *has* the floor says anything, which is
+    the same, and then only the Funestra that *has* the floor says anything, which is
     half an answer to a question asked of the room.
     """
     draw.ellipse([x, y, x + ACTIVE_DOT, y + ACTIVE_DOT],
@@ -201,7 +201,7 @@ ICON_GRIDS = {
 
 def draw_icon(draw: ImageDraw.ImageDraw, rect: tuple[int, int, int, int],
               letter: str) -> None:
-    """Draw the app mark for *letter*, centred in *rect* and sized to fill it.
+    """Draw the app mark for *letter*, centered in *rect* and sized to fill it.
 
     The grid's blank cells are left alone rather than painted, so whatever is
     beneath shows through the letter's counters — exactly as the .ico's own
@@ -330,7 +330,7 @@ def pill(width: int, height: int) -> tuple[Image.Image, ImageDraw.ImageDraw]:
 
 class KeptBitmap:
     """A painting kept until what it shows changes, handed out in both shapes the
-    players take: a BGRA array for mpv's overlays, RGBA bytes for a pygame blit."""
+    Funestras take: a BGRA array for mpv's overlays, RGBA bytes for a pygame blit."""
 
     def __init__(self) -> None:
         self._painted = None

@@ -44,11 +44,11 @@ class TestPlacement:
 
         assert x >= 0
 
-    def test_a_player_with_no_scrubber_puts_the_chip_where_one_with_a_scrubber_does(self):
+    def test_a_funestra_with_no_scrubber_puts_the_chip_where_one_with_a_scrubber_does(self):
         """Genau draws no timeline, but its window IS the primary display in genau
         mode — so reaching for the sound must not find the control somewhere other
         than where the same session shows it in kino mode, which is the row
-        The main player draws.  Measuring its own margin off the lower edge instead put it
+        The Main Funestra draws.  Measuring its own margin off the lower edge instead put it
         nine pixels above that."""
         assert chip_xy(win_w=1200, win_h=900, timeline_h=0) == chip_xy(
             win_w=1200, win_h=900, timeline_h=ROW_H)
@@ -157,8 +157,8 @@ class TestPainter:
             painter.bgra(VolumeHud(volume=50)), painter.bgra(VolumeHud(volume=51)))
 
     def test_the_pygame_shape_is_the_same_chip_the_mpv_one_is(self):
-        """The main player composites an mpv overlay and Genau blits a pygame surface, so the
-        chip is handed out in both shapes — off one painting, or the two players
+        """The Main Funestra composites an mpv overlay and Genau blits a pygame surface, so the
+        chip is handed out in both shapes — off one painting, or the two Funestras
         would be free to show different chips."""
         painter = VolumeHudPainter()
         hud = VolumeHud(volume=40, muted=True)

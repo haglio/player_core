@@ -29,7 +29,10 @@ def answers_to_old_names(renamed: Mapping[str, str]) -> Callable[[type], type]:
 
         @functools.wraps(init)
         def __init__(self, *args, **kwargs) -> None:
-            init(self, *args, **{renamed.get(key, key): value for key, value in kwargs.items()})
+            for old, new in renamed.items():
+                if old in kwargs:
+                    kwargs[new] = kwargs.pop(old)
+            init(self, *args, **kwargs)
 
         cls.__init__ = __init__
         for old, new in renamed.items():

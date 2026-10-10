@@ -27,7 +27,7 @@ def _watch(points, video, position_ms, duration_ms=HOUR_MS):
     points.observe(video, position_ms, duration_ms)
 
 
-def test_each_player_keeps_its_points_in_a_file_named_for_it():
+def test_each_funestra_keeps_its_points_in_a_file_named_for_it():
     assert play_points_filename("portrait") == "portrait_play_points.json"
 
 
@@ -78,7 +78,7 @@ def test_a_video_back_at_its_top_is_remembered_no_more(tmp_path):
     assert PlayPoints(file).point_for(VIDEO) == 0
 
 
-def test_a_player_that_has_not_said_how_long_the_video_is_forgets_nothing(tmp_path):
+def test_a_funestra_that_has_not_said_how_long_the_video_is_forgets_nothing(tmp_path):
     file = tmp_path / "points.json"
     points = _points(file)
     _watch(points, VIDEO, 300_000)

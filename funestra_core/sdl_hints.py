@@ -1,12 +1,12 @@
-"""SDL settings a player's window needs decided before it exists.
+"""SDL settings a Funestra's window needs decided before it exists.
 
 SDL reads these from the environment at the moment it acts, not at import, so
-each has to be in place before the window is created — which for every player in
+each has to be in place before the window is created — which for every Funestra in
 this family means before ``pygame.init()``.  They live here rather than in each
-player.
+Funestra.
 
 Nothing here imports pygame: these are SDL's own environment hints, and this
-package deliberately stays clear of the window toolkit (``MpvPlayer`` takes a
+package deliberately stays clear of the window toolkit (``MpvEngine`` takes a
 bare window handle for the same reason).
 """
 from __future__ import annotations
@@ -23,9 +23,9 @@ FOCUS_CLICKTHROUGH_HINT = "SDL_MOUSE_FOCUS_CLICKTHROUGH"
 
 
 def deliver_the_focusing_click() -> None:
-    """Let the click that focuses a player's window also reach the HUD in it.
+    """Let the click that focuses a Funestra's window also reach the HUD in it.
 
-    None of these players is ever the focused window: the orchestrator places
+    None of these Funestras is ever the focused window: the orchestrator places
     every one of them with SWP_NOACTIVATE and nothing afterwards activates one.
     So the click that lands on a HUD button is also the click that gives that
     window focus — and SDL eats exactly that one by default.  ``WIN_UpdateFocus``

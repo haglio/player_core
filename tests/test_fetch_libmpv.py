@@ -168,7 +168,7 @@ def test_this_repo_s_gate_fetches_the_pin_rather_than_leaving_it_to_a_consumer()
     thing never exercised was the pin itself: `--require` finds the DLL already
     on a developer's machine and returns without a download, and no gate fetched
     it.  The recorded sha256 therefore matched no file for a fortnight -- not the
-    asset it names, and not the DLL every player here runs -- and the first run
+    asset it names, and not the DLL every Funestra here runs -- and the first run
     to download anything was a consumer's, in a repo whose own history held
     nothing to explain it.
     """

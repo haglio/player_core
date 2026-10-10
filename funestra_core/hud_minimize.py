@@ -35,24 +35,24 @@ def mark_font():
     return load_font(_MARK_FONT_PT)
 
 
-def minimize_command(player: str) -> str:
-    return f"{player}_hud_minimize"
+def minimize_command(funestra: str) -> str:
+    return f"{funestra}_hud_minimize"
 
 
-def restore_command(player: str) -> str:
-    return f"{player}_hud_restore"
+def restore_command(funestra: str) -> str:
+    return f"{funestra}_hud_restore"
 
 
-def restore_at_command(player: str, place: str) -> str:
-    return f"{restore_command(player)}_at|{place}"
+def restore_at_command(funestra: str, place: str) -> str:
+    return f"{restore_command(funestra)}_at|{place}"
 
 
-def minimize_button(player: str) -> Button:
-    return Button(minimize_command(player), MINIMIZE_GLYPH, MINIMIZE_TOOLTIP)
+def minimize_button(funestra: str) -> Button:
+    return Button(minimize_command(funestra), MINIMIZE_GLYPH, MINIMIZE_TOOLTIP)
 
 
-def restore_button(player: str) -> Button:
-    return Button(restore_command(player), RESTORE_GLYPH, RESTORE_TOOLTIP)
+def restore_button(funestra: str) -> Button:
+    return Button(restore_command(funestra), RESTORE_GLYPH, RESTORE_TOOLTIP)
 
 
 def corner_button_rect(corner: HudCorner, *, panel: tuple[int, int],
@@ -70,23 +70,23 @@ def _collapsed_size(*, room_for_the_tooltip: bool) -> tuple[int, int]:
     return BUTTON + _TOOLTIP_ROOM_W, BUTTON + _TOOLTIP_ROOM_H
 
 
-def collapsed_button(player: str, corner: HudCorner = HudCorner.UPPER_LEFT, *,
+def collapsed_button(funestra: str, corner: HudCorner = HudCorner.UPPER_LEFT, *,
                      hover: tuple[int, int] | None = None, room_for_the_tooltip: bool = False
                      ) -> tuple[Image.Image, list[tuple[Rect, Button]]]:
     size = _collapsed_size(room_for_the_tooltip=room_for_the_tooltip or hover is not None)
     image = Image.new("RGBA", size, (0, 0, 0, 0))
     rect = corner_button_rect(corner, panel=size, inset=(0, 0))
-    draw_button(image, ImageDraw.Draw(image), rect, restore_button(player),
+    draw_button(image, ImageDraw.Draw(image), rect, restore_button(funestra),
                 hovered=hover is not None, glyph_font=mark_font(), word_font=mark_font())
     if hover is not None:
         draw_tooltip(ImageDraw.Draw(image), mark_font(), RESTORE_TOOLTIP, hover, size)
-    return image, [(rect, restore_button(player))]
+    return image, [(rect, restore_button(funestra))]
 
 
-def collapsed_panel(player: str, corner: HudCorner = HudCorner.UPPER_LEFT, *,
+def collapsed_panel(funestra: str, corner: HudCorner = HudCorner.UPPER_LEFT, *,
                     hover: tuple[int, int] | None = None, room_for_the_tooltip: bool = False
                     ) -> tuple[np.ndarray, list[tuple[Rect, Button]]]:
-    image, buttons = collapsed_button(player, corner, hover=hover,
+    image, buttons = collapsed_button(funestra, corner, hover=hover,
                                       room_for_the_tooltip=room_for_the_tooltip)
     return to_bgra(image), buttons
 

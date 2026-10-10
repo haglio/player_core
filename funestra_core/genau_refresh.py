@@ -1,4 +1,4 @@
-"""One turn of Genau's loop: the flick player's tick."""
+"""One turn of Genau's loop."""
 from __future__ import annotations
 
 import time

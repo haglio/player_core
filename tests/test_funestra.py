@@ -181,7 +181,7 @@ def test_reload_playlist_reads_the_list_it_was_handed_again(tmp_path):
     assert f"video={clips[2]}" in _status(tmp_path)
 
 
-def test_the_paused_flag_reaches_the_player_each_pass(tmp_path):
+def test_the_paused_flag_reaches_the_engine_each_pass(tmp_path):
     funestra, engine = _funestra(tmp_path, [str(clip) for clip in _clips(tmp_path, "v0")])
     (tmp_path / "paused.txt").write_text("1", encoding="utf-8")
 
@@ -190,7 +190,7 @@ def test_the_paused_flag_reaches_the_player_each_pass(tmp_path):
     assert engine.paused is True
 
 
-def test_a_paused_flag_already_up_opens_the_player_paused(tmp_path):
+def test_a_paused_flag_already_up_opens_the_engine_paused(tmp_path):
     clips = _clips(tmp_path, "v0")
     channels = _channels(tmp_path, [str(clips[0])])
     channels.paused.write_text("1", encoding="utf-8")
@@ -210,7 +210,7 @@ class TestTheWindowsClose:
         assert funestra.stopped is False
         assert _asked(tmp_path) == [SESSION_QUIT]
 
-    def test_with_no_session_to_ask_it_ends_this_player(self, tmp_path):
+    def test_with_no_session_to_ask_it_ends_this_funestra(self, tmp_path):
         funestra, _engine = _funestra(tmp_path, [str(clip) for clip in _clips(tmp_path, "v0")],
                                       commands="")
 
@@ -241,7 +241,7 @@ class TestAPress:
         assert len(engine.seeks) == 1
         assert abs(engine.seeks[0] - engine.duration_ms / 2) <= engine.duration_ms / (x1 - x0)
 
-    def test_on_the_speaker_unmutes_this_player(self, tmp_path):
+    def test_on_the_speaker_unmutes_this_engine(self, tmp_path):
         funestra, engine = _wearing_a_panel(tmp_path)
 
         funestra.press(*_on_the_row(funestra, engine, "speaker"), window=WINDOW)
@@ -331,7 +331,7 @@ def test_each_pass_carries_a_still_s_move_a_little_further(tmp_path):
     assert engine.pushes == 1
 
 
-def test_a_tiling_player_lays_its_picture_out_across_its_window(tmp_path):
+def test_a_tiling_funestra_lays_its_picture_out_across_its_window(tmp_path):
     funestra, engine = _funestra(tmp_path, [str(clip) for clip in _clips(tmp_path, "v0")], tiles=True)
 
     funestra.tick(window=WINDOW)
@@ -339,7 +339,7 @@ def test_a_tiling_player_lays_its_picture_out_across_its_window(tmp_path):
     assert engine.tiled_to == [WINDOW]
 
 
-def test_a_player_that_does_not_tile_is_never_asked_to(tmp_path):
+def test_a_funestra_that_does_not_tile_is_never_asked_to(tmp_path):
     funestra, engine = _funestra(tmp_path, [str(clip) for clip in _clips(tmp_path, "v0")])
 
     funestra.tick(window=WINDOW)
@@ -348,7 +348,7 @@ def test_a_player_that_does_not_tile_is_never_asked_to(tmp_path):
 
 
 def _publish_panel(tmp_path: Path, **panel) -> None:
-    (tmp_path / "portrait_hud.json").write_text(json.dumps({"player": "portrait", **panel}),
+    (tmp_path / "portrait_hud.json").write_text(json.dumps({"funestra": "portrait", **panel}),
                                                 encoding="utf-8")
 
 
@@ -518,7 +518,7 @@ class TestTheMainFunestra:
         assert _asked(tmp_path) == ["audio_set_volume|100"]
         assert engine.volume == 100
 
-    def test_the_rooms_level_reaches_the_player_through_the_command_file(self, tmp_path):
+    def test_the_rooms_level_reaches_the_engine_through_the_command_file(self, tmp_path):
         funestra, engine, _kino = _main(tmp_path, commands="SET_VOLUME 40 0\n")
 
         funestra.tick(window=WINDOW)
@@ -808,7 +808,7 @@ class TestAWindowsOwnPanel:
             made.append(user(playback))
             return made[-1]
 
-        panel = [HudModel(player="portrait", lock_label="Unlocked",
+        panel = [HudModel(funestra="portrait", lock_label="Unlocked",
                           rows=((Button("portrait_next", "N", "Next"),),))]
         funestra = Funestra(engine, channels=channels, playlist=read_playlist(channels.playlist),
                             users={"slideshow": make}, panel=lambda: panel[0], muted=muted)
@@ -905,7 +905,7 @@ def test_on_a_window_the_way_of_playing_can_be_heard(tmp_path):
     mpv.assert_called_once_with(4242, muted=False, loop_file=False, prefetch=True)
 
 
-def test_a_window_told_to_fall_silent_mutes_its_player_and_its_chip(tmp_path):
+def test_a_window_told_to_fall_silent_mutes_its_engine_and_its_chip(tmp_path):
     funestra, engine = _funestra(tmp_path, [str(clip) for clip in _clips(tmp_path, "v0")])
     funestra.tick(window=WINDOW)
 
@@ -957,7 +957,7 @@ class TestAPanelBesideThePicture:
         own has no picture to be placed on, so the panel starts at its edge the
         way test_hud_overlay says a panel beside the picture does."""
         (tmp_path / "portrait_hud.json").write_text(
-            json.dumps({"player": "portrait", "hud_corner": "lower_right"}), encoding="utf-8")
+            json.dumps({"funestra": "portrait", "hud_corner": "lower_right"}), encoding="utf-8")
         clips = _clips(tmp_path, "v0")
         channels = _channels(tmp_path, [str(clips[0])], hud=True, commands="")
         surface = _ASurface()
@@ -1005,7 +1005,7 @@ class TestAPanelBesideThePicture:
     def test_a_published_panel_says_its_edge_the_same_way(self, tmp_path):
         funestra, _engine, _surface = self._wearing_a_panel_beside(tmp_path)
         (tmp_path / "portrait_hud.json").write_text(
-            json.dumps({"player": "portrait", "hud_edge": "upper"}), encoding="utf-8")
+            json.dumps({"funestra": "portrait", "hud_edge": "upper"}), encoding="utf-8")
 
         funestra.tick(window=WINDOW)
 
@@ -1081,7 +1081,7 @@ class _APictureSurface:
 
 class TestAUsersOwnPictureElsewhere:
     """A window may show a User's own picture somewhere other than over the
-    player's: it is handed the picture whenever one is up and told when none is."""
+    engine's: it is handed the picture whenever one is up and told when none is."""
 
     def test_the_picture_is_handed_over_and_the_video_is_left_alone(self, tmp_path):
         surface = _APictureSurface()

@@ -1,14 +1,14 @@
-"""The playlist a content source hands a player: one item per line.
+"""The playlist a content source hands a Funestra: one item per line.
 
 The source -- Fun Time, or an Origenerator show it hosts -- writes this file,
-tells the player to RELOAD_PLAYLIST, and the player reads it back.  Each line names one
+tells the Funestra to RELOAD_PLAYLIST, and the Funestra reads it back.  Each line names one
 item, with a TAB and its funscript after it when it has one; blank lines and
 #-comments are ignored.  The same line is what PLAY_FILE carries, so a source
 naming an item to jump to spells it exactly as the file does.
 
-Written and read here, in one module, because more than one player reads the
-one shape the sources write: the main player drives the OSR2 from the funscript
-column, and every player colors its scrubber with it.
+Written and read here, in one module, because more than one Funestra reads the
+one shape the sources write: the Main Funestra drives the OSR2 from the funscript
+column, and every Funestra colors its scrubber with it.
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ __all__ = [
 
 
 class PlaylistItem(NamedTuple):
-    """One thing a player shows: its path, and the script that drives the
+    """One thing a Funestra shows: its path, and the script that drives the
     device while it plays, when it has one.
 
     A tuple as well as a record, on purpose: every reader in the family took

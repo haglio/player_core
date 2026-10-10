@@ -1,6 +1,6 @@
 """Something in a frame loop failing, said once rather than every frame.
 
-A player's loop runs at up to 120fps and calls the same work again immediately,
+A Funestra's loop runs at up to 120fps and calls the same work again immediately,
 so a persistent fault reported every time would write thousands of identical
 tracebacks a second into the log -- which both buries the first occurrence and
 can fill the state directory the IPC files live in.
@@ -10,7 +10,7 @@ Every repeat after it is one debug line with no traceback, and the run of them
 is counted; the count goes out when the fault gives way to another or when the
 work succeeds again, which are the two moments it means something.
 
-One log can carry more than one of these -- a player's tick and a headset's
+One log can carry more than one of these -- a Funestra's tick and a headset's
 frame loop -- so each is named, and says which it is on every line.
 """
 from __future__ import annotations

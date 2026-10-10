@@ -13,7 +13,7 @@ over.
 
 Every boundary is a time the script fixes: a turn opens QUIET_LEAD_IN_MS before
 its cluster, closes QUIET_LEAD_OUT_MS after it, and the funscript does not
-change while it plays.  The devices walk the same ramps — the main player's driver parks
+change while it plays.  The devices walk the same ramps — the Main Funestra's driver parks
 over the handoff ramp when it takes the device, Genau climbs back out of the
 park over the same one — so the picture and the wire share one schedule.
 
@@ -27,7 +27,7 @@ Two disciplines keep the picture still while it slides:
   latched in Genau's own publish (``DriveHud.let_go``), captured at the source
   before the resting phase destroys it.
 
-Shared by every player that hangs the console over a video — the main player's window on
+Shared by every Funestra that hangs the console over a video — the Main Funestra's window on
 the desktop, FunTimeVR's panel in the headset — so both draw one line by one
 set of rules, and free of Pillow, so the shape of the picture is testable
 without a window or a font.
@@ -117,7 +117,7 @@ def drive_readout(
     if script is None:
         return base
     # The window into the script slides continuously, so read at the raw
-    # playhead it would move — and repaint the console — at the player's full frame
+    # playhead it would move — and repaint the console — at the Funestra's full frame
     # rate.  Quantized to the cadence Genau's own publishes already repaint at
     # while the motion scrolls, the green moves exactly as smoothly as the
     # blue, for the same cost; and the status reads the same grid before it

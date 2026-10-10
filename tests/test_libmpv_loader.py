@@ -37,7 +37,7 @@ def test_the_machine_wide_copy_is_in_the_user_folder_and_not_under_app_data():
 
 @windows_only
 def test_a_wrong_user_folder_variable_does_not_move_the_engine(monkeypatch, tmp_path: Path):
-    """The players Fun Time launches inherited a folder variable that was not the
+    """The Funestras Fun Time launches inherited a folder variable that was not the
     real folder, looked for the engine there, and every one of them died on its
     first launch; the folder Windows keeps for the user is the one to ask."""
     real = machine_libmpv_dir()

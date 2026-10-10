@@ -91,7 +91,7 @@ class TestTurnsThePlayheadHasPassed:
 
     def test_a_handful_of_turns_is_never_worth_scanning(self):
         """Nothing is dropped while the latch is small, so a long-held choice
-        cannot go missing on a player that has only just started."""
+        cannot go missing on a Funestra that has only just started."""
         latch = DescentLatch()
 
         latch.remember(1_000, _choice(), stale_before=9_000)

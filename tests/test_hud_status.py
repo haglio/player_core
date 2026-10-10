@@ -1,4 +1,4 @@
-"""The one status line every player's HUD leads with."""
+"""The one status line every Funestra's HUD leads with."""
 from __future__ import annotations
 
 from funestra_core.hud_status import (
@@ -12,8 +12,8 @@ from funestra_core.hud_status import (
 )
 
 
-def test_an_idle_player_says_only_whether_it_is_holding_what_is_on_screen():
-    """The lock is the one state every player in this family has, so it is the one
+def test_an_idle_funestra_says_only_whether_it_is_holding_what_is_on_screen():
+    """The lock is the one state every Funestra in this family has, so it is the one
     thing the line always carries."""
     assert status_line(locked=True) == LOCKED_LABEL
     assert status_line(locked=False) == UNLOCKED_LABEL
@@ -39,21 +39,21 @@ def test_a_set_playing_through_drops_unlocked_but_keeps_locked():
 
 
 def test_an_empty_slot_takes_no_room_and_leaves_no_separator():
-    """Every slot but the lock is optional, and a player without one prints nothing
+    """Every slot but the lock is optional, and a Funestra without one prints nothing
     there rather than an empty phrase or a doubled separator."""
     assert status_line(locked=False, order=SHUFFLE_LABEL) == f"{UNLOCKED_LABEL} · Shuffle"
     assert status_line(locked=False, filter_label="beta") == f"{UNLOCKED_LABEL} · beta"
 
 
-def test_the_two_browse_orders_are_named_once_for_every_player():
-    """Each player browses newest-first or shuffled, and says so in this slot — so
+def test_the_two_browse_orders_are_named_once_for_every_funestra():
+    """Each Funestra browses newest-first or shuffled, and says so in this slot — so
     the words belong here rather than in each app, where they drifted before."""
     assert (LATEST_LABEL, SHUFFLE_LABEL) == ("Latest", "Shuffle")
 
 
 def test_the_enhanced_narrowing_has_a_slot_of_its_own_after_f_mode():
     """Origenerator's shows keep only the pictures they have enhanced the way a
-    player keeps only its favorites — the same kind of cut, said in the same
+    Funestra keeps only its favorites — the same kind of cut, said in the same
     sentence — so the slot is a flag here, and the HUD carrying the switch never
     has to own the word for it.  Coarse before fine: F-mode, then this, then
     whatever act filter is left."""

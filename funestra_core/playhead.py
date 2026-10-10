@@ -1,4 +1,4 @@
-"""The readout at the left end of every player's timeline row: where the video is, and how long it runs."""
+"""The readout at the left end of every Funestra's timeline row: where the video is, and how long it runs."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -19,7 +19,7 @@ _RENAMED = {"clip_playhead": "flick_playhead"}
 __getattr__ = old_name_getter(__name__, _RENAMED)
 
 _TEXT_PT = 8
-# The same gap the main player's loop frames keep above the row they label.
+# The same gap the Main Funestra's loop frames keep above the row they label.
 _ABOVE_THE_ROW_GAP = 2
 _WIDEST_READOUT_W = READOUT_SLOT_W - 2 * MARGIN
 

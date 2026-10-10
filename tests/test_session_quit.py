@@ -1,4 +1,4 @@
-"""A close on one window of a session asks the session, and ends only a player
+"""A close on one window of a session asks the session, and ends only a Funestra
 that has no session to ask."""
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from funestra_core.session_quit import SESSION_QUIT, quit_gesture
 
 
 class TestQuitGesture:
-    def test_in_a_session_it_asks_and_this_player_stays(self, tmp_path: Path):
+    def test_in_a_session_it_asks_and_this_funestra_stays(self, tmp_path: Path):
         cmd_file = tmp_path / "dashboard_cmd.txt"
 
         assert quit_gesture(cmd_file) is False
@@ -24,6 +24,6 @@ class TestQuitGesture:
 
         assert cmd_file.read_text(encoding="utf-8").split() == ["landscape_next", SESSION_QUIT]
 
-    def test_with_no_session_to_ask_the_close_ends_this_player(self):
-        """A player run by hand, or by a test, still closes on its close."""
+    def test_with_no_session_to_ask_the_close_ends_this_funestra(self):
+        """A Funestra run by hand, or by a test, still closes on its close."""
         assert quit_gesture(None) is True

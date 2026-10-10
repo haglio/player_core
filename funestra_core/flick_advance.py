@@ -3,7 +3,7 @@
 Genau's flicks are fractions of a second long, so playing them the way a playlist
 plays videos would be a strobe: every flick has to repeat for a while before the
 next one arrives.  That "while" is the interval here.  The lock is the same lock
-every player in this family has — repeat-one on what is on screen — and it is on
+every Funestra in this family has — repeat-one on what is on screen — and it is on
 by default, because a held flick is what Genau has always opened on.
 
 There is no separate "auto advance" switch: advancing is simply what an unlocked

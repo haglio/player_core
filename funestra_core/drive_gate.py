@@ -19,10 +19,10 @@ is honored only once Genau has been seen live (``let_go`` unset) within the
 current video; until then the descent tops off the parked publish instead, which
 is where the device really is.
 
-One gate for every player that hangs the console over a video — the main player's window on
+One gate for every Funestra that hangs the console over a video — the Main Funestra's window on
 the desktop, FunTimeVR's panel in the headset — so the two hold their forecasts
 by the same rules and publish the same touch for the arbiter.  It lived as a
-closure and two dicts inside the main player's run loop, where none of these rules could be
+closure and two dicts inside the Main Funestra's run loop, where none of these rules could be
 exercised: widening the seek window a hundredfold, so a rewind no longer voided
 the held forecasts, left the whole suite green.
 """
@@ -90,7 +90,7 @@ def next_handoff_touch(script, position_ms: int, latch: DescentLatch) -> int | N
 class DriveGate:
     """The forecasts this trace is holding, and the rules that void them.
 
-    *session* is the player drawing the picture, read for where it is
+    *session* is the Funestra drawing the picture, read for where it is
     (``position_ms``), in what (``current_video``), with which script as it
     will play it (``funscript_as_played``), how fast (``speed``) and how hard
     the OSR2 may work (``max_intensity``).
@@ -173,6 +173,6 @@ class DriveGate:
             self._script_as_played(), int(self._session.position_ms), self._latch)
 
     def _script_as_played(self):
-        # A player on a branch opened before it said this runs on the same install.
+        # A Funestra on a branch opened before it said this runs on the same install.
         script = getattr(self._session, "funscript_as_played", _UNSAID)
         return self._session.current_funscript if script is _UNSAID else script

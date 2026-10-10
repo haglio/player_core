@@ -1,4 +1,4 @@
-"""The offscreen player's word on which file each picture it draws shows, wired
+"""The offscreen engine's word on which file each picture it draws shows, wired
 to mpv: the file asked for, the events mpv sends as it opens and starts it, and
 what mpv says of the frame it is about to draw.  A fake engine stands in for
 libmpv, whose DLL and GL context the real one needs."""

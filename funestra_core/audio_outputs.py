@@ -1,4 +1,4 @@
-"""Which sound output a player takes when a session names its device.
+"""Which sound output a Funestra takes when a session names its device.
 
 A session names the device it wants by a fragment of its name ("Pimax") rather
 than by an id, because Windows reissues endpoint ids whenever a device is
@@ -25,7 +25,7 @@ _NO_HARDWARE = "ROOT"  # what Windows enumerates a driver that has no device of 
 
 
 class Output(NamedTuple):
-    """One output, as the system names it and as its player opens it."""
+    """One output, as the system names it and as its engine opens it."""
 
     label: str
     handle: str

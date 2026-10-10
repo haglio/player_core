@@ -104,7 +104,7 @@ class TestAReadThatLandsInsideTheWrite:
 
 
 class TestAListTakenAway:
-    """Entering Origenerator mode takes each player's own list away and the app
+    """Entering Origenerator mode takes each Funestra's own list away and the app
     writes its own in its place, so between the two there is nothing to read."""
 
     def test_leaves_what_is_playing_alone(self, tmp_path):

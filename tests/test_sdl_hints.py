@@ -1,4 +1,4 @@
-"""The SDL hints a player's window needs set before it exists."""
+"""The SDL hints a Funestra's window needs set before it exists."""
 from __future__ import annotations
 
 import os
@@ -7,7 +7,7 @@ from funestra_core.sdl_hints import FOCUS_CLICKTHROUGH_HINT, deliver_the_focusin
 
 
 class TestDeliverTheFocusingClick:
-    """A player is never the focused window, so the click that reaches a HUD
+    """A Funestra is never the focused window, so the click that reaches a HUD
     button is also the click that focuses the window — and SDL drops that one
     unless this is set."""
 

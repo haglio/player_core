@@ -1,13 +1,13 @@
 """The device's own line: who has the OSR2, and the controls that aim it.
 
 Every panel whose host drives the device draws this line, so the word for a
-parked OSR2 is the same word wherever it is read — the main player's console
+parked OSR2 is the same word wherever it is read — the Main Funestra's console
 (:mod:`funestra_core.console_hud`) and a HUD over a host that drives it itself
 (:mod:`funestra_core.satellite_hud_paint`) share this one rather than each
 spelling the states again.
 
 The controls sit together at the head of the line because they act on the
-device rather than on any player: placed by hand rather than through the row
+device rather than on any Funestra: placed by hand rather than through the row
 layout, which would read them as different families and open a gap between
 them.  The label then hugs its pill, well clear of them, so "OSR2 Robot Hand"
 reads as one read-out instead of as another button.

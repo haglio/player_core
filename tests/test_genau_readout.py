@@ -129,8 +129,8 @@ class TestWhatTheLineIsEachTime:
 
 
 class TestTheSpanTheTraceIsDrawnOver:
-    """Published with the readout, because a funscript the main player draws on this same
-    trace has to be sampled over the same stretch and the main player has nowhere else to
+    """Published with the readout, because a funscript the Main Funestra draws on this same
+    trace has to be sampled over the same stretch and the Main Funestra has nowhere else to
     learn it -- two spans would make a handoff look like a jump."""
 
     @pytest.mark.parametrize("beats_per_loop", [2.0, 4.0, 8.0])

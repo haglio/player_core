@@ -1,9 +1,9 @@
-"""How a control is declared, for any player in this family.
+"""How a control is declared, for anything in this family that answers verbs.
 
 A control is one thing a person can move.  This module says what that record
-looks like and nothing about what any player's controls are: what a flick
-player's are lives in :mod:`funestra_core.genau_controls`, against its own set of
-collaborators, and another player declares its own registry the same way.
+looks like and nothing about what anyone's controls are: Genau's live in
+:mod:`funestra_core.genau_controls`, against its own set of collaborators, and
+anything else declares its own registry the same way.
 
 The point of the record is that a control is declared once.  Before it, adding
 one meant a keyword parameter and a branch in the dispatcher, a parameter and an
@@ -48,7 +48,7 @@ class Control:
     """One thing a person can move: what it is called, what it cannot act
     without, and the verbs that move it.
 
-    ``needs`` names fields of whatever controls object the player passes to
+    ``needs`` names fields of whatever controls object the Funestra passes to
     :func:`act`.  A build that did not wire one of them refuses this control's
     verbs and logs them, rather than acting on half of what was asked -- one
     rule for the control instead of an ``and X is not None`` guard spelled out

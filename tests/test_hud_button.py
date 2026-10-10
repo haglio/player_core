@@ -1,4 +1,4 @@
-"""A button a content source declares on a player's HUD, and its published form."""
+"""A button a content source declares on a Funestra's HUD, and its published form."""
 from __future__ import annotations
 
 import json

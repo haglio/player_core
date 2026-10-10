@@ -1,6 +1,6 @@
 """The scrubber, the volume chip and the playhead readout, drawn on a panel.
 
-Every player here laid this row along the lower edge of its own video, which is
+Every Funestra here laid this row along the lower edge of its own video, which is
 where a video player has always put it — and where, in this family, it keeps
 turning out to be the wrong place.  A wrapped video smears it into a ring round
 the nadir, out of the controller's reach, so the headset draws it on the console

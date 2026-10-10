@@ -1,4 +1,4 @@
-"""Which sound output a player takes when it is told a device by name."""
+"""Which sound output a Funestra takes when it is told a device by name."""
 from __future__ import annotations
 
 from funestra_core import audio_outputs
@@ -38,7 +38,7 @@ def test_no_name_picks_none():
     assert pick_output(named(HEADSET), "   ", software=[]) is None
 
 
-def test_an_output_can_be_named_by_what_the_player_opens_it_by():
+def test_an_output_can_be_named_by_what_the_engine_opens_it_by():
     outputs = [Output(HEADSET, "sys/{headset-id}"), Output(STREAMING, "sys/{streaming-id}")]
 
     assert pick_output(outputs, "{streaming-id}", software=[]).label == STREAMING

@@ -158,7 +158,7 @@ class HudOverlay:
     def hud_place(self) -> HudPlace | None:
         if self._model is None:
             return None
-        return HudPlace(self._model.player, self._model.hud_corner, MARGIN,
+        return HudPlace(self._model.funestra, self._model.hud_corner, MARGIN,
                         minimized=self._model.hud_minimized, inset=MINUS_INSET)
 
     @property
@@ -187,8 +187,8 @@ class HudOverlay:
         if changed:
             if model is not None:
                 if self._renderer is None:
-                    self._renderer = HudRenderer(model.player)
-                    self._clicks = HudClicks(model.player)
+                    self._renderer = HudRenderer(model.funestra)
+                    self._clicks = HudClicks(model.funestra)
                 self._clicks.active_loop = model.active_loop
                 self._clicks.active_filter = model.filter_query
             self._model = model

@@ -1,4 +1,4 @@
-"""The main console: the panel whichever player holds the slot draws, and where
+"""The main console: the panel whichever Funestra holds the slot draws, and where
 a press on it lands."""
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from funestra_core.console import (
     aim_row,
     console_text,
     hit_test,
-    main_player_displays,
+    kino_shows,
     parse_console,
     place_rows,
     read_console,
@@ -138,9 +138,9 @@ class TestTheDeviceRunningItself:
 
 
 class TestModePredicates:
-    def test_main_player_displays_covers_kino_mode_alone(self):
-        assert main_player_displays(MainMode.KINO)
-        assert not main_player_displays(MainMode.GENAU)
+    def test_kino_shows_in_kino_mode_alone(self):
+        assert kino_shows(MainMode.KINO)
+        assert not kino_shows(MainMode.GENAU)
 
 
 class TestReadConsole:
@@ -159,7 +159,7 @@ class TestReadConsole:
                                      latest=True)
 
     def test_a_panel_that_says_nothing_about_the_lock_reads_as_locked(self, tmp_path: Path):
-        """Which is where both players open, and what a Fun Time too old to
+        """Which is where both Funestras open, and what a Fun Time too old to
         publish the flag is still describing."""
         path = tmp_path / "main_player_console.json"
         path.write_text(json.dumps({"main_mode": MainMode.KINO}), encoding="utf-8")
@@ -240,7 +240,7 @@ class TestLayout:
 
 
 class TestThePublishedConsoleIsWrittenWhereItIsRead:
-    """Fun Time publishes a ConsoleModel as text and the main player parses it
+    """Fun Time publishes a ConsoleModel as text and the Main Funestra parses it
     back; the keys are spelled once, here."""
 
     def test_every_published_field_survives_the_round_trip(self):
@@ -270,7 +270,7 @@ class TestThePublishedConsoleIsWrittenWhereItIsRead:
 
         assert (parsed.rows, parsed.osr2_rows) == (ROWS, aim)
 
-    def test_what_the_drawing_player_folds_in_is_not_published(self):
+    def test_what_the_drawing_funestra_folds_in_is_not_published(self):
         """The playback rate and the clip pace are the drawing host's own --
         Fun Time neither sets them nor hears about them -- so the text does not
         carry them and they come back at rest."""
@@ -285,7 +285,7 @@ class TestThePublishedConsoleIsWrittenWhereItIsRead:
         assert parse_console(console_text(ConsoleModel(latest=None))).latest is None
         assert parse_console(console_text(ConsoleModel(latest=False))).latest is False
 
-    def test_a_console_another_player_took_the_osr2_from_says_so(self):
+    def test_a_console_another_funestra_took_the_osr2_from_says_so(self):
         assert parse_console(console_text(ConsoleModel(has_osr2=False))).has_osr2 is False
 
     def test_the_max_intensity_a_session_holds_rides_the_panel(self):
@@ -314,4 +314,4 @@ def test_the_published_console_carries_where_it_sits_and_whether_it_is_minimized
     assert read_back.hud_corner is HudCorner.UPPER_RIGHT
     assert read_back.hud_edge is HudEdge.UPPER
     assert read_back.hud_minimized is True
-    assert read_back.player == "main"
+    assert read_back.funestra == "main"
