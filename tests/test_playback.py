@@ -435,6 +435,50 @@ class TestTheOsr2:
 
         assert tcode.resets == before + 1
 
+    def test_resuming_holds_the_device_until_the_picture_moves(self, tmp_path):
+        """Un-pausing is a request, not a picture: mpv takes frames to start
+        presenting, and the device led the picture by that much on every reveal
+        -- which is what he felt as the OSR2 starting before the video."""
+        playback, player, tcode = _driving(tmp_path)
+        playback.set_tcode_enabled(True)
+        playback.set_paused(True)
+        playback.set_paused(False)
+
+        playback.advance()
+        assert tcode.updates == [] and tcode.parks == 0
+
+        player.position_ms = 40
+        playback.advance()
+        assert tcode.updates or tcode.parks
+
+    def test_resuming_on_a_still_drives_the_device_at_once(self, tmp_path):
+        """A still never moves: mpv reports its position as 0 for as long as
+        it is shown, so it is on screen the moment it is unpaused."""
+        playback, player, tcode = _driving(tmp_path, scripted=())
+        playback.set_tcode_enabled(True)
+        player.showing_picture = True
+        playback.set_paused(True)
+        playback.set_paused(False)
+
+        playback.advance()
+
+        assert tcode.parks == 1
+
+    def test_a_picture_that_has_moved_once_is_not_asked_again(self, tmp_path):
+        """The gate is the resume's own edge, not a per-tick liveness check: a
+        video legitimately still between frames must not stop the device."""
+        playback, player, tcode = _driving(tmp_path)
+        playback.set_tcode_enabled(True)
+        playback.set_paused(True)
+        playback.set_paused(False)
+        player.position_ms = 40
+        playback.advance()
+        drove = len(tcode.updates) + tcode.parks
+
+        playback.advance()  # the same position, one pass later
+
+        assert len(tcode.updates) + tcode.parks > drove
+
     def test_it_says_whether_its_clip_is_scripted_and_resting_where_it_is(self, tmp_path):
         playback, player, _tcode = _driving(tmp_path, scripted=(1,))
 

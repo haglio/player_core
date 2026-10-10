@@ -1,5 +1,6 @@
 """A window of Fun Time: it plays what it is handed, draws the HUD, the scrubber and the
-volume over it, answers their presses, and is driven through files by whatever runs on it."""
+volume over it -- or on a screen of the window's own beside it -- answers their presses,
+and is driven through files by whatever runs on it."""
 from __future__ import annotations
 
 import logging
@@ -19,6 +20,7 @@ from .file_channel import consume_command_file, read_paused_state
 from .funestra_controls import VERBS, FunestraControls
 from .funestra_status import status_fields
 from .hud_overlay import HUD_OVERLAY_ID, HudOverlay
+from .hud_placement import HudEdge
 from .hud_row import RowHud
 from .mpv_player import MpvPlayer
 from .play_points import PlayPoints
@@ -80,6 +82,28 @@ class User(Protocol):
     def close(self) -> None: ...
 
 
+@runtime_checkable
+class PanelSurface(Protocol):
+    """A screen of the window's own that the panel is drawn on, beside the
+    picture rather than over it, held to one width or sized to its contents."""
+
+    width: int | None
+
+    def overlay(self, ident: int, x: int, y: int, bgra) -> None: ...
+
+    def remove_overlay(self, ident: int) -> None: ...
+
+
+@runtime_checkable
+class UsersPicture(Protocol):
+    """Where a User's own picture goes up: over the player's picture, as
+    :class:`ClipPicture` tiles it, or wherever else the window shows one."""
+
+    def show(self, picture: Picture, window: tuple[int, int]) -> None: ...
+
+    def hide(self) -> None: ...
+
+
 class _Nobody:
     """A Funestra driven through its files alone."""
 
@@ -110,6 +134,10 @@ NOBODY = ""
 Users = Mapping[str, Callable[[Playback], User]]
 
 
+def _nothing_of_its_own(_command: str) -> bool:
+    return False
+
+
 def osr2_line(channels: Channels) -> FunscriptTCodeDriver | None:
     if not channels.tcode_host or not channels.tcode_port:
         return None
@@ -136,14 +164,19 @@ class Funestra:
         users: Users | None = None,
         panel: Callable[[], HudModel | None] | None = None,
         muted: bool = True,
+        panel_surface: PanelSurface | None = None,
+        users_picture: UsersPicture | None = None,
+        window_verbs: Callable[[str], bool] = _nothing_of_its_own,
     ) -> None:
         self._player = player
         self._channels = channels
         self._tiles = tiles
+        self._panel_surface = panel_surface
+        self._window_verbs = window_verbs
         self._stop = threading.Event()
         start_paused = (channels.paused is not None
                         and read_paused_state(channels.paused, logger=logger))
-        self.playback = Playback(
+        self._playback = Playback(
             [item.path for item in playlist], player=player, start_paused=start_paused,
             locked=locked, play_points=PlayPoints(channels.play_points),
             funscripts=funscripts_of(playlist), tcode=tcode,
@@ -160,8 +193,8 @@ class Funestra:
             RoomVolume(player, dashboard_cmd_file=channels.dashboard_cmd, live=audible)
             if sound_is_the_rooms else VolumeControl(player, live=audible, muted=muted)
         )
-        self._panel = self._panel_for(channels, player, panel)
-        self._clip_picture = ClipPicture(player)
+        self._panel = self._panel_for(channels, panel_surface or player, panel)
+        self._users_picture = users_picture or ClipPicture(player)
         self._pointer = Pointer(hud=self._panel, picture=self._press_on_the_picture(channels))
         self._controls = FunestraControls(
             self.playback, stop_event=self._stop,
@@ -175,7 +208,12 @@ class Funestra:
             if channels.status else None
         )
         self._loop_frames = LoopThumbCapture()
+        self._loop_frames_up = False
         self._front.set_showing(True)
+
+    @property
+    def playback(self) -> Playback:
+        return self._playback
 
     @property
     def _front(self) -> User:
@@ -184,7 +222,7 @@ class Funestra:
     def _top_block(self) -> ModeHud:
         return self._front.top_block()
 
-    def _panel_for(self, channels: Channels, player,
+    def _panel_for(self, channels: Channels, drawn_on,
                    panel: Callable[[], HudModel | None] | None) -> HudOverlay | ConsoleOverlay | None:
         """The one panel this window wears, which carries the clip's row: the
         room's console on the main slot, the published HUD, or the window's
@@ -196,22 +234,24 @@ class Funestra:
             if panel is None:
                 return None
             return HudOverlay(
-                panel=panel, post=self._apply, player=player,
+                panel=panel, post=self._apply, player=drawn_on,
                 seek=self._seek_along_the_track, set_volume=self._volume.set_level,
                 toggle_mute=self._volume.toggle_mute,
             )
         if channels.console is not None:
             return ConsoleOverlay(
                 console_file=channels.console, drive_file=channels.drive,
-                command_file=channels.dashboard_cmd, player=player,
+                command_file=channels.dashboard_cmd, player=drawn_on,
                 drive_gate=self._drive_gate, top_block=self._top_block,
+                width=None if self._panel_surface is None else self._panel_surface.width,
                 seek=self._seek_along_the_track, set_volume=self._volume.set_level,
                 toggle_mute=self._volume.toggle_mute,
             )
         if channels.hud is not None:
             return HudOverlay(
-                hud_file=channels.hud, command_file=channels.dashboard_cmd, player=player,
+                hud_file=channels.hud, command_file=channels.dashboard_cmd, player=drawn_on,
                 drive_file=channels.drive, drive_gate=self._drive_gate,
+                over_the_video=self._panel_surface is None,
                 seek=self._seek_along_the_track, set_volume=self._volume.set_level,
                 toggle_mute=self._volume.toggle_mute,
             )
@@ -262,6 +302,10 @@ class Funestra:
     def showing(self) -> str:
         return self._showing
 
+    @property
+    def panel_edge(self) -> HudEdge:
+        return HudEdge.LOWER if self._panel is None else self._panel.edge
+
     def set_muted(self, muted: bool) -> None:
         self._volume.set_muted(muted)
 
@@ -309,6 +353,8 @@ class Funestra:
         for user in self._users.values():
             if user.apply_command(command):
                 return
+        if self._window_verbs(command):
+            return
         if not look_up(command, VERBS, self._controls):
             logger.warning("Unhandled command: %s", command.strip())
 
@@ -327,13 +373,14 @@ class Funestra:
     def _paint(self, window: tuple[int, int]) -> None:
         picture = self._front.picture()
         if picture is None:
-            self._clip_picture.hide()
+            self._users_picture.hide()
             row = self.clip_row()
             self._paint_panel(window, row, self._strip.colors if row is not None else None,
                               self.playback.speed)
-            self._paint_loop_frames(window)
+            if self._panel_surface is None:
+                self._paint_loop_frames(window)
             return
-        self._clip_picture.show(picture, window)
+        self._users_picture.show(picture, window)
         self._paint_panel(window, picture_row(picture, self._volume.hud), None, 1.0)
         self._take_the_loop_frames_down()
 
@@ -400,10 +447,15 @@ class Funestra:
             track=(x0, x1), win_w=window[0], top=top)
         if in_at is not None:
             player.overlay(self.IN_FRAME_OVERLAY_ID, *in_at, frames.in_thumb)
+            self._loop_frames_up = True
         if out_at is not None:
             player.overlay(self.OUT_FRAME_OVERLAY_ID, *out_at, frames.out_thumb)
+            self._loop_frames_up = True
 
     def _take_the_loop_frames_down(self) -> None:
+        if not self._loop_frames_up:
+            return
+        self._loop_frames_up = False
         self._player.remove_overlay(self.IN_FRAME_OVERLAY_ID)
         self._player.remove_overlay(self.OUT_FRAME_OVERLAY_ID)
 
