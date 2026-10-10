@@ -1011,6 +1011,30 @@ class TestAPanelBesideThePicture:
 
         assert funestra.panel_edge is HudEdge.UPPER
 
+    def test_minimized_beside_the_picture_the_panel_leaves_its_plus_to_the_window(self, tmp_path):
+        funestra, _player, surface = self._wearing_a_panel_beside(tmp_path)
+        _publish_panel(tmp_path, hud_minimized=True)
+
+        funestra.tick(window=WINDOW)
+
+        assert HUD_OVERLAY_ID not in surface.overlays
+        assert funestra.panel_minimized
+
+    def test_minimized_beside_the_picture_the_console_leaves_its_plus_to_the_window(self, tmp_path):
+        surface = _ASurface(width=380)
+        funestra, _player = self._main_beside(tmp_path, surface)
+        _publish_console(tmp_path, hud_minimized=True)
+
+        funestra.tick(window=WINDOW)
+
+        assert HUD_OVERLAY_ID not in surface.overlays
+        assert funestra.panel_minimized
+
+    def test_an_open_panel_is_not_minimized(self, tmp_path):
+        funestra, _player, _surface = self._wearing_a_panel_beside(tmp_path)
+
+        assert not funestra.panel_minimized
+
     def test_a_press_is_placed_by_the_surfaces_own_pixels_and_where_the_panel_was_drawn(self, tmp_path):
         """A squeeze on the hanging screen lands in the panel's own pixels; the
         window adds where the panel was drawn and the row answers as it would

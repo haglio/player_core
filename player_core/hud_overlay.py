@@ -164,6 +164,10 @@ class HudOverlay:
         return self._model.hud_edge if self._model is not None else HudEdge.LOWER
 
     @property
+    def minimized(self) -> bool:
+        return self._model is not None and self._model.hud_minimized
+
+    @property
     def active_loop(self) -> str:
         return self._clicks.active_loop if self._clicks is not None else ""
 
