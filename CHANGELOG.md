@@ -9,6 +9,13 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `funestra_core/` (until 2026-10-10 `player_core/`) and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-10-10 — `console.shape_label` is no longer offered
+
+Fun Time takes the row that aims the device from here too now (fun_time #394),
+so no consumer names the waveform itself any more, and `shape_label` leaves
+`console.__all__`. It stays defined, since the row names the waveform with it
+and branches made before the move still import it.
+
 ## 2026-10-10 — the Player is the Funestra, and the mpv object inside one is its engine
 
 The Player became the Funestra on 2026-10-07, and the code now says so. The
