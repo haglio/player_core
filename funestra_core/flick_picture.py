@@ -46,11 +46,13 @@ def _nothing(_value: float) -> None:
 @dataclass(frozen=True)
 class Picture:
     """A frame of a flick, with the flick's two senses of time for the row: how
-    far round its loop the flick has turned (the dial; None before a frame is
-    up), and how long it has been up of the time it gets (the track)."""
+    many of its frames have played of how many (the dial and the frame count;
+    none before a frame is up), and how long it has been up of the time it
+    gets (the track)."""
 
     frame: np.ndarray | None
-    loop_turn: float | None = None
+    played: int = 0
+    count: int = 0
     elapsed_ms: float = 0.0
     interval_ms: float = 0.0
     loading: str | None = None

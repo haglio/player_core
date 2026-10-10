@@ -57,16 +57,17 @@ class FlickRenderController:
         return height > width
 
     @property
-    def loop_turn(self) -> float | None:
-        """How far round its loop the flick has gone, 0 to 1 -- the dial's hand;
-        None before a frame is up.  Counted up while the index counts down, the
-        way :func:`display_index_for_phase` chose the frame."""
+    def playhead(self) -> tuple[int, int] | None:
+        """How many of the loop's frames have played, of how many -- the dial
+        and the frame count; None before a frame is up.  Counted up while the
+        index counts down, the way :func:`display_index_for_phase` chose the
+        frame."""
         entry = self.current_flick_entry()
         index = self.current_frame_index
         if entry is None or not entry["frames"] or index is None:
             return None
         count = len(entry["frames"])
-        return max(0, count - 1 - index) / count
+        return max(0, count - 1 - index), count
 
     def prepare_active_flick_for_current_size(self) -> None:
         path = self.current_flick_path

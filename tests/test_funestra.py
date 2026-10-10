@@ -442,7 +442,7 @@ class Genau(Kino):
         self.video = "alpha"
         self.frame = np.zeros((8, 16, 3), dtype=np.uint8)
         self.flick = Path("C:/flicks/alpha.mp4")
-        self.loop_turn: float | None = 0.3
+        self.played, self.count = 6, 20
         self.elapsed_ms, self.interval_ms = 4_000.0, 10_000.0
         self.sought_times: list[float] = []
         self.sought_turns: list[float] = []
@@ -458,7 +458,7 @@ class Genau(Kino):
         return ModeHud(video=self.video)
 
     def picture(self) -> Picture | None:
-        return Picture(frame=self.frame, loop_turn=self.loop_turn,
+        return Picture(frame=self.frame, played=self.played, count=self.count,
                        elapsed_ms=self.elapsed_ms, interval_ms=self.interval_ms,
                        seek_time=self.sought_times.append, seek_loop=self.sought_turns.append,
                        flick=self.flick)
@@ -784,7 +784,7 @@ class TestAUsersOwnPicture:
 
         assert (row.position_ms, row.duration_ms) == (genau.elapsed_ms, genau.interval_ms)
         assert row.playhead == video_playhead(genau.elapsed_ms, genau.interval_ms, 0)
-        assert row.loop_turn == genau.loop_turn
+        assert row.loop == (genau.played, genau.count)
         assert row.volume is funestra._volume.hud
 
     def test_a_press_on_the_track_puts_its_picture_that_far_into_its_time_rather_than_the_video(
@@ -1152,8 +1152,8 @@ class TestAUsersOwnPictureElsewhere:
         funestra.tick(window=WINDOW)
 
         picture, window = surface.shown[-1]
-        assert (picture.frame, picture.loop_turn, picture.flick, window) == (
-            genau.frame, genau.loop_turn, genau.flick, WINDOW)
+        assert (picture.frame, picture.played, picture.count, picture.flick, window) == (
+            genau.frame, genau.played, genau.count, genau.flick, WINDOW)
         assert engine.overlays == {}
 
     def test_it_is_told_when_no_picture_is_up(self, tmp_path):

@@ -25,7 +25,7 @@ from funestra_core.hud_row import (
     volume_to,
 )
 from funestra_core.loop_dial import DIAL_SIZE
-from funestra_core.playhead import PlayheadHud, readout_width, video_playhead
+from funestra_core.playhead import PlayheadHud, flick_playhead, readout_width, video_playhead
 from funestra_core.timeline import (
     AMBER,
     BAR_INSET_X,
@@ -49,8 +49,9 @@ from funestra_core.volume import (
 WIDTH = 400
 TIME = PlayheadHud(text="0:04 / 0:10", widest="0:10 / 0:10")
 VIDEO = RowHud(position_ms=4_000, duration_ms=10_000, playhead=TIME, volume=VolumeHud(volume=50))
-CLIP = RowHud(position_ms=4_000, duration_ms=10_000, playhead=TIME, loop_turn=0.3,
+CLIP = RowHud(position_ms=4_000, duration_ms=10_000, playhead=TIME, loop=(6, 20),
               volume=VolumeHud(volume=50))
+FRAME = flick_playhead(6, 20)
 
 
 def _layout(row: RowHud, width: int = WIDTH, at: tuple[int, int] = (0, 0)):
@@ -69,12 +70,18 @@ class TestHowTheRowIsLaidOut:
         assert layout.dial is None
         assert layout.track == (x + width + MARGIN, WIDTH - SLOT_W)
 
-    def test_a_flicks_row_puts_its_dial_between_the_readout_and_the_track(self):
+    def test_a_flicks_row_is_its_time_then_its_dial_then_its_frame_count_then_the_track(self):
+        """The order he asked for: the time, the dial, the frames, the
+        scrubber and the volume, on one row together."""
         layout = _layout(CLIP)
 
         x, width = layout.readout
         assert layout.dial == x + width + PAD
-        assert layout.track[0] == layout.dial + DIAL_SIZE + MARGIN
+        assert layout.frame == (layout.dial + DIAL_SIZE + PAD, readout_width(FRAME))
+        assert layout.track[0] == layout.frame[0] + layout.frame[1] + MARGIN
+
+    def test_a_videos_row_counts_no_frames_of_its_own(self):
+        assert _layout(VIDEO).frame is None
 
     def test_a_row_with_nothing_before_its_track_starts_it_a_little_in(self):
         layout = _layout(RowHud(duration_ms=10_000))
@@ -124,14 +131,27 @@ def test_it_draws_everything_inside_the_room_it_was_laid_out_in():
 
 def test_it_draws_each_part_where_it_laid_it_out_and_nothing_between_them():
     painted, layout = _painted(CLIP)
-    (readout_x, readout_w), dial_x, (track_x0, _x1) = layout.readout, layout.dial, layout.track
+    (readout_x, readout_w), dial_x = layout.readout, layout.dial
+    (frame_x, frame_w), (track_x0, _x1) = layout.frame, layout.track
     middle = PARTS_Y + CHIP_H // 2
 
     assert painted[PARTS_Y:PARTS_Y + CHIP_H, readout_x:readout_x + readout_w, 3].any()
     assert painted[middle, dial_x + DIAL_SIZE // 2, 3] > 0
+    assert painted[PARTS_Y:PARTS_Y + CHIP_H, frame_x:frame_x + frame_w, 3].any()
     assert painted[ROW_H // 2, track_x0 + 5, 3] > 0
     assert painted[middle, readout_x + readout_w + PAD // 2, 3] == 0
-    assert painted[middle, dial_x + DIAL_SIZE + MARGIN // 2, 3] == 0
+    assert painted[middle, dial_x + DIAL_SIZE + PAD // 2, 3] == 0
+    assert painted[middle, frame_x + frame_w + MARGIN // 2, 3] == 0
+
+
+def test_the_frame_count_reads_as_a_flicks_readout_does():
+    """"frame 6 / 20", the readout a flick's row carried before the dial."""
+    painted, layout = _painted(CLIP)
+    frame_x, frame_w = layout.frame
+    expected = RowSection()._readout.bgra(FRAME)[:, :, [2, 1, 0, 3]]
+
+    drawn = painted[PARTS_Y:PARTS_Y + CHIP_H, frame_x:frame_x + frame_w].astype(int)
+    assert np.abs(drawn - expected).max() <= 1
 
 
 def test_a_host_with_a_funscript_fills_the_track_with_its_colors():
@@ -213,6 +233,11 @@ class TestWhatAPressOnTheRowIsOn:
         back to its start, so it is its own part and does nothing."""
         assert self._part(self.LAYOUT.track[0] - 1, ROW_H // 2) == READOUT
         assert self._part(self.LAYOUT.readout[0] + 3, ROW_H // 2) == READOUT
+
+    def test_a_flicks_frame_count_is_a_readout_too(self):
+        layout = _layout(CLIP)
+
+        assert row_part(layout.frame[0] + 3, ROW_H // 2, layout) == READOUT
 
     def test_above_or_under_the_row_is_on_nothing(self):
         assert self._part(WIDTH // 2, -1) == ""
@@ -334,6 +359,15 @@ class TestAFlicksDial:
         cx, cy = self._dial_center(layout)
 
         assert painted[cy, cx, 3] > 0
+
+    def test_the_hand_is_as_far_round_as_the_loops_frames_have_played(self):
+        """Six frames of twenty played is three tenths of a turn: the hand
+        points a little past three o'clock."""
+        painted, layout = _painted(CLIP)
+        cx, cy = self._dial_center(layout)
+        ink = painted[:, :, :3].astype(int).sum(axis=2)
+
+        assert ink[cy + 2, cx + 7] > ink[cy - 2, cx - 7] + 150
 
     def test_a_videos_row_has_no_dial_and_runs_its_track_where_one_would_be(self):
         layout = _layout(VIDEO)

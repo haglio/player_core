@@ -8,9 +8,9 @@ instead.  Everything else has the same defect in slower form: a row over the
 picture is a second panel, on a screen that already carries one.
 
 So the row is a block a panel hosts, the way the device line and the drive
-readout are: one line, laid out from what is on it -- the readout, a flick's
-dial, the track, and the chip at the right end -- against the block's own
-width rather than the window's.
+readout are: one line, laid out from what is on it -- the time, a flick's dial
+and its frame count, the track, and the chip at the right end -- against the
+block's own width rather than the window's.
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ import numpy as np
 from PIL import Image
 
 from .loop_dial import DIAL_SIZE, LoopDialPainter, on_dial, turn_at
-from .playhead import PlayheadHud, PlayheadHudPainter, readout_width
+from .playhead import PlayheadHud, PlayheadHudPainter, flick_playhead, readout_width
 from .timeline import BAR_INSET_X, TIMELINE_HEIGHT, bar_track_x, progress_bar_bgra
 from .volume import (
     CHIP_H,
@@ -73,19 +73,22 @@ class RowHud:
     playhead: PlayheadHud | None = None
     loop_bounds: tuple[float, float] | None = None
     record_in_ms: float | None = None
-    # How far round its loop a flick has turned, 0 to 1, drawn on the dial
-    # beside the track; None on a video's row, which has no dial.
-    loop_turn: float | None = None
+    # A flick's loop: how many of its frames have played, of how many.  The
+    # dial goes round with it and the frame count after the dial counts it;
+    # None on a video's row, which has neither.
+    loop: tuple[int, int] | None = None
 
 
 @dataclass(frozen=True)
 class RowLayout:
     """Where the row lies in its panel, and where each part lands across it,
-    left to right: the readout, a flick's dial, the track, and the chip."""
+    left to right: the time, a flick's dial and its frame count, the track,
+    and the chip."""
 
     rect: tuple[int, int, int, int]
-    readout: tuple[int, int] | None  # the readout's x and width, in the row's own pixels
+    readout: tuple[int, int] | None  # the time's x and width, in the row's own pixels
     dial: int | None                  # the dial's x
+    frame: tuple[int, int] | None    # the frame count's x and width
     track: tuple[int, int]            # the track's two ends
 
     @property
@@ -100,23 +103,34 @@ class RowLayout:
         return px - self.rect[0], py - self.rect[1]
 
 
-def _track_left(row: RowHud) -> tuple[tuple[int, int] | None, int | None, int]:
-    """The readout's place, the dial's, and where the track starts after them."""
+def _frame_count(row: RowHud) -> PlayheadHud | None:
+    return None if row.loop is None else flick_playhead(*row.loop)
+
+
+def _before_the_track(row: RowHud) -> tuple[tuple[int, int] | None, int | None,
+                                           tuple[int, int] | None, int]:
+    """The time's place, the dial's and the frame count's, and where the
+    track starts after them: each a margin in, and a pad apart from the dial."""
     x = MARGIN
-    readout = dial = None
+    readout = dial = frame = None
+    count = _frame_count(row)
     if row.playhead is not None:
         width = readout_width(row.playhead)
         readout = (x, width)
-        x += width + (PAD if row.loop_turn is not None else MARGIN)
-    if row.loop_turn is not None:
+        x += width + (PAD if row.loop is not None else MARGIN)
+    if row.loop is not None:
         dial = x
-        x += DIAL_SIZE + MARGIN
-    return readout, dial, x if (readout or dial is not None) else BAR_INSET_X
+        x += DIAL_SIZE + (PAD if count is not None else MARGIN)
+    if count is not None:
+        width = readout_width(count)
+        frame = (x, width)
+        x += width + MARGIN
+    return readout, dial, frame, x if (readout or dial is not None) else BAR_INSET_X
 
 
 def row_layout(row: RowHud, *, rect: tuple[int, int, int, int]) -> RowLayout:
-    readout, dial, left = _track_left(row)
-    return RowLayout(rect, readout, dial, bar_track_x(rect[2], left=left))
+    readout, dial, frame, left = _before_the_track(row)
+    return RowLayout(rect, readout, dial, frame, bar_track_x(rect[2], left=left))
 
 
 class RowSection:
@@ -130,7 +144,7 @@ class RowSection:
     @staticmethod
     def least_width(row: RowHud) -> int:
         """The narrowest panel the row can be laid out in."""
-        return _track_left(row)[2] + _LEAST_TRACK + SLOT_W
+        return _before_the_track(row)[3] + _LEAST_TRACK + SLOT_W
 
     def draw(self, image: Image.Image, layout: RowLayout, row: RowHud,
              *, heatmap: np.ndarray | None = None) -> None:
@@ -150,8 +164,12 @@ class RowSection:
             image.alpha_composite(chip, _offset((x, y), chip_xy(
                 win_w=width, win_h=ROW_H, timeline_h=ROW_H)))
         if layout.dial is not None:
-            dial = _rgba(self._dial.bgra(LoopDialPainter.hand(row.loop_turn)))
+            played, count = row.loop
+            dial = _rgba(self._dial.bgra(LoopDialPainter.hand(played / count)))
             image.alpha_composite(dial, (x + layout.dial, y + PARTS_Y))
+        if layout.frame is not None:
+            frame = _rgba(self._readout.bgra(_frame_count(row)))
+            image.alpha_composite(frame, (x + layout.frame[0], y + PARTS_Y))
         if layout.readout is not None:
             readout = _rgba(self._readout.bgra(row.playhead))
             image.alpha_composite(readout, (x + layout.readout[0], y + PARTS_Y))
