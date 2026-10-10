@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageDraw
@@ -47,6 +48,7 @@ class Picture:
     count: int = 0
     loading: str | None = None
     seek: Callable[[float], None] = _nothing
+    clip: Path | None = None
 
 
 def black_bgra(width: int, height: int) -> np.ndarray:

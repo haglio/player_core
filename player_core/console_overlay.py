@@ -17,7 +17,7 @@ from .console_hud import ConsoleHud, ConsolePainter, with_playback_speed
 from .dashboard import ask
 from .drive_readout import DriveHud, read_drive
 from .hud_overlay import HUD_OVERLAY_ID
-from .hud_placement import place_of
+from .hud_placement import HudEdge, place_of
 from .hud_row import RowHud, RowPress, track_on_screen
 
 __all__ = []
@@ -34,6 +34,7 @@ class ConsoleOverlay:
         drive_gate,
         top_block: Callable[[], ModeHud],
         overlay_id: int = HUD_OVERLAY_ID,
+        width: int | None = None,
         seek=None,
         set_volume=None,
         toggle_mute=None,
@@ -45,7 +46,7 @@ class ConsoleOverlay:
         self._drive_gate = drive_gate
         self._top_block = top_block
         self.overlay_id = overlay_id
-        self._painter = ConsolePainter()
+        self._painter = ConsolePainter(width=width)
         self._console = ConsoleModel()
         self._drive: DriveHud | None = None
         self._hover: tuple[int, int] | None = None
@@ -59,6 +60,10 @@ class ConsoleOverlay:
     @property
     def console(self) -> ConsoleModel:
         return self._console
+
+    @property
+    def edge(self) -> HudEdge:
+        return self._console.hud_edge
 
     def tick(self, *, playback_speed: float, window: tuple[int, int],
              clip_row: RowHud | None = None, heatmap=None) -> None:

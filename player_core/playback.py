@@ -62,6 +62,7 @@ class Playback:
         self._switching_versions = False
         self._mark: int | None = None
         self._ab_loop: tuple[int, int] | None = None
+        self._held_at: float | None = None
         if locked:
             player.set_loop_file(True)
         self.load(0)
@@ -238,6 +239,7 @@ class Playback:
         self._player.set_paused(paused)
         if not paused:
             self._device.take_over()
+            self._held_at = self._player.position_ms
 
     @property
     def speed(self) -> float:
@@ -290,7 +292,18 @@ class Playback:
         elif position_ms + REWIND_MS < self._last_pos_ms:
             self._device.take_over()
         self._last_pos_ms = position_ms
-        self._device.drive(position_ms, self.funscript_as_played, speed=self._speed)
+        if self._the_picture_has_resumed(position_ms):
+            self._device.drive(position_ms, self.funscript_as_played, speed=self._speed)
+
+    def _the_picture_has_resumed(self, position_ms: float) -> bool:
+        """Un-pausing is a request, not a picture: the device waits for the
+        first frame after it, a still counting as there at once."""
+        if self._held_at is None:
+            return True
+        if position_ms == self._held_at and not self._player.showing_picture:
+            return False
+        self._held_at = None
+        return True
 
     def discard(self) -> None:
         if len(self._playlist) <= 1:

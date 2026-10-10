@@ -15,11 +15,12 @@ from player_core.console import ConsoleModel, ModeHud, console_text
 from player_core.funestra import Channels, Funestra, User, _Nobody
 from player_core.hud_button import Button
 from player_core.hud_overlay import HUD_OVERLAY_ID
+from player_core.hud_placement import HudEdge
 from player_core.modes import LengthMode, MainMode, Osr2State
 from player_core.playhead import clip_playhead
 from player_core.playlist import read_playlist
 from player_core.pointer import OMNIPAUSE_TOGGLE
-from player_core.satellite_hud import HudModel
+from player_core.satellite_hud import MARGIN, HudModel
 from player_core.session_quit import SESSION_QUIT
 from player_core.timeline import TIMELINE_HEIGHT, bar_track_x
 from player_core.volume import CHIP_H, CHIP_W, chip_xy
@@ -373,6 +374,7 @@ class Genau(Kino):
         super().__init__(playback)
         self.video = "alpha"
         self.frame = np.zeros((8, 16, 3), dtype=np.uint8)
+        self.clip = Path("C:/clips/alpha.mp4")
         self.played, self.count = 3, 8
         self.sought: list[float] = []
 
@@ -388,7 +390,7 @@ class Genau(Kino):
 
     def picture(self) -> Picture | None:
         return Picture(frame=self.frame, played=self.played, count=self.count,
-                       seek=self.sought.append)
+                       seek=self.sought.append, clip=self.clip)
 
 
 def _main(tmp_path: Path, *, commands: str = "", user=Kino,
@@ -843,3 +845,209 @@ def test_a_window_told_to_fall_silent_mutes_its_player_and_its_chip(tmp_path):
 
     funestra.set_muted(False)
     assert (player.muted, funestra._volume.hud.muted) == (False, False)
+
+
+class _ASurface:
+    """A screen of the window's own beside the picture: what a headset gives
+    its panel, which hangs there rather than lying over the video."""
+
+    def __init__(self, width: int | None = None) -> None:
+        self.width = width
+        self.overlays: dict[int, tuple[int, int, object]] = {}
+
+    def overlay(self, ident: int, x: int, y: int, bgra) -> None:
+        self.overlays[ident] = (x, y, bgra)
+
+    def remove_overlay(self, ident: int) -> None:
+        self.overlays.pop(ident, None)
+
+
+class TestAPanelBesideThePicture:
+    """A headset hangs the panel as a screen of its own beside the picture, so
+    a Funestra on such a window draws it there and leaves the picture alone."""
+
+    def _wearing_a_panel_beside(self, tmp_path, surface=None):
+        surface = surface or _ASurface()
+        clips = _clips(tmp_path, "v0")
+        channels = _channels(tmp_path, [str(clips[0])], hud=True, commands="")
+        _publish_panel(tmp_path)
+        player = FakePlayer()
+        funestra = Funestra(player, channels=channels, playlist=read_playlist(channels.playlist),
+                            panel_surface=surface)
+        funestra.tick(window=WINDOW)
+        return funestra, player, surface
+
+    def test_the_panel_is_drawn_on_the_surface_and_nothing_on_the_picture(self, tmp_path):
+        _funestra, player, surface = self._wearing_a_panel_beside(tmp_path)
+
+        assert list(surface.overlays) == [HUD_OVERLAY_ID]
+        assert player.overlays == {}
+
+    def test_it_fills_its_surface_from_the_corner_whatever_corner_the_room_published(self, tmp_path):
+        """The room's corner places a panel over the picture; a screen of its
+        own has no picture to be placed on, so the panel starts at its edge the
+        way player_core's test_hud_overlay says a panel beside the picture does."""
+        (tmp_path / "portrait_hud.json").write_text(
+            json.dumps({"player": "portrait", "hud_corner": "lower_right"}), encoding="utf-8")
+        clips = _clips(tmp_path, "v0")
+        channels = _channels(tmp_path, [str(clips[0])], hud=True, commands="")
+        surface = _ASurface()
+        funestra = Funestra(FakePlayer(), channels=channels,
+                            playlist=read_playlist(channels.playlist), panel_surface=surface)
+
+        funestra.tick(window=WINDOW)
+
+        assert surface.overlays[HUD_OVERLAY_ID][:2] == (MARGIN, MARGIN)
+
+    def _main_beside(self, tmp_path, surface, *, genau: bool = False, commands: str = "",
+                     users_picture=None):
+        channels = _console_channels(
+            tmp_path, [str(clip) for clip in _clips(tmp_path, "v0", "v1")], commands=commands)
+        _publish_console(tmp_path)
+        player = FakePlayer()
+        users = {"kino": Kino, **({"genau": Genau} if genau else {})}
+        funestra = Funestra(player, channels=channels, playlist=read_playlist(channels.playlist),
+                            locked=True, sound_is_the_rooms=True, users=users,
+                            panel_surface=surface, users_picture=users_picture)
+        funestra.tick(window=WINDOW)
+        return funestra, player
+
+    def test_the_console_is_held_to_the_surfaces_width(self, tmp_path):
+        """A console sized to its contents changes size between the modes and
+        with the title, and a screen that grows and shrinks is a screen that
+        moves; the surface says the one width it is held to."""
+        surface = _ASurface(width=380)
+
+        self._main_beside(tmp_path, surface)
+
+        assert surface.overlays[HUD_OVERLAY_ID][2].shape[1] == 380
+
+    def test_the_window_is_told_which_edge_of_the_picture_the_panel_hangs_along(self, tmp_path):
+        """The room moves the panel between the picture's edges; a window that
+        hangs the panel beside the picture has to hear which one."""
+        funestra, _player = self._main_beside(tmp_path, _ASurface())
+        assert funestra.panel_edge is HudEdge.LOWER
+
+        _publish_console(tmp_path, hud_edge=HudEdge.RIGHT)
+        funestra.tick(window=WINDOW)
+
+        assert funestra.panel_edge is HudEdge.RIGHT
+
+    def test_a_published_panel_says_its_edge_the_same_way(self, tmp_path):
+        funestra, _player, _surface = self._wearing_a_panel_beside(tmp_path)
+        (tmp_path / "portrait_hud.json").write_text(
+            json.dumps({"player": "portrait", "hud_edge": "upper"}), encoding="utf-8")
+
+        funestra.tick(window=WINDOW)
+
+        assert funestra.panel_edge is HudEdge.UPPER
+
+    def test_a_press_is_placed_by_the_surfaces_own_pixels_and_where_the_panel_was_drawn(self, tmp_path):
+        """A squeeze on the hanging screen lands in the panel's own pixels; the
+        window adds where the panel was drawn and the row answers as it would
+        over the picture."""
+        funestra, player, surface = self._wearing_a_panel_beside(tmp_path)
+        funestra.tick(window=WINDOW)
+        left, top, _bgra = surface.overlays[HUD_OVERLAY_ID]
+        x, y, width, height = funestra._panel.row_rect
+        x0, x1 = bar_track_x(width)
+
+        funestra.press(left + x + (x0 + x1) // 2, top + y + height - 4, window=WINDOW)
+
+        assert len(player.seeks) == 1
+        assert abs(player.seeks[0] - player.duration_ms / 2) <= player.duration_ms / (x1 - x0)
+
+    def test_the_loops_frames_stay_off_a_picture_the_panel_does_not_lie_on(self, tmp_path):
+        """They hang under the panel's track in the window; a panel on a screen
+        of its own has no stretch of the picture under it to hang them from."""
+        funestra, player = self._main_beside(tmp_path, _ASurface())
+        funestra.playback.set_ab_loop(1_000, 3_000)
+        player.screenshot = np.zeros((10, 20, 4), dtype=np.uint8)
+
+        funestra.tick(window=WINDOW)
+        funestra.tick(window=WINDOW)
+
+        assert player.overlays == {}
+        assert player.screenshots == 0
+
+
+class _APictureSurface:
+    """Where a headset puts a User's own picture: a texture of its own, wrapped
+    the way the clip is, rather than tiles over the video."""
+
+    def __init__(self) -> None:
+        self.shown: list[tuple[Picture, tuple[int, int]]] = []
+        self.hidden = 0
+
+    def show(self, picture: Picture, window: tuple[int, int]) -> None:
+        self.shown.append((picture, window))
+
+    def hide(self) -> None:
+        self.hidden += 1
+
+
+class TestAUsersOwnPictureElsewhere:
+    """A window may show a User's own picture somewhere other than over the
+    player's: it is handed the picture whenever one is up and told when none is."""
+
+    def test_the_picture_is_handed_over_and_the_video_is_left_alone(self, tmp_path):
+        surface = _APictureSurface()
+        funestra, player = TestAPanelBesideThePicture()._main_beside(
+            tmp_path, _ASurface(), genau=True, commands="SHOW genau\n", users_picture=surface)
+        genau = funestra._users["genau"]
+
+        funestra.tick(window=WINDOW)
+
+        picture, window = surface.shown[-1]
+        assert (picture.frame, picture.played, picture.count, picture.clip, window) == (
+            genau.frame, genau.played, genau.count, genau.clip, WINDOW)
+        assert player.overlays == {}
+
+    def test_it_is_told_when_no_picture_is_up(self, tmp_path):
+        surface = _APictureSurface()
+        funestra, _player = TestAPanelBesideThePicture()._main_beside(
+            tmp_path, _ASurface(), genau=True, commands="SHOW genau\n", users_picture=surface)
+        (tmp_path / "cmd.txt").write_text("SHOW kino\n", encoding="utf-8")
+
+        funestra.tick(window=WINDOW)
+
+        assert surface.hidden == 1
+
+
+class TestTheWindowsOwnVerbs:
+    """A window may answer verbs of its own -- a headset's projection, tilt and
+    scenes -- asked after what runs on it and before the Funestra's own."""
+
+    def _answering(self, tmp_path, commands: str):
+        heard: list[str] = []
+
+        def window_verbs(command: str) -> bool:
+            heard.append(command)
+            return command.startswith("TILT_")
+
+        channels = _console_channels(
+            tmp_path, [str(clip) for clip in _clips(tmp_path, "v0", "v1")], commands=commands)
+        _publish_console(tmp_path)
+        player = FakePlayer()
+        funestra = Funestra(player, channels=channels, playlist=read_playlist(channels.playlist),
+                            locked=True, sound_is_the_rooms=True, users={"kino": Kino},
+                            window_verbs=window_verbs)
+        return funestra, player, heard
+
+    def test_a_verb_of_the_windows_own_is_answered_and_not_refused(self, tmp_path, caplog):
+        funestra, _player, heard = self._answering(tmp_path, "TILT_UP\n")
+
+        with caplog.at_level("WARNING", logger="player_core.funestra"):
+            funestra.tick(window=WINDOW)
+
+        assert heard == ["TILT_UP"]
+        assert "Unhandled" not in caplog.text
+
+    def test_what_runs_on_the_window_is_asked_first_and_the_funestra_last(self, tmp_path):
+        funestra, player, heard = self._answering(tmp_path, "KINO_THING\nNEXT\n")
+
+        funestra.tick(window=WINDOW)
+
+        assert heard == ["NEXT"]
+        assert funestra._users["kino"].commands == ["KINO_THING", "NEXT"]
+        assert funestra.playback.index == 1
