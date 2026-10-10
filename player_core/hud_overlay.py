@@ -35,7 +35,6 @@ __all__ = [
     "FOOT_RELEASE",
     "FOOT_WHEEL",
     "HUD_OVERLAY_ID",
-    "HudOverlay",
 ]
 
 HUD_OVERLAY_ID = 10

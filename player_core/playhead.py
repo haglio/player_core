@@ -11,15 +11,7 @@ from .hud_status import SEPARATOR
 from .timeline import READOUT_SLOT_W, bar_track_x, readout_shares_the_row
 from .volume import CHIP_H, MARGIN, PAD, chip_xy
 
-__all__ = [
-    "PlayheadHud",
-    "PlayheadHudPainter",
-    "clip_playhead",
-    "lower_edge_height",
-    "on_readout",
-    "readout_xy",
-    "video_playhead",
-]
+__all__: list[str] = []
 
 _TEXT_PT = 8
 # The same gap the main player's loop frames keep above the row they label.

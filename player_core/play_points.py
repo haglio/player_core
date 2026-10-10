@@ -8,7 +8,6 @@ from pathlib import Path
 from app_support.file_channel import publish_whole
 
 __all__ = [
-    "PlayPoints",
     "play_points_filename",
 ]
 

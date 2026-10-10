@@ -27,7 +27,6 @@ __all__ = [
     "TIMELINE_HEIGHT",
     "bar_track_x",
     "bar_x",
-    "progress_bar_bgra",
 ]
 
 RED = (220, 40, 40, 245)

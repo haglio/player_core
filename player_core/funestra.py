@@ -40,7 +40,9 @@ from .volume_control import RoomVolume, VolumeControl
 __all__ = [
     "Channels",
     "Funestra",
+    "PanelSurface",
     "User",
+    "UsersPicture",
 ]
 
 logger = logging.getLogger(__name__)
