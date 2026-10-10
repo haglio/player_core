@@ -7,10 +7,11 @@ from funestra_core.timeline import TIMELINE_HEIGHT
 from funestra_core.volume import (
     CHIP_H,
     CHIP_W,
-    MARGIN,
+    PAD,
     ROW_H,
     SLOT_W,
     SPEAKER_W,
+    TRACK_GAP,
     VolumeHud,
     VolumeHudPainter,
     chip_local,
@@ -28,15 +29,21 @@ class TestPlacement:
         tl = 40
         x, y = chip_xy(win_w=1200, win_h=900, timeline_h=tl)
 
-        assert x + CHIP_W <= 1200                    # fully on-screen
-        assert 1200 - (x + CHIP_W) <= MARGIN         # hard against the right edge
+        assert x + CHIP_W == 1200                    # flush with the right edge
         assert 900 - tl <= y and y + CHIP_H <= 900   # within the timeline row's band
 
     def test_the_slot_it_reserves_covers_the_chip_and_its_margins(self):
         """The scrubber subtracts SLOT_W to clear the chip, so the slot has to be
         at least the chip plus the gap it sits in — otherwise the track runs under
         it."""
-        assert SLOT_W >= CHIP_W + MARGIN
+        assert SLOT_W == CHIP_W + TRACK_GAP
+
+    def test_it_is_as_narrow_as_a_mute_and_a_slider_need(self):
+        """The row's track is what needs the room, so the chip takes little of
+        it: a speaker to press, and a slider still wide enough to set the
+        level by a few per pixel."""
+        assert CHIP_W <= 64
+        assert CHIP_W - SPEAKER_W - PAD >= 32
 
     def test_a_window_narrower_than_the_chip_still_places_it(self):
         """Clamped rather than pushed off the left edge, so it stays clickable."""
@@ -151,10 +158,12 @@ class TestPainter:
         assert painter.bgra(VolumeHud(volume=50)) is painter.bgra(VolumeHud(volume=50))
 
     def test_a_changed_level_is_repainted(self):
+        """A slider this narrow draws a few levels on one pixel, so the fill
+        is seen to move over a handful of them."""
         painter = VolumeHudPainter()
 
         assert not np.array_equal(
-            painter.bgra(VolumeHud(volume=50)), painter.bgra(VolumeHud(volume=51)))
+            painter.bgra(VolumeHud(volume=50)), painter.bgra(VolumeHud(volume=55)))
 
     def test_the_pygame_shape_is_the_same_chip_the_mpv_one_is(self):
         """The Main Funestra composites an mpv overlay and Genau blits a pygame surface, so the

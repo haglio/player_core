@@ -212,10 +212,11 @@ class TestAScriptedItemsStrip:
         strip.update("v.mp4", _funscript(), 4000.0, track_w=x1 - x0)
         return timeline_bgra(strip, 2000, (1000, 3000), win_w), x0, x1
 
-    def test_the_strip_is_inset_from_the_window_edges(self):
+    def test_the_strip_runs_from_the_rows_edge_to_the_chips_slot(self):
         bgra, x0, x1 = self._framed_strip()
         my = bgra.shape[0] // 2
-        assert bgra[my, 5, 3] == 0 and bgra[my, bgra.shape[1] - 5, 3] == 0
+        assert x0 == 0 and bgra[my, 1, 3] > 0
+        assert bgra[my, x1 + 2, 3] == 0 and bgra[my, bgra.shape[1] - 5, 3] == 0
         assert bgra[my, (x0 + x1) // 2, 3] > 0
 
     def test_it_has_a_two_tone_border(self):

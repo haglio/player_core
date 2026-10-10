@@ -35,7 +35,6 @@ AMBER = (235, 180, 60, 245)
 
 # The timeline — heatmap strip or plain bar — is drawn as one shared frame: an
 # inset, floated, bordered track with full-height marks.
-BAR_INSET_X = 40     # a row with nothing before its track: the start clears the left edge
 BAR_INSET_Y = 3      # upper/lower margin so the timeline floats off the edge
 BAR_FILL = (34, 34, 38, 165)       # dark translucent fill (plain bar only)
 BAR_BORDER = (215, 215, 220, 235)  # light inner border (reads on the dark fill)
@@ -49,15 +48,16 @@ MARK_W = 4                      # prominent loop in/out and record marks
 TIMELINE_HEIGHT = 24  # lower strip height when not recording
 
 
-def bar_track_x(width: int, *, left: int = BAR_INSET_X) -> tuple[int, int]:
-    """Left/right pixel bounds of the inset timeline track.
+def bar_track_x(width: int, *, left: int = 0) -> tuple[int, int]:
+    """Left/right pixel bounds of the timeline track.
 
     The start is *left*, where whatever the row lays out before the track
-    ends; the end stops short of the volume control that shares the row, the
-    way VLC's seek bar stopped clear of its slider —
-    :data:`funestra_core.volume.SLOT_W` is the room it leaves.  Clamped so the
-    track never inverts on a very narrow window.  The heatmap strip, the plain
-    bar and click-to-seek all use this, so they agree on where the track ends.
+    ends -- the row's own edge when nothing does; the end stops short of the
+    volume control that shares the row, the way VLC's seek bar stopped clear of
+    its slider — :data:`funestra_core.volume.SLOT_W` is the room it leaves.
+    Clamped so the track never inverts on a very narrow window.  The heatmap
+    strip, the plain bar and click-to-seek all use this, so they agree on where
+    the track ends.
     """
     inset = min(left, max(0, width // 2 - 1))
     return inset, max(inset + 1, width - _VOLUME_SLOT_W)

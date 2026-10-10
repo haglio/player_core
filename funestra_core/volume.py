@@ -26,16 +26,14 @@ from shared_ui.palette import TEXT_MUTED, TEXT_PRIMARY
 
 from funestra_core.hud_panel import KeptBitmap, pill
 
-__all__ = [
-    "MARGIN",
-]
+__all__: list[str] = []  # package-internal: the row hosts the chip
 
-# The chip: a speaker at the left end, a slider filling the rest.  Sized for the
-# corner of a video rather than for a mouse-heavy toolbar — big enough to hit,
-# small enough to ignore.
-CHIP_W = 112
+# The chip: a speaker at the left end, a slider filling the rest.  As narrow as
+# the two need -- the row's track is what the room is for -- while the slider
+# still sets the level by a few per pixel.
+CHIP_W = 64
 CHIP_H = 22
-MARGIN = 10          # inset from the window's right edge and from the track
+TRACK_GAP = 6        # between the row's track and the chip
 SPEAKER_W = 26       # the left end that toggles the mute
 PAD = 6
 TRACK_H = 4
@@ -44,10 +42,10 @@ MIN_VOLUME = 0
 MAX_VOLUME = 100
 
 # The room the control reserves at the right end of the timeline row, so the
-# scrubber's track stops clear of it — a margin from the window edge, the chip,
-# and a margin's gap back to the track.  ``funestra_core.timeline.bar_track_x``
-# subtracts it, so the two agree on where the track ends and the chip begins.
-SLOT_W = MARGIN + CHIP_W + MARGIN
+# scrubber's track stops clear of it: the chip, flush with the row's end, and
+# the gap back to the track.  ``funestra_core.timeline.bar_track_x`` subtracts
+# it, so the two agree on where the track ends and the chip begins.
+SLOT_W = TRACK_GAP + CHIP_W
 
 # The row the chip is centered in when the Funestra under it draws no scrubber: the
 # height the scrubber would have had, ``funestra_core.timeline.TIMELINE_HEIGHT``.
@@ -57,13 +55,13 @@ ROW_H = 24
 
 
 def chip_xy(*, win_w: int, win_h: int, timeline_h: int) -> tuple[int, int]:
-    """The chip's top-left: the right end of the timeline row, centered in its height.
+    """The chip's top-left: flush with the right end of the timeline row,
+    centered in its height.
 
     Beside the scrubber, the way VLC laid the seek bar and the volume out
     together, rather than floating in a row of its own above it.  The track leaves
     ``SLOT_W`` clear on the right for it.  Clamped at the left and the top so a
-    window smaller than the chip shrinks the margin instead of pushing it off
-    screen.
+    window smaller than the chip keeps it on screen.
 
     A Funestra with no scrubber passes ``timeline_h=0`` and is centered in
     :data:`ROW_H` regardless, so its chip lands exactly where a Funestra with the
@@ -71,7 +69,7 @@ def chip_xy(*, win_w: int, win_h: int, timeline_h: int) -> tuple[int, int]:
     """
     row_h = timeline_h if timeline_h > 0 else ROW_H
     return (
-        max(0, win_w - MARGIN - CHIP_W),
+        max(0, win_w - CHIP_W),
         max(0, win_h - row_h + max(0, (row_h - CHIP_H) // 2)),
     )
 

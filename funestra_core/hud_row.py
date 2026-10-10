@@ -8,9 +8,12 @@ instead.  Everything else has the same defect in slower form: a row over the
 picture is a second panel, on a screen that already carries one.
 
 So the row is a block a panel hosts, the way the device line and the drive
-readout are: one line, laid out from what is on it -- the time, a flick's dial
-and its frame count, the track, and the chip at the right end -- against the
-block's own width rather than the window's.
+readout are: one line, laid out from what is on it against the block's own
+width rather than the window's.  The track is what the room is for -- the
+heatmap and a seek need it wide -- so everything else takes only what it
+must: a video's readout at the left end; a flick's dial with its frame count,
+then its time, each readout against the control it reads out; the chip flush
+with the right end.
 """
 from __future__ import annotations
 
@@ -21,11 +24,9 @@ from PIL import Image
 
 from .loop_dial import DIAL_SIZE, LoopDialPainter, on_dial, turn_at
 from .playhead import PlayheadHud, PlayheadHudPainter, flick_playhead, readout_width
-from .timeline import BAR_INSET_X, TIMELINE_HEIGHT, bar_track_x, progress_bar_bgra
+from .timeline import TIMELINE_HEIGHT, bar_track_x, progress_bar_bgra
 from .volume import (
     CHIP_H,
-    MARGIN,
-    PAD,
     SLOT_W,
     VolumeHud,
     VolumeHudPainter,
@@ -51,6 +52,10 @@ _CHIP_PARTS = {"mute": MUTE, "track": VOLUME}
 ROW_H = TIMELINE_HEIGHT
 # The readout, the dial and the chip are as tall as each other, centered in the row.
 PARTS_Y = (ROW_H - CHIP_H) // 2
+# Between a readout and the control it reads out, and between the dial's pair
+# and the time's.
+GAP = 4
+GROUP_GAP = 10
 
 # The least track worth pressing.  Narrower than this the chip is pushed over
 # the track and the row is one control on top of another, so the panel widens
@@ -82,7 +87,7 @@ class RowHud:
 @dataclass(frozen=True)
 class RowLayout:
     """Where the row lies in its panel, and where each part lands across it,
-    left to right: the time, a flick's dial and its frame count, the track,
+    left to right: a flick's dial and its frame count, the time, the track,
     and the chip."""
 
     rect: tuple[int, int, int, int]
@@ -109,23 +114,22 @@ def _frame_count(row: RowHud) -> PlayheadHud | None:
 
 def _before_the_track(row: RowHud) -> tuple[tuple[int, int] | None, int | None,
                                            tuple[int, int] | None, int]:
-    """The time's place, the dial's and the frame count's, and where the
-    track starts after them: each a margin in, and a pad apart from the dial."""
-    x = MARGIN
+    """The dial's place and its frame count's, the time's, and where the track
+    starts after them, from the row's own left edge."""
+    x = 0
     readout = dial = frame = None
     count = _frame_count(row)
+    if count is not None:
+        dial = x
+        x += DIAL_SIZE + GAP
+        width = readout_width(count)
+        frame = (x, width)
+        x += width + GROUP_GAP
     if row.playhead is not None:
         width = readout_width(row.playhead)
         readout = (x, width)
-        x += width + (PAD if row.loop is not None else MARGIN)
-    if row.loop is not None:
-        dial = x
-        x += DIAL_SIZE + (PAD if count is not None else MARGIN)
-    if count is not None:
-        width = readout_width(count)
-        frame = (x, width)
-        x += width + MARGIN
-    return readout, dial, frame, x if (readout or dial is not None) else BAR_INSET_X
+        x += width + GAP
+    return readout, dial, frame, x
 
 
 def row_layout(row: RowHud, *, rect: tuple[int, int, int, int]) -> RowLayout:

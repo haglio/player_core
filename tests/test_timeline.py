@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from funestra_core.timeline import (
-    BAR_INSET_X,
     BAR_INSET_Y,
     HEATMAP_ALPHA,
     bar_track_x,
@@ -22,28 +21,26 @@ class TestBarTrackX:
         assert bar_track_x(1000)[1] == 1000 - SLOT_W
 
     def test_the_track_starts_where_the_row_laying_it_out_says(self):
-        """After whatever the row puts before it: its readout, a clip's dial."""
+        """After whatever the row puts before it: its readout, a flick's dial."""
         assert bar_track_x(1920, left=183) == (183, 1920 - SLOT_W)
 
-    def test_a_row_with_nothing_before_the_track_starts_it_a_little_in(self):
-        assert bar_track_x(326) == (BAR_INSET_X, 326 - SLOT_W)
+    def test_a_row_with_nothing_before_the_track_starts_it_at_the_edge(self):
+        assert bar_track_x(326) == (0, 326 - SLOT_W)
 
     def test_clamps_so_the_track_never_inverts_on_a_narrow_window(self):
-        for left in (BAR_INSET_X, 100):
+        for left in (0, 100):
             x0, x1 = bar_track_x(50, left=left)
             assert 0 <= x0 < x1 <= 50
 
 
 class TestProgressBar:
-    def test_track_is_inset_with_transparent_margins(self):
+    def test_the_track_runs_from_the_rows_edge_and_leaves_the_chips_slot_clear(self):
         bar = progress_bar_bgra(0, 10_000, None, 1000)
         x0, x1 = bar_track_x(1000)
         my = bar.shape[0] // 2
-        # Nothing is drawn out at the window's side edges...
-        assert bar[my, 5, 3] == 0
-        assert bar[my, 995, 3] == 0
-        # ...but the track interior is painted.
-        assert bar[my, (x0 + x1) // 2, 3] > 0
+
+        assert bar[my, 1, 3] > 0 and bar[my, (x0 + x1) // 2, 3] > 0
+        assert bar[my, x1 + 2, 3] == 0 and bar[my, 995, 3] == 0
 
     def test_has_a_two_tone_border_around_the_track(self):
         bar = progress_bar_bgra(0, 10_000, None, 1000)
