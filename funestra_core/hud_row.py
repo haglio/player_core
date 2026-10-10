@@ -91,6 +91,13 @@ class RowHud:
     loop: tuple[int, int] | None = None
 
 
+# The widest rows a panel carries, each with the longest readouts it is held for.
+_WIDEST_ROWS = (
+    RowHud(playhead=video_playhead(599_000, 599_000, 0.0), loop=(0, 999)),
+    RowHud(playhead=_HELD_VIDEO_READOUT),
+)
+
+
 @dataclass(frozen=True)
 class RowLayout:
     """Where the row lies in its panel, and where each part lands across it,
@@ -164,6 +171,11 @@ class RowSection:
         track no shorter than everything else on the line, since the heatmap
         and a seek are what the row is for."""
         return 2 * (_before_the_track(row, held=True)[3] + SLOT_W)
+
+    @staticmethod
+    def least_width_for_any_row() -> int:
+        """The narrowest panel every row a panel can carry fits in."""
+        return max(RowSection.least_width(row) for row in _WIDEST_ROWS)
 
     def draw(self, image: Image.Image, layout: RowLayout, row: RowHud,
              *, heatmap: np.ndarray | None = None) -> None:
