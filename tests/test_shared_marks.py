@@ -1,6 +1,6 @@
 """The HUD wears the family's marks, not lookalikes of them.
 
-A HUD is painted into the video frame with Pillow and there is no Qt in a player
+A HUD is painted into the video frame with Pillow and there is no Qt in a Funestra
 process, so for a long time every mark here was whatever a symbol font happened
 to carry, or something hand-drawn on the spot.  The bin on this console had
 nothing to do with the bin on Origenerator's toolbar.  Both sides now render one

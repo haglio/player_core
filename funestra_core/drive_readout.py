@@ -133,7 +133,7 @@ class DriveHud:
     samples the device is being sent, so the trace is the thing itself rather than a
     picture of it — spanning ``trace_seconds`` from now.  Whoever is driving
     supplies them: the Robot Hand's motion while it runs, the funscript's shape
-    while a funscript has the device (the main player samples that; Genau cannot see it), and
+    while a funscript has the device (the Main Funestra samples that; Genau cannot see it), and
     the last shape drawn, held still, while nothing is being sent at all.  The
     ``*_at_max`` / ``*_at_min`` flags say which controls have run out of range,
     so the readout can dim the mark that would do nothing.  Frozen and compared
@@ -156,7 +156,7 @@ class DriveHud:
     driven: str = DRIVEN_BY_ROBOT_HAND
     # How much time the trace spans, so a funscript sampled for it lines up with
     # the motion it replaces.  Genau owns the number (it follows its own beats
-    # per loop) and publishes it; a player with no Genau to ask keeps the default.
+    # per loop) and publishes it; a Funestra with no Genau to ask keeps the default.
     trace_seconds: float = 12.0
     spd_at_max: bool = False
     spd_at_min: bool = False
@@ -525,9 +525,9 @@ class DriveSection:
 
 
 # --- publishing --------------------------------------------------------------
-# In kino mode the readout is drawn by the main player, inside its console, under the
+# In kino mode the readout is drawn by the Main Funestra, inside its console, under the
 # controls that move it — so Genau stops drawing and starts saying.  A file, like every
-# other channel between these players: the reader polls per frame, and a torn or
+# other channel between these Funestras: the reader polls per frame, and a torn or
 # missing read simply means "keep the readout you have".
 
 _SCALARS = ("speed", "amplitude", "center", "position", "advance_interval")
@@ -555,7 +555,7 @@ def drive_text(hud: DriveHud) -> str:
 
 
 def publish_drive(path: Path, hud: DriveHud) -> bool:
-    """Write the readout whole, so a player polling it never reads it half-drawn."""
+    """Write the readout whole, so a Funestra polling it never reads it half-drawn."""
     return publish_whole(path, drive_text(hud))
 
 

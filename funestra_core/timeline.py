@@ -1,8 +1,8 @@
-"""The scrubber every player in this family draws along the lower edge of its video.
+"""The scrubber every Funestra in this family draws along the lower edge of its video.
 
 An inset, floated, bordered track with a full-height playcursor and loop/record
 marks, filled with the colors of the video's funscript where it has one and
-with a dark translucent fill where it has none.  Every player draws it, in
+with a dark translucent fill where it has none.  Every Funestra draws it, in
 separate processes and separate repos, so the whole of it lives here.
 
 The track stops short of the volume chip that shares its row — ``bar_track_x``
@@ -97,7 +97,7 @@ def draw_border(bgra, x0, x1, y0, y1, bw, color):
 
 
 def _paint_mark(bgra, x_center, mark_w, y0, y1, color, *, x_lo, x_hi):
-    """Paint a ``mark_w``-wide vertical bar centred on ``x_center``, kept
+    """Paint a ``mark_w``-wide vertical bar centered on ``x_center``, kept
     within [x_lo, x_hi]."""
     left = max(x_lo, x_center - mark_w // 2)
     right = min(x_hi, left + mark_w)

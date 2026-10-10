@@ -28,7 +28,7 @@ VERBS = bind((
 
 def test_the_keyword_is_folded_and_the_value_is_left_as_it_came():
     """A path is the one value in this family whose case is load-bearing, and
-    every player's ``PLAY_FILE`` carries one: the main player kept a lookup of
+    every Funestra's ``PLAY_FILE`` carries one: the Main Funestra kept a lookup of
     its own for exactly this, because the shared one folded the whole line."""
     controls = _Controls()
 

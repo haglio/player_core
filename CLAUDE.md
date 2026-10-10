@@ -30,7 +30,7 @@ install -- so a worktree of this repo needs nothing copied in. A checkout's own
 - **Never put that copy under `AppData`.** Every agent's shell runs inside a
   packaged app whose `AppData\Local`, `Roaming` and `LocalLow` are private to it,
   so a DLL fetched there is found by every suite and by nothing the user
-  launches. That is how his Fun Time previews came up with dead players from
+  launches. That is how his Fun Time previews came up with dead Funestras from
   2026-09-22 to 09-26.
 - A worktree of this repo from before 2026-09-26 still looks under `AppData`, so
   a Fun Time session pinning one gets the DLL copied into its `vendor/` at launch.
@@ -41,17 +41,17 @@ install -- so a worktree of this repo needs nothing copied in. A checkout's own
   sibling apps — whichever two — import it. Until then it stays with the app that
   owns it — a "core" that accumulates one app's code is the coupling this repo
   exists to undo. Genau's engine moved in whole on 2026-09-04 ahead of its second
-  consumer (fun_time's VR player, item 52), so its modules are the standing
+  consumer (Fun Time's headset, item 52), so its modules are the standing
   exception until that lands.
 - **Every module declares its API in `__all__`** — the names the siblings may
   import, and an empty list for a package-internal module. Nothing else a
   module defines is a contract, however public its spelling, so a helper the
   package shares between its own modules needs no leading underscore to say it
   is not the family's.
-- **No app knows another app exists.** Nothing here may import `main_player`, `genau`,
+- **No app knows another app exists.** Nothing here may import `main_funestra`, `genau`,
   `satellite` or `fun_time`, and nothing here may be shaped around one caller's
   needs. `StatusWriter` takes a `fields` callable rather than hardcoding either
-  player's keys for exactly this reason.
+  Funestra's keys for exactly this reason.
 
 - **A Player is a Funestra, and what ran on a Player runs on a Funestra.** A
   Funestra is a window of Fun Time (`funestra.Funestra`): it plays what it is
@@ -62,7 +62,11 @@ install -- so a worktree of this repo needs nothing copied in. A checkout's own
   a Funestra under a Player -- and so is the opposite over-correction, that
   nothing runs on a Player; he has had to correct both. The near miss that
   still counts: "the satellites run on a Funestra" -- the satellite program is
-  the window, so each satellite is a Funestra, and Kino runs on it.
+  the window, so each satellite is a Funestra, and Kino runs on it. The code
+  says so too since 2026-10-10: the package is `funestra_core`, and the mpv
+  object a Funestra plays through is its engine (`MpvEngine`), never a player.
+  `player_core` and the other old names answer only for branches written
+  before then (`player_core/__init__.py`, `funestra_core/renamed.py`).
 
 ## Changing this repo changes three apps
 
@@ -74,7 +78,7 @@ install -- so a worktree of this repo needs nothing copied in. A checkout's own
   editable_mode=compat`), and reinstall the app afterwards to put its pin back.
 - **Run all three suites before merging**: this one, genau's unit suite, and
   fun_time's unit *and* hidden-desktop integration suites (the last is what
-  actually launches `MpvPlayer` against the real DLL).
+  actually launches `MpvEngine` against the real DLL).
 - **No vulture scan here, on purpose — the gate reads the consumers instead.**
   Every caller of this package lives in another repo, so vulture flags the entire
   public API and the whitelist needed to silence it would just restate that API:
@@ -95,7 +99,7 @@ install -- so a worktree of this repo needs nothing copied in. A checkout's own
 
 ## libmpv changes: mandatory pre-flight
 
-`MpvPlayer` is the one place this family touches libmpv. Before modifying any
+`MpvEngine` is the one place this family touches libmpv. Before modifying any
 mpv property or command, state the mechanism (why the approach works, citing the
 specific mpv behavior), verify it rather than guessing, and name which of the
 three apps' run loops the change touches. If you cannot, stop and say so — do

@@ -78,7 +78,7 @@ class HandoffGlide:
         """Take the device: glide onto whatever this driver sends next.
 
         The clock starts on that first command rather than here, because a
-        driver can be handed the device well before it has anything to say — the main player
+        driver can be handed the device well before it has anything to say — the Main Funestra
         is told to drive at a handoff and sends nothing until the playhead
         reaches its next waypoint — and a glide that had already run out by then
         would smooth nothing.
@@ -121,7 +121,7 @@ class UdpTCodeSink:
         """Put one command on the wire; a sink that has been closed sends nothing.
 
         Closing while another thread is still driving is the ordinary shape of
-        shutdown here — Fun Time's VR player closes its main role from the
+        shutdown here — Fun Time's VR Funestra closes its main role from the
         render thread while the file-channel worker is still ticking it — and a
         raise there kills that worker mid-teardown (WSAENOTSOCK, observed).
         Silence is the honest answer either way: a datagram sent where nobody

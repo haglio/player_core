@@ -82,7 +82,7 @@ class TestThePill:
         assert not np.array_equal(early, later)
 
     def test_a_readout_that_has_not_moved_is_not_repainted(self):
-        """Asked for on every frame a player paints; a paused video's readout
+        """Asked for on every frame a Funestra paints; a paused video's readout
         holds still for as long as the pause does."""
         painter = PlayheadHudPainter()
         hud = video_playhead(1_000.0, 195_000.0, 30.0)

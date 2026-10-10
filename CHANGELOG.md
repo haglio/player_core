@@ -6,8 +6,32 @@ name, when they move a number the family is measured by, and when they turn up a
 defect that is being left alone rather than fixed.
 
 The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
-`player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
+`funestra_core/` (until 2026-10-10 `player_core/`) and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
+
+## 2026-10-10 — the Player is the Funestra, and the mpv object inside one is its engine
+
+The Player became the Funestra on 2026-10-07, and the code now says so. The
+package is `funestra_core`. The mpv object a Funestra plays through is its
+engine, the word Fun Time's startup alert already uses: `mpv_player.MpvPlayer`
+is `mpv_engine.MpvEngine`, `render_player.MpvRenderPlayer` is
+`render_engine.MpvRenderEngine`, and `Playback`, `HudOverlay` and the rest take
+`engine`. The verbs are `funestra_verbs`, the record every status file leads
+with is `status.FunestraStatus`, a panel names its Funestra in
+`HudModel.funestra` and `ConsoleModel.funestra` (published under `funestra`
+beside the old `player` key), and `console.kino_shows` is what
+`main_player_displays` was. The prose says Funestra where it meant one, and
+Kino where it meant the Main Funestra's video.
+
+Nothing from before the rename stops working yet, the same way the flicks
+rename set out: `player_core` is a package whose finder hands back the very
+module `funestra_core` holds for each old dotted name, `mpv_player`,
+`render_player` and `player_verbs` forward their old names, `status` answers to
+`PlayerStatus`, and `Playback`, `HudOverlay`, `HudModel` and `ConsoleModel` take
+`player=` and answer to `.player`. `answers_to_old_names` now lets an old
+keyword win over the new one beside it, which is what `dataclasses.replace`
+hands it. `tests/test_old_names.py` and `tests/test_renamed.py` hold each of
+them. The distribution and the repository keep the name player_core for now.
 
 ## 2026-10-09 — the minus sits where the plus does
 

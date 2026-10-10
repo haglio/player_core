@@ -1,9 +1,9 @@
-"""A button a content source declares on a player's HUD.
+"""A button a content source declares on a Funestra's HUD.
 
 The source says what each button posts, what face it wears and what state it is
-in; the player lays the buttons out, draws them and posts the declared verb.
+in; the Funestra lays the buttons out, draws them and posts the declared verb.
 The record and its published form live together so a source in another
-process (Fun Time, writing the HUD files) and one in the player's own (a hosted
+process (Fun Time, writing the HUD files) and one in the Funestra's own (a hosted
 Origenerator) spell a button the same way.
 """
 from __future__ import annotations

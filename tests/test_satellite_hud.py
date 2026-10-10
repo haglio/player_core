@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 
-from satellite_rows import band, player_rows
+from satellite_rows import band, funestra_rows
 from shared_ui.icon_geometry import GLYPHS, tooltip_for
 from shared_ui.spacing import BUTTON_GAP, BUTTON_GROUP_GAP
 
@@ -75,14 +75,14 @@ def test_the_panel_is_as_wide_as_its_map_or_its_file_name_whichever_asks_for_mor
 def test_parse_hud_reads_whether_this_side_has_the_floor():
     """Absent means idle: a satellite reading a panel written before the flag
     existed must not light its dot on a missing key."""
-    assert parse_hud(json.dumps({"player": "portrait", "active": True})).active is True
-    assert parse_hud(json.dumps({"player": "portrait", "active": False})).active is False
-    assert parse_hud(json.dumps({"player": "portrait"})).active is False
+    assert parse_hud(json.dumps({"funestra": "portrait", "active": True})).active is True
+    assert parse_hud(json.dumps({"funestra": "portrait", "active": False})).active is False
+    assert parse_hud(json.dumps({"funestra": "portrait"})).active is False
 
 
 def test_parse_hud_reads_the_panel_fun_time_published():
     text = json.dumps({
-        "player": "portrait",
+        "funestra": "portrait",
         "locked": True,
         "lock_label": "Locked · Shuffle · alpha",
         "active_loop": "seed",
@@ -96,7 +96,7 @@ def test_parse_hud_reads_the_panel_fun_time_published():
     model = parse_hud(text)
 
     assert model is not None
-    assert model.player == "portrait"
+    assert model.funestra == "portrait"
     assert model.locked is True
     assert model.lock_label == "Locked · Shuffle · alpha"
     assert model.active_loop == "seed"
@@ -109,15 +109,15 @@ def test_parse_hud_reads_the_panel_fun_time_published():
 
 def test_parse_hud_reads_whether_the_clip_is_a_favorite():
     """What the dashboard's panel said by turning green — now a mark on the HUD,
-    so it is read off the player showing the clip rather than off a schematic."""
-    assert parse_hud(json.dumps({"player": "portrait", "is_favorite": True})).is_favorite is True
-    assert parse_hud(json.dumps({"player": "portrait"})).is_favorite is False
+    so it is read off the Funestra showing the clip rather than off a schematic."""
+    assert parse_hud(json.dumps({"funestra": "portrait", "is_favorite": True})).is_favorite is True
+    assert parse_hud(json.dumps({"funestra": "portrait"})).is_favorite is False
 
 
 def test_parse_hud_defaults_an_empty_panel():
     """A satellite with nothing to map (no clip yet) still parses — it simply has
     no corner, so nothing is drawn."""
-    model = parse_hud(json.dumps({"player": "landscape", "locked": False, "lock_label": "Unlocked"}))
+    model = parse_hud(json.dumps({"funestra": "landscape", "locked": False, "lock_label": "Unlocked"}))
 
     assert model is not None
     assert model.corner is None
@@ -127,9 +127,9 @@ def test_parse_hud_defaults_an_empty_panel():
 
 
 def test_parse_hud_rejects_garbage():
-    """A half-written file (fun_time writes it while the player reads) must not
-    crash the player — it just keeps the HUD it already had."""
-    assert parse_hud('{"player": "portrait"') is None
+    """A half-written file (fun_time writes it while the Funestra reads) must not
+    crash the Funestra — it just keeps the HUD it already had."""
+    assert parse_hud('{"funestra": "portrait"') is None
     assert parse_hud("") is None
 
 
@@ -608,13 +608,13 @@ def test_clicking_a_declared_button_posts_what_it_declares():
     """Each button posts exactly the verb its source gave it — "portrait_prev",
     "landscape_trash" — so the dispatch loop needs no new verbs for a button,
     only for the thing it does."""
-    for player in ("portrait", "landscape"):
-        targets = _targets(buttons=_squares(0, 0, band(player)))
+    for funestra in ("portrait", "landscape"):
+        targets = _targets(buttons=_squares(0, 0, band(funestra)))
 
         for rect, button in targets.buttons:
-            assert HudClicks(player).press(
+            assert HudClicks(funestra).press(
                 targets, rect[0] + 5, rect[1] + 5, now=0.0) == button.command
-            assert button.command.startswith(f"{player}_")
+            assert button.command.startswith(f"{funestra}_")
 
 
 def test_a_dimmed_button_posts_nothing_but_the_press_stays_on_the_panel():
@@ -679,23 +679,23 @@ def test_pressing_the_filter_button_of_a_two_word_action_slugs_it():
     assert clicks.press(targets, 5, 5, now=0.0) == "filter_landscape_beta_gamma"
 
 
-def test_a_player_less_command_is_posted_verbatim():
+def test_a_funestra_less_command_is_posted_verbatim():
     """The mode pair's commands belong to the whole satellite side, so they
-    carry no player of their own and none is added."""
-    mode_pair = player_rows(mode="kino")[0]
+    carry no Funestra of their own and none is added."""
+    mode_pair = funestra_rows(mode="kino")[0]
     targets = _targets(buttons=button_row_rects(0, 0, mode_pair, [60, 90, CTRL_BTN]))
 
     assert HudClicks("portrait").press(targets, 65, 5, now=0.0) == "origenerator_activate"
 
 
 class TestThePublishedPanelIsWrittenWhereItIsRead:
-    """A source publishes a HudModel as text and the player parses it back; the
+    """A source publishes a HudModel as text and the Funestra parses it back; the
     keys are spelled once, here, rather than by the writer in one repo and the
     reader in another."""
 
     def test_every_field_survives_the_round_trip(self):
         model = HudModel(
-            player="landscape", locked=True, lock_label="Looping seeds · Locked · Latest",
+            funestra="landscape", locked=True, lock_label="Looping seeds · Locked · Latest",
             active=True, is_favorite=True,
             corner=HudCell(path="C:/v/cur.mp4", thumb="C:/t/cur.jpg"),
             seeds=(HudCell(path="C:/v/s1.mp4", thumb="C:/t/s1.jpg"),
@@ -712,9 +712,9 @@ class TestThePublishedPanelIsWrittenWhereItIsRead:
 
         assert parse_hud(hud_text(model)) == model
 
-    def test_the_osr2_section_a_source_hands_this_player_survives_the_round_trip(self):
+    def test_the_osr2_section_a_source_hands_this_funestra_survives_the_round_trip(self):
         model = HudModel(
-            player="portrait", osr2=Osr2State.ROBOT_HAND, osr2_control=OSR2_PARKED,
+            funestra="portrait", osr2=Osr2State.ROBOT_HAND, osr2_control=OSR2_PARKED,
             osr2_rows=((Button("robot_hand_park", "\x00park", "Park", lit=True),
                         Button("robot_hand_release", "\x00release", "Drive")),),
             osr2_controls=(Button("broker_panel", "\x00broker", "Broker", warn=True),),
@@ -722,33 +722,33 @@ class TestThePublishedPanelIsWrittenWhereItIsRead:
 
         assert parse_hud(hud_text(model)) == model
 
-    def test_the_max_intensity_a_source_hands_this_player_survives_it_too(self):
-        model = HudModel(player="portrait", osr2=Osr2State.ROBOT_HAND, max_intensity=35)
+    def test_the_max_intensity_a_source_hands_this_funestra_survives_it_too(self):
+        model = HudModel(funestra="portrait", osr2=Osr2State.ROBOT_HAND, max_intensity=35)
 
         assert parse_hud(hud_text(model)) == model
 
     def test_a_key_the_panel_no_longer_carries_is_passed_over(self):
-        """The switches a player's band was once lit from still come from a
+        """The switches a Funestra's band was once lit from still come from a
         publisher on an older release; the panel reads the same without them."""
         parsed = parse_hud(json.dumps({
-            "player": "portrait", "favorites_filter": True, "latest": False,
+            "funestra": "portrait", "favorites_filter": True, "latest": False,
             "enhanced_filter": True, "satellites_mode": "video"}))
 
-        assert parsed == HudModel(player="portrait")
+        assert parsed == HudModel(funestra="portrait")
 
     def test_a_panel_with_no_clip_yet_round_trips_empty(self):
-        parsed = parse_hud(hud_text(HudModel(player="portrait")))
+        parsed = parse_hud(hud_text(HudModel(funestra="portrait")))
 
         assert parsed.corner is None
         assert parsed.seeds == () and parsed.actions == ()
         assert parsed.playing == ("corner", 0)
 
-    def test_the_text_is_the_json_a_player_already_reads(self):
+    def test_the_text_is_the_json_a_funestra_already_reads(self):
         """A cell with nothing in its label carries no label key, and the playing
         cell is a two-element list, exactly as the panel was published before the
-        writer moved here -- a player on either side of the move reads it."""
+        writer moved here -- a Funestra on either side of the move reads it."""
         raw = json.loads(hud_text(HudModel(
-            player="portrait", corner=HudCell(path="C:/v/cur.mp4"),
+            funestra="portrait", corner=HudCell(path="C:/v/cur.mp4"),
             actions=(HudCell(path="C:/v/a1.mp4", label="gamma"),), playing=("action", 0))))
 
         assert raw["corner"] == {"path": "C:/v/cur.mp4", "thumb": ""}
@@ -758,7 +758,7 @@ class TestThePublishedPanelIsWrittenWhereItIsRead:
 
 def test_the_published_panel_carries_where_it_sits_and_whether_it_is_minimized():
     read_back = parse_hud(hud_text(HudModel(
-        player="landscape", hud_corner=HudCorner.LOWER_RIGHT, hud_edge=HudEdge.RIGHT,
+        funestra="landscape", hud_corner=HudCorner.LOWER_RIGHT, hud_edge=HudEdge.RIGHT,
         hud_minimized=True)))
 
     assert read_back.hud_corner is HudCorner.LOWER_RIGHT
@@ -767,7 +767,7 @@ def test_the_published_panel_carries_where_it_sits_and_whether_it_is_minimized()
 
 
 def test_a_panel_published_without_a_corner_is_drawn_in_the_upper_left():
-    read_back = parse_hud(json.dumps({"player": "portrait"}))
+    read_back = parse_hud(json.dumps({"funestra": "portrait"}))
 
     assert read_back.hud_corner is HudCorner.UPPER_LEFT
     assert read_back.hud_edge is HudEdge.LOWER

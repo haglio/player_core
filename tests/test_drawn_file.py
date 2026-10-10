@@ -1,4 +1,4 @@
-"""Which file each picture an offscreen player draws shows, across a switch of file.
+"""Which file each picture an offscreen engine draws shows, across a switch of file.
 
 mpv opens the next file while the last one's picture is still up, redraws that
 picture along the way, and may hand over one last frame of it after the switch

@@ -293,7 +293,7 @@ class TestTheStretchesTheMaxIntensityRulesOut:
 
 
 class TestPublishing:
-    """In kino mode the readout is drawn by the main player, so Genau says it instead of drawing it."""
+    """In kino mode the readout is drawn by the Main Funestra, so Genau says it instead of drawing it."""
 
     def test_a_published_readout_reads_back_whole_including_its_limits(self, tmp_path):
         hud = _hud(shape="sawtooth", advance_interval=7,
@@ -325,7 +325,7 @@ class TestPublishing:
 
     def test_the_knot_slide_and_the_edge_go_over_the_wire_too(self, tmp_path):
         """A trace read on knots (the learned motion's) is published with how
-        far the line is shifted and the knot past the border, so the player
+        far the line is shifted and the knot past the border, so the Funestra
         drawing it slides the same stable picture Genau does."""
         path = tmp_path / "genau_drive.txt"
         publish_drive(path, _hud(slide=0.4, edge=0.75))
@@ -593,7 +593,7 @@ class TestRuns:
 
 class TestPublishedSpan:
     def test_the_trace_s_span_travels_with_it(self, tmp_path):
-        """The main player samples a funscript over the same stretch Genau's motion covers,
+        """The Main Funestra samples a funscript over the same stretch Genau's motion covers,
         and has nowhere else to learn what that is — two spans would make a
         handoff look like a jump."""
         path = tmp_path / "genau_drive.txt"

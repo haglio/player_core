@@ -1,6 +1,6 @@
 """What Genau's controls can reach, and every verb that moves one.
 
-Genau -- the family's flick player, whatever window or headset it is drawn in --
+Genau -- on the Main Funestra, whether on the desktop or in the headset --
 is spoken to from two places: a verb in ``genau_cmd.txt`` and a press on the
 console.  Both of them have to be able to move the same
 handful of things: the hand's own state, the cruise stack, the learned motion,
@@ -41,12 +41,7 @@ from .flick_advance import (
     toggle_lock,
 )
 from .flick_flip import FlickFlip
-from .learned_motion import (
-    LearnedMotionState,
-    disable_learned_motion,
-    enable_learned_motion,
-)
-from .player_verbs import (
+from .funestra_verbs import (
     LOCK_OFF,
     LOCK_ON,
     NEXT,
@@ -59,6 +54,11 @@ from .player_verbs import (
     SPEED_DOWN,
     SPEED_UP,
     TOGGLE_LOCK,
+)
+from .learned_motion import (
+    LearnedMotionState,
+    disable_learned_motion,
+    enable_learned_motion,
 )
 from .playlist import item_from_line
 from .renamed import answers_to_old_names
@@ -433,7 +433,7 @@ CONTROLS: tuple[Control, ...] = (
             Verb("LEARNED_OFF", _learned_off),
         ),
     ),
-    # The lock, under the same three verbs the video player answers to, because
+    # The lock, under the same three verbs Kino answers to, because
     # it is the same thing on both: hold what is on screen, or let it move on.
     Control(
         name="lock",
@@ -484,7 +484,7 @@ CONTROLS: tuple[Control, ...] = (
         name="flip_ends",
         verbs=(Verb("FLIP_ENDS", _flip_ends),),
     ),
-    # The two browse orders every player in the room has, said to the one player
+    # The two browse orders every Funestra in the room has, said to Genau, the one
     # with no playlist file to hand it: Genau owns its own sequence, so the order
     # is a verb rather than a rewritten list, and answering it rescans the flicks
     # folder — which is most of what Latest is for.

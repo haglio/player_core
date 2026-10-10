@@ -91,7 +91,7 @@ def move_flick_to_weird(flick_path: Path, weird_dir: Path) -> Path | None:
 
     Returns None when the flick is already gone — two WEIRD verbs can name the
     same flick before the first has finished, and the second must not take the
-    player down with it.
+    Funestra down with it.
     """
     if not flick_path.exists():
         return None

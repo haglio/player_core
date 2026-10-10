@@ -95,7 +95,7 @@ def _marks(panel, height, color) -> list[int]:
 
 
 def test_a_loop_being_played_shows_its_ends_on_the_track():
-    """The row is the lower edge of a player's video, and the player marks a
+    """The row is the lower edge of a Funestra's video, and the Funestra marks a
     loop's in and out there — so the panel does too."""
     section = RowSection()
     width, height = section.size(400)

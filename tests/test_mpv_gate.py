@@ -1,6 +1,6 @@
-"""The lease that stops a player's mpv being freed under a live call.
+"""The lease that stops an engine's mpv being freed under a live call.
 
-The crash this guards is a real one, reproduced on demand: close a player from
+The crash this guards is a real one, reproduced on demand: close an engine from
 one thread while another reads ``time-pos`` and the reader takes an access
 violation inside ``mpv_get_property`` — python-mpv's ``terminate()`` nulls its
 handle before destroying the core, so the read dereferences NULL.  The shutdown
@@ -136,7 +136,7 @@ def test_leases_nest_so_a_guarded_method_may_call_another():
 
 
 class Guarded:
-    """A stand-in player: two decorated calls and the gate they run under."""
+    """A stand-in engine: two decorated calls and the gate they run under."""
 
     def __init__(self) -> None:
         self._gate = CallGate()
@@ -155,7 +155,7 @@ class Guarded:
 def test_a_guarded_call_after_the_close_does_nothing_and_says_so():
     """Losing the shutdown race is the ordinary case, so it returns rather than
     raises: a worker thread raising on its last turn would bury the real reason
-    the session ended under a traceback about a player nobody wants any more."""
+    the session ended under a traceback about an engine nobody wants any more."""
     engine = Guarded()
     assert engine.position_ms() == 42.0
     assert engine._gate.close(timeout=5.0)

@@ -6,9 +6,9 @@ from pathlib import Path
 
 from funestra_fakes import FakeTCode, make_playback
 
-from funestra_core import player_verbs
+from funestra_core import funestra_verbs
 from funestra_core.funestra_controls import VERBS, FunestraControls, apply_command
-from funestra_core.player_verbs import (
+from funestra_core.funestra_verbs import (
     CLEAR_FRAME,
     LOCK_OFF,
     LOCK_ON,
@@ -77,7 +77,7 @@ class TestApplyCommand:
         assert apply_command(PREV, controls) is True
         assert controls.playback.current_video.name == "v0.mp4"
 
-    def test_the_hold_is_named_absolutely_as_every_player_names_it(self, tmp_path):
+    def test_the_hold_is_named_absolutely_as_every_funestra_names_it(self, tmp_path):
         controls = _controls(tmp_path)
         assert apply_command(LOCK_ON, controls) is True
         assert controls.playback.is_locked is True
@@ -119,7 +119,7 @@ class TestApplyCommand:
 
     def test_two_quick_steps_carrying_one_family_both_land(self, tmp_path):
         """Fun Time reads the file on screen off a status file that lags the
-        player, so it sends the family rather than a target: two presses read
+        Funestra, so it sends the family rather than a target: two presses read
         the same status, and a target would have put the same file up twice."""
         controls = _controls(tmp_path)
         clip = controls.playback.current_video
@@ -162,7 +162,7 @@ class TestApplyCommand:
 
     def test_a_value_on_a_verb_that_takes_none_is_refused(self, tmp_path):
         """Half a command is not a command, and neither is one and a half — the
-        same rule the main player and Genau already keep."""
+        same rule the Main Funestra and Genau already keep."""
         controls = _controls(tmp_path)
         assert apply_command(f"{NEXT} 5", controls) is False
         assert controls.playback.current_video.name == "v0.mp4"
@@ -311,4 +311,4 @@ def test_every_verb_a_funestra_answers_is_spelled_in_the_familys_vocabulary():
         SET_PACE, SHOW_FRAME, CLEAR_FRAME, QUIT, SET_TCODE_ENABLED, SET_MAX_INTENSITY,
         SET_VOLUME, SHOW,
     }
-    assert all(getattr(player_verbs, verb) == verb for verb in VERBS)
+    assert all(getattr(funestra_verbs, verb) == verb for verb in VERBS)

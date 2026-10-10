@@ -32,7 +32,7 @@ class TestLoad:
 
     def test_a_script_listing_no_actions_loads_as_one_that_drives_nothing(self, tmp_path):
         """This reader used to raise where its two siblings answered none, so a
-        player had to know whose reader it held before it knew what an empty
+        Funestra had to know whose reader it held before it knew what an empty
         script looked like.  It is a script now, resting the whole way."""
         path = tmp_path / "empty.funscript"
         path.write_text(json.dumps({"version": "1.0"}))
@@ -460,7 +460,7 @@ class TestThePlanAsAPicture:
         assert Funscript(actions=[]).planned_trace_window(0, 1000, 4) == ((), 0.0)
 
     def test_a_span_of_no_time_is_all_park_rather_than_a_division_by_zero(self):
-        """A player stopped dead publishes a span of nothing — the trace's seconds
+        """A Funestra stopped dead publishes a span of nothing — the trace's seconds
         scaled by a playback speed of zero — and asks for a picture of it anyway."""
         assert _gapped().planned_trace_window(0, 0, 3) == ((0.0,) * 4, 0.0)
 

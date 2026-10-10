@@ -12,6 +12,7 @@ from funestra_core.cruise_control import CruiseControlState
 from funestra_core.flag import Flag
 from funestra_core.flick_advance import MAX_INTERVAL_S, MIN_INTERVAL_S, FlickAdvanceState
 from funestra_core.flick_flip import FlickFlip
+from funestra_core.funestra_verbs import SET_MAX_INTENSITY
 from funestra_core.genau_controls import (
     QUARTER_CYCLE_OFFSET_COMMAND,
     GenauControls,
@@ -19,7 +20,6 @@ from funestra_core.genau_controls import (
 )
 from funestra_core.learned_model import LearnedModel
 from funestra_core.learned_motion import LearnedMotionState
-from funestra_core.player_verbs import SET_MAX_INTENSITY
 from funestra_core.robot_hand import RobotHandState, WaveformShape
 from funestra_core.robot_hand_beat import BeatEngine
 
@@ -762,7 +762,7 @@ class TestPlayFileCommand:
 
         assert self._asked(f"PLAY_FILE {flick}") == (True, [flick])
 
-    def test_a_funscript_after_the_flick_is_left_to_the_players_that_drive_by_one(self, tmp_path):
+    def test_a_funscript_after_the_flick_is_left_to_the_funestras_that_drive_by_one(self, tmp_path):
         flick = tmp_path / "scene one.mp4"
         flick.touch()
 
@@ -786,7 +786,7 @@ class TestPlayFileCommand:
 
 
 class TestBrowseOrderCommands:
-    """The two orders every player in the room browses in.  Genau owns its own
+    """The two orders every Funestra in the room browses in.  Genau owns its own
     sequence rather than being handed a playlist file, so the order arrives as a
     verb and the answer is a rescan of the flicks folder."""
 

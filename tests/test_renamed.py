@@ -7,12 +7,15 @@ checkout does; when no checkout does it any more, the test goes with the name.
 """
 from __future__ import annotations
 
+import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 from funestra_fakes import FakeEngine
 
-from funestra_core import flick_folder, mpv_engine, playhead
+from funestra_core import flick_folder, mpv_engine, playhead, status
+from funestra_core.console import ConsoleModel, console_text, parse_console
 from funestra_core.cruise_control import CruiseControlState
 from funestra_core.flag import Flag
 from funestra_core.flick_cache import FlickCacheStore
@@ -26,6 +29,7 @@ from funestra_core.renamed import method_of
 from funestra_core.render_engine import MpvRenderEngine
 from funestra_core.robot_hand import RobotHandState
 from funestra_core.robot_hand_beat import BeatEngine
+from funestra_core.satellite_hud import HudModel, hud_text, parse_hud
 
 
 def test_an_old_module_path_gives_the_renamed_function():
@@ -136,3 +140,42 @@ def test_a_hud_overlay_takes_its_engine_under_the_old_keyword(tmp_path):
                clock=lambda: 0.0).tick()
 
     assert len(engine.overlays) == 1
+
+
+def test_the_verbs_old_module_path_gives_every_verb():
+    from funestra_core import funestra_verbs  # noqa: PLC0415
+    from funestra_core.player_verbs import TOGGLE_LOCK, play_file  # noqa: PLC0415
+
+    assert (TOGGLE_LOCK, play_file) == (funestra_verbs.TOGGLE_LOCK, funestra_verbs.play_file)
+
+
+def test_the_status_record_answers_to_its_old_name():
+    assert status.PlayerStatus is status.FunestraStatus
+
+
+def test_a_panel_takes_its_funestra_under_the_old_keyword_and_answers_to_it():
+    model = HudModel(player="landscape")
+
+    assert (model.funestra, model.player) == ("landscape", "landscape")
+
+
+def test_a_panel_replaced_by_the_old_keyword_changes_its_funestra():
+    assert replace(HudModel(funestra="portrait"), player="landscape").funestra == "landscape"
+
+
+def test_a_panel_written_before_the_rename_still_reads():
+    assert parse_hud('{"player": "landscape"}').funestra == "landscape"
+
+
+def test_the_published_panel_names_its_funestra_under_both_keys():
+    raw = json.loads(hud_text(HudModel(funestra="portrait")))
+
+    assert (raw["funestra"], raw["player"]) == ("portrait", "portrait")
+
+
+def test_a_console_takes_and_publishes_its_funestra_the_old_way_too():
+    model = ConsoleModel(player="main")
+
+    assert model.funestra == "main"
+    assert json.loads(console_text(model))["player"] == "main"
+    assert parse_console('{"main_mode": "kino", "player": "main"}').funestra == "main"

@@ -1,7 +1,7 @@
 """The shared mpv control surface: how it trims mpv's playlist.
 
-``_MpvControl`` is the half of the player that needs no window and no DLL — it
-only drives an mpv handle — so the playlist bookkeeping every player depends on
+``_MpvControl`` is the half of the engine that needs no window and no DLL — it
+only drives an mpv handle — so the playlist bookkeeping every Funestra depends on
 is testable against a fake handle here, rather than only through an app's
 integration suite.
 """
@@ -144,7 +144,7 @@ def test_a_pace_of_nought_holds_the_picture_until_something_moves_it():
     assert mpv.image_display_duration == "inf"
 
 
-def test_the_player_shows_a_picture_when_mpv_says_its_video_track_is_an_image():
+def test_the_engine_shows_a_picture_when_mpv_says_its_video_track_is_an_image():
     mpv = FakeMpv()
     control = Control(mpv)
 
@@ -155,7 +155,7 @@ def test_the_player_shows_a_picture_when_mpv_says_its_video_track_is_an_image():
     assert control.showing_picture is False
 
 
-def test_a_player_holds_a_picture_four_seconds_until_a_source_sets_a_pace():
+def test_a_engine_holds_a_picture_four_seconds_until_a_source_sets_a_pace():
     options = _shared_options(muted=False, loop_file=False, prefetch=True)
 
     assert options["image_display_duration"] == 4.0
@@ -169,10 +169,10 @@ MPVS_OWN_SCRIPTS = (
 )
 
 
-def test_a_player_runs_none_of_mpvs_lua_scripts():
+def test_a_engine_runs_none_of_mpvs_lua_scripts():
     """All of them, not just the on-screen controller.
 
-    A player here is driven through the client API alone, so mpv's scripting
+    An engine here is driven through the client API alone, so mpv's scripting
     layer can only cost.  What it costs is a crash: these scripts error on the
     way out often enough to matter, LuaJIT unwinds a Lua error through a Windows
     structured exception, and a process with faulthandler armed answers every one
@@ -206,7 +206,7 @@ def test_staging_the_next_clip_never_removes_by_index():
 def test_staging_holds_up_when_mpv_says_nothing_is_playing():
     """-1 is mpv's "no entry playing", not entry zero.
 
-    Read as a position it made the trim walk the playlist to nothing — so a player
+    Read as a position it made the trim walk the playlist to nothing — so an engine
     that had lost its file could never get one back.
     """
     mpv = FakeMpv(pos=-1, count=3)
@@ -231,7 +231,7 @@ def test_dropping_the_spent_head_keeps_the_clip_on_screen():
 
 
 def test_no_entry_playing_does_not_read_as_having_advanced():
-    """A player holding no file has not moved past the head — it has fallen off
+    """An engine holding no file has not moved past the head — it has fallen off
     the playlist, and treating that as an advance walks the session's index on
     past a clip that never played."""
     assert Control(FakeMpv(pos=-1)).advanced_to_next is False
@@ -284,7 +284,7 @@ def test_close_waits_for_a_read_that_is_still_inside_mpv():
 
 def test_the_frame_rate_is_answered_while_a_read_is_stuck_inside_mpv():
     """A file being opened holds mpv's core lock for hundreds of milliseconds,
-    and a player asks for the frame rate every frame it paints."""
+    and a Funestra asks for the frame rate every frame it paints."""
     mpv = BlockingMpv()
     control = Control(mpv)
     mpv.report("container-fps", 25.0)
@@ -502,7 +502,7 @@ def test_a_pan_reaches_mpv_as_how_far_the_picture_leans_each_way():
     assert (mpv.video_zoom, mpv.video_align_x, mpv.video_align_y) == DRIFT.at(0.0).placement()
 
 
-def test_every_player_keeps_a_picture_centered_along_a_side_it_fits_inside():
+def test_every_engine_keeps_a_picture_centered_along_a_side_it_fits_inside():
     options = _shared_options(muted=False, loop_file=False, prefetch=True)
 
     assert options["video_recenter"] == "yes"
@@ -597,7 +597,7 @@ def test_a_still_swapped_in_keeps_the_next_clip_staged_after_it():
                          ("loadfile", "made-up-next.png", "append")]
 
 
-def test_a_still_swapped_in_after_the_player_rolled_onto_its_staged_clip_stages_nothing():
+def test_a_still_swapped_in_after_the_engine_rolled_onto_its_staged_clip_stages_nothing():
     mpv = FakeMpv()
     control = Control(mpv, now=100.0)
     control.set_pace(4.0)
@@ -726,7 +726,7 @@ def test_a_reopening_mpv_said_nothing_about_costs_no_later_opening_its_move():
     assert deals.dealt == 3
 
 
-def test_a_still_swapped_in_on_a_locked_player_never_runs_out():
+def test_a_still_swapped_in_on_a_locked_engine_never_runs_out():
     mpv = FakeMpv()
     mpv.eof_reached = False
     control = Control(mpv, now=100.0, looping=True)
@@ -740,7 +740,7 @@ def test_a_still_swapped_in_on_a_locked_player_never_runs_out():
     assert control.eof is False
 
 
-def test_a_still_swapped_in_after_the_player_let_go_of_its_file_stages_nothing():
+def test_a_still_swapped_in_after_the_engine_let_go_of_its_file_stages_nothing():
     mpv = FakeMpv()
     control = Control(mpv, now=100.0)
     control.set_pace(4.0)
@@ -792,7 +792,7 @@ def test_locking_a_picture_has_it_make_a_new_move_each_time_it_repeats():
     assert drawn_at(control, mpv, 105.0) == pytest.approx(DRIFT.at(0.25).placement())
 
 
-def test_a_player_opened_locked_has_its_pictures_make_a_new_move_each_time_they_repeat():
+def test_a_engine_opened_locked_has_its_pictures_make_a_new_move_each_time_they_repeat():
     mpv = FakeMpv()
     control = Control(mpv, now=100.0, deals=Deals(CREEP, DRIFT), looping=True)
     control.set_pace(4.0)
@@ -828,7 +828,7 @@ def test_between_two_files_a_still_is_left_where_its_move_had_got_to():
     assert (mpv.video_zoom, mpv.video_align_x, mpv.video_align_y) == DRIFT.at(0.25).placement()
 
 
-def test_a_file_that_would_not_open_leaves_the_player_with_nothing_up():
+def test_a_file_that_would_not_open_leaves_the_engine_with_nothing_up():
     mpv = FakeMpv()
     control = Control(mpv)
     mpv.idle_active = True
@@ -975,5 +975,5 @@ def test_a_portrait_file_of_another_size_but_the_same_shape_keeps_its_tiles():
     assert mpv.calls == asked
 
 
-def test_the_tile_shader_ships_beside_the_player_and_takes_its_count_as_a_parameter():
+def test_the_tile_shader_ships_beside_the_engine_and_takes_its_count_as_a_parameter():
     assert "//!PARAM tiles" in TILES_SHADER.read_text(encoding="utf-8")

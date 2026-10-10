@@ -107,8 +107,8 @@ class TestTheVocabularyIsWrittenDown:
         assert set(VERBS) == WRITTEN_DOWN_VERBS
 
 
-# The verbs Genau answers that every player answers -- the family's, spelled in
-# player_verbs and imported from there.  The rest are Genau's own.
+# The verbs Genau answers that every Funestra answers -- the family's, spelled in
+# funestra_verbs and imported from there.  The rest are Genau's own.
 FAMILY_VERBS = frozenset({
     "NEXT", "PREV", "TOGGLE_LOCK", "LOCK_ON", "LOCK_OFF", "QUIT", "SET_VOLUME",
     "SET_TCODE_ENABLED", "SET_MAX_INTENSITY", "SPEED_DOWN", "SPEED_UP", "PLAY_FILE",
@@ -122,7 +122,8 @@ class TestAVerbIsSpelledInOneFile:
     repo changed together in half its commits because of it.  Held as a ceiling
     that fails rather than as a note, and measured the way a reader would: which
     modules in this package spell the verb at all.  One is allowed: the
-    registry that declares it, or player_verbs for a verb every player answers.
+    registry that declares it, or funestra_verbs for a verb every Funestra answers.
+    A module's table of the names it used to have spells none of them.
     """
 
     @staticmethod
@@ -132,8 +133,11 @@ class TestAVerbIsSpelledInOneFile:
         naming = set()
         for path in sorted(package.glob("*.py")):
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            spoken = [node for node in tree.body
+                      if not (isinstance(node, ast.Assign)
+                              and any(isinstance(t, ast.Name) and t.id == "_RENAMED" for t in node.targets))]
             if any(isinstance(n, ast.Constant) and n.value == verb
-                   for n in ast.walk(tree)):
+                   for node in spoken for n in ast.walk(node)):
                 naming.add(path.name)
         return naming
 
@@ -142,5 +146,5 @@ class TestAVerbIsSpelledInOneFile:
         assert self._files_naming(verb) == {"genau_controls.py"}
 
     @pytest.mark.parametrize("verb", sorted(FAMILY_VERBS))
-    def test_player_verbs_is_the_one_module_that_spells_the_familys(self, verb):
-        assert self._files_naming(verb) == {"player_verbs.py"}
+    def test_funestra_verbs_is_the_one_module_that_spells_the_familys(self, verb):
+        assert self._files_naming(verb) == {"funestra_verbs.py"}

@@ -727,7 +727,7 @@ class TestThePublishedTouch:
         assert next_handoff_touch(None, 1_000, DescentLatch()) is None
 
 
-class TestALoopingPlayer:
+class TestALoopingFunestra:
     def test_the_loop_fills_the_trace_to_its_far_edge_at_the_fastest_rate(self):
         swings = Funscript(actions=[(0, 0), (1_250, 100), (2_500, 0), (3_760, 100), (5_010, 0)])
 

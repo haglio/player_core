@@ -1,6 +1,6 @@
 """Tests for funestra_core.status.
 
-The *fields* each player publishes are that player's own concern and are covered
+The *fields* each Funestra publishes are that Funestra's own concern and are covered
 in its repo (fun_time's ``test_main_player_status.py`` and ``test_satellite_status.py``).
 What is shared — and tested here — is the publishing mechanism: the throttle, the
 directory, and surviving a file that cannot be written.
@@ -11,7 +11,7 @@ import threading
 from pathlib import Path
 
 from funestra_core.status import (
-    PlayerStatus,
+    FunestraStatus,
     StatusWriter,
     parse_status,
     stamp_the_playhead,
@@ -33,7 +33,7 @@ def _fields(session):
 
 
 class TestStatusWriter:
-    def test_writes_the_fields_the_player_supplies(self, tmp_path):
+    def test_writes_the_fields_the_funestra_supplies(self, tmp_path):
         status_path = tmp_path / "status.txt"
         writer = StatusWriter(status_path, _fields, now_source=lambda: 0.0)
 
@@ -43,8 +43,8 @@ class TestStatusWriter:
         assert "video=C:\\vids\\clip.mp4\n" in text or "video=C:/vids/clip.mp4\n" in text
         assert "position_ms=12345\n" in text
 
-    def test_writes_one_key_per_line_in_the_players_own_order(self, tmp_path):
-        # Each player owns its file's layout, so the writer must not reorder or
+    def test_writes_one_key_per_line_in_the_funestras_own_order(self, tmp_path):
+        # Each Funestra owns its file's layout, so the writer must not reorder or
         # reformat what the fields callable returned — a reader parses these keys.
         status_path = tmp_path / "status.txt"
         writer = StatusWriter(
@@ -56,7 +56,7 @@ class TestStatusWriter:
         assert status_path.read_text(encoding="utf-8") == "b=2\na=1\n"
 
     def test_creates_the_state_directory(self, tmp_path):
-        # A player can publish before anything else has created its state dir.
+        # A Funestra can publish before anything else has created its state dir.
         status_path = tmp_path / "state" / "status.txt"
         writer = StatusWriter(status_path, _fields, now_source=lambda: 0.0)
 
@@ -95,9 +95,9 @@ class TestStatusWriter:
 
     def test_a_poller_never_reads_a_half_written_record(self, tmp_path):
         # The orchestrator polls this file several times a second while the
-        # player rewrites it several times a second.  A write that truncates the
+        # Funestra rewrites it several times a second.  A write that truncates the
         # file in place leaves a window in which the poller reads nothing — and
-        # a poller cannot tell "I caught it mid-write" from "this player has no
+        # a poller cannot tell "I caught it mid-write" from "this Funestra has no
         # clip", so it acts on the blank.  The write has to land whole or not at
         # all.
         status_path = tmp_path / "status.txt"
@@ -156,12 +156,12 @@ class TestStatusWriter:
         assert writer.write(StubSession()) is True
 
 
-class TestWhatEveryPlayerPublishes:
-    """The lines every player's status leads with, written and read here so a
-    player and the source polling it cannot disagree about a key."""
+class TestWhatEveryFunestraPublishes:
+    """The lines every Funestra's status leads with, written and read here so a
+    Funestra and the source polling it cannot disagree about a key."""
 
     def test_the_lines_in_the_order_they_are_written(self):
-        fields = status_fields(PlayerStatus(
+        fields = status_fields(FunestraStatus(
             video="C:/vids/a.mp4", position_ms=1500, duration_ms=5000, paused=False, locked=True,
             speed=1.5, read_at=1_000.0))
 
@@ -173,13 +173,13 @@ class TestWhatEveryPlayerPublishes:
                                 "speed", "picture", "read_at"]
 
     def test_a_playhead_is_published_as_whole_milliseconds(self):
-        assert status_fields(PlayerStatus(position_ms=12345.9))["position_ms"] == "12345"
+        assert status_fields(FunestraStatus(position_ms=12345.9))["position_ms"] == "12345"
 
     def test_a_status_says_when_its_playhead_was_read(self):
         """A reader keeping in step extrapolates the playhead from when it was
         true; the file's own write time can trail that by every property read
-        the player made after it."""
-        status = PlayerStatus(video="C:/vids/a.mp4", position_ms=1500, read_at=1_000.25)
+        the Funestra made after it."""
+        status = FunestraStatus(video="C:/vids/a.mp4", position_ms=1500, read_at=1_000.25)
 
         assert status_fields(status)["read_at"] == "1000.250"
         assert parse_status(status_fields(status)).read_at == 1_000.25
@@ -190,35 +190,35 @@ class TestWhatEveryPlayerPublishes:
         assert stamp_the_playhead(4_000.7) == (4_000, 1_000.5)
 
     def test_what_is_published_is_what_is_read_back(self):
-        status = PlayerStatus(
+        status = FunestraStatus(
             video="C:/vids/b.mp4", position_ms=250, duration_ms=9000, paused=True, locked=False,
             speed=0.75)
 
         assert parse_status(status_fields(status)) == status
 
     def test_a_status_that_says_a_picture_is_on_screen_reads_back_saying_so(self):
-        status = PlayerStatus(video="C:/pictures/one.png", locked=True, picture=True)
+        status = FunestraStatus(video="C:/pictures/one.png", locked=True, picture=True)
 
         assert parse_status(status_fields(status)) == status
 
     def test_a_key_the_file_does_not_carry_keeps_the_readers_default(self):
-        """A status from before a key existed, or a file read before the player's
-        first write, says what that player is doing at rest -- and what that is
-        differs: a satellite opens unlocked, the main player locked."""
-        assert parse_status({}) == PlayerStatus()
-        assert parse_status({}, default=PlayerStatus(locked=True)).locked is True
-        assert parse_status({"locked": "0"}, default=PlayerStatus(locked=True)).locked is False
+        """A status from before a key existed, or a file read before the Funestra's
+        first write, says what that Funestra is doing at rest -- and what that is
+        differs: a satellite opens unlocked, the Main Funestra locked."""
+        assert parse_status({}) == FunestraStatus()
+        assert parse_status({}, default=FunestraStatus(locked=True)).locked is True
+        assert parse_status({"locked": "0"}, default=FunestraStatus(locked=True)).locked is False
 
     def test_a_flag_is_on_only_when_the_file_says_1(self):
         assert parse_status({"paused": "1"}).paused is True
-        assert parse_status({"paused": ""}, default=PlayerStatus(paused=True)).paused is False
+        assert parse_status({"paused": ""}, default=FunestraStatus(paused=True)).paused is False
 
     def test_a_number_that_cannot_be_read_keeps_the_default_too(self):
         assert parse_status({"position_ms": "soon", "duration_ms": " 40 "}).position_ms == 0
         assert parse_status({"position_ms": "soon", "duration_ms": " 40 "}).duration_ms == 40
-        assert parse_status({"speed": "fast"}, default=PlayerStatus(speed=0.5)).speed == 0.5
+        assert parse_status({"speed": "fast"}, default=FunestraStatus(speed=0.5)).speed == 0.5
 
-    def test_the_lines_a_player_adds_of_its_own_ride_past_the_reader(self):
+    def test_the_lines_a_funestra_adds_of_its_own_ride_past_the_reader(self):
         status = parse_status({"video": " C:/vids/c.mp4 ", "playlist_length": "3", "state": "looping"})
 
-        assert status == PlayerStatus(video="C:/vids/c.mp4")
+        assert status == FunestraStatus(video="C:/vids/c.mp4")

@@ -12,7 +12,7 @@ def test_a_side_key_moves_the_hud_to_that_side_and_leaves_the_other_axis_alone()
     assert HudCorner.LOWER_LEFT.toward("up") is HudCorner.UPPER_LEFT
 
 
-def test_a_player_with_one_pair_of_keys_walks_the_four_corners_round():
+def test_a_funestra_with_one_pair_of_keys_walks_the_four_corners_round():
     assert HudCorner.UPPER_LEFT.turned(clockwise=True) is HudCorner.UPPER_RIGHT
     assert HudCorner.UPPER_RIGHT.turned(clockwise=True) is HudCorner.LOWER_RIGHT
     assert HudCorner.LOWER_RIGHT.turned(clockwise=True) is HudCorner.LOWER_LEFT
@@ -29,7 +29,7 @@ def test_a_panel_is_inset_from_whichever_corner_it_was_moved_to():
     assert hud_origin(HudCorner.LOWER_RIGHT, **at) == (688, 528)
 
 
-def test_a_lower_corner_stands_on_the_players_own_lower_row_rather_than_over_it():
+def test_a_lower_corner_stands_on_the_funestras_own_lower_row_rather_than_over_it():
     assert hud_origin(HudCorner.LOWER_LEFT, panel=(100, 60), window=(800, 600),
                       margin=12, lower_edge=24) == (12, 504)
     assert hud_origin(HudCorner.UPPER_LEFT, panel=(100, 60), window=(800, 600),

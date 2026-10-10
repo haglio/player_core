@@ -1,21 +1,21 @@
-"""The main console — the HUD the player on the main slot draws.
+"""The main console — the HUD the Main Funestra draws.
 
-The same console is drawn whichever player holds the slot: the main player over its video in
-kino mode, Genau into its own window in genau mode.  So the mode switch and the
-drive controls keep their places as you flip between modes — only the transport
-changes, because it steps the main player's video in one and Genau's flicks in the other.
+The same console is drawn whether Kino or Genau runs on the Main Funestra: over
+Kino's video in kino mode, over Genau's flicks in genau mode.  So the mode switch
+and the drive controls keep their places as you flip between modes — only the
+transport changes, because it steps Kino's video in one and Genau's flicks in the other.
 
-Its top block is the main player's own answer to "what am I playing?" — the status line (the
-length mode, or the compilation and your place in it) beside the active-player
+Its top block is Kino's own answer to "what am I playing?" — the status line (the
+length mode, or the compilation and your place in it) beside the active-Funestra
 dot, with the file on screen as a muted line under it, the same shape each
-satellite's HUD leads with.  Both are empty in genau mode, where there is no main player
+satellite's HUD leads with.  Both are empty in genau mode, where there is no Kino
 playlist backing the screen.  Everything else is the console the orchestrator
 publishes (:mod:`funestra_core.console`) plus the Robot Hand's drive readout
 (:mod:`funestra_core.drive_readout`) with its own controls.
 
 The wording and shape are pure functions; the drawing goes onto the slab
 :mod:`funestra_core.hud_panel` owns, the same slab the satellites' HUD is drawn on,
-so every player says things the same way and from the same corner.
+so every Funestra says things the same way and from the same corner.
 """
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ from .console import (
     ModeHud,
     _row_width,
     hit_test,
-    main_player_displays,
+    kino_shows,
     place_rows,
     rows_height,
     tooltip_at,
@@ -121,7 +121,7 @@ _SIZE_BODY = 11
 _SIZE_TINY = 8
 _PAD = 10
 _MINUS_INSET = (_PAD, _PAD)
-DOT_GAP = 8  # the room between the active-player dot and the words beside it
+DOT_GAP = 8  # the room between the active-Funestra dot and the words beside it
 MARGIN = 8    # inset from the window's top-left corner
 _BLOCK_GAP = 4
 _SUBTITLE_GAP = 2  # between the status line and the file name under it
@@ -146,7 +146,7 @@ class ConsoleHud:
     modes: ModeHud = field(default_factory=ModeHud)
     console: ConsoleModel = field(default_factory=ConsoleModel)
     drive: DriveHud | None = None
-    # The gray the slab is made of, or None for the canvas color every player
+    # The gray the slab is made of, or None for the canvas color every Funestra
     # floating this over a video wants (see hud_panel.HudPanel).  Part of the
     # value compared for the repaint cache, like the rest.
     ground: tuple[int, int, int] | None = None
@@ -169,15 +169,15 @@ class ConsoleHud:
         """The top line's text — everything selecting what is on the main slot, in
         the order each satellite's HUD says the same things.
 
-        This player's words in the slots
+        The Main Funestra's words in the slots
         :func:`funestra_core.hud_status.status_line` lays out, which is where the
         grammar and the shared states' wording live — the satellites say the same
         sentence, and a reader glancing between two screens is reading one sentence
         in two places.
 
-        What fills the slots is the main player's own.  The compilation is its playing
+        What fills the slots is Kino's own.  The compilation is its playing
         set — a fixed run it plays through rather than the browse it came from.
-        The order slot carries the browse order under either player, and Genau's
+        The order slot carries the browse order under either of the two, and Genau's
         advance pace beside it.  The length mode is the filter, and "Mixed"
         prints nothing there: it is every length there is, so it narrows nothing —
         exactly as a satellite prints nothing where its act filter would go when it
@@ -187,7 +187,7 @@ class ConsoleHud:
             f"{compilation_label(self.modes.compilation)}"
             f"{SEPARATOR}{self.modes.position}/{self.modes.total}"
         ) if self.modes.compilation else ""
-        # The browse order, said the same way for whichever player is on this slot:
+        # The browse order, said the same way whether Kino or Genau is on this slot:
         # both of them browse in these two orders, so a reader who has just asked
         # for Latest reads the same word back wherever they asked it.  Nothing at
         # all for a host with no browse order (see :attr:`ConsoleModel.latest`) —
@@ -197,9 +197,9 @@ class ConsoleHud:
         # The pace an unheld Genau flick moves on at, after the order rather than in
         # place of it: the order says which flick is next, the pace says when.  Only
         # while Genau is the one showing — kino mode draws the drive readout too, but
-        # an unlocked main player there plays through a playlist rather than on a timer —
+        # an unlocked Kino plays through a playlist rather than on a timer —
         # and only unheld, since nothing is going to move a held flick.
-        if not main_player_displays(self.console.main_mode) and not self.console.locked and self.advance_interval:
+        if not kino_shows(self.console.main_mode) and not self.console.locked and self.advance_interval:
             pace = f"{self.advance_interval}s"
             order = f"{order}{SEPARATOR}{pace}" if order else pace
         return status_line(
@@ -214,7 +214,7 @@ class ConsoleHud:
 class ConsolePainter:
     """Paints the main console, and only when something on it has moved.
 
-    A player redraws its overlays every frame at 60 fps and Pillow is nowhere
+    A Funestra redraws its overlays every frame at 60 fps and Pillow is nowhere
     near cheap enough for that, so the bitmap is kept until the panel's contents
     change.  The button rects from the last painting are kept beside it — the
     console's own and the drive readout's arrows — so what is clickable is exactly
@@ -231,7 +231,7 @@ class ConsolePainter:
         grows and shrinks is a screen that moves.  The rows, the readout and
         the OSR2 line must fit, so a width narrower than them is widened, never
         clipped; the two text lines give way instead, elided to fit.  None
-        sizes the panel to its contents, as one drawn over the player's own
+        sizes the panel to its contents, as one drawn over the Funestra's own
         window is."""
         self._width = width
         self._device_only = device_only
@@ -261,7 +261,7 @@ class ConsolePainter:
 
     def bgra(self, hud: ConsoleHud, *, hover: tuple[int, int] | None = None,
              clip_row: RowHud | None = None, heatmap=None) -> np.ndarray:
-        """*hud* as an mpv overlay bitmap — what the main player composites into its video."""
+        """*hud* as an mpv overlay bitmap — what the Main Funestra composites into its video."""
         if self._ensure(self._resolve(hud), hover, clip_row, heatmap) or self._bgra is None:
             self._bgra = to_bgra(self._image)
         return self._bgra
@@ -275,7 +275,7 @@ class ConsolePainter:
         return self._image.tobytes(), self._image.size
 
     def _resolve(self, hud: ConsoleHud) -> ConsoleHud:
-        """*hud* with everything the drawing player knows folded into it, before
+        """*hud* with everything the drawing Funestra knows folded into it, before
         anything asks whether the panel has moved.
 
         Folded here rather than at paint time because a readout that is *not*
@@ -288,7 +288,7 @@ class ConsolePainter:
         return replace(hud, drive=self._readout.resolve(
             hud.drive if console.has_osr2 else None,
             osr2=console.osr2, control=console.osr2_control,
-            composed=main_player_displays(console.main_mode)))
+            composed=kino_shows(console.main_mode)))
 
     def _ensure(self, hud: ConsoleHud, hover: tuple[int, int] | None,
                 clip_row: RowHud | None = None, heatmap=None) -> bool:
@@ -296,7 +296,7 @@ class ConsolePainter:
         (so a cached bitmap can be reused).  The panel is redrawn a few times a
         minute at most — Pillow is too slow to run every frame — so the image is
         kept until it changes.  The row is the one part that moves with playback,
-        which is why a player redrawing on its beat gets a fresh panel."""
+        which is why a Funestra redrawing on its beat gets a fresh panel."""
         if ((hud, hover, clip_row) == self._painted[:3]
                 and heatmap is self._painted[3] and self._image is not None):
             return False
@@ -324,7 +324,7 @@ class ConsolePainter:
     @property
     def holding(self) -> bool:
         """Whether a press took hold of one of the readout's bands and has not let
-        go — so the player knows a drag belongs here rather than to whatever else
+        go — so the Funestra knows a drag belongs here rather than to whatever else
         it would have offered the pointer."""
         return self._grip.holding
 
@@ -347,7 +347,7 @@ class ConsolePainter:
         if painted is None:
             return None
         console = painted.console
-        return HudPlace(console.player, console.hud_corner, MARGIN,
+        return HudPlace(console.funestra, console.hud_corner, MARGIN,
                         minimized=console.hud_minimized, inset=_MINUS_INSET)
 
     def place(self, *, window: tuple[int, int], lower_edge: int = 0) -> tuple[int, int]:
@@ -368,7 +368,7 @@ class ConsolePainter:
     def _draw_top_block(self, draw, y: int, status: str, filename: str,
                         active: bool, width: int, corner: HudCorner, *,
                         reserve: int) -> None:
-        """The active-player dot and the status line — what is selecting this
+        """The active-Funestra dot and the status line — what is selecting this
         playlist — with the file on screen muted under it.
 
         The same shape each satellite's HUD leads with, so a glance between two
@@ -409,13 +409,13 @@ class ConsolePainter:
                clip_row: RowHud | None = None, heatmap=None) -> Image.Image:
         console, drive = hud.console, hud.drive
         if console.hud_minimized:
-            return self._paint_minimized(console.player, console.hud_corner, hover)
+            return self._paint_minimized(console.funestra, console.hud_corner, hover)
         # Held for the OSR2 pill: with a composed trace on the panel the pill
         # reads the trace's own answer to who has the device (see _osr2_state),
         # and the width helpers need it before the pill is drawn.
         self._composed_drive = (
             drive if (drive is not None and drive.segments
-                      and main_player_displays(console.main_mode)) else None)
+                      and kino_shows(console.main_mode)) else None)
         whole = not self._device_only
         rows = [[self._filled(button, hud) for button in row]
                 for row in (console.rows if whole else ())]
@@ -506,7 +506,7 @@ class ConsolePainter:
 
         if whole and self._minus_on_the_panel:
             minus = (corner_button_rect(corner, panel=(width, height), inset=_MINUS_INSET),
-                     minimize_button(console.player))
+                     minimize_button(console.funestra))
             draw_button(panel.image, draw, *minus,
                         hovered=hover is not None and contains(minus[0], *hover),
                         glyph_font=self._glyph, word_font=self._tiny)
@@ -524,9 +524,9 @@ class ConsolePainter:
                 draw_tooltip(draw, self._tiny, tip, hover, (width, height))
         return panel.image
 
-    def _paint_minimized(self, player: str, corner: HudCorner,
+    def _paint_minimized(self, funestra: str, corner: HudCorner,
                          hover: tuple[int, int] | None) -> Image.Image:
-        image, buttons = collapsed_button(player, corner, hover=hover,
+        image, buttons = collapsed_button(funestra, corner, hover=hover,
                                           room_for_the_tooltip=self._width is not None)
         self.buttons, self.tracks, self.row_rect = buttons, [], None
         return image
@@ -578,6 +578,6 @@ class ConsolePainter:
 
 
 def with_playback_speed(console: ConsoleModel, speed: float) -> ConsoleModel:
-    """*console* with the drawing player's own video rate folded in — the main player knows
+    """*console* with the drawing Funestra's own video rate folded in — Kino knows
     its rate, Fun Time does not publish it, so it is added at draw time."""
     return replace(console, playback_speed=speed)

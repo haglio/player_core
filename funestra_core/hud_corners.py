@@ -26,7 +26,7 @@ _FAR = 1 << 16
 
 @dataclass(frozen=True)
 class HudPlace:
-    player: str
+    funestra: str
     corner: HudCorner
     margin: int
     minimized: bool = False
@@ -50,8 +50,8 @@ def _corner_beside(place: HudPlace, x: int, y: int, *,
     return None if corner is place.corner else corner
 
 
-def plus_button(player: str, place: str, *, minimized: bool) -> Button:
-    return Button(restore_at_command(player, place), RESTORE_GLYPH,
+def plus_button(funestra: str, place: str, *, minimized: bool) -> Button:
+    return Button(restore_at_command(funestra, place), RESTORE_GLYPH,
                   SHOW_TOOLTIP if minimized else MOVE_TOOLTIP)
 
 
@@ -122,7 +122,7 @@ class HudCorners:
 
     @staticmethod
     def _button(place: HudPlace, corner: HudCorner) -> Button:
-        return plus_button(place.player, corner, minimized=place.minimized)
+        return plus_button(place.funestra, corner, minimized=place.minimized)
 
     def _target(self, x: int, y: int,
                 window: tuple[int, int]) -> tuple[HudPlace, HudCorner] | None:

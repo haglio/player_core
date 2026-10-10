@@ -18,7 +18,7 @@ class TestLoadAndPlay:
         assert engine.paused is False
         assert playback.current_video == tmp_path / "v0.mp4"
 
-    def test_init_start_paused_tells_player_to_pause(self, tmp_path):
+    def test_init_start_paused_tells_engine_to_pause(self, tmp_path):
         playback, engine = _make_playback(tmp_path, start_paused=True)
 
         assert playback.is_paused
@@ -42,7 +42,7 @@ class TestNavigation:
 
 
 class TestSeeking:
-    def test_seek_to_reaches_the_player(self, tmp_path):
+    def test_seek_to_reaches_the_engine(self, tmp_path):
         playback, engine = _make_playback(tmp_path)
 
         playback.seek_to(1_500.0)
@@ -70,7 +70,7 @@ class TestSeeking:
 
 
 class TestPause:
-    def test_set_paused_drives_the_player(self, tmp_path):
+    def test_set_paused_drives_the_engine(self, tmp_path):
         playback, engine = _make_playback(tmp_path)
 
         playback.set_paused(True)
@@ -574,7 +574,7 @@ class TestPlaylistReplacement:
 
 
 class TestPlaybackClock:
-    def test_position_and_duration_delegate_to_the_player(self, tmp_path):
+    def test_position_and_duration_delegate_to_the_engine(self, tmp_path):
         playback, engine = _make_playback(tmp_path, duration_ms=8_000.0)
         engine.position_ms = 3_200.0
 
@@ -588,7 +588,7 @@ class TestSpeed:
 
         assert playback.speed == 1.0
 
-    def test_a_rate_set_on_it_reaches_its_player(self, tmp_path):
+    def test_a_rate_set_on_it_reaches_its_engine(self, tmp_path):
         playback, engine = _make_playback(tmp_path)
 
         playback.set_speed(1.5)
@@ -606,7 +606,7 @@ class TestSpeed:
 
 
 class TestClose:
-    def test_close_tears_down_the_player(self, tmp_path):
+    def test_close_tears_down_the_engine(self, tmp_path):
         playback, engine = _make_playback(tmp_path)
 
         playback.close()
@@ -635,7 +635,7 @@ class TestWhereAClipWasLeft:
 
     def test_a_spot_mpv_will_not_take_yet_is_asked_for_again(self, tmp_path):
         """mpv refuses a seek until the clip it is opening plays, which a known
-        duration does not prove -- and the refusal used to end the player."""
+        duration does not prove -- and the refusal used to end the engine."""
         file = tmp_path / "points.json"
         playback, engine = _make_playback(tmp_path, entries=2, play_points=PlayPoints(file))
         _watch_to(playback, engine, 2_000)
@@ -695,7 +695,7 @@ class TestWhereAClipWasLeft:
 
         assert engine.seeks[-1] == 2_000
 
-    def test_closing_the_player_writes_down_the_very_spot(self, tmp_path):
+    def test_closing_the_engine_writes_down_the_very_spot(self, tmp_path):
         file = tmp_path / "points.json"
         playback, engine = _make_playback(tmp_path, play_points=PlayPoints(file))
         _watch_to(playback, engine, 2_000)
@@ -708,7 +708,7 @@ class TestWhereAClipWasLeft:
 
 
 class TestAFrameInThePicturesPlace:
-    def test_a_frame_goes_up_on_the_player_in_place_of_the_picture(self, tmp_path):
+    def test_a_frame_goes_up_on_the_engine_in_place_of_the_picture(self, tmp_path):
         playback, engine = _make_playback(tmp_path, entries=2)
 
         playback.show_frame(tmp_path / "frame one.png")
@@ -730,7 +730,7 @@ class TestAFrameInThePicturesPlace:
 
         assert engine.swapped == []
 
-    def test_a_frame_is_over_once_the_player_is_stepped_to_another_item(self, tmp_path):
+    def test_a_frame_is_over_once_the_engine_is_stepped_to_another_item(self, tmp_path):
         playback, engine = _make_playback(tmp_path, entries=2)
         playback.show_frame(tmp_path / "frame.png")
 
@@ -749,7 +749,7 @@ class TestAFrameInThePicturesPlace:
 
         assert engine.swapped == [tmp_path / "frame.png"]
 
-    def test_a_frame_going_up_is_a_picture_while_the_player_opens_it(self, tmp_path):
+    def test_a_frame_going_up_is_a_picture_while_the_engine_opens_it(self, tmp_path):
         playback, engine = _make_playback(tmp_path, entries=2)
         engine.showing_picture = True
 
@@ -758,7 +758,7 @@ class TestAFrameInThePicturesPlace:
 
         assert playback.showing_picture is True
 
-    def test_the_picture_put_back_from_under_a_frame_is_a_picture_while_the_player_opens_it(
+    def test_the_picture_put_back_from_under_a_frame_is_a_picture_while_the_engine_opens_it(
             self, tmp_path):
         playback, engine = _make_playback(tmp_path, entries=2)
         playback.show_frame(tmp_path / "frame.png")
@@ -768,7 +768,7 @@ class TestAFrameInThePicturesPlace:
 
         assert playback.showing_picture is True
 
-    def test_a_clip_the_picture_runs_out_onto_after_a_frame_is_what_the_player_says(
+    def test_a_clip_the_picture_runs_out_onto_after_a_frame_is_what_the_engine_says(
             self, tmp_path):
         playback, engine = _make_playback(tmp_path, entries=2)
         playback.show_frame(tmp_path / "frame.png")
@@ -778,7 +778,7 @@ class TestAFrameInThePicturesPlace:
 
         assert playback.showing_picture is False
 
-    def test_a_clip_stepped_to_after_a_frame_is_what_the_player_says(self, tmp_path):
+    def test_a_clip_stepped_to_after_a_frame_is_what_the_engine_says(self, tmp_path):
         playback, engine = _make_playback(tmp_path, entries=2)
         playback.show_frame(tmp_path / "frame.png")
 
@@ -799,8 +799,8 @@ class TestAFrameInThePicturesPlace:
 
 
 class TestOpeningLocked:
-    """The Main Funestra opens holding its item, the way the Main Player always
-    has; a satellite opens letting the list move on."""
+    """The Main Funestra opens holding its item, as it always has; a satellite
+    opens letting the list move on."""
 
     def test_a_playback_opened_locked_holds_its_item_from_the_first_frame(self, tmp_path):
         playback, engine = _make_playback(tmp_path, entries=2, locked=True)
@@ -967,7 +967,7 @@ class TestAStretchRepeated:
     """An A/B range mpv goes round: the script of the item comes round with it,
     and the range belongs to the item, so opening another item ends it."""
 
-    def test_the_range_reaches_the_player_and_closes_the_mark(self, tmp_path):
+    def test_the_range_reaches_the_engine_and_closes_the_mark(self, tmp_path):
         playback, engine = _make_playback(tmp_path, duration_ms=60_000.0)
         playback.set_mark(2_000)
 
@@ -976,7 +976,7 @@ class TestAStretchRepeated:
         assert engine.ab_loop == (2_000, 4_000)
         assert (playback.ab_loop, playback.mark) == ((2_000, 4_000), None)
 
-    def test_clearing_it_clears_the_players_range(self, tmp_path):
+    def test_clearing_it_clears_the_engines_range(self, tmp_path):
         playback, engine = _make_playback(tmp_path, duration_ms=60_000.0)
         playback.set_ab_loop(2_000, 4_000)
 
@@ -1012,7 +1012,7 @@ class TestAStretchRepeated:
 
 
 class TestCountingTheItemsOpened:
-    """How many times an item has been opened on the player, so whatever runs on
+    """How many times an item has been opened on the engine, so whatever runs on
     a Funestra can tell a reopened item from the one it was already looking at."""
 
     def test_every_open_counts_including_the_same_item_again(self, tmp_path):
@@ -1058,7 +1058,7 @@ class TestTakingUpAListFromItsTop:
         assert playback.current_funscript.actions == [(0, 0), (100, 99)]
 
 
-def test_letting_go_of_the_item_leaves_the_player_holding_nothing(tmp_path):
+def test_letting_go_of_the_item_leaves_the_engine_holding_nothing(tmp_path):
     """A host about to move or delete what it was showing lets go first: the
     engine holds an open handle on it, and Windows refuses to move a file out
     from under one."""
@@ -1070,7 +1070,7 @@ def test_letting_go_of_the_item_leaves_the_player_holding_nothing(tmp_path):
     assert playback.idle is True
 
 
-def test_an_item_the_player_would_not_open_reads_as_idle(tmp_path):
+def test_an_item_the_engine_would_not_open_reads_as_idle(tmp_path):
     playback, engine = _make_playback(tmp_path, entries=2)
     assert playback.idle is False
 

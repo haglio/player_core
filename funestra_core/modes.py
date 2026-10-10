@@ -1,4 +1,4 @@
-"""The closed sets a player and Fun Time agree on, each as the words on the wire.
+"""The closed sets a Funestra and Fun Time agree on, each as the words on the wire.
 
 Each of these travels between two processes as a bare word in a published file
 -- the main console's JSON, the shared state INI, a status file -- and was
@@ -8,7 +8,7 @@ word: a writer hands the entry to ``json.dumps`` and the word comes out, and
 
 A word a reader does not know is the default, never an error.  The two sides of
 every one of these files are separate processes that are not always the same
-age, and a player that refused a mode it had not heard of would stop drawing
+age, and a Funestra that refused a mode it had not heard of would stop drawing
 over a difference of vocabulary.
 """
 from __future__ import annotations
@@ -27,7 +27,7 @@ __all__ = [
 
 
 class MainMode(StrEnum):
-    """What holds the main slot: the main player's video, or Genau's clips."""
+    """What holds the main slot: Kino's video, or Genau's flicks."""
 
     KINO = "kino"
     GENAU = "genau"
@@ -35,7 +35,7 @@ class MainMode(StrEnum):
 
 
 class SatellitesMode(StrEnum):
-    """What the satellite side shows: the two players, or a hosted Origenerator's
+    """What the satellite side shows: the two Funestras, or a hosted Origenerator's
     shows over them."""
 
     KINO = "kino"
@@ -44,7 +44,7 @@ class SatellitesMode(StrEnum):
 
 
 class LoopState(StrEnum):
-    """Where the main player's loop machine is: idle, marking a loop's out point
+    """Where Kino's loop machine is: idle, marking a loop's out point
     with the record key down, or repeating the loop it marked."""
 
     NORMAL = "normal"
@@ -63,7 +63,7 @@ class Osr2State(StrEnum):
 
 
 class LengthMode(StrEnum):
-    """How long a video has to be to be in the main player's browse."""
+    """How long a video has to be to be in Kino's browse."""
 
     MIXED = "mixed"
     SHORTS = "shorts"
@@ -72,7 +72,7 @@ class LengthMode(StrEnum):
 
 
 class NoticeLevel(StrEnum):
-    """What kind of thing a one-shot notice from the main player is, for Fun
+    """What kind of thing a one-shot notice from the Main Funestra is, for Fun
     Time to pick the color: a request with nowhere to go, an ordinary word, or
     one about a funscript -- which wears the green this family keeps for the
     favorites and the funscripts, and travels under that word.

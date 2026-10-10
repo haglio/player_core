@@ -9,9 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from .control_registry import Control, Verb, bind, look_up
-from .playback import Playback
-from .playback_rate import RATE_STEP, parse_rate
-from .player_verbs import (
+from .funestra_verbs import (
     CLEAR_FRAME,
     LOCK_OFF,
     LOCK_ON,
@@ -38,6 +36,8 @@ from .player_verbs import (
     pace_seconds,
     version_files,
 )
+from .playback import Playback
+from .playback_rate import RATE_STEP, parse_rate
 from .playlist import item_from_line
 
 __all__ = [

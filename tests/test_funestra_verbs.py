@@ -1,16 +1,16 @@
-"""The verbs a content source sends a player, and the two whose values it reads: an item and a pace."""
+"""The verbs a content source sends a Funestra, and the two whose values it reads: an item and a pace."""
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
 
-from funestra_core import player_verbs
+from funestra_core import funestra_verbs
 from funestra_core.playlist import PlaylistItem, item_from_line
 
 
 def _spellings() -> dict[str, str]:
-    return {name: value for name, value in vars(player_verbs).items()
+    return {name: value for name, value in vars(funestra_verbs).items()
             if name.isupper() and not name.startswith("_") and isinstance(value, str)}
 
 
@@ -33,37 +33,37 @@ def test_play_file_carries_the_item_as_the_playlist_would():
     own parser and cannot take the script for part of the path."""
     item = PlaylistItem(Path("C:/vids/My Clip.mp4"), Path("C:/scripts/My Clip.funscript"))
 
-    line = player_verbs.play_file(item)
+    line = funestra_verbs.play_file(item)
 
     keyword, _, value = line.partition(" ")
-    assert keyword == player_verbs.PLAY_FILE
+    assert keyword == funestra_verbs.PLAY_FILE
     assert item_from_line(value) == item
 
 
 def test_a_pace_is_read_as_the_seconds_it_names():
-    assert player_verbs.pace_seconds("2.5") == 2.5
-    assert player_verbs.pace_seconds("0") == 0.0
+    assert funestra_verbs.pace_seconds("2.5") == 2.5
+    assert funestra_verbs.pace_seconds("0") == 0.0
 
 
 @pytest.mark.parametrize("value", ["-1", "soon", "", "inf", "nan"])
 def test_a_value_that_names_no_pace_is_refused(value):
-    assert player_verbs.pace_seconds(value) is None
+    assert funestra_verbs.pace_seconds(value) is None
 
 
 class TestAStepToAnotherVersionOfTheItemOnScreen:
     def test_a_step_forward_carries_the_family_in_the_sources_order(self):
         versions = [Path("C:/vids/clip_topaz.mp4"), Path("C:/vids/clip.mp4")]
 
-        line = player_verbs.step_version(1, versions)
+        line = funestra_verbs.step_version(1, versions)
 
         keyword, _, value = line.partition(" ")
-        assert keyword == player_verbs.NEXT_VERSION
-        assert player_verbs.version_files(value) == versions
+        assert keyword == funestra_verbs.NEXT_VERSION
+        assert funestra_verbs.version_files(value) == versions
 
     def test_a_step_back_is_the_other_verb(self):
-        line = player_verbs.step_version(-1, [Path("C:/vids/clip_topaz.mp4"), Path("C:/vids/clip.mp4")])
+        line = funestra_verbs.step_version(-1, [Path("C:/vids/clip_topaz.mp4"), Path("C:/vids/clip.mp4")])
 
-        assert line.partition(" ")[0] == player_verbs.PREV_VERSION
+        assert line.partition(" ")[0] == funestra_verbs.PREV_VERSION
 
     def test_a_value_naming_nothing_carries_no_versions(self):
-        assert player_verbs.version_files("") == []
+        assert funestra_verbs.version_files("") == []

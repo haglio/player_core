@@ -1,8 +1,8 @@
-"""What a Funestra publishes in its status file, after the lines every player leads with."""
+"""What a Funestra publishes in its status file, after the lines every Funestra leads with."""
 from __future__ import annotations
 
-from .status import PlayerStatus
-from .status import status_fields as player_status_fields
+from .status import FunestraStatus
+from .status import status_fields as leading_fields
 
 __all__ = [
     "status_fields",
@@ -11,7 +11,7 @@ __all__ = [
 
 def status_fields(playback, handoff_touch_ms: int | None) -> dict[str, str]:
     return {
-        **player_status_fields(PlayerStatus(
+        **leading_fields(FunestraStatus(
             video=str(playback.current_video),
             position_ms=int(playback.position_ms),
             duration_ms=int(playback.duration_ms),

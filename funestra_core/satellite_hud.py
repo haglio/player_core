@@ -1,13 +1,13 @@
 """The satellite lock HUD: the published panel's geometry and hit-testing.
 
 Shared through funestra_core because two apps draw this exact HUD: each of Fun
-Time's satellite players composites it into its video, and a hosted
+Time's Satellite Funestras composites it into its video, and a hosted
 Origenerator's region shows wear it as a widget — one HUD, one codebase, so
 the two surfaces cannot drift apart.
 
-fun_time owns each player's *model* — which clips sit on the map, whether the
+fun_time owns each Funestra's *model* — which clips sit on the map, whether the
 satellite is locked, which axis is looping — because only fun_time has the
-library metadata.  It serialises that to a small JSON file per player; this module
+library metadata.  It serializes that to a small JSON file per Funestra; this module
 parses it and lays it out.  (A hosted Origenerator builds its shows' models
 directly — the same dataclass, no file in between.)  :mod:`funestra_core.satellite_hud_paint` turns the layout into a bitmap mpv
 composites into the video, so the HUD has no window and therefore no z-order at
@@ -39,6 +39,7 @@ from .hud_placement import HudCorner, HudEdge
 from .hud_sections import blocks_height, stack
 from .hud_status import SEPARATOR
 from .modes import read_mode
+from .renamed import answers_to_old_names
 
 if TYPE_CHECKING:
     from PIL import Image
@@ -56,7 +57,7 @@ __all__ = [
 ]
 
 # --- layout constants (px) ---------------------------------------------------
-# Inset of the HUD from the player window's top-left corner.
+# Inset of the HUD from the Funestra's top-left corner.
 MARGIN = 12
 
 PAD = 10
@@ -78,11 +79,11 @@ MAP_CELLS = 3
 WIDEST_FULL_HEIGHT_SHAPE = {"portrait": (4, 5), "landscape": (16, 9)}
 
 STATUS_BAND_H = 24        # the band the line sits in — one line deep, always
-STATUS_DOT = 10           # the active-player dot at the head of the band
+STATUS_DOT = 10           # the active-Funestra dot at the head of the band
 STATUS_TEXT_X = PAD + STATUS_DOT + 8  # where the status text starts, clear of it
 STATUS_BASELINE = 11      # the status line's baseline, down from the band's top
-# The file on screen, muted under the status line — the same second line the main
-# player's console carries, so the two players answer "what am I playing?" in the
+# The file on screen, muted under the status line — the same second line the Main
+# Funestra's console carries, so the two panels answer "what am I playing?" in the
 # same corner and the same shape.  Its own height comes from the paint module,
 # which has the face; this is only the gap between the two lines.
 SUBTITLE_GAP = 2
@@ -112,19 +113,20 @@ class HudSection(Protocol):
               pointer: tuple[int, int] | None) -> list[tuple[Rect, Button]]: ...
 
 
+@answers_to_old_names({"player": "funestra"})
 @dataclass(frozen=True)
 class HudModel:
     """One satellite's HUD contents, exactly as fun_time published them."""
 
-    # Which player this is: "portrait" or "landscape".
-    player: str
+    # Which Funestra this is: "portrait" or "landscape".
+    funestra: str
     hud_corner: HudCorner = HudCorner.UPPER_LEFT
     hud_edge: HudEdge = HudEdge.LOWER
     hud_minimized: bool = False
     locked: bool = False
     lock_label: str = ""
-    # Whether a bare, player-less command lands here — the player addressed most
-    # recently.  Drawn as the dot beside the status line, and the only thing on
+    # Whether a bare command naming no Funestra lands here — the Funestra addressed
+    # most recently.  Drawn as the dot beside the status line, and the only thing on
     # any HUD that says where those words are going.
     active: bool = False
 
@@ -136,7 +138,7 @@ class HudModel:
     seeds: tuple[HudCell, ...] = ()
     actions: tuple[HudCell, ...] = ()
     current_action: str = ""
-    # The act(s) this player is filtered to, if any: the map lights every row the
+    # The act(s) this Funestra is filtered to, if any: the map lights every row the
     # filter keeps and, within a row, the acts the filter actually names.  Pressing
     # a row's button moves the filter onto that row, or lifts it when the filter is
     # already exactly that row.
@@ -155,15 +157,15 @@ class HudModel:
     # while a loop plays a non-anchor clip of the group.  Drawn bright; the
     # rest dim.
     playing: Cell = ("corner", 0)
-    # The rate this player plays at, folded into its own HUD so the painter draws
+    # The rate this Funestra plays at, folded into its own HUD so the painter draws
     # the speed row under the bands; None for a surface with no rate to show.
     playback_speed: float | None = None
-    # The buttons the source declares for this player, in the bands the panel
+    # The buttons the source declares for this Funestra, in the bands the panel
     # draws them in: what each posts, its face, its tooltip and its state.  The
     # panel draws nothing it was not handed.
     rows: tuple[tuple[Button, ...], ...] = ()
 
-    # --- the device, for a panel whose player has the OSR2 ------------------
+    # --- the device, for a panel whose Funestra has the OSR2 ----------------
     # Which driver has the OSR2, and the controls that aim it: the same line the
     # main console draws (:mod:`funestra_core.hud_osr2`), grown here because a host
     # can be both the thing browsing a set AND the thing driving the device.
@@ -203,22 +205,22 @@ MAP_H = (COL_LABEL_H + COL_LABEL_GAP + ELLIPSIS_ROOM + MAP_COLUMN_H
          + ELLIPSIS_ROOM + MAP_LOWER_RESERVE)
 
 
-def slot_width(player: str) -> int:
-    across, down = WIDEST_FULL_HEIGHT_SHAPE.get(player, WIDEST_FULL_HEIGHT_SHAPE["portrait"])
+def slot_width(funestra: str) -> int:
+    across, down = WIDEST_FULL_HEIGHT_SHAPE.get(funestra, WIDEST_FULL_HEIGHT_SHAPE["portrait"])
     return round(MAP_THUMB_H * across / down)
 
 
-def map_row_width(player: str) -> int:
-    return MAP_CELLS * slot_width(player) + (MAP_CELLS - 1) * MAP_GAP
+def map_row_width(funestra: str) -> int:
+    return MAP_CELLS * slot_width(funestra) + (MAP_CELLS - 1) * MAP_GAP
 
 
-def map_block_width(player: str) -> int:
-    return (ROW_LABEL_GUTTER + ELLIPSIS_ROOM + map_row_width(player) + ELLIPSIS_ROOM
+def map_block_width(funestra: str) -> int:
+    return (ROW_LABEL_GUTTER + ELLIPSIS_ROOM + map_row_width(funestra) + ELLIPSIS_ROOM
             + MAP_RIGHT_RESERVE)
 
 
-def panel_width(player: str, name_width: int = 0, *, content_width: int = 0) -> int:
-    return max(2 * PAD + map_block_width(player),
+def panel_width(funestra: str, name_width: int = 0, *, content_width: int = 0) -> int:
+    return max(2 * PAD + map_block_width(funestra),
                STATUS_TEXT_X + name_width + PAD, content_width)
 
 
@@ -403,8 +405,8 @@ def ellipsis_rects(
             (col_x, _col_lower(corner_rect, action_rects) + MAP_GAP, col_w, ELLIPSIS))
 
 
-# --- the player's own buttons --------------------------------------------------
-# What a source declares for this player, drawn in bands between the status line
+# --- the Funestra's own buttons ------------------------------------------------
+# What a source declares for this Funestra, drawn in bands between the status line
 # and the map: each row of ``HudModel.rows`` is one band, a square per button, a
 # word button as wide as its word (the painter measures it), and the wider gap
 # before a button that starts a group -- the way the console's rows break.
@@ -437,8 +439,8 @@ def button_row_rects(x: int, y: int, buttons: Sequence[Button],
     return rects
 
 
-# The speed row's two buttons, drawn by the player rather than declared by the
-# source, since only the drawing player knows the rate that sits between them.
+# The speed row's two buttons, drawn by the Funestra rather than declared by the
+# source, since only the drawing Funestra knows the rate that sits between them.
 _SPEED_BUTTONS = (
     ("speed_down", "−", "Play the video slower"),
     ("speed_up", "+", "Play the video faster"),
@@ -449,15 +451,15 @@ def speed_row_width(label_width: int) -> int:
     return label_width + 2 * CTRL_BTN + 2 * MAP_GAP + VALUE_W
 
 
-def speed_row(player: str, x: int, y: int, *,
+def speed_row(funestra: str, x: int, y: int, *,
               label_width: int) -> tuple[list[tuple[Rect, Button]], Rect]:
-    """*player*'s slower and faster buttons after a name *label_width* wide, and
+    """*funestra*'s slower and faster buttons after a name *label_width* wide, and
     the cell between them the rate is written in."""
     down_x = x + label_width
     rate_x = down_x + CTRL_BTN + MAP_GAP
     up_x = rate_x + VALUE_W + MAP_GAP
     buttons = [
-        ((button_x, y, CTRL_BTN, CTRL_BTN), Button(f"{player}_{name}", face, tooltip))
+        ((button_x, y, CTRL_BTN, CTRL_BTN), Button(f"{funestra}_{name}", face, tooltip))
         for button_x, (name, face, tooltip) in zip((down_x, up_x), _SPEED_BUTTONS)
     ]
     return buttons, (rate_x, y, VALUE_W, CTRL_BTN)
@@ -471,7 +473,7 @@ def favorite_mark_rect(x: int, y: int, line_h: int) -> Rect:
 
     A readout, not a button, so it belongs where the panel keeps readouts and
     not in the control band: the one column already used for "what is true of
-    this player" — the active dot is directly above it — and immediately left of
+    this Funestra" — the active dot is directly above it — and immediately left of
     the name of the very clip it is answering about.
 
     *y* is the file-name line's top and *line_h* its height, and the mark is as
@@ -501,7 +503,7 @@ def largest_size_that_fits(largest: int, room: int, width_at: Callable[[int], in
 
 # The strike under the current clip's act: this act is wrong, ask about it again.
 # Smaller than a control button and in the gutter rather than on the band,
-# because it is about the words above it rather than about the player — the one
+# because it is about the words above it rather than about the Funestra — the one
 # place on the panel where that act is named is the only place the strike can
 # say which act it means.
 WRONG_BTN = 14
@@ -738,13 +740,13 @@ class HudClicks:
     clicked.
     """
 
-    def __init__(self, player: str, *, double_click_s: float = DOUBLE_CLICK_S) -> None:
-        self._player = player
+    def __init__(self, funestra: str, *, double_click_s: float = DOUBLE_CLICK_S) -> None:
+        self._funestra = funestra
         self._double_click_s = double_click_s
         self._pending_path = ""
         self._pending_at = 0.0
         self._grip = TrackGrip()
-        # Which axis is looping, and which act the player is filtered to.  Both are
+        # Which axis is looping, and which act the Funestra is filtered to.  Both are
         # mirrored from the published panel on every refresh, and set optimistically
         # on a click so the control lights up before fun_time's answer comes back.
         self.active_loop = ""
@@ -785,11 +787,11 @@ class HudClicks:
         if loop:
             return self._toggle_loop(loop)
         if _in(targets.expand, px, py):
-            return f"{self._player}_more_seeds"
+            return f"{self._funestra}_more_seeds"
         # Tested before the row's filter button: the strike sits inside the
         # corner row's own band, and the filter button spans that whole band.
         if _in(targets.wrong_action, px, py):
-            return f"{self._player}_wrong_action"
+            return f"{self._funestra}_wrong_action"
         action = hit_test_targets(targets.filter, px, py)
         if action:
             # Narrow before you lift: a press on a row the filter only partly keeps
@@ -799,15 +801,15 @@ class HudClicks:
             query = _norm_act(action)
             if query == _norm_act(self.active_filter):
                 self.active_filter = ""
-                return f"{self._player}_no_filter"
+                return f"{self._funestra}_no_filter"
             self.active_filter = query
-            return f"filter_{self._player}_{query.replace(' ', '_')}"
+            return f"filter_{self._funestra}_{query.replace(' ', '_')}"
         path = hit_test_targets(targets.click, px, py)
         if not path:
             return ""
         if path == self._pending_path and now - self._pending_at <= self._double_click_s:
             self._pending_path = ""
-            return f"{self._player}_lock_video|{path}"
+            return f"{self._funestra}_lock_video|{path}"
         self._pending_path = path
         self._pending_at = now
         return ""
@@ -817,7 +819,7 @@ class HudClicks:
         if not self._pending_path or now - self._pending_at <= self._double_click_s:
             return ""
         path, self._pending_path = self._pending_path, ""
-        return f"{self._player}_play_video|{path}"
+        return f"{self._funestra}_play_video|{path}"
 
     def _toggle_loop(self, kind: str) -> str:
         """Turn *kind*'s loop on, or — if it is already on — off.  Turning one on
@@ -825,9 +827,9 @@ class HudClicks:
         the dispatch loop runs."""
         if self.active_loop == kind:
             self.active_loop = ""
-            return f"{self._player}_no_loop"
+            return f"{self._funestra}_no_loop"
         self.active_loop = kind
-        return f"{self._player}_{kind}_loop"
+        return f"{self._funestra}_{kind}_loop"
 
 
 # --- action labels -----------------------------------------------------------
@@ -891,12 +893,14 @@ def hud_text(model: HudModel) -> str:
     """*model* as the text a source publishes, and :func:`parse_hud` reads back.
 
     The two are one module so the keys are spelled once: a source in another
-    process (Fun Time, for its satellites) writes this into the player's HUD
-    file, and a source in the player's own (a hosted Origenerator) hands the
+    process (Fun Time, for its satellites) writes this into the Funestra's HUD
+    file, and a source in the Funestra's own (a hosted Origenerator) hands the
     model over without it.
     """
     return json.dumps({
-        "player": model.player,
+        "funestra": model.funestra,
+        # The same, under the key a reader from before the rename looks for.
+        "player": model.funestra,
         "hud_corner": model.hud_corner,
         "hud_edge": model.hud_edge,
         "hud_minimized": model.hud_minimized,
@@ -927,20 +931,20 @@ def hud_text(model: HudModel) -> str:
 def parse_hud(text: str) -> HudModel | None:
     """The published panel, or None when *text* is not a complete panel.
 
-    fun_time rewrites the file in place while the player is reading it, so a
+    fun_time rewrites the file in place while the Funestra is reading it, so a
     torn or empty read is expected and simply means "keep the HUD you have".
     """
     try:
         raw = json.loads(text)
     except (ValueError, TypeError):
         return None
-    if not isinstance(raw, dict) or "player" not in raw:
+    if not isinstance(raw, dict) or not ({"funestra", "player"} & raw.keys()):
         return None
     playing = raw.get("playing") or ["corner", 0]
     seeds = [_cell(item) for item in raw.get("seeds", []) or []]
     actions = [_cell(item) for item in raw.get("actions", []) or []]
     return HudModel(
-        player=str(raw.get("player", "")),
+        funestra=str(raw.get("funestra", raw.get("player", ""))),
         hud_corner=read_mode(HudCorner, raw.get("hud_corner"), HudCorner.UPPER_LEFT),
         hud_edge=read_mode(HudEdge, raw.get("hud_edge"), HudEdge.LOWER),
         hud_minimized=bool(raw.get("hud_minimized", False)),

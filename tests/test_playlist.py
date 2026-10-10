@@ -124,7 +124,7 @@ class TestWritePlaylist:
         assert [item.path for item in read_playlist(playlist)] == [Path("C:/vids/c.mp4")]
         assert not (tmp_path / "playlist.tmp").exists()
 
-    def test_a_playlist_lands_though_a_player_is_partway_through_reading_it(self, tmp_path):
+    def test_a_playlist_lands_though_a_funestra_is_partway_through_reading_it(self, tmp_path):
         playlist = tmp_path / "portrait_playlist.tsv"
         write_playlist(playlist, [PlaylistItem(Path("C:/vids/before.mp4"))])
 
@@ -133,7 +133,7 @@ class TestWritePlaylist:
 
         assert [item.path for item in read_playlist(playlist)] == [Path("C:/vids/after.mp4")]
 
-    def test_a_playlist_a_player_keeps_open_past_the_budget_is_refused_out_loud(
+    def test_a_playlist_a_funestra_keeps_open_past_the_budget_is_refused_out_loud(
             self, tmp_path, monkeypatch):
         playlist = tmp_path / "portrait_playlist.tsv"
         write_playlist(playlist, [PlaylistItem(Path("C:/vids/before.mp4"))])

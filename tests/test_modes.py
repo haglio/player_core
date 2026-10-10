@@ -1,4 +1,4 @@
-"""The closed sets a player and Fun Time agree on, each as the words on the wire."""
+"""The closed sets a Funestra and Fun Time agree on, each as the words on the wire."""
 from __future__ import annotations
 
 import json
@@ -51,14 +51,14 @@ def test_read_mode_gives_the_entry_a_known_word_names():
 
 @pytest.mark.parametrize("raw", ["", "hybrid", None, 3, "KINO", "video"])
 def test_read_mode_answers_the_default_for_a_word_it_does_not_know(raw):
-    """A player that raised on a mode it did not know would be worse than one
+    """A Funestra that raised on a mode it did not know would be worse than one
     that ignored it: a file from a newer or an older session must leave the
-    player drawing, in the state the default names."""
+    Funestra drawing, in the state the default names."""
     assert read_mode(MainMode, raw, MainMode.KINO) is MainMode.KINO
 
 
 def test_read_mode_answers_none_for_a_reader_whose_default_is_no_mode_at_all():
-    """The length buttons are drawn only for a player that names a length mode,
+    """The length buttons are drawn only for a Funestra that names a length mode,
     so its readers fall back on None rather than on an entry."""
     assert read_mode(LengthMode, "", None) is None
     assert read_mode(LengthMode, "every", None) is None
