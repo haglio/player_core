@@ -243,6 +243,7 @@ class Funestra:
                 return None
             return HudOverlay(
                 panel=panel, post=self._apply, player=drawn_on,
+                minus_on_the_panel=self._panel_surface is None,
                 seek=self._seek_along_the_track, set_volume=self._volume.set_level,
                 toggle_mute=self._volume.toggle_mute,
             )
@@ -252,6 +253,7 @@ class Funestra:
                 command_file=channels.dashboard_cmd, player=drawn_on,
                 drive_gate=self._drive_gate, top_block=self._top_block,
                 width=None if self._panel_surface is None else self._panel_surface.width,
+                minus_on_the_panel=self._panel_surface is None,
                 seek=self._seek_along_the_track, set_volume=self._volume.set_level,
                 toggle_mute=self._volume.toggle_mute,
             )
@@ -260,6 +262,7 @@ class Funestra:
                 hud_file=channels.hud, command_file=channels.dashboard_cmd, player=drawn_on,
                 drive_file=channels.drive, drive_gate=self._drive_gate,
                 over_the_video=self._panel_surface is None,
+                minus_on_the_panel=self._panel_surface is None,
                 seek=self._seek_along_the_track, set_volume=self._volume.set_level,
                 toggle_mute=self._volume.toggle_mute,
             )
@@ -318,6 +321,10 @@ class Funestra:
     @property
     def panel_edge(self) -> HudEdge:
         return HudEdge.LOWER if self._panel is None else self._panel.edge
+
+    @property
+    def panel_minimized(self) -> bool:
+        return self._panel is not None and self._panel.minimized
 
     def set_muted(self, muted: bool) -> None:
         self._volume.set_muted(muted)

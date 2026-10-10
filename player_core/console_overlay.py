@@ -36,6 +36,7 @@ class ConsoleOverlay:
         top_block: Callable[[], ModeHud],
         overlay_id: int = HUD_OVERLAY_ID,
         width: int | None = None,
+        minus_on_the_panel: bool = True,
         seek=None,
         set_volume=None,
         toggle_mute=None,
@@ -47,7 +48,8 @@ class ConsoleOverlay:
         self._drive_gate = drive_gate
         self._top_block = top_block
         self.overlay_id = overlay_id
-        self._painter = ConsolePainter(width=width)
+        self._painter = ConsolePainter(width=width, minus_on_the_panel=minus_on_the_panel)
+        self._minus_on_the_panel = minus_on_the_panel
         self._console = ConsoleModel()
         self._drive: DriveHud | None = None
         self._hover: PointerReading[tuple[int, int] | None] = PointerReading(None)
@@ -67,6 +69,10 @@ class ConsoleOverlay:
         return self._console.hud_edge
 
     @property
+    def minimized(self) -> bool:
+        return self._console.hud_minimized
+
+    @property
     def hud_place(self) -> HudPlace | None:
         return self._painter.hud_place
 
@@ -78,6 +84,9 @@ class ConsoleOverlay:
         drive = self._drive_gate.readout(
             self._drive, device_drives_itself=self._console.device_drives_itself)
         self._clip_row = clip_row
+        if self.minimized and not self._minus_on_the_panel:
+            self.close()
+            return
         bgra = self._painter.bgra(ConsoleHud(
             modes=self._top_block(),
             console=with_playback_speed(self._console, playback_speed),
