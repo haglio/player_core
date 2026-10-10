@@ -9,6 +9,12 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-10-10 — `console.aim_row` is declared
+
+Origenerator takes the row that aims the device from here now (origenerator
+#383), so `aim_row` joins `console.__all__`. `shape_label` stays offered until
+Fun Time, which still names its waveform with it, takes the row too.
+
 ## 2026-10-10 — Genau's clips are flicks
 
 The word "clip" now means a video cut out of a whole one, so Genau's short

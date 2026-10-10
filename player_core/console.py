@@ -39,6 +39,7 @@ __all__ = [
     "ROW_LABEL_W",
     "VALUE_W",
     "ConsoleModel",
+    "aim_row",
     "console_text",
     "hit_test",
     "parse_console",
