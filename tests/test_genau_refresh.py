@@ -10,7 +10,6 @@ import pytest
 from player_core.broker_feed import BrokerFeed
 from player_core.clip_advance import ClipAdvanceState
 from player_core.clip_flip import ClipFlip
-from player_core.crossing import Crossing, follow_channel
 from player_core.cruise_control import CruiseControlState
 from player_core.device_walk import BROKER_HOLD_DELAY_MS
 from player_core.flag import Flag
@@ -160,24 +159,18 @@ def _build_controller(
     learned: LearnedMotionState | None = None,
     clip_advance: ClipAdvanceState | None = None,
     hud: Flag | None = None,
-    set_hud_mode=None,
     command_file: Path | None = None,
     status_file: Path | None = None,
     drive_file: Path | None = None,
     now_source=None,
-    arriving: bool = False,
-    let_go=None,
     clip_flip: ClipFlip | None = None,
 ):
     loading_texts: list[str | None] = []
-    consoles: list = []
     drained_from: list[Path] = []
 
     def consume(path, logger=None):
         drained_from.append(path)
         return commands if commands is not None else ([command] if command else [])
-    present_calls: list[int] = []
-    hud_mode_calls: list[bool] = []
 
     loader = FakeLoader(loading=loading)
     notifier = FakeNotifier()
@@ -229,12 +222,7 @@ def _build_controller(
         consume_command=consume,
         read_paused_state=lambda _path, logger=None: paused_state,
         tcode_sender=tcode_sender,
-        set_console=consoles.append,
-        present_scene=lambda: present_calls.append(1),
-        set_hud_mode=set_hud_mode or hud_mode_calls.append,
         drive_file=drive_file,
-        arriving=arriving,
-        let_go=let_go or (lambda: None),
     )
     return {
         "drained_from": drained_from,
@@ -246,9 +234,6 @@ def _build_controller(
         "engine": engine,
         "logger": logger,
         "loading_texts": loading_texts,
-        "consoles": consoles,
-        "present_calls": present_calls,
-        "hud_mode_calls": hud_mode_calls,
     }
 
 
@@ -276,10 +261,10 @@ def test_under_the_broker_the_line_is_the_device_s_own_swing():
                               now_source=lambda: clock[0])
 
     built["controller"].refresh()
-    first = built["consoles"][-1].drive
+    first = built["controller"].readout.drive
     clock[0] += 0.5
     built["controller"].refresh()
-    second = built["consoles"][-1].drive
+    second = built["controller"].readout.drive
 
     assert len(first.waveform) == 80
     # Every trace slides on knots: between two the heights hold and the
@@ -377,11 +362,12 @@ def test_a_hand_whose_output_is_switched_off_plays_on_unheard():
                               tcode_sender=RobotHandTCodeDriver(sink, robot_hand=dc),
                               command="SET_TCODE_ENABLED 0", now_source=lambda: clock[0])
     built["controller"].refresh()
+    first = built["controller"].readout.drive
 
     clock[0] = 5.5
     built["controller"].refresh()
+    then = built["controller"].readout.drive
 
-    first, then = (console.drive for console in built["consoles"])
     assert (sink.send.call_count, first.position != then.position) == (0, True)
 
 
@@ -441,22 +427,10 @@ def test_direct_mode_publishes_the_drive_readout():
 
     built["controller"].refresh()
 
-    assert len(built["consoles"]) == 1
-    hud = built["consoles"][0].drive
+    hud = built["controller"].readout.drive
     assert (hud.amplitude, hud.center, hud.speed) == (70, 60, 50)
     assert hud.shape == "sine"  # named on the panel, not only drawn
     assert len(hud.waveform) == 80
-
-
-def test_direct_mode_calls_present_scene():
-    dc = RobotHandState(playing=True, bpm=120.0)
-    tcode = FakeTCodeSender()
-    entry = {"frames": [object() for _ in range(8)]}
-    built = _build_controller(entry=entry, robot_hand=dc, tcode_sender=tcode)
-
-    built["controller"].refresh()
-
-    assert len(built["present_calls"]) == 1
 
 
 def test_pause_command_stops_direct_mode_playback():
@@ -688,7 +662,7 @@ def test_broker_auto_cleared_resumes_direct_control():
     built["controller"].refresh()
 
     assert len(tcode.sends) == 1
-    assert len(built["consoles"]) == 1
+    assert built["controller"].readout.drive is not None
 
 
 def test_multiline_commands_all_applied():
@@ -706,38 +680,6 @@ def test_multiline_commands_all_applied():
 
     assert dc.playing is True
     assert hud.on is True
-
-
-def test_hud_on_command_calls_set_hud_mode():
-    dc = RobotHandState(playing=True, bpm=120.0)
-    tcode = FakeTCodeSender()
-    entry = {"frames": [object() for _ in range(8)]}
-    hud = Flag()
-    built = _build_controller(
-        entry=entry, robot_hand=dc, tcode_sender=tcode,
-        commands=["HUD_ON"],
-        hud=hud,
-    )
-
-    built["controller"].refresh()
-
-    assert built["hud_mode_calls"] == [True]
-
-
-def test_hud_off_command_calls_set_hud_mode_false():
-    dc = RobotHandState(playing=True, bpm=120.0)
-    tcode = FakeTCodeSender()
-    entry = {"frames": [object() for _ in range(8)]}
-    hud = Flag(on=True)
-    built = _build_controller(
-        entry=entry, robot_hand=dc, tcode_sender=tcode,
-        commands=["HUD_OFF"],
-        hud=hud,
-    )
-
-    built["controller"].refresh()
-
-    assert built["hud_mode_calls"] == [False]
 
 
 @pytest.mark.parametrize(("hud_on", "heard"), [(True, False), (False, True)])
@@ -1054,11 +996,6 @@ class TestTheOrderTheTickDoesThingsIn:
         """Chosen first, every frame is the one the phase had last tick."""
         self._before("advance_beat", "self._show_the_frame")
 
-    def test_the_frame_is_shown_before_the_scene_is_presented(self):
-        """Presented first and the window shows the previous frame for a whole
-        turn, which is a visible stutter at 120fps."""
-        self._before("self._show_the_frame", "self.present_scene")
-
     def test_the_status_file_goes_out_last_saying_what_this_tick_did(self):
         steps = self._steps()
 
@@ -1290,53 +1227,3 @@ def test_the_status_says_whether_the_clip_up_is_portrait(tmp_path):
 
     assert "portrait=1" in (tmp_path / "genau_status.txt").read_text(encoding="utf-8")
 
-class TestAGenauArrivingBesideTheOneWithTheRoom:
-    """It follows the room until it is told to take it: its own channel, no
-    status, no readout, and the device left alone."""
-
-    @staticmethod
-    def _arriving(tmp_path, **over):
-        return _build_controller(
-            entry={"frames": [object() for _ in range(8)]},
-            command_file=tmp_path / "genau_cmd.txt",
-            status_file=tmp_path / "genau_status.txt",
-            drive_file=tmp_path / "genau_drive.txt",
-            arriving=True, **over)
-
-    @staticmethod
-    def _take_the_room(tmp_path):
-        Crossing(tmp_path, ["genau"]).say_take_the_room()
-
-    def test_it_drains_the_follow_channel(self, tmp_path):
-        built = self._arriving(tmp_path)
-        built["controller"].refresh()
-        assert built["drained_from"] == [follow_channel(tmp_path / "genau_cmd.txt")]
-
-    def test_it_publishes_no_status_over_the_rooms(self, tmp_path):
-        built = self._arriving(tmp_path, cruise_control=CruiseControlState())
-        built["controller"].refresh()
-        assert not (tmp_path / "genau_status.txt").exists()
-
-    def test_it_publishes_no_readout_over_the_rooms(self, tmp_path):
-        built = self._arriving(tmp_path, tcode_sender=FakeTCodeSender())
-        built["controller"].refresh()
-        assert not (tmp_path / "genau_drive.txt").exists()
-
-    def test_taking_the_room_lets_go_and_starts_publishing(self, tmp_path):
-        let_go = []
-        built = self._arriving(tmp_path, let_go=lambda: let_go.append(True),
-                               cruise_control=CruiseControlState())
-        built["controller"].refresh()
-        self._take_the_room(tmp_path)
-
-        built["controller"].refresh()
-
-        assert let_go == [True]
-        assert (tmp_path / "genau_status.txt").exists()
-
-    def test_after_it_drains_the_rooms_own_channel(self, tmp_path):
-        built = self._arriving(tmp_path)
-        self._take_the_room(tmp_path)
-        built["controller"].refresh()
-        built["controller"].refresh()
-        assert built["drained_from"][-1] == tmp_path / "genau_cmd.txt"

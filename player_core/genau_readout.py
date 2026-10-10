@@ -1,24 +1,12 @@
-"""What Genau draws over its clip, and what it says for the console to draw.
-
-Two publications of the drive, on two cadences.  The readout's trace scrolls, so
-it cannot wait on a change the way the status file does and is throttled
-instead; the console around it -- mode, OSR2, broker -- moves a few times a
-minute and is re-read far less often than the readout is rebuilt.  In video
-mode the panel belongs to the video player's console, because the controls that
-move these numbers are up there, and Genau's window is only the transparent
-layer driving the device.
-"""
+"""What Genau says for the console to draw: the drive readout."""
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from pathlib import Path
 
 from . import learned_motion, wave_stack
-from .console import ConsoleModel, read_console
-from .console_hud import ConsoleHud, ModeHud
 from .drive_readout import TRACE_SAMPLES, DriveHud, publish_drive
 from .genau_controls import GenauControls
-from .modes import MainMode
 from .robot_hand import (
     MIN_BPM,
     POSITION_MAX,
@@ -34,12 +22,6 @@ __all__: list[str] = []  # package-internal: no sibling reaches anything here
 # scrolls, so it cannot wait on a change the way the status file does -- 25/s is
 # well under Genau's refresh rate and well over what reads as smooth.
 _DRIVE_PUBLISH_INTERVAL_S = 0.04
-
-# How often Genau re-reads the console the orchestrator publishes.  Its own drive
-# numbers scroll every tick, but the mode / OSR2 / broker around them move a few
-# times a minute, so the file is read far less often than the readout is
-# rebuilt.
-_CONSOLE_READ_INTERVAL_S = 0.2
 
 # The travel the device uses when it runs itself: the whole axis, centered.  Its
 # free mode is firmware, and the only things it says over serial are its tempo
@@ -87,10 +69,6 @@ class GenauReadout:
         beats_per_loop: float,
         tcode_sender=None,
         drive_file: Path | None = None,
-        console_file: Path | None = None,
-        set_console=None,
-        current_clip=lambda: None,
-        publishing: bool = True,
     ):
         self.robot_hand = controls.robot_hand
         self.cruise_control = controls.cruise_control_state
@@ -99,49 +77,24 @@ class GenauReadout:
         self.beats_per_loop = beats_per_loop
         self.tcode_sender = tcode_sender
         self.drive_file = drive_file
-        self.console_file = console_file
-        self.set_console = set_console or (lambda _console: None)
-        self.current_clip = current_clip
-        self.publishing = publishing
+        self.drive: DriveHud | None = None
         self._last_drive_publish = 0.0
         # The broker's beat, counted up across its wraps: the auto trace's
         # knots stay put only on a phase that never starts round again.
         self._auto_turns = 0
         self._auto_phase: float | None = None
-        # The console around the readout -- mode, OSR2, broker -- as the
-        # orchestrator published it; its own mode until the first publish lands.
-        self._console_model = ConsoleModel(main_mode=MainMode.GENAU)
-        self._last_console_read = 0.0
 
     def update(self, now: float, auto: AutoMotion | None = None) -> None:
-        """Build the drive readout, publish it for the console, and draw the
-        whole console for Genau's own window.
+        """Build the drive readout and publish it for the console.
 
         *auto* is the device running itself, and None while the Robot Hand
-        drives.  Either way there is a line and a panel: the room's one set of
-        controls is up whoever has the device, and the line is a picture of
-        whatever is actually reaching it.  The numbers beside the line stay the
-        hand's -- what its controls will move when it takes the device back --
-        and whoever draws them dims them, exactly as while a funscript drives.
+        drives.  Either way there is a line: a picture of whatever is actually
+        reaching the device.  The numbers beside it stay the hand's -- what its
+        controls will move when it takes the device back -- and whoever draws
+        them dims them, exactly as while a funscript drives.
         """
-        hud = self._build_drive_hud(self._counted_up(auto))
-        self._publish_drive(hud, now)
-        if now - self._last_console_read >= _CONSOLE_READ_INTERVAL_S and self.console_file:
-            self._last_console_read = now
-            published = read_console(self.console_file)
-            if published is not None:
-                self._console_model = published
-        # The same top block the video player draws: the status line, and the
-        # clip on screen under it.  Genau has no playlist backing its screen and
-        # so none of the modes a video player reports — its own two states, the
-        # lock and the pace an unheld clip moves on at, are read off the console
-        # and the drive readout by ConsoleHud.status_line, so there is nothing to
-        # hand it here.
-        clip = self.current_clip()
-        self.set_console(ConsoleHud(
-            modes=ModeHud(video=Path(clip).stem if clip else ""),
-            console=self._console_model, drive=hud,
-        ))
+        self.drive = self._build_drive_hud(self._counted_up(auto))
+        self._publish_drive(self.drive, now)
 
     def _counted_up(self, auto: AutoMotion | None) -> AutoMotion | None:
         if auto is None:
@@ -233,16 +186,11 @@ class GenauReadout:
 
     def _publish_drive(self, hud: DriveHud, now: float) -> None:
         """Say the readout for the console to draw, at a fraction of the refresh
-        rate.
-
-        In kino mode this panel belongs to the main player's console — the
-        controls that move these numbers are up there, so the numbers are too —
-        and Genau's window is only the transparent layer driving the device.
-        The trace scrolls, so this cannot wait for a change the way the status
-        file does; it is throttled instead, well under the refresh rate and well
-        over what the eye reads as smooth.
+        rate: the trace scrolls, so this cannot wait for a change the way the
+        status file does, and is throttled instead, well under the refresh rate
+        and well over what the eye reads as smooth.
         """
-        if self.drive_file is None or not self.publishing:
+        if self.drive_file is None:
             return
         if now - self._last_drive_publish < _DRIVE_PUBLISH_INTERVAL_S:
             return

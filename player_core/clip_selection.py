@@ -60,12 +60,6 @@ class ClipSelectionController:
         else:
             self.loader.request_clip_load(path)
 
-    def follow(self, clip: Path) -> bool:
-        if not self.sequence.move_to(clip):
-            return False
-        self.set_current_clip(self.sequence.current_path)
-        return True
-
     def play(self, clip: Path) -> None:
         self.set_current_clip(self.sequence.play(clip))
 

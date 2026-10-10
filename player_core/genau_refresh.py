@@ -1,10 +1,4 @@
-"""One turn of Genau's loop: the clip player's tick.
-
-Everything Genau does each frame, in the order the order matters, against the
-collaborators a shell hands it.  The shell -- a pygame window, a headset -- owns
-the surface the frame is blitted to and the loop that calls :meth:`refresh`;
-what happens inside a turn is the same wherever Genau is drawn.
-"""
+"""One turn of Genau's loop: the clip player's tick."""
 from __future__ import annotations
 
 import time
@@ -15,11 +9,9 @@ from .broker_feed import snapshot
 from .clip_advance import tick_clip_advance
 from .clip_renderer import display_index_for_phase
 from .clip_scrub import ClipScrub, scrub_clip
-from .crossing import follow_channel
 from .cruise_control import tick_cruise_control
 from .device_walk import Walk, the_broker_holding, the_hand_taking_back
 from .file_channel import consume_command_file
-from .genau_arrival import GenauArrival
 from .genau_controls import GenauControls, apply_runtime_command
 from .genau_readout import AutoMotion, GenauReadout
 from .genau_status import GENAU_STATUS_FILENAME, build_status_text, write_status_file
@@ -59,12 +51,6 @@ class GenauRefreshController:
         tcode_sender=None,
         status_file: Path | None = None,
         drive_file: Path | None = None,
-        console_file: Path | None = None,
-        set_console=None,
-        present_scene=None,
-        set_hud_mode=None,
-        arriving: bool = False,
-        let_go=lambda: None,
     ):
         self.controls = controls
         # The seven the tick itself reads, named here rather than reached for
@@ -108,18 +94,7 @@ class GenauRefreshController:
             beats_per_loop=beats_per_loop,
             tcode_sender=tcode_sender,
             drive_file=drive_file,
-            console_file=console_file,
-            set_console=set_console,
-            current_clip=lambda: renderer.current_clip_path,
-            publishing=not arriving,
         )
-        self._arrival = GenauArrival(
-            controls=controls, selection=selection, renderer=renderer,
-            tcode_sender=tcode_sender, drive_file=drive_file, status_file=self.status_file,
-        ) if arriving else None
-        self._let_go = let_go
-        self.present_scene = present_scene or (lambda: None)
-        self.set_hud_mode = set_hud_mode or (lambda _active: None)
         # Which half of the clip is showing, and what is known about the end
         # the motion is at — see :meth:`_scrub_the_clip`.
         self._scrub = ClipScrub()
@@ -143,8 +118,6 @@ class GenauRefreshController:
         self._adopt_whatever_finished_decoding()
         self.flip.follow(self.renderer.current_clip_path)
         self._drain_commands()
-        if self._arrival is not None:
-            self._arrival.follow()
 
         beat = self._who_is_driving(now)
 
@@ -182,7 +155,6 @@ class GenauRefreshController:
             self.readout.update(now, AutoMotion(
                 phase=self.engine.phase, bpm=self.engine.estimated_bpm or 0.0))
 
-        self._follow_the_window_flags()
         self._follow_the_room_hold(now)
         self._show_the_frame(beat, now)
 
@@ -190,11 +162,7 @@ class GenauRefreshController:
         self.set_loading_text(f"Loading {pending}" if pending else None)
 
         self.selection.request_nearby_prefetch()
-        self.present_scene()
-        if self._arrival is not None and self._arrival.told_to_take_the_room:
-            self._take_the_room()
-        if self._arrival is None:
-            self._publish_status()
+        self._publish_status()
 
     def _adopt_whatever_finished_decoding(self) -> None:
         self.loader.adopt_loaded_clip_if_ready()
@@ -202,15 +170,8 @@ class GenauRefreshController:
         self.selection.adopt_pending_clip()
 
     def _drain_commands(self) -> None:
-        channel = (self.command_file if self._arrival is None
-                   else follow_channel(self.command_file))
-        for cmd in self.consume_command(channel, logger=self.logger):
+        for cmd in self.consume_command(self.command_file, logger=self.logger):
             apply_runtime_command(cmd, self.controls)
-
-    def _take_the_room(self) -> None:
-        arrival, self._arrival = self._arrival, None
-        self.readout.publishing = True
-        arrival.take_the_room(self._let_go)
 
     def _who_is_driving(self, now: float) -> Beat:
         """Genau's own hand, or the broker — and what the engine is told either way."""
@@ -282,11 +243,6 @@ class GenauRefreshController:
         span = min(100.0, hand.center + hand.amplitude / 2) - low
         height = 100.0 * self.tcode_sender.current_position() / POSITION_MAX
         return (height - low) / span if span > 0 else 0.0
-
-    def _follow_the_window_flags(self) -> None:
-        """The one thing an orchestrator flips that the window has to be told."""
-        if self.hud is not None and self.hud.moved():
-            self.set_hud_mode(self.hud.on)
 
     def _follow_the_room_hold(self, now: float) -> None:
         if self.robot_hand.playing and self.tcode_enabled.on:
