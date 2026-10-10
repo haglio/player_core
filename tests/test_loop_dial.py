@@ -76,6 +76,17 @@ class TestHowItIsDrawn:
         assert ink[c, c + 6] > ink[c, c - 6] + 150
         assert ink[c, c + 6] > ink[c + 6, c] + 150
 
+    def test_a_mark_at_twelve_and_a_dot_at_six_show_the_loops_two_ends(self):
+        """With the hand pointing right, the top and the foot of the dial
+        carry nothing but the marks."""
+        ink = self._brightness(0.25)
+        c = DIAL_SIZE // 2
+        disc = ink[c + 3, c - 4]
+
+        assert ink[2, c] > disc + 100
+        assert ink[DIAL_SIZE - 3, c] > disc + 100
+        assert ink[c - 3, c - 4] < disc + 40 and ink[c + 3, c + 4] < disc + 40
+
     def test_it_is_a_disc_that_leaves_its_corners_clear(self):
         alpha = LoopDialPainter().bgra(LoopDialPainter.hand(0.0))[:, :, 3]
 

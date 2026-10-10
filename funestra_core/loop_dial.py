@@ -4,7 +4,8 @@ A flick has two senses of time.  How long it stays up before the next one
 arrives is the track's: a scrubber, filled left to right like a video's.  The
 loop of the flick itself has no start or end to scrub between, so it is a dial,
 the hand at twelve o'clock at the loop's A end and at six at its B end, going
-round once per turn of the loop.
+round once per turn of the loop.  A mark at twelve and a dot at six say where
+those ends are.
 """
 from __future__ import annotations
 
@@ -27,6 +28,7 @@ HAND_STEPS = 90
 
 _SUPERSAMPLE = 4
 _TICK = 3        # the mark at twelve o'clock, reaching in from the rim
+_DOT = 1.5       # the dot at six, centered where the mark's middle is
 _HAND_W = 2
 _HAND_REACH = DIAL_SIZE / 2 - 3
 _PIVOT = 1.5
@@ -76,6 +78,8 @@ class LoopDialPainter(KeptBitmap):
                      outline=(*BORDER_PANEL, 255), width=s)
         c = size / 2
         draw.line([(c, s), (c, s * (1 + _TICK))], fill=(*TEXT_MUTED, 255), width=s)
+        dot, dot_y = _DOT * s, size - s * (1 + _TICK / 2)
+        draw.ellipse([c - dot, dot_y - dot, c + dot, dot_y + dot], fill=(*TEXT_MUTED, 255))
         angle = math.tau * step / HAND_STEPS
         reach = _HAND_REACH * s
         draw.line([(c, c), (c + math.sin(angle) * reach, c - math.cos(angle) * reach)],
