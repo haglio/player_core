@@ -9,9 +9,7 @@ from shared_ui.palette import TEXT_PRIMARY
 
 from .hud_panel import KeptBitmap, ink_center_offset, load_font, text_width
 from .hud_status import SEPARATOR
-from .loop_dial import DIAL_SIZE
 from .renamed import old_name_getter
-from .timeline import READOUT_SLOT_W, bar_track_x, readout_shares_the_row
 from .volume import CHIP_H, MARGIN, chip_xy
 
 __all__: list[str] = []
@@ -21,9 +19,6 @@ _RENAMED = {"clip_playhead": "flick_playhead"}
 __getattr__ = old_name_getter(__name__, _RENAMED)
 
 _TEXT_PT = 8
-# The same gap the Main Funestra's loop frames keep above the row they label.
-_ABOVE_THE_ROW_GAP = 2
-_WIDEST_READOUT_W = READOUT_SLOT_W - 2 * MARGIN
 
 
 @dataclass(frozen=True)
@@ -62,27 +57,19 @@ def flick_playhead(frame: int, frame_count: int) -> PlayheadHud | None:
                        widest=f"frame {frame_count} / {frame_count}")
 
 
+# The three below are what the Fun Time on main still imports of the row's old
+# placement, kept only until its next lands -- which lays the row out through
+# funestra_core.hud_row.row_layout and reaches none of them.
 def lower_edge_height(win_w: int, *, timeline_h: int) -> int:
-    if readout_shares_the_row(win_w):
-        return timeline_h
-    return timeline_h + _ABOVE_THE_ROW_GAP + CHIP_H
+    return timeline_h
 
 
-def readout_xy(readout_w: int, *, win_w: int, win_h: int, timeline_h: int,
-               dial: bool = False) -> tuple[int, int]:
-    track_x0 = bar_track_x(win_w)[0]
-    if not readout_shares_the_row(win_w):
-        return track_x0, win_h - lower_edge_height(win_w, timeline_h=timeline_h)
-    x = track_x0 - MARGIN - readout_w - ((DIAL_SIZE + MARGIN) if dial else 0)
-    return max(0, x), chip_xy(win_w=win_w, win_h=win_h, timeline_h=timeline_h)[1]
+def readout_xy(readout_w: int, *, win_w: int, win_h: int, timeline_h: int) -> tuple[int, int]:
+    return MARGIN, chip_xy(win_w=win_w, win_h=win_h, timeline_h=timeline_h)[1]
 
 
 def on_readout(x: int, y: int, *, win_w: int, win_h: int, timeline_h: int) -> bool:
-    track_x0 = bar_track_x(win_w)[0]
-    if readout_shares_the_row(win_w):
-        return y >= win_h - timeline_h and x < track_x0
-    top = win_h - lower_edge_height(win_w, timeline_h=timeline_h)
-    return top <= y < top + CHIP_H and track_x0 <= x < track_x0 + _WIDEST_READOUT_W
+    return y >= win_h - timeline_h and x < MARGIN
 
 
 @cache

@@ -55,7 +55,6 @@ from funestra_core.hud_panel import (
 from funestra_core.hud_placement import HudCorner
 from funestra_core.hud_row import SCRUBBER, RowHud, row_part
 from funestra_core.modes import LengthMode, MainMode, Osr2State
-from funestra_core.timeline import bar_track_x
 from funestra_core.volume import VolumeHud
 
 MIXED, FULL, SHORTS = LengthMode.MIXED, LengthMode.FULL, LengthMode.SHORTS
@@ -1309,8 +1308,7 @@ class TestTheRowTheConsoleCarriesForItsVideo:
         painter = ConsolePainter()
         row = RowHud(position_ms=0, duration_ms=60_000)
         plain = painter.rgba(self._hud(), clip_row=row)[0]
-        _x, _y, width, _row_h = painter.row_rect
-        x0, x1 = bar_track_x(width)
+        x0, x1 = painter.row.track
         colors = np.array([(200, 40 + x % 150, 30) for x in range(x1 - x0)],
                           dtype=np.uint8)
 
@@ -1323,12 +1321,12 @@ class TestTheRowTheConsoleCarriesForItsVideo:
         row = RowHud(position_ms=30_000, duration_ms=60_000, volume=VolumeHud(volume=40))
 
         _rgba, (_width, height) = painter.rgba(self._hud(), clip_row=row)
-        x, y, width, row_h = painter.row_rect
+        _x, y, _width, row_h = painter.row.rect
 
         assert y + row_h <= height
         assert all(rect[1] + rect[3] <= y for rect, _button in painter.buttons)
-        x0, x1 = bar_track_x(width)
-        assert row_part((x0 + x1) // 2, row_h - 2, width=width) == SCRUBBER
+        x0, x1 = painter.row.track
+        assert row_part((x0 + x1) // 2, row_h - 2, painter.row) == SCRUBBER
 
 
 def _declared(painter) -> list:
@@ -1435,7 +1433,7 @@ class TestWhereTheConsoleSits:
         painter.bgra(self._hud(corner), clip_row=RowHud(position_ms=1_000,
                                                         duration_ms=60_000))
         x, y, w, h = _button_rect(painter, "main_hud_minimize")
-        rx, ry, rw, rh = painter.row_rect
+        rx, ry, rw, rh = painter.row.rect
 
         assert ry < y + h and y < ry + rh, "the minus is not beside the row"
         assert (rx + rw <= x) if corner.right else (rx >= x + w)
@@ -1494,7 +1492,7 @@ class TestEverySectionIsSetOffFromTheNextByALine:
         readout_top = painter.tracks[0].rect[1] - tracks(0, 0, drive)[0].rect[1]
         device = (_button_rect(painter, "robot_hand_toggle_cruise")[1],
                   readout_top + section_size()[1])
-        _x, row_y, _w, row_h = painter.row_rect
+        _x, row_y, _w, row_h = painter.row.rect
 
         lines = _dividers(bgra)
 

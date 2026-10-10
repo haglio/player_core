@@ -1557,7 +1557,7 @@ class TestTheRowThePanelCarriesForItsClip:
             row, corner=HudCell(path="c.mp4", thumb=thumb),
             seeds=(HudCell(path="s.mp4", thumb=thumb),), seed_count=2,
             osr2=Osr2State.ROBOT_HAND, drive=DriveHud(driven=DRIVEN_BY_ROBOT_HAND))
-        placed = rendered.targets.row
+        placed = rendered.targets.row.rect
 
         assert placed is not None
         assert all(band.rect[1] >= placed[1] + placed[3] for band in rendered.targets.tracks)
@@ -1567,9 +1567,10 @@ class TestTheRowThePanelCarriesForItsClip:
     def test_a_press_on_it_is_placed_in_the_rows_own_coordinates(self):
         row = RowHud(position_ms=0, duration_ms=60_000, volume=VolumeHud(volume=40))
         rendered = self._rendered(row)
-        x, y, width, height = rendered.targets.row
+        row = rendered.targets.row
+        _x, _y, width, height = row.rect
 
-        assert row_part(width // 2, height - 2, width=width) == SCRUBBER
+        assert row_part(width // 2, height - 2, row) == SCRUBBER
 
 
 def _bands(rendered) -> dict[int, tuple[int, int]]:
@@ -1805,7 +1806,7 @@ class TestEverySectionIsSetOffFromTheNextByALine:
                    osr2_rows=((Button("robot_hand_toggle_cruise", "cc", "Cruise"),),)),
             video="example clip one", clip_row=RowHud(duration_ms=60_000))
         painted = np.argwhere((_rgb(rendered.bgra) == np.array(_Block.MARK)).all(axis=-1))
-        _x, row_y, _w, row_h = rendered.targets.row
+        _x, row_y, _w, row_h = rendered.targets.row.rect
         sections = [self._status(rendered), self._controls(rendered), (row_y, row_y + row_h),
                     self._device(rendered, drive),
                     (painted[:, 0].min(), painted[:, 0].max() + 1), self._map(rendered)]

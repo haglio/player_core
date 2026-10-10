@@ -75,7 +75,7 @@ from .hud_panel import (
     to_bgra,
 )
 from .hud_placement import HudCorner, block_x
-from .hud_row import RowHud, RowSection
+from .hud_row import ROW_H, RowHud, RowLayout, RowSection, row_layout
 from .hud_sections import blocks_height, stack
 from .hud_status import (
     LATEST_LABEL,
@@ -254,7 +254,7 @@ class ConsolePainter:
         self.tracks: list[DriveTrack] = []
         # Where the clip's row landed, for a press to be placed in its own
         # coordinates (:func:`funestra_core.hud_row.row_part`).
-        self.row_rect: Rect | None = None
+        self.row: RowLayout | None = None
         self._grip = TrackGrip()
         self._readout = ReadoutResolver()
         self._origin = hud_xy()
@@ -434,7 +434,7 @@ class ConsolePainter:
         widths = [0, _row_width(rows),
                   max(_row_width(aim_rows), drive_w,
                       self._osr2_width(console) if console.has_osr2 else 0),
-                  self._clip_row.least_width() if clip_row is not None else 0]
+                  self._clip_row.least_width(clip_row) if clip_row is not None else 0]
         minus_room = MINUS_ROOM if whole and self._minus_on_the_panel else 0
         last = max(index for index, used in enumerate(
             (True, bool(rows), bool(aim_rows) or console.has_osr2 or drive is not None,
@@ -456,8 +456,7 @@ class ConsolePainter:
         # The clip's own row, under everything the console says about the room:
         # where the video is and how loud it is, drawn here rather than along
         # the lower edge of the picture (:mod:`funestra_core.hud_row`).
-        row_h = (self._clip_row.size(width - 2 * _PAD - reserves[3])[1]
-                 if clip_row is not None else 0)
+        row_h = ROW_H if clip_row is not None else 0
         sections = stack(_PAD, [
             top_h + filename_h,
             rows_height(rows),
@@ -511,12 +510,12 @@ class ConsolePainter:
                         hovered=hover is not None and contains(minus[0], *hover),
                         glyph_font=self._glyph, word_font=self._tiny)
             self.buttons.append(minus)
-        self.row_rect = None
+        self.row = None
         if clip_row is not None:
-            self.row_rect = (_PAD + (0 if corner.right else reserves[3]), row_top,
-                             width - 2 * _PAD - reserves[3], row_h)
-            self._clip_row.draw(panel.image, *self.row_rect[:3],
-                                clip_row, heatmap=heatmap)
+            self.row = row_layout(clip_row, rect=(
+                _PAD + (0 if corner.right else reserves[3]), row_top,
+                width - 2 * _PAD - reserves[3], row_h))
+            self._clip_row.draw(panel.image, self.row, clip_row, heatmap=heatmap)
 
         if hover is not None:
             tip = tooltip_at(self.buttons, *hover)
@@ -528,7 +527,7 @@ class ConsolePainter:
                          hover: tuple[int, int] | None) -> Image.Image:
         image, buttons = collapsed_button(funestra, corner, hover=hover,
                                           room_for_the_tooltip=self._width is not None)
-        self.buttons, self.tracks, self.row_rect = buttons, [], None
+        self.buttons, self.tracks, self.row = buttons, [], None
         return image
 
     def _osr2_state(self, model: ConsoleModel) -> str:

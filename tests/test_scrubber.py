@@ -34,20 +34,20 @@ class TestTheHeightOfTheTimelineRow:
 
     def test_a_scripted_item_is_measured_by_its_strip(self):
         strip = HeatmapStrip()
-        strip.update("v0.mp4", _funscript(), 4000.0, width=40)
+        strip.update("v0.mp4", _funscript(), 4000.0, track_w=40)
 
         assert timeline_height(strip) == strip.height == TIMELINE_HEIGHT
 
     def test_an_unscripted_item_still_leaves_the_row_the_bar_needs(self):
         strip = HeatmapStrip()
-        strip.update("plain.mp4", None, 4000.0, width=40)
+        strip.update("plain.mp4", None, 4000.0, track_w=40)
 
         assert strip.height == 0
         assert timeline_height(strip) == TIMELINE_HEIGHT
 
     def test_a_strip_that_grew_for_a_mark_takes_the_row_with_it(self):
         strip = HeatmapStrip()
-        strip.update("v0.mp4", _funscript(), 4000.0, width=40, mark_in_ms=1000.0, position_ms=1200.0)
+        strip.update("v0.mp4", _funscript(), 4000.0, track_w=40, mark_in_ms=1000.0, position_ms=1200.0)
 
         assert timeline_height(strip) == 48
 
@@ -59,7 +59,7 @@ class TestHeatmapStrip:
         error; it is the first frame, and it goes up as a plain bar."""
         strip = HeatmapStrip()
 
-        strip.update("v0.mp4", _funscript(), 4000.0, width=0)
+        strip.update("v0.mp4", _funscript(), 4000.0, track_w=0)
 
         assert strip.colors == []
 
@@ -67,7 +67,7 @@ class TestHeatmapStrip:
         fs = _funscript()
         strip = HeatmapStrip()
 
-        strip.update("v0.mp4", fs, 4000.0, width=WIN_W)
+        strip.update("v0.mp4", fs, 4000.0, track_w=TRACK_W)
 
         assert strip.colors == build_heatmap(fs, TRACK_W, start_ms=0, end_ms=4000.0)
         assert strip.height == 24
@@ -75,34 +75,34 @@ class TestHeatmapStrip:
     def test_an_unscripted_item_has_no_strip(self):
         strip = HeatmapStrip()
 
-        strip.update("plain.mp4", None, 4000.0, width=WIN_W)
+        strip.update("plain.mp4", None, 4000.0, track_w=TRACK_W)
 
         assert strip.colors == []
         assert strip.height == 0
 
     def test_caches_until_the_item_changes(self):
         strip = HeatmapStrip()
-        strip.update("v0.mp4", _funscript(), 4000.0, width=WIN_W)
+        strip.update("v0.mp4", _funscript(), 4000.0, track_w=TRACK_W)
         built = strip.colors
 
-        strip.update("v0.mp4", Funscript(actions=[]), 4000.0, width=WIN_W)
+        strip.update("v0.mp4", Funscript(actions=[]), 4000.0, track_w=TRACK_W)
         assert strip.colors is built
 
-        strip.update("v1.mp4", Funscript(actions=[]), 4000.0, width=WIN_W)
+        strip.update("v1.mp4", Funscript(actions=[]), 4000.0, track_w=TRACK_W)
         assert strip.colors != built
 
     def test_a_width_change_rebuilds(self):
         strip = HeatmapStrip()
-        strip.update("v0.mp4", _funscript(), 4000.0, width=WIN_W)
+        strip.update("v0.mp4", _funscript(), 4000.0, track_w=TRACK_W)
 
-        strip.update("v0.mp4", _funscript(), 4000.0, width=800)
+        strip.update("v0.mp4", _funscript(), 4000.0, track_w=500)
 
-        assert len(strip.colors) == bar_track_x(800)[1] - bar_track_x(800)[0]
+        assert len(strip.colors) == 500
 
     def test_the_full_view_spans_the_item(self):
         strip = HeatmapStrip()
 
-        strip.update("v0.mp4", _funscript(), 4000.0, width=WIN_W)
+        strip.update("v0.mp4", _funscript(), 4000.0, track_w=TRACK_W)
 
         assert strip.window == (0.0, 4000.0)
         assert strip.mark_in_ms is None
@@ -111,7 +111,7 @@ class TestHeatmapStrip:
         fs = _funscript()
         strip = HeatmapStrip()
 
-        strip.update("v0.mp4", fs, 600_000.0, width=WIN_W, mark_in_ms=50_000, position_ms=50_000.0)
+        strip.update("v0.mp4", fs, 600_000.0, track_w=TRACK_W, mark_in_ms=50_000, position_ms=50_000.0)
 
         assert strip.window == (48_000, 70_000)
         assert strip.height == 48
@@ -121,7 +121,7 @@ class TestHeatmapStrip:
     def test_an_unscripted_item_marked_keeps_the_plain_view(self):
         strip = HeatmapStrip()
 
-        strip.update("plain.mp4", None, 600_000.0, width=WIN_W, mark_in_ms=50_000, position_ms=50_000.0)
+        strip.update("plain.mp4", None, 600_000.0, track_w=TRACK_W, mark_in_ms=50_000, position_ms=50_000.0)
 
         assert strip.window == (0.0, 600_000.0)
         assert strip.height == 0
@@ -130,7 +130,7 @@ class TestHeatmapStrip:
         strip = HeatmapStrip()
 
         def update(position_ms):
-            strip.update("v0.mp4", _funscript(), 600_000.0, width=WIN_W,
+            strip.update("v0.mp4", _funscript(), 600_000.0, track_w=TRACK_W,
                          mark_in_ms=50_000, position_ms=position_ms)
 
         update(50_000.0)
@@ -146,16 +146,16 @@ class TestHeatmapStrip:
     def test_closing_the_mark_restores_the_full_view(self):
         fs = _funscript()
         strip = HeatmapStrip()
-        strip.update("v0.mp4", fs, 600_000.0, width=WIN_W, mark_in_ms=50_000, position_ms=66_800.0)
+        strip.update("v0.mp4", fs, 600_000.0, track_w=TRACK_W, mark_in_ms=50_000, position_ms=66_800.0)
 
-        strip.update("v0.mp4", fs, 600_000.0, width=WIN_W)
+        strip.update("v0.mp4", fs, 600_000.0, track_w=TRACK_W)
 
         assert strip.window == (0.0, 600_000.0)
         assert strip.height == 24
         assert strip.mark_in_ms is None
         assert strip.colors == build_heatmap(fs, TRACK_W, start_ms=0, end_ms=600_000.0)
 
-        strip.update("v0.mp4", fs, 600_000.0, width=WIN_W, mark_in_ms=100_000, position_ms=100_000.0)
+        strip.update("v0.mp4", fs, 600_000.0, track_w=TRACK_W, mark_in_ms=100_000, position_ms=100_000.0)
         assert strip.window == (98_000, 120_000)
 
 
@@ -209,7 +209,7 @@ class TestAScriptedItemsStrip:
     def _framed_strip(self, win_w=1000):
         x0, x1 = bar_track_x(win_w)
         strip = HeatmapStrip()
-        strip.update("v.mp4", _funscript(), 4000.0, width=win_w)
+        strip.update("v.mp4", _funscript(), 4000.0, track_w=x1 - x0)
         return timeline_bgra(strip, 2000, (1000, 3000), win_w), x0, x1
 
     def test_the_strip_is_inset_from_the_window_edges(self):
@@ -239,7 +239,7 @@ class TestAScriptedItemsStrip:
 class TestTheTimelineUnderAnItem:
     def test_an_unscripted_item_gets_the_plain_bar_across_its_whole_length(self):
         strip = HeatmapStrip()
-        strip.update("plain.mp4", None, 4000.0, width=WIN_W)
+        strip.update("plain.mp4", None, 4000.0, track_w=TRACK_W)
 
         drawn = timeline_bgra(strip, 2000, (1000, 3000), WIN_W, record_in_ms=500)
 
@@ -248,7 +248,7 @@ class TestTheTimelineUnderAnItem:
 
     def test_a_scripted_item_gets_the_same_bar_filled_with_its_scripts_colors(self):
         strip = HeatmapStrip()
-        strip.update("v0.mp4", _funscript(), 4000.0, width=WIN_W)
+        strip.update("v0.mp4", _funscript(), 4000.0, track_w=TRACK_W)
 
         drawn = timeline_bgra(strip, 2000, (1000, 3000), WIN_W)
 
@@ -257,7 +257,7 @@ class TestTheTimelineUnderAnItem:
 
     def test_a_strip_zoomed_into_a_mark_maps_its_own_window(self):
         strip = HeatmapStrip()
-        strip.update("v0.mp4", _funscript(), 600_000.0, width=WIN_W,
+        strip.update("v0.mp4", _funscript(), 600_000.0, track_w=TRACK_W,
                      mark_in_ms=50_000, position_ms=59_000.0)
 
         drawn = timeline_bgra(strip, 59_000.0, None, WIN_W, record_in_ms=50_000)
@@ -270,12 +270,12 @@ class TestTheTimelineUnderAnItem:
     @pytest.mark.parametrize("funscript", [None, _funscript()], ids=["plain", "scripted"])
     def test_it_says_where_it_draws_the_playcursor(self, funscript):
         strip = HeatmapStrip()
-        strip.update("v0.mp4", funscript, 4000.0, width=WIN_W)
+        strip.update("v0.mp4", funscript, 4000.0, track_w=TRACK_W)
 
         for position in range(100, 3900, 7):
             bar = timeline_bgra(strip, position, None, WIN_W)
             white = np.flatnonzero((bar[bar.shape[0] // 2] == 255).all(axis=1))
-            x = timeline_x(strip, position, WIN_W)
+            x = timeline_x(strip, position, bar_track_x(WIN_W))
             assert white.tolist() == [x - 1, x, x + 1]
 
 
@@ -327,7 +327,7 @@ class TestWhereTheLoopsTwoFramesGo:
 
     def _scripted(self) -> HeatmapStrip:
         strip = HeatmapStrip()
-        strip.update("v0.mp4", _funscript(), 4000.0, width=40)
+        strip.update("v0.mp4", _funscript(), 4000.0, track_w=40)
         return strip
 
     def test_each_frame_sits_centered_under_its_own_mark(self):

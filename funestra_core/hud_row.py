@@ -8,8 +8,9 @@ instead.  Everything else has the same defect in slower form: a row over the
 picture is a second panel, on a screen that already carries one.
 
 So the row is a block a panel hosts, the way the device line and the drive
-readout are: the same track, the same chip and the same pill this package
-already draws, placed against the block's own width rather than the window's.
+readout are: one line, laid out from what is on it -- the readout, a flick's
+dial, the track, and the chip at the right end -- against the block's own
+width rather than the window's.
 """
 from __future__ import annotations
 
@@ -18,16 +19,13 @@ from dataclasses import dataclass
 import numpy as np
 from PIL import Image
 
-from .loop_dial import LoopDialPainter, dial_xy, on_dial, turn_at
-from .playhead import (
-    PlayheadHud,
-    PlayheadHudPainter,
-    lower_edge_height,
-    on_readout,
-    readout_xy,
-)
+from .loop_dial import DIAL_SIZE, LoopDialPainter, on_dial, turn_at
+from .playhead import PlayheadHud, PlayheadHudPainter, readout_width
 from .timeline import BAR_INSET_X, TIMELINE_HEIGHT, bar_track_x, progress_bar_bgra
 from .volume import (
+    CHIP_H,
+    MARGIN,
+    PAD,
     SLOT_W,
     VolumeHud,
     VolumeHudPainter,
@@ -49,6 +47,10 @@ VOLUME = "volume"
 DIAL = "dial"
 
 _CHIP_PARTS = {"mute": MUTE, "track": VOLUME}
+
+ROW_H = TIMELINE_HEIGHT
+# The readout, the dial and the chip are as tall as each other, centered in the row.
+PARTS_Y = (ROW_H - CHIP_H) // 2
 
 # The least track worth pressing.  Narrower than this the chip is pushed over
 # the track and the row is one control on top of another, so the panel widens
@@ -76,6 +78,47 @@ class RowHud:
     loop_turn: float | None = None
 
 
+@dataclass(frozen=True)
+class RowLayout:
+    """Where the row lies in its panel, and where each part lands across it,
+    left to right: the readout, a flick's dial, the track, and the chip."""
+
+    rect: tuple[int, int, int, int]
+    readout: tuple[int, int] | None  # the readout's x and width, in the row's own pixels
+    dial: int | None                  # the dial's x
+    track: tuple[int, int]            # the track's two ends
+
+    @property
+    def width(self) -> int:
+        return self.rect[2]
+
+    def inside(self, px: int, py: int) -> bool:
+        x, y, width, height = self.rect
+        return x <= px < x + width and y <= py < y + height
+
+    def local(self, px: int, py: int) -> tuple[int, int]:
+        return px - self.rect[0], py - self.rect[1]
+
+
+def _track_left(row: RowHud) -> tuple[tuple[int, int] | None, int | None, int]:
+    """The readout's place, the dial's, and where the track starts after them."""
+    x = MARGIN
+    readout = dial = None
+    if row.playhead is not None:
+        width = readout_width(row.playhead)
+        readout = (x, width)
+        x += width + (PAD if row.loop_turn is not None else MARGIN)
+    if row.loop_turn is not None:
+        dial = x
+        x += DIAL_SIZE + MARGIN
+    return readout, dial, x if (readout or dial is not None) else BAR_INSET_X
+
+
+def row_layout(row: RowHud, *, rect: tuple[int, int, int, int]) -> RowLayout:
+    readout, dial, left = _track_left(row)
+    return RowLayout(rect, readout, dial, bar_track_x(rect[2], left=left))
+
+
 class RowSection:
     """The row itself, drawn into whatever panel is hosting it."""
 
@@ -84,45 +127,38 @@ class RowSection:
         self._readout = PlayheadHudPainter()
         self._dial = LoopDialPainter()
 
-    def least_width(self) -> int:
+    @staticmethod
+    def least_width(row: RowHud) -> int:
         """The narrowest panel the row can be laid out in."""
-        return BAR_INSET_X + _LEAST_TRACK + SLOT_W
+        return _track_left(row)[2] + _LEAST_TRACK + SLOT_W
 
-    def size(self, width: int) -> tuple[int, int]:
-        """The room the row takes at *width* — one line where the readout fits
-        beside the track, and a line for each where it does not."""
-        return width, lower_edge_height(width, timeline_h=TIMELINE_HEIGHT)
-
-    def draw(self, image: Image.Image, x: int, y: int, width: int, row: RowHud,
+    def draw(self, image: Image.Image, layout: RowLayout, row: RowHud,
              *, heatmap: np.ndarray | None = None) -> None:
-        """Paint the row with its top-left corner at ``(x, y)`` of *image*.
+        """Paint the row where *layout* put it in *image*.
 
         *heatmap* is the funscript's colors across the track; without it, or
         with colors measured across some other width, the track is the plain
         bar.
         """
-        _width, height = self.size(width)
+        x, y, width, _height = layout.rect
         bar = progress_bar_bgra(row.position_ms, row.duration_ms, row.loop_bounds,
                                 width, record_in_ms=row.record_in_ms,
-                                heatmap=fitting(heatmap, width))
-        image.alpha_composite(_rgba(bar), (x, y + height - bar.shape[0]))
+                                heatmap=fitting(heatmap, layout.track), track=layout.track)
+        image.alpha_composite(_rgba(bar), (x, y))
         if row.volume is not None:
             chip = _rgba(self._volume.bgra(row.volume))
             image.alpha_composite(chip, _offset((x, y), chip_xy(
-                win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT)))
-        if row.loop_turn is not None:
+                win_w=width, win_h=ROW_H, timeline_h=ROW_H)))
+        if layout.dial is not None:
             dial = _rgba(self._dial.bgra(LoopDialPainter.hand(row.loop_turn)))
-            image.alpha_composite(dial, _offset((x, y), dial_xy(
-                win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT)))
-        if row.playhead is not None:
-            pill = _rgba(self._readout.bgra(row.playhead))
-            image.alpha_composite(pill, _offset((x, y), readout_xy(
-                pill.width, win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT,
-                dial=row.loop_turn is not None)))
+            image.alpha_composite(dial, (x + layout.dial, y + PARTS_Y))
+        if layout.readout is not None:
+            readout = _rgba(self._readout.bgra(row.playhead))
+            image.alpha_composite(readout, (x + layout.readout[0], y + PARTS_Y))
 
 
-def fitting(heatmap, width: int):
-    """The colors if they were measured across a track this wide, else None.
+def fitting(heatmap, track: tuple[int, int]):
+    """The colors if they were measured across *track*, else None.
 
     A panel is as wide as what is on it, so how wide its track came out is an
     answer only a render gives: a host measures one panel and fills the next.
@@ -133,21 +169,21 @@ def fitting(heatmap, width: int):
     """
     if heatmap is None or not len(heatmap):
         return None
-    x0, x1 = bar_track_x(width)
+    x0, x1 = track
     return heatmap if len(heatmap) == x1 - x0 else None
 
 
-def track_on_screen(rect: tuple[int, int, int, int] | None, *, origin: tuple[int, int],
+def track_on_screen(layout: RowLayout | None, *, origin: tuple[int, int],
                     panel_height: int) -> tuple[int, int, int] | None:
     """Where the row's track runs in the window's own coordinates: its two ends
     and the y just under the panel, or None where no row is drawn.  A window
     hangs its loop's frames there, below their own marks on the track.
     """
-    if rect is None:
+    if layout is None:
         return None
     left, top = origin
-    x0, x1 = bar_track_x(rect[2])
-    return (left + rect[0] + x0, left + rect[0] + x1,
+    x0, x1 = layout.track
+    return (left + layout.rect[0] + x0, left + layout.rect[0] + x1,
             top + panel_height + UNDER_THE_PANEL_GAP)
 
 
@@ -160,33 +196,32 @@ def _offset(origin: tuple[int, int], place: tuple[int, int]) -> tuple[int, int]:
     return origin[0] + place[0], origin[1] + place[1]
 
 
-def row_part(px: int, py: int, *, width: int, dial: bool = False) -> str:
+def row_part(px: int, py: int, layout: RowLayout) -> str:
     """Which control a press at the row's own ``(px, py)`` is on, or "" for none.
 
     The row is a video's last rows drawn somewhere else, so it is hit-tested as
-    one: the same chip and readout placements, against the row's width and its
-    own height rather than a window's.
+    one: the same chip placement, against the row's width and its own height
+    rather than a window's, and the dial and the readout where the layout put
+    them.
     """
-    height = lower_edge_height(width, timeline_h=TIMELINE_HEIGHT)
-    part = hit_part(*chip_local(px, py, win_w=width, win_h=height,
-                                timeline_h=TIMELINE_HEIGHT))
+    if not 0 <= py < ROW_H:
+        return ""
+    part = hit_part(*chip_local(px, py, win_w=layout.width, win_h=ROW_H, timeline_h=ROW_H))
     if part:
         return _CHIP_PARTS[part]
-    if dial and on_dial(px, py, win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT):
+    if layout.dial is not None and on_dial(px, py, at=(layout.dial, PARTS_Y)):
         return DIAL
-    if on_readout(px, py, win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT):
-        return READOUT
-    return SCRUBBER if py >= height - TIMELINE_HEIGHT else ""
+    return READOUT if px < layout.track[0] else SCRUBBER
 
 
 class RowPress:
     """What a press on the clip's row asks of the window that draws it.
 
     The Funestra's own overlays place a press on the row with this, so the
-    track, the slider and the speaker answer the same way on each of them.
-    *rect* is where the row landed in the panel's own coordinates, and
-    *duration_ms* how long the track spans -- the clip, or the window a loop
-    being recorded has zoomed it to.
+    track, the dial, the slider and the speaker answer the same way on each of
+    them.  *layout* is where the row landed in the panel's own coordinates,
+    and *duration_ms* how long the track spans -- the clip, or the window a
+    loop being recorded has zoomed it to.
     """
 
     def __init__(self, *, seek=None, seek_loop=None, set_volume=None, toggle_mute=None) -> None:
@@ -200,61 +235,53 @@ class RowPress:
     def holding(self) -> bool:
         return bool(self._holding)
 
-    def press(self, px: int, py: int, *, rect, duration_ms: float, dial: bool = False) -> bool:
+    def press(self, px: int, py: int, *, layout: RowLayout | None, duration_ms: float) -> bool:
         """Whether this press landed on a control of the row, and if it did,
         what it asked: the track runs the clip there, the dial turns its loop,
         the slider sets the level, the speaker mutes."""
-        if rect is None:
+        if layout is None or not layout.inside(px, py):
             return False
-        x, y, width, height = rect
-        if not (x <= px < x + width and y <= py < y + height):
-            return False
-        self._holding = row_part(px - x, py - y, width=width, dial=dial)
+        self._holding = row_part(*layout.local(px, py), layout)
         if not self._holding:
             return False
-        self._act(px, py, rect=rect, duration_ms=duration_ms)
+        self._act(px, py, layout=layout, duration_ms=duration_ms)
         return True
 
-    def drag_to(self, px: int, py: int, *, rect, duration_ms: float) -> bool:
+    def drag_to(self, px: int, py: int, *, layout: RowLayout | None, duration_ms: float) -> bool:
         """The track, the dial and the slider go on being set while the pointer
         is held down.  The speaker does not: the mute is a press, so a pointer
         crossing it on its way along the slider must not flip it."""
-        if rect is None or self._holding not in (SCRUBBER, DIAL, VOLUME):
+        if layout is None or self._holding not in (SCRUBBER, DIAL, VOLUME):
             return False
-        self._act(px, py, rect=rect, duration_ms=duration_ms)
+        self._act(px, py, layout=layout, duration_ms=duration_ms)
         return True
 
     def release(self) -> None:
         self._holding = ""
 
-    def _act(self, px: int, py: int, *, rect, duration_ms: float) -> None:
-        x, y, width, _height = rect
-        px, py = px - x, py - y
+    def _act(self, px: int, py: int, *, layout: RowLayout, duration_ms: float) -> None:
+        px, py = layout.local(px, py)
         if self._holding == SCRUBBER and self._seek is not None:
-            self._seek(scrub_to(px, width=width, duration_ms=duration_ms))
+            self._seek(scrub_to(px, layout, duration_ms=duration_ms))
         elif self._holding == DIAL and self._seek_loop is not None:
-            self._seek_loop(turn_to(px, py, width=width))
+            self._seek_loop(turn_to(px, py, layout))
         elif self._holding == VOLUME and self._set_volume is not None:
-            self._set_volume(volume_to(px, py, width=width))
+            self._set_volume(volume_to(px, py, layout))
         elif self._holding == MUTE and self._toggle_mute is not None:
             self._toggle_mute()
 
 
-def scrub_to(px: int, *, width: int, duration_ms: float) -> float:
+def scrub_to(px: int, layout: RowLayout, *, duration_ms: float) -> float:
     """The time a press along the track asks for, saturating past either end."""
-    x0, x1 = bar_track_x(width)
+    x0, x1 = layout.track
     return min(1.0, max(0.0, (px - x0) / max(1, x1 - x0))) * duration_ms
 
 
-def volume_to(px: int, py: int, *, width: int) -> int:
+def volume_to(px: int, py: int, layout: RowLayout) -> int:
     """The level a press along the slider asks for."""
-    height = lower_edge_height(width, timeline_h=TIMELINE_HEIGHT)
-    return volume_at(chip_local(px, py, win_w=width, win_h=height,
-                                timeline_h=TIMELINE_HEIGHT)[0])
+    return volume_at(chip_local(px, py, win_w=layout.width, win_h=ROW_H, timeline_h=ROW_H)[0])
 
 
-def turn_to(px: int, py: int, *, width: int) -> float:
+def turn_to(px: int, py: int, layout: RowLayout) -> float:
     """The turn a press round the dial asks for, clockwise from twelve o'clock."""
-    return turn_at(px, py, win_w=width,
-                   win_h=lower_edge_height(width, timeline_h=TIMELINE_HEIGHT),
-                   timeline_h=TIMELINE_HEIGHT)
+    return turn_at(px, py, at=(layout.dial, PARTS_Y))

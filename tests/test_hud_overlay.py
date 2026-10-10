@@ -17,7 +17,7 @@ from funestra_core.hud_overlay import HudOverlay
 from funestra_core.hud_placement import HudCorner, HudEdge
 from funestra_core.hud_row import UNDER_THE_PANEL_GAP, RowHud
 from funestra_core.satellite_hud import MARGIN, MINUS_INSET, PAD, HudModel
-from funestra_core.timeline import TIMELINE_HEIGHT, bar_track_x
+from funestra_core.timeline import TIMELINE_HEIGHT
 from funestra_core.volume import CHIP_H, CHIP_W, SPEAKER_W, VolumeHud, chip_xy
 
 
@@ -53,10 +53,10 @@ def _commands(tmp_path: Path) -> list[str]:
 
 
 
-def _colors_across(row_rect) -> list[tuple[int, int, int]]:
+def _colors_across(row) -> list[tuple[int, int, int]]:
     """One color per pixel of the track the panel drew, which is what a host
     hands back for the next one to be filled with."""
-    x0, x1 = bar_track_x(row_rect[2])
+    x0, x1 = row.track
     return [(200, 40, 40)] * (x1 - x0)
 
 
@@ -85,7 +85,7 @@ class TestTheClipsRowAtItsFoot:
         assert overlay.targets.row is None
 
     def _on_the_row(self, overlay, px, py):
-        x, y, _width, _height = overlay.targets.row
+        x, y, _width, _height = overlay.targets.row.rect
         return MARGIN + x + px, MARGIN + y + py
 
     def test_a_press_along_the_track_runs_the_clip_there(self, tmp_path, panel):
@@ -95,8 +95,8 @@ class TestTheClipsRowAtItsFoot:
             engine=FakeEngine(), clock=lambda: 0.0, seek=seeks.append,
         )
         overlay.tick(clip_row=self._ROW)
-        _x, _y, width, height = overlay.targets.row
-        x0, x1 = bar_track_x(width)
+        _x, _y, _width, height = overlay.targets.row.rect
+        x0, x1 = overlay.targets.row.track
 
         overlay.press(*self._on_the_row(overlay, (x0 + x1) // 2,
                                         height - TIMELINE_HEIGHT // 2))
@@ -110,8 +110,8 @@ class TestTheClipsRowAtItsFoot:
             engine=FakeEngine(), clock=lambda: 0.0, seek=seeks.append,
         )
         overlay.tick(clip_row=self._ROW)
-        _x, _y, width, height = overlay.targets.row
-        x0, x1 = bar_track_x(width)
+        _x, _y, _width, height = overlay.targets.row.rect
+        x0, x1 = overlay.targets.row.track
         along = height - TIMELINE_HEIGHT // 2
 
         overlay.press(*self._on_the_row(overlay, x0, along))
@@ -128,7 +128,7 @@ class TestTheClipsRowAtItsFoot:
             set_volume=levels.append, toggle_mute=lambda: mutes.append(1),
         )
         overlay.tick(clip_row=self._ROW)
-        _x, _y, width, height = overlay.targets.row
+        _x, _y, width, height = overlay.targets.row.rect
         cx, cy = chip_xy(win_w=width, win_h=height, timeline_h=TIMELINE_HEIGHT)
 
         overlay.press(*self._on_the_row(overlay, cx + SPEAKER_W // 2, cy + CHIP_H // 2))
@@ -144,7 +144,7 @@ class TestTheClipsRowAtItsFoot:
         _overlay(tmp_path, panel, plain).tick(clip_row=self._ROW)
         colored = _overlay(tmp_path, panel, scripted)
         colored.tick(clip_row=self._ROW)
-        colored.tick(clip_row=self._ROW, heatmap=_colors_across(colored.row_rect))
+        colored.tick(clip_row=self._ROW, heatmap=_colors_across(colored.row))
 
         (_x, _y, bare), = plain.overlays.values()
         (_x, _y, filled), = scripted.overlays.values()
@@ -174,8 +174,8 @@ class TestTheClipsRowAtItsFoot:
 
         overlay.tick(clip_row=self._ROW)
 
-        x, _y, width, _height = overlay.row_rect
-        x0, x1 = bar_track_x(width)
+        x, _y, _width, _height = overlay.row.rect
+        x0, x1 = overlay.row.track
         left, top, _w, _h = (MARGIN, MARGIN, 0, 0)
         panel_h = overlay._engine.overlays[overlay.overlay_id][2].shape[0]
         assert overlay.row_track == (left + x + x0, left + x + x1,
@@ -186,7 +186,7 @@ class TestTheClipsRowAtItsFoot:
 
         overlay.tick(clip_row=None)
 
-        assert overlay.row_rect is None
+        assert overlay.row is None
         assert overlay.row_track is None
 
 

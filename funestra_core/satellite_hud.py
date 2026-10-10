@@ -44,6 +44,8 @@ from .renamed import answers_to_old_names
 if TYPE_CHECKING:
     from PIL import Image
 
+    from .hud_row import RowLayout
+
 __all__ = [
     "BLOCK_GAP",
     "CTRL_BTN",
@@ -562,9 +564,9 @@ class HudTargets:
     # The drive readout's three bands, on a host that draws one: pressed to set
     # a level outright, and held while the pointer drags along them.
     tracks: list[DriveTrack] = field(default_factory=list)
-    # Where the clip's own row landed, for a press to be placed in its
-    # coordinates (:func:`funestra_core.hud_row.row_part`).
-    row: Rect | None = None
+    # Where the clip's own row landed and how it is laid out, for a press to
+    # be placed on it (:class:`funestra_core.hud_row.RowPress`).
+    row: RowLayout | None = None
     # Where the block the source paints at the foot landed: its presses and
     # the wheel go back to the source in that block's own pixels.
     foot: Rect | None = None
