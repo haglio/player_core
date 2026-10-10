@@ -74,7 +74,7 @@ from .hud_panel import (
     text_width,
     to_bgra,
 )
-from .hud_placement import HudCorner, block_x, hud_origin
+from .hud_placement import HudCorner, block_x
 from .hud_row import RowHud, RowSection
 from .hud_sections import blocks_height, stack
 from .hud_status import (
@@ -351,13 +351,9 @@ class ConsolePainter:
                         minimized=console.hud_minimized, inset=_MINUS_INSET)
 
     def place(self, *, window: tuple[int, int], lower_edge: int = 0) -> tuple[int, int]:
-        painted = self._painted[0] if self._painted is not None else None
-        corner = painted.console.hud_corner if painted is not None else HudCorner.UPPER_LEFT
+        place = self.hud_place or HudPlace("", HudCorner.UPPER_LEFT, MARGIN)
         size = self._image.size if self._image is not None else (0, 0)
-        minimized = painted is not None and painted.console.hud_minimized
-        self._origin = hud_origin(corner, panel=size, window=window,
-                                  margin=MARGIN, lower_edge=lower_edge,
-                                  inset=_MINUS_INSET if minimized else (0, 0))
+        self._origin = place.origin(panel=size, window=window, lower_edge=lower_edge)
         return self._origin
 
     def _local(self, mx: int, my: int) -> tuple[int, int]:

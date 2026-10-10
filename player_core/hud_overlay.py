@@ -16,7 +16,7 @@ from typing import NamedTuple
 from .dashboard import ask
 from .drive_readout import DriveHud, read_drive
 from .hud_corners import HudPlace
-from .hud_placement import HudCorner, HudEdge, PointerReading, hud_origin
+from .hud_placement import HudCorner, HudEdge, PointerReading
 from .hud_row import RowHud, RowPress, track_on_screen
 from .modes import Osr2State
 from .satellite_hud import (
@@ -320,9 +320,7 @@ class HudOverlay:
     def _place(self, corner: HudCorner, size: tuple[int, int]) -> tuple[int, int]:
         if self._window is None:
             return MARGIN, MARGIN
-        inset = MINUS_INSET if self._model.hud_minimized else (0, 0)
-        return hud_origin(corner, panel=size, window=self._window, margin=MARGIN,
-                          inset=inset)
+        return replace(self.hud_place, corner=corner).origin(panel=size, window=self._window)
 
     def _motion(self) -> DriveHud | None:
         if self._drive_file is None or self._model is None or not self._model.osr2:

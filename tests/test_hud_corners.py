@@ -105,3 +105,17 @@ def test_the_plus_leaves_its_name_the_room_tooltip_size_gives_it():
     drawn = plus_bgra(button, HudCorner.LOWER_RIGHT)
 
     assert drawn.shape[:2] == (max(BUTTON, height), BUTTON + BUTTON_GAP + width)
+
+
+class TestWhereAPlaceSits:
+    def test_open_its_panel_sits_at_the_margin(self):
+        place = HudPlace("portrait", HudCorner.LOWER_RIGHT, 12, inset=(10, 13))
+
+        assert place.origin(panel=(200, 100), window=WINDOW) == (
+            WINDOW[0] - 12 - 200, WINDOW[1] - 12 - 100)
+
+    def test_minimized_its_plus_sits_in_from_the_margin_on_the_minus_spot(self):
+        place = HudPlace("portrait", HudCorner.LOWER_RIGHT, 12, minimized=True, inset=(10, 13))
+
+        assert place.origin(panel=(24, 24), window=WINDOW) == (
+            WINDOW[0] - 12 - 10 - 24, WINDOW[1] - 12 - 13 - 24)
