@@ -58,7 +58,7 @@ from funestra_core.modes import LengthMode, MainMode, Osr2State
 from funestra_core.timeline import bar_track_x
 from funestra_core.volume import VolumeHud
 
-MIXED, FULL, SHORTS = LengthMode.MIXED, LengthMode.FULL, LengthMode.SHORTS
+MIXED, FULL, CLIPS = LengthMode.MIXED, LengthMode.FULL, LengthMode.CLIPS
 
 
 def _drive(offset: float = 0.0, **over) -> DriveHud:
@@ -103,8 +103,8 @@ class TestLine:
         which.
         """
         assert _line(length_mode=MIXED) == "Locked · Shuffle"
-        assert _line(length_mode=FULL) == "Locked · Shuffle · Full length"
-        assert _line(length_mode=SHORTS) == "Locked · Shuffle · Shorts"
+        assert _line(length_mode=FULL) == "Locked · Shuffle · Full"
+        assert _line(length_mode=CLIPS) == "Locked · Shuffle · Clips"
 
     def test_claims_no_length_mode_without_a_library_backing_the_playlist(self):
         """A playlist Fun Time drives has no length filter of its own to report, so
@@ -165,7 +165,7 @@ class TestLine:
 
         assert line(locked=False) == "Vol6 · 9/20 · Shuffle"
         assert line(locked=True) == "Vol6 · 9/20 · Locked · Shuffle"
-        assert line(locked=False, length_mode=SHORTS) == "Vol6 · 9/20 · Shuffle · Shorts"
+        assert line(locked=False, length_mode=CLIPS) == "Vol6 · 9/20 · Shuffle · Clips"
 
     def test_says_which_browse_order_the_main_funestra_is_in(self):
         """The satellites have said Latest/Shuffle all along and the Main Funestra
@@ -173,16 +173,16 @@ class TestLine:
         is how the set advances rather than what is in it."""
         assert _line(order_latest=True) == "Locked · Latest"
         assert _line(order_latest=False) == "Locked · Shuffle"
-        assert _line(order_latest=True, length_mode=SHORTS) == (
-            "Locked · Latest · Shorts")
+        assert _line(order_latest=True, length_mode=CLIPS) == (
+            "Locked · Latest · Clips")
 
     def test_says_when_fun_time_has_narrowed_to_f_mode(self):
         """Between the lock and the length, where each satellite puts it: F-mode
         cuts the whole library to the funscripted videos and the length mode then
         narrows what is left, so the coarser filter is named first."""
         assert _line(scripted_filter=True) == "Locked · Shuffle · F-Mode"
-        assert _line(length_mode=SHORTS, scripted_filter=True) == (
-            "Locked · Shuffle · F-Mode · Shorts")
+        assert _line(length_mode=CLIPS, scripted_filter=True) == (
+            "Locked · Shuffle · F-Mode · Clips")
 
 
 class TestCompilationLabel:

@@ -412,10 +412,10 @@ class Kino:
         self.ticks.append((self.playback.loads, self.playback.position_ms))
 
     def status_fields(self) -> dict[str, str]:
-        return {"length_mode": "shorts", "compilation": "Vol 3"}
+        return {"length_mode": "clips", "compilation": "Vol 3"}
 
     def top_block(self) -> ModeHud:
-        return ModeHud(video=self.video, length_mode=LengthMode.SHORTS)
+        return ModeHud(video=self.video, length_mode=LengthMode.CLIPS)
 
     def set_showing(self, showing: bool) -> None:
         self.showing.append(showing)
@@ -597,7 +597,7 @@ class TestWhatRunsOnTheFunestra:
         funestra.tick(window=WINDOW)
 
         status = _status(tmp_path)
-        assert "length_mode=shorts\n" in status
+        assert "length_mode=clips\n" in status
         assert "compilation=Vol 3\n" in status
         assert status.index("portrait=") < status.index("length_mode=")
 

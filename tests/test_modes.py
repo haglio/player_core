@@ -20,7 +20,7 @@ _WIRE_WORDS = {
     SatellitesMode: {"kino", "origenerator"},
     LoopState: {"normal", "recording", "looping"},
     Osr2State: {"off", "auto", "funscript", "robot_hand"},
-    LengthMode: {"mixed", "shorts", "full", "none"},
+    LengthMode: {"mixed", "clips", "full", "none"},
     NoticeLevel: {"warning", "notice", "favorite"},
 }
 
@@ -33,6 +33,14 @@ def test_each_entry_is_spelled_as_its_word_on_the_wire(enum):
 @pytest.mark.parametrize("enum", [MainMode, SatellitesMode])
 def test_a_branch_from_before_the_rename_still_finds_kino_under_its_old_name(enum):
     assert enum.VIDEO is enum.KINO
+
+
+def test_a_branch_from_before_the_rename_still_finds_clips_under_its_old_name():
+    assert LengthMode.SHORTS is LengthMode.CLIPS
+
+
+def test_a_length_mode_written_before_the_rename_reads_as_clips():
+    assert read_mode(LengthMode, "shorts", None) is LengthMode.CLIPS
 
 
 @pytest.mark.parametrize("enum", list(_WIRE_WORDS))
@@ -62,7 +70,7 @@ def test_read_mode_answers_none_for_a_reader_whose_default_is_no_mode_at_all():
     so its readers fall back on None rather than on an entry."""
     assert read_mode(LengthMode, "", None) is None
     assert read_mode(LengthMode, "every", None) is None
-    assert read_mode(LengthMode, "shorts", None) is LengthMode.SHORTS
+    assert read_mode(LengthMode, "clips", None) is LengthMode.CLIPS
 
 
 def test_read_mode_hands_an_entry_straight_back():
