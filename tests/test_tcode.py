@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from player_core.tcode import (
+from funestra_core.tcode import (
     PARK_COMMAND,
     POSITION_MAX,
     UdpTCodeSink,

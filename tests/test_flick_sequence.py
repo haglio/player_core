@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from player_core.flick_sequence import FlickSequenceController
+from funestra_core.flick_sequence import FlickSequenceController
 
 
 def _paths():

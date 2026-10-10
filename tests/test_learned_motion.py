@@ -9,14 +9,14 @@ import random
 
 import pytest
 
-from player_core import learned_motion
-from player_core.learned_model import LearnedModel, Phrase, classify
-from player_core.learned_motion import (
+from funestra_core import learned_motion
+from funestra_core.learned_model import LearnedModel, Phrase, classify
+from funestra_core.learned_motion import (
     LearnedMotionState,
     enable_learned_motion,
     tick_learned_motion,
 )
-from player_core.robot_hand import RobotHandState, bpm_for_speed
+from funestra_core.robot_hand import RobotHandState, bpm_for_speed
 
 
 def _phrase(duration_ms: int, low: int, high: int, swings: int = 16) -> Phrase:

@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from player_core.modes import (
+from funestra_core.modes import (
     LengthMode,
     LoopState,
     MainMode,

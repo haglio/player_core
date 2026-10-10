@@ -5,9 +5,9 @@ import json
 from funestra_fakes import FakeTCode
 from funestra_fakes import make_playback as _make_playback
 
-from player_core.play_points import PlayPoints
-from player_core.playback_rate import MAX_RATE, MIN_RATE
-from player_core.seeking import GIVE_UP_AFTER
+from funestra_core.play_points import PlayPoints
+from funestra_core.playback_rate import MAX_RATE, MIN_RATE
+from funestra_core.seeking import GIVE_UP_AFTER
 
 
 class TestLoadAndPlay:

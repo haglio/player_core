@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from player_core import player_verbs
-from player_core.playlist import PlaylistItem, item_from_line
+from funestra_core import player_verbs
+from funestra_core.playlist import PlaylistItem, item_from_line
 
 
 def _spellings() -> dict[str, str]:

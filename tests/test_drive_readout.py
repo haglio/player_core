@@ -5,14 +5,14 @@ import numpy as np
 import pytest
 from shared_ui.palette import BLUE, GREEN, MAGENTA, TEXT_MUTED, TEXT_PRIMARY
 
-from player_core.drive_layout import (
+from funestra_core.drive_layout import (
     AMPLITUDE,
     CENTER,
     SECTION_H,
     SECTION_W,
     SPEED,
 )
-from player_core.drive_readout import (
+from funestra_core.drive_readout import (
     _NEUTRAL_INK,
     DISABLED_INK,
     DRIVEN_BY_AUTO,
@@ -30,12 +30,12 @@ from player_core.drive_readout import (
     track_value,
     tracks,
 )
-from player_core.hud_panel import (
+from funestra_core.hud_panel import (
     HudPanel,
     load_font,
     text_width,
 )
-from player_core.robot_hand import amplitude_ceiling, speed_ceiling
+from funestra_core.robot_hand import amplitude_ceiling, speed_ceiling
 
 PAD = 10
 

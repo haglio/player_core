@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from player_core.max_intensity import depth, share
-from player_core.robot_hand import (
+from funestra_core.max_intensity import depth, share
+from funestra_core.robot_hand import (
     FULL_INTENSITY,
     bar_level_for,
     bpm_for_speed,

@@ -14,7 +14,7 @@ from itertools import pairwise
 
 import pytest
 
-from player_core.flick_scrub import FlickScrub, scrub_flick
+from funestra_core.flick_scrub import FlickScrub, scrub_flick
 
 FRAMES = 120  # a whole loop; one frame is 1/120 of the display phase
 

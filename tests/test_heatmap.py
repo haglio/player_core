@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from player_core.funscript import Funscript
-from player_core.heatmap import _speed_to_color, bin_speeds, build_heatmap
+from funestra_core.funscript import Funscript
+from funestra_core.heatmap import _speed_to_color, bin_speeds, build_heatmap
 
 
 class TestSpeedToColor:

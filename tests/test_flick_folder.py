@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from player_core.flick_folder import (
+from funestra_core.flick_folder import (
     flat_flicks_in,
     move_flick_to_weird,
     scan_flicks,

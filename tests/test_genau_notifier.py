@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from player_core.genau_notifier import GenauNotifier
+from funestra_core.genau_notifier import GenauNotifier
 
 
 class FakeSocket:

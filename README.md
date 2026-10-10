@@ -155,14 +155,15 @@ is untouched -- which is the whole point.
 
 
 **`editable_mode=compat` is required, not cosmetic.** This repo's directory is
-named `player_core`, the same as the package inside it, and the directory that
-holds all these repos is itself on `sys.path` in fun_time's venv (via its
-`shared_ui.pth`). Setuptools' *default* editable install resolves the top-level
-name through a meta-path finder that `PathFinder` never reaches, so the repo
-root wins as an implicit namespace package: submodules still import, but
-`player_core/__init__.py` never runs. `compat` mode puts the repo root on
-`sys.path` instead, where a real package beats a namespace portion.
-`tests/test_install.py` fails loudly if this is ever reinstalled the other way.
+named `player_core`, the same as the package that keeps the old names working,
+and the directory that holds all these repos is itself on `sys.path` in
+fun_time's venv (via its `shared_ui.pth`). Setuptools' *default* editable
+install resolves the top-level name through a meta-path finder that
+`PathFinder` never reaches, so the repo root wins as an implicit namespace
+package: `player_core/__init__.py` never runs, and every old name goes with it.
+`compat` mode puts the repo root on `sys.path` instead, where a real package
+beats a namespace portion. `tests/test_install.py` fails loudly if this is ever
+reinstalled the other way.
 
 ## libmpv
 

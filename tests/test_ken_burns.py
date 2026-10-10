@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 from dealt_moves import CREEP, DRIFT, Deals
 
-from player_core.ken_burns import (
+from funestra_core.ken_burns import (
     ZOOMED_IN,
     KenBurns,
     Move,

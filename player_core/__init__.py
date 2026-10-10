@@ -1,14 +1,50 @@
-"""Shared playback core for the video players in this project family.
+"""The name this package went by until the Player became the Funestra.
 
-Six players and hosts across three repos read it: Genau (``genau``); Fun Time's
-main player, its satellites, its VR player and the orchestrator itself (``fun_time``);
-and Origenerator, which floats this family's console and drive readout over its
-own slideshows.  Everything they had to agree on lives here — the libmpv
-wrapper, the player contract (the playlist, the verbs, the paused flag, the
-status a player publishes, the HUD a source hands it), the T-Code wire, the
-motion, and the chrome their in-video HUDs are drawn on — so no application has
-to import another application's internals to get it.
-
-Nothing app-specific belongs in this package.  A module earns a place here only
-once a second repo needs it; until then it stays with the app that owns it.
+Branches written before the rename still import ``player_core.<module>``; each
+such import reaches the very module :mod:`funestra_core` holds, so a patch made
+through either name lands on both.
 """
+from __future__ import annotations
+
+import importlib
+import importlib.abc
+import importlib.util
+import sys
+
+__all__: list[str] = []
+
+NEW_PACKAGE = "funestra_core"
+
+
+def new_module_name(old: str) -> str:
+    return f"{NEW_PACKAGE}.{old.partition('.')[2]}"
+
+
+class _OldNames(importlib.abc.MetaPathFinder, importlib.abc.Loader):
+    def find_spec(self, fullname, path=None, target=None):
+        if not fullname.startswith(f"{__name__}."):
+            return None
+        if importlib.util.find_spec(new_module_name(fullname)) is None:
+            return None
+        return importlib.util.spec_from_loader(fullname, self)
+
+    def create_module(self, spec):
+        module = importlib.import_module(new_module_name(spec.name))
+        spec.loader_state = module.__spec__
+        return module
+
+    def exec_module(self, module):
+        module.__spec__ = module.__spec__.loader_state
+
+
+def __getattr__(name: str):
+    if name.startswith("__"):
+        raise AttributeError(name)
+    try:
+        return importlib.import_module(f"{__name__}.{name}")
+    except ModuleNotFoundError as missing:
+        raise AttributeError(name) from missing
+
+
+if not any(isinstance(finder, _OldNames) for finder in sys.meta_path):
+    sys.meta_path.insert(0, _OldNames())

@@ -1,7 +1,7 @@
 """Looking one command line up in a registry, whatever the line carries."""
 from __future__ import annotations
 
-from player_core.control_registry import Control, Verb, bind, look_up
+from funestra_core.control_registry import Control, Verb, bind, look_up
 
 
 class _Controls:

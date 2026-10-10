@@ -10,22 +10,22 @@ import numpy as np
 from console_rows import console_rows
 from funestra_fakes import FakePlayer
 
-from player_core.console import ConsoleModel, ModeHud, console_text
-from player_core.flick_picture import BACKDROP_OVERLAY_ID, FIRST_TILE_OVERLAY_ID, Picture
-from player_core.funestra import Channels, Funestra, User, _Nobody
-from player_core.hud_button import Button
-from player_core.hud_corners import CORNER_PLUS_OVERLAY_ID
-from player_core.hud_minimize import BUTTON
-from player_core.hud_overlay import HUD_OVERLAY_ID
-from player_core.hud_placement import HudEdge
-from player_core.modes import LengthMode, MainMode, Osr2State
-from player_core.playhead import flick_playhead
-from player_core.playlist import read_playlist
-from player_core.pointer import OMNIPAUSE_TOGGLE
-from player_core.satellite_hud import MARGIN, HudModel
-from player_core.session_quit import SESSION_QUIT
-from player_core.timeline import TIMELINE_HEIGHT, bar_track_x
-from player_core.volume import CHIP_H, CHIP_W, chip_xy
+from funestra_core.console import ConsoleModel, ModeHud, console_text
+from funestra_core.flick_picture import BACKDROP_OVERLAY_ID, FIRST_TILE_OVERLAY_ID, Picture
+from funestra_core.funestra import Channels, Funestra, User, _Nobody
+from funestra_core.hud_button import Button
+from funestra_core.hud_corners import CORNER_PLUS_OVERLAY_ID
+from funestra_core.hud_minimize import BUTTON
+from funestra_core.hud_overlay import HUD_OVERLAY_ID
+from funestra_core.hud_placement import HudEdge
+from funestra_core.modes import LengthMode, MainMode, Osr2State
+from funestra_core.playhead import flick_playhead
+from funestra_core.playlist import read_playlist
+from funestra_core.pointer import OMNIPAUSE_TOGGLE
+from funestra_core.satellite_hud import MARGIN, HudModel
+from funestra_core.session_quit import SESSION_QUIT
+from funestra_core.timeline import TIMELINE_HEIGHT, bar_track_x
+from funestra_core.volume import CHIP_H, CHIP_W, chip_xy
 
 WINDOW = (640, 480)
 
@@ -366,7 +366,7 @@ def test_on_a_window_the_way_of_playing_is_mpv_opened_on_that_window(tmp_path):
     channels = _channels(tmp_path, [str(clips[0])])
     player = FakePlayer()
 
-    with patch("player_core.funestra.MpvPlayer", return_value=player) as mpv:
+    with patch("funestra_core.funestra.MpvPlayer", return_value=player) as mpv:
         funestra = Funestra.on_window(4242, channels=channels, playlist=read_playlist(channels.playlist))
 
     mpv.assert_called_once_with(4242, muted=True, loop_file=False, prefetch=True)
@@ -565,7 +565,7 @@ class TestWhatRunsOnTheFunestra:
     def test_a_verb_neither_answers_is_named_on_the_log(self, tmp_path, caplog):
         funestra, _player, _kino = _main(tmp_path, commands="FLOOP\n")
 
-        with caplog.at_level("WARNING", logger="player_core.funestra"):
+        with caplog.at_level("WARNING", logger="funestra_core.funestra"):
             funestra.tick(window=WINDOW)
 
         assert "FLOOP" in caplog.text
@@ -690,7 +690,7 @@ class TestWhoHasTheWindow:
     def test_show_naming_nobody_on_this_window_is_refused_and_named_on_the_log(self, tmp_path, caplog):
         funestra, _player, _kino = _main(tmp_path, commands="SHOW slideshow\n", genau=True)
 
-        with caplog.at_level("WARNING", logger="player_core.funestra"):
+        with caplog.at_level("WARNING", logger="funestra_core.funestra"):
             funestra.tick(window=WINDOW)
 
         assert funestra.showing == "kino"
@@ -898,7 +898,7 @@ def test_on_a_window_the_way_of_playing_can_be_heard(tmp_path):
     clips = _clips(tmp_path, "v0")
     channels = _channels(tmp_path, [str(clips[0])])
 
-    with patch("player_core.funestra.MpvPlayer", return_value=FakePlayer()) as mpv:
+    with patch("funestra_core.funestra.MpvPlayer", return_value=FakePlayer()) as mpv:
         Funestra.on_window(4242, channels=channels, playlist=read_playlist(channels.playlist),
                            muted=False)
 
@@ -955,7 +955,7 @@ class TestAPanelBesideThePicture:
     def test_it_fills_its_surface_from_the_corner_whatever_corner_the_room_published(self, tmp_path):
         """The room's corner places a panel over the picture; a screen of its
         own has no picture to be placed on, so the panel starts at its edge the
-        way player_core's test_hud_overlay says a panel beside the picture does."""
+        way test_hud_overlay says a panel beside the picture does."""
         (tmp_path / "portrait_hud.json").write_text(
             json.dumps({"player": "portrait", "hud_corner": "lower_right"}), encoding="utf-8")
         clips = _clips(tmp_path, "v0")
@@ -1130,7 +1130,7 @@ class TestTheWindowsOwnVerbs:
     def test_a_verb_of_the_windows_own_is_answered_and_not_refused(self, tmp_path, caplog):
         funestra, _player, heard = self._answering(tmp_path, "TILT_UP\n")
 
-        with caplog.at_level("WARNING", logger="player_core.funestra"):
+        with caplog.at_level("WARNING", logger="funestra_core.funestra"):
             funestra.tick(window=WINDOW)
 
         assert heard == ["TILT_UP"]

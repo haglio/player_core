@@ -1,7 +1,7 @@
 """A boolean two parts of the app share."""
 from __future__ import annotations
 
-from player_core.flag import Flag
+from funestra_core.flag import Flag
 
 
 class TestTheValue:

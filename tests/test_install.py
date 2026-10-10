@@ -2,16 +2,14 @@
 
 Sibling repos sit in a directory that is itself on ``sys.path`` (fun_time's venv
 carries a ``shared_ui.pth`` naming ``projects/``), and this repo's directory is
-called ``player_core`` — the same name as the package inside it. So
-``import player_core`` has two candidates: the real package, and the repo root
-as an implicit *namespace* package.
+called ``player_core`` — the same name as the package that keeps the old names
+working. So ``import player_core`` has two candidates: that package, and the
+repo root as an implicit *namespace* package.
 
 Setuptools' default editable install resolves the top-level name through a
 meta-path finder that ``PathFinder`` never reaches, so the namespace shadow
-wins: submodules still import (the finder rescues those), but
-``player_core/__init__.py`` never executes and ``__file__`` is ``None``. That is
-a landmine — it works today only because ``__init__.py`` holds nothing but a
-docstring.
+wins: ``player_core/__init__.py`` never executes, and every old name it was
+there to answer for is gone.
 
 ``pip install -e ... --config-settings editable_mode=compat`` puts the repo root
 on ``sys.path`` instead, and a real package beats a namespace portion, so the
@@ -31,42 +29,41 @@ import tempfile
 
 _PROBE = """
 import player_core
-from player_core import libmpv_loader
+import funestra_core
+from funestra_core import libmpv_loader
 print(player_core.__file__)
+print(funestra_core.__file__)
 print(libmpv_loader.__file__)
 """
 
 
-def _resolve_from_outside_any_repo() -> tuple[str, str]:
+def _resolve_from_outside_any_repo() -> tuple[str, str, str]:
     with tempfile.TemporaryDirectory() as neutral_cwd:
         result = subprocess.run(
             [sys.executable, "-c", _PROBE],
             cwd=neutral_cwd, capture_output=True, text=True,
         )
     assert result.returncode == 0, (
-        f"player_core is not importable from this interpreter:\n{result.stderr}"
+        f"funestra_core is not importable from this interpreter:\n{result.stderr}"
     )
-    package_file, submodule_file = result.stdout.strip().splitlines()
-    return package_file, submodule_file
+    old_name_file, package_file, submodule_file = result.stdout.strip().splitlines()
+    return old_name_file, package_file, submodule_file
 
 
-def test_the_installed_package_is_not_a_namespace_shadow_of_the_repo_root():
-    package_file, _ = _resolve_from_outside_any_repo()
+def test_the_old_name_is_not_a_namespace_shadow_of_the_repo_root():
+    old_name_file, _, _ = _resolve_from_outside_any_repo()
 
-    assert package_file != "None", (
-        "player_core resolved to a namespace package (the repo root), not the "
-        "real package, so its __init__.py never runs. Reinstall with:\n"
+    assert old_name_file != "None", (
+        "player_core resolved to a namespace package (the repo root), so its "
+        "__init__.py never runs and no old name reaches funestra_core. Reinstall with:\n"
         "  python -m pip install -e <path-to-player_core> "
         "--config-settings editable_mode=compat"
     )
-    assert package_file.endswith("__init__.py")
+    assert old_name_file.endswith("__init__.py")
 
 
 def test_the_installed_packages_modules_come_from_that_same_package():
-    # A namespace shadow can still serve submodules through the editable
-    # finder, so proving __init__ resolved is not enough on its own: the
-    # package and its modules must sit in one directory.
-    package_file, submodule_file = _resolve_from_outside_any_repo()
+    _, package_file, submodule_file = _resolve_from_outside_any_repo()
 
     assert package_file != "None"
     package_dir = package_file.removesuffix("__init__.py")

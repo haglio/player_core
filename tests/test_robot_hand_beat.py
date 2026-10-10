@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from player_core.robot_hand_beat import BeatEngine, advance_beat
+from funestra_core.robot_hand_beat import BeatEngine, advance_beat
 
 
 class TestUpdateEngine:

@@ -11,25 +11,25 @@ from shared_ui import colors
 from shared_ui.palette import BLUE, BORDER_PANEL, GREEN, TEXT_MUTED, TEXT_PRIMARY, WHITE
 from shared_ui.spacing import BUTTON_GAP
 
-from player_core.console import OSR2_PARKED
-from player_core.drive_layout import MAX_INTENSITY, SECTION_W
-from player_core.drive_readout import (
+from funestra_core.console import OSR2_PARKED
+from funestra_core.drive_layout import MAX_INTENSITY, SECTION_W
+from funestra_core.drive_readout import (
     DRIVEN_BY_ROBOT_HAND,
     DriveHud,
     section_size,
     track_command,
     tracks,
 )
-from player_core.geometry import Rect
-from player_core.hud_button import Button
-from player_core.hud_minimize import RESTORE_TOOLTIP, minimize_command
-from player_core.hud_minimize import ROOM as MINUS_ROOM
-from player_core.hud_panel import ACTIVE_DOT, ICON_GRIDS
-from player_core.hud_placement import HudCorner
-from player_core.hud_row import SCRUBBER, RowHud, row_part
-from player_core.hud_sections import DIVIDER_H, SECTION_GAP
-from player_core.modes import Osr2State
-from player_core.satellite_hud import (
+from funestra_core.geometry import Rect
+from funestra_core.hud_button import Button
+from funestra_core.hud_minimize import RESTORE_TOOLTIP, minimize_command
+from funestra_core.hud_minimize import ROOM as MINUS_ROOM
+from funestra_core.hud_panel import ACTIVE_DOT, ICON_GRIDS
+from funestra_core.hud_placement import HudCorner
+from funestra_core.hud_row import SCRUBBER, RowHud, row_part
+from funestra_core.hud_sections import DIVIDER_H, SECTION_GAP
+from funestra_core.modes import Osr2State
+from funestra_core.satellite_hud import (
     COL_LABEL_GAP,
     COL_LABEL_H,
     CTRL_BAND_H,
@@ -54,8 +54,8 @@ from player_core.satellite_hud import (
     map_row_width,
     slot_width,
 )
-from player_core.satellite_hud_paint import HudRenderer
-from player_core.volume import VolumeHud
+from funestra_core.satellite_hud_paint import HudRenderer
+from funestra_core.volume import VolumeHud
 
 
 def _declared(rendered) -> list:
@@ -1023,7 +1023,7 @@ def test_a_panel_with_no_clip_yet_still_names_the_button_under_the_pointer():
 def test_a_tooltip_longer_than_the_panel_is_wide_stays_on_the_panel(thumb):
     """The reported bug: the trash button's tooltip wants more width than a
     portrait panel has, so it was drawn straight off the right edge and read
-    "…when it is not a favo".  It wraps now, which is player_core's job — this
+    "…when it is not a favo".  It wraps now, which is funestra_core's job — this
     guards that the satellite actually hands it the panel's own bounds, since
     passing anything wider would put the tooltip back over the edge."""
     renderer = HudRenderer("portrait")

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from player_core.funscript import Funscript
-from player_core.tcode import HANDOFF_MS, to_tcode_position
-from player_core.tcode_driver import FunscriptTCodeDriver
+from funestra_core.funscript import Funscript
+from funestra_core.tcode import HANDOFF_MS, to_tcode_position
+from funestra_core.tcode_driver import FunscriptTCodeDriver
 
 
 class FakeSink:

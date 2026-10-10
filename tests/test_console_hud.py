@@ -10,7 +10,7 @@ from shared_ui import colors
 from shared_ui.palette import BG_PRIMARY, BLUE, BORDER_PANEL, GREEN, MAGENTA, TEXT_MUTED, WHITE
 from shared_ui.spacing import BUTTON_GAP
 
-from player_core.console import (
+from funestra_core.console import (
     BUTTON,
     OSR2_CONTROL_OFF,
     OSR2_DRIVING,
@@ -18,7 +18,7 @@ from player_core.console import (
     OSR2_RETRACTED,
     ConsoleModel,
 )
-from player_core.console_hud import (
+from funestra_core.console_hud import (
     _PAD,
     MARGIN,
     ConsoleHud,
@@ -28,9 +28,9 @@ from player_core.console_hud import (
     hud_xy,
     with_playback_speed,
 )
-from player_core.console_hud import _PAD as PAD
-from player_core.drive_layout import AMPLITUDE, CENTER, MAX_INTENSITY, SPEED
-from player_core.drive_readout import (
+from funestra_core.console_hud import _PAD as PAD
+from funestra_core.drive_layout import AMPLITUDE, CENTER, MAX_INTENSITY, SPEED
+from funestra_core.drive_readout import (
     DRIVEN_BY_NEUTRAL,
     POSITION_MAX,
     DriveHud,
@@ -38,25 +38,25 @@ from player_core.drive_readout import (
     trace_ink,
     tracks,
 )
-from player_core.geometry import Rect
-from player_core.hud_button import Button
-from player_core.hud_corners import HudPlace
-from player_core.hud_marks import BROKER_ICON, shared_mark
-from player_core.hud_minimize import ROOM as MINUS_ROOM
-from player_core.hud_minimize import minimize_command
-from player_core.hud_osr2 import COLORS as _OSR2_COLORS
-from player_core.hud_osr2 import LABELS as _OSR2_LABELS
-from player_core.hud_panel import (
+from funestra_core.geometry import Rect
+from funestra_core.hud_button import Button
+from funestra_core.hud_corners import HudPlace
+from funestra_core.hud_marks import BROKER_ICON, shared_mark
+from funestra_core.hud_minimize import ROOM as MINUS_ROOM
+from funestra_core.hud_minimize import minimize_command
+from funestra_core.hud_osr2 import COLORS as _OSR2_COLORS
+from funestra_core.hud_osr2 import LABELS as _OSR2_LABELS
+from funestra_core.hud_panel import (
     ICON_GRIDS,
     TOOLTIP_PAD,
     load_font,
     text_width,
 )
-from player_core.hud_placement import HudCorner
-from player_core.hud_row import SCRUBBER, RowHud, row_part
-from player_core.modes import LengthMode, MainMode, Osr2State
-from player_core.timeline import bar_track_x
-from player_core.volume import VolumeHud
+from funestra_core.hud_placement import HudCorner
+from funestra_core.hud_row import SCRUBBER, RowHud, row_part
+from funestra_core.modes import LengthMode, MainMode, Osr2State
+from funestra_core.timeline import bar_track_x
+from funestra_core.volume import VolumeHud
 
 MIXED, FULL, SHORTS = LengthMode.MIXED, LengthMode.FULL, LengthMode.SHORTS
 
@@ -236,7 +236,7 @@ class TestPainter:
     def test_a_tooltip_longer_than_the_panel_is_wide_stays_on_the_panel(self):
         """The widest tooltip on the console wants to be wider than the console
         itself, so it was drawn straight off the right edge and lost its tail.
-        Fitting it is player_core's job — this guards that the console hands it the
+        Fitting it is funestra_core's job — this guards that the console hands it the
         panel's own bounds, since anything wider puts the tooltip back over the edge."""
         painter = ConsolePainter()
         hud = ConsoleHud(console=ConsoleModel(main_mode=MainMode.KINO, locked=False,

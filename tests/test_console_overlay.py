@@ -9,15 +9,15 @@ from console_rows import console_rows
 from funestra_fakes import FakePlayer
 from shared_ui.spacing import BUTTON_SIZE_HUD
 
-from player_core.console import ConsoleModel, ModeHud, console_text
-from player_core.console_hud import _PAD as PAD
-from player_core.console_hud import MARGIN
-from player_core.console_overlay import ConsoleOverlay
-from player_core.drive_readout import DriveHud, drive_text
-from player_core.hud_corners import HudPlace
-from player_core.hud_overlay import HUD_OVERLAY_ID
-from player_core.hud_placement import HudCorner
-from player_core.modes import LengthMode, MainMode, Osr2State
+from funestra_core.console import ConsoleModel, ModeHud, console_text
+from funestra_core.console_hud import _PAD as PAD
+from funestra_core.console_hud import MARGIN
+from funestra_core.console_overlay import ConsoleOverlay
+from funestra_core.drive_readout import DriveHud, drive_text
+from funestra_core.hud_corners import HudPlace
+from funestra_core.hud_overlay import HUD_OVERLAY_ID
+from funestra_core.hud_placement import HudCorner
+from funestra_core.modes import LengthMode, MainMode, Osr2State
 
 WINDOW = (1000, 600)
 GENAU_MODE, KINO_MODE = "genau", "kino"

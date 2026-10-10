@@ -8,8 +8,8 @@ from __future__ import annotations
 import json
 import random
 
-from player_core import learned_model
-from player_core.learned_model import Phrase
+from funestra_core import learned_model
+from funestra_core.learned_model import Phrase
 from tools import train_learned_motion as train
 
 
