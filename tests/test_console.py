@@ -6,15 +6,20 @@ import json
 from pathlib import Path
 
 import pytest
+from shared_ui.icon_geometry import glyph_names
 
 from player_core.console import (
     BUTTON,
     GAP,
     GROUP_GAP,
+    OSR2_CONTROL_BUTTONS,
+    OSR2_CONTROL_UNANSWERED,
+    OSR2_DRIVING,
     OSR2_RETRACTED,
     ROW_LABEL_W,
     VALUE_W,
     ConsoleModel,
+    aim_row,
     console_text,
     hit_test,
     main_player_displays,
@@ -26,9 +31,10 @@ from player_core.console import (
     tooltip_at,
 )
 from player_core.hud_button import Button
-from player_core.hud_marks import BROKER_ICON, MINIMIZE_ICON, shared_mark
+from player_core.hud_marks import BROKER_ICON, MINIMIZE_ICON, shared_mark, shared_mark_name
 from player_core.hud_placement import HudCorner, HudEdge
 from player_core.modes import MainMode, Osr2State
+from player_core.robot_hand import WaveformShape
 
 # A source's rows, made up: a mode pair with minimize standing apart, and a
 # named read-out between two arrows.
@@ -63,6 +69,57 @@ class TestShapeLabel:
 
     def test_an_unknown_shape_is_titled_rather_than_dropped(self):
         assert shape_label("half_moon") == "Half Moon"
+
+
+def _aim_row(*, cruise=False, learned=False, shape="sine", control=OSR2_DRIVING):
+    return aim_row(cruise=cruise, learned=learned, shape=shape, control=control)
+
+
+def _button(row, command: str) -> Button:
+    return next(button for button in row if button.command == command)
+
+
+def _waveform_face(shape: str) -> str:
+    return _button(_aim_row(shape=shape), "robot_hand_cycle_shape").glyph
+
+
+class TestTheRowThatAimsTheDevice:
+    def test_the_motion_comes_first_then_the_four_control_states_from_off_to_on(self):
+        assert [button.command for button in _aim_row()] == [
+            "robot_hand_toggle_cruise", "robot_hand_toggle_learned", "robot_hand_cycle_shape",
+            "quarter_button", *OSR2_CONTROL_BUTTONS.values()]
+
+    def test_a_host_with_no_switch_offers_no_control_off_and_sets_the_holds_apart(self):
+        row = _aim_row(control=OSR2_CONTROL_UNANSWERED)
+
+        assert "osr2_control_off" not in [button.command for button in row]
+        assert _button(row, "robot_hand_park").group_break
+
+    def test_the_state_the_switch_is_in_is_the_one_button_on(self):
+        for state, verb in OSR2_CONTROL_BUTTONS.items():
+            on = [button.command for button in _aim_row(control=state) if button.lit or button.warn]
+            assert on == [verb], state
+
+    def test_cruise_and_human_inspired_light_while_they_have_the_motion(self):
+        assert _button(_aim_row(cruise=True), "robot_hand_toggle_cruise").lit
+        assert _button(_aim_row(learned=True), "robot_hand_toggle_learned").lit
+        assert not any(button.lit for button in _aim_row()[:2])
+
+    def test_the_waveform_button_names_the_waveform_the_motion_is_in(self):
+        row = _aim_row(shape="rounded_square")
+        assert _button(row, "robot_hand_cycle_shape").tooltip == "Waveform: Square"
+
+    def test_each_waveform_wears_a_face_of_its_own_that_the_family_draws(self):
+        faces = [_waveform_face(shape.value) for shape in WaveformShape]
+
+        assert len(set(faces)) == len(faces)
+        assert {shared_mark_name(face) for face in faces} <= set(glyph_names())
+
+    def test_the_sine_wears_the_face_every_version_of_the_family_draws(self):
+        assert _waveform_face("sine") == shared_mark("wave")
+
+    def test_a_waveform_this_version_does_not_know_wears_the_plain_wave(self):
+        assert _waveform_face("half_moon") == shared_mark("wave")
 
 
 class TestTheDeviceRunningItself:

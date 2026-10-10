@@ -9,6 +9,16 @@ The comment ratio below is `(radon raw Comments + Multi) / SLOC` over
 `player_core/` and `tools/`, the measure `audit/findings/player_core.md` set its
 baseline with: **0.7692** over 3,661 SLOC, with 28 of 29 files above 0.25.
 
+## 2026-10-10 — the row that aims the device is built here, and its waveform button wears the waveform
+
+Fun Time and Origenerator each declared the same row of buttons for the OSR2 --
+cruise, human inspired, the waveform, the quarter offset and the four control
+states -- so it is built once, as `console.aim_row`. The waveform button on it
+wears the waveform the motion is in, sine, triangle, square or sawtooth, from
+shared_ui's marks, where it wore the sine for all four; the sine keeps the mark
+named `wave`, which every version of shared_ui draws. `aim_row` is declared
+once a consumer imports it, in the landing after that one.
+
 ## 2026-10-10 — the crossing a second Genau made into the room is gone
 
 Genau has no window of its own since v0.1.414, so nothing arrives beside the

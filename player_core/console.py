@@ -10,8 +10,9 @@ geometry and the hit-testing are testable without a font.  :mod:`player_core.con
 drive readout's own arrows come from :mod:`player_core.drive_readout`.
 
 The buttons are the source's own (:attr:`ConsoleModel.rows`), each posting its
-command verbatim to the command file that source reads; this module only places
-them and says which one a press landed on.
+command verbatim to the command file that source reads; this module places them
+and says which one a press landed on.  The one row built here is the one every
+source with the OSR2 draws alike, :func:`aim_row`.
 """
 from __future__ import annotations
 
@@ -21,8 +22,10 @@ from pathlib import Path
 
 from .geometry import Rect, contains
 from .hud_button import BUTTON, Button, buttons_from_raw, buttons_raw, rows_from_raw, rows_raw
+from .hud_marks import shared_mark
 from .hud_placement import HudCorner, HudEdge
 from .modes import LengthMode, MainMode, Osr2State, read_mode
+from .robot_hand import WaveformShape
 
 __all__ = [
     "GAP",
@@ -118,6 +121,44 @@ OSR2_CONTROL_BUTTONS: dict[str, str] = {
 }
 
 HELD_HEIGHT = {OSR2_PARKED: 0.0, OSR2_RETRACTED: 1.0}
+
+_WAVEFORM_FACES = {
+    WaveformShape.SINE.value: "wave",
+    WaveformShape.TRIANGLE.value: "wave_triangle",
+    WaveformShape.ROUNDED_SQUARE.value: "wave_square",
+    WaveformShape.SAWTOOTH.value: "wave_sawtooth",
+}
+
+
+def aim_row(*, cruise: bool, learned: bool, shape: str, control: str) -> tuple[Button, ...]:
+    return (
+        Button("robot_hand_toggle_cruise", "cc",
+               "Cruise control: vary the motion hands-free", lit=cruise),
+        Button("robot_hand_toggle_learned", "hi",
+               "Human inspired: motion drawn from real hand-made scripts, not a waveform",
+               lit=learned),
+        Button("robot_hand_cycle_shape", shared_mark(_WAVEFORM_FACES.get(shape, "wave")),
+               f"Waveform: {shape_label(shape)}"),
+        Button("quarter_button", shared_mark("quarter_offset"), "Offset the motion a ¼ cycle"),
+        *((
+            Button(OSR2_CONTROL_BUTTONS[OSR2_CONTROL_OFF], shared_mark("control_off"),
+                   "Control off — the OSR2 settles home and is left there; nothing "
+                   "here moves it again until you park, retract or drive it.  The "
+                   "device itself stays on: this is the app letting go of it, not "
+                   "the OSR2 switching off",
+                   warn=control == OSR2_CONTROL_OFF, group_break=True),
+        ) if control != OSR2_CONTROL_UNANSWERED else ()),
+        Button(OSR2_CONTROL_BUTTONS[OSR2_PARKED], shared_mark("park"),
+               "Parked — the OSR2 held still, settled home",
+               lit=control == OSR2_PARKED, group_break=control == OSR2_CONTROL_UNANSWERED),
+        Button(OSR2_CONTROL_BUTTONS[OSR2_RETRACTED], shared_mark("retract"),
+               "Retracted — the OSR2 held still at the far end, away from you",
+               lit=control == OSR2_RETRACTED),
+        Button(OSR2_CONTROL_BUTTONS[OSR2_DRIVING], shared_mark("release"),
+               "Driving — the OSR2 back on whatever the motion was doing, "
+               "cruise included",
+               lit=control == OSR2_DRIVING),
+    )
 
 
 @dataclass(frozen=True)
