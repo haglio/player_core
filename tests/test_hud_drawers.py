@@ -30,6 +30,7 @@ HUD_PAINTERS: dict[str, set[str] | None] = {
     "hud_panel": WHOLE_MODULE,
     "hud_row": WHOLE_MODULE,
     "hud_minimize": WHOLE_MODULE,
+    "hud_corners": {"plus_bgra"},
     "hud_osr2": WHOLE_MODULE,
     "hud_overlay": WHOLE_MODULE,
     "console_hud": {"ConsolePainter"},
@@ -40,6 +41,7 @@ HUD_PAINTERS: dict[str, set[str] | None] = {
 }
 
 KNOWN_DRAWERS = {
+    ("fun_time", "fun_time_vr"),
     ("origenerator", "origenerator"),
 }
 
