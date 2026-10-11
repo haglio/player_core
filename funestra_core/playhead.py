@@ -20,6 +20,8 @@ __getattr__ = old_name_getter(__name__, _RENAMED)
 
 _TEXT_PT = 8
 
+FIGURE_SPACE = "\u2007"
+
 
 @dataclass(frozen=True)
 class PlayheadHud:
@@ -40,8 +42,12 @@ def _time(position_ms: float, duration_ms: float) -> str:
     return f"{_clock(position_ms, duration_ms)} / {_clock(duration_ms, duration_ms)}"
 
 
+def _frame_of(frame: int, total: int) -> str:
+    return f"frame {str(frame).rjust(len(str(total)), FIGURE_SPACE)} / {total}"
+
+
 def _framed(frame: int, total: int, position_ms: float, duration_ms: float) -> str:
-    return f"frame {frame} / {total}{SEPARATOR}{_time(position_ms, duration_ms)}"
+    return f"{_frame_of(frame, total)}{SEPARATOR}{_time(position_ms, duration_ms)}"
 
 
 def framed_playhead(frame: int, total: int, position_ms: float,
@@ -65,8 +71,8 @@ def video_playhead(position_ms: float, duration_ms: float, frame_rate: float) ->
 def flick_playhead(frame: int, frame_count: int) -> PlayheadHud | None:
     if frame_count <= 0:
         return None
-    return PlayheadHud(text=f"frame {frame} / {frame_count}",
-                       widest=f"frame {frame_count} / {frame_count}")
+    return PlayheadHud(text=_frame_of(frame, frame_count),
+                       widest=_frame_of(frame_count, frame_count))
 
 
 # The three below are what the Fun Time on main still imports of the row's old

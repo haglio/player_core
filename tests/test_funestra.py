@@ -22,6 +22,7 @@ from funestra_core.hud_placement import HudEdge
 from funestra_core.hud_row import PARTS_Y
 from funestra_core.loop_dial import DIAL_SIZE
 from funestra_core.modes import LengthMode, MainMode, Osr2State
+from funestra_core.playhead import FIGURE_SPACE
 from funestra_core.playlist import read_playlist
 from funestra_core.pointer import OMNIPAUSE_TOGGLE
 from funestra_core.satellite_hud import MARGIN, HudModel
@@ -782,7 +783,7 @@ class TestAUsersOwnPicture:
         row = funestra._panel._clip_row
 
         assert (row.position_ms, row.duration_ms) == (genau.elapsed_ms, genau.interval_ms)
-        assert row.playhead.text == "frame 6 / 20 · 0:04 / 0:10"
+        assert row.playhead.text == f"frame {FIGURE_SPACE}6 / 20 · 0:04 / 0:10"
         assert row.loop == (genau.played, genau.count)
         assert row.volume is funestra._volume.hud
 
