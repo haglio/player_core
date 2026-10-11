@@ -4,8 +4,10 @@ from __future__ import annotations
 import numpy as np
 
 from funestra_core.playhead import (
+    FIGURE_SPACE,
     PlayheadHudPainter,
     flick_playhead,
+    framed_playhead,
     readout_width,
     video_playhead,
 )
@@ -19,6 +21,9 @@ class TestWhatAVideosReadoutSays:
     def test_its_frame_comes_first_with_how_many_there_are_then_the_time(self):
         """The way a flick's row reads, so the two modes differ only by the dial."""
         assert video_playhead(42_000.0, 195_000.0, 30.0).text == "frame 1260 / 5850 · 0:42 / 3:15"
+
+    def test_its_frame_counts_up_in_the_room_its_last_frame_takes(self):
+        assert video_playhead(300.0, 195_000.0, 30.0).text == f"frame {FIGURE_SPACE * 3}9 / 5850 · 0:00 / 3:15"
 
     def test_where_it_is_takes_the_shape_of_how_long_it_runs(self):
         """Every digit is as wide as every other in the face these are drawn in,
@@ -55,7 +60,7 @@ class TestWhatAClipsReadoutSays:
         """Genau's clips are pictures the Robot Hand scrubs through, with no time in them."""
         playhead = flick_playhead(7, 20)
 
-        assert (playhead.text, playhead.widest) == ("frame 7 / 20", "frame 20 / 20")
+        assert (playhead.text, playhead.widest) == (f"frame {FIGURE_SPACE}7 / 20", "frame 20 / 20")
 
     def test_a_clip_still_decoding_has_no_readout(self):
         assert flick_playhead(0, 0) is None
@@ -91,6 +96,15 @@ class TestTheReadout:
 
         assert early.shape == later.shape
         assert not np.array_equal(early, later)
+
+    def test_the_rest_of_its_line_holds_still_as_the_frame_gains_a_digit(self):
+        painter = PlayheadHudPainter()
+
+        nine = painter.bgra(framed_playhead(9, 20, 4_000, 10_000)).copy()
+        ten = painter.bgra(framed_playhead(10, 20, 4_000, 10_000))
+        half = nine.shape[1] // 2
+
+        assert np.array_equal(nine[:, half:], ten[:, half:])
 
     def test_a_readout_that_has_not_moved_is_not_repainted(self):
         """Asked for on every frame a Funestra paints; a paused video's readout

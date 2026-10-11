@@ -28,7 +28,11 @@ Both rows read the same way, the frame of how many and then the time, "frame
 video (which used to read "0:42 / 3:15 · frame 1260"), so a flick's row differs
 from a video's by its dial alone, and its frames sit beside the dial and its
 time beside the track. `framed_playhead` says it, and `video_playhead` says it
-for a video whose frame rate is known.
+for a video whose frame rate is known. The frame counts up in the room its last
+frame takes, right-aligned behind figure spaces (`FIGURE_SPACE`, as wide as a
+digit in the readout's face), so nothing after it moves as it gains a digit,
+as the clock already held still by taking its length's fields; `flick_playhead`
+pads its frame the same way.
 
 The row is one line now wherever it is drawn: a flick's dial, the readout, the
 track, and the volume chip, 64 pixels wide where it was 112, flush with the
