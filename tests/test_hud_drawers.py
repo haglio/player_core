@@ -31,6 +31,7 @@ HUD_PAINTERS: dict[str, set[str] | None] = {
     "hud_row": WHOLE_MODULE,
     "hud_minimize": WHOLE_MODULE,
     "hud_corners": {"plus_bgra"},
+    "outside_buttons": WHOLE_MODULE,
     "hud_osr2": WHOLE_MODULE,
     "hud_overlay": WHOLE_MODULE,
     "console_hud": {"ConsolePainter"},
