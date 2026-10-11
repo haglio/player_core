@@ -1396,7 +1396,17 @@ class TestTheReadoutIsDrawnAsTheMainConsoleDrawsIt:
 
         assert not np.array_equal(moving, still)
 
-    def test_a_funestras_own_composed_trace_keeps_sliding_with_the_device_off(self):
+    def test_a_funestras_own_composed_trace_keeps_sliding_while_the_device_is_on(self):
+        renderer = HudRenderer("portrait")
+        first = renderer.render(_model(osr2=Osr2State.FUNSCRIPT, drive=_wave(0.0),
+                                       drive_composed=True)).bgra.copy()
+
+        later = renderer.render(_model(osr2=Osr2State.FUNSCRIPT, drive=_wave(3.0),
+                                       drive_composed=True)).bgra
+
+        assert not np.array_equal(later, first)
+
+    def test_a_funestras_own_composed_trace_holds_still_with_the_device_off(self):
         renderer = HudRenderer("portrait")
         first = renderer.render(_model(osr2=Osr2State.OFF, drive=_wave(0.0),
                                        drive_composed=True)).bgra.copy()
@@ -1404,7 +1414,7 @@ class TestTheReadoutIsDrawnAsTheMainConsoleDrawsIt:
         later = renderer.render(_model(osr2=Osr2State.OFF, drive=_wave(3.0),
                                        drive_composed=True)).bgra
 
-        assert not np.array_equal(later, first)
+        assert np.array_equal(later, first)
 
     def test_a_held_device_is_a_gray_line_nobody_can_press(self):
         rendered = HudRenderer("portrait").render(_model(
