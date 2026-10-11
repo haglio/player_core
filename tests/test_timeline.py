@@ -24,6 +24,10 @@ class TestBarTrackX:
         """After whatever the row puts before it: its readout, a flick's dial."""
         assert bar_track_x(1920, left=183) == (183, 1920 - SLOT_W)
 
+    def test_the_track_starts_after_a_readout_wider_than_half_the_row(self):
+        """A flick's row is mostly readout, and its track must not run under it."""
+        assert bar_track_x(302, left=172) == (172, 302 - SLOT_W)
+
     def test_a_row_with_nothing_before_the_track_starts_it_at_the_edge(self):
         assert bar_track_x(326) == (0, 326 - SLOT_W)
 

@@ -22,7 +22,6 @@ from funestra_core.hud_placement import HudEdge
 from funestra_core.hud_row import PARTS_Y
 from funestra_core.loop_dial import DIAL_SIZE
 from funestra_core.modes import LengthMode, MainMode, Osr2State
-from funestra_core.playhead import video_playhead
 from funestra_core.playlist import read_playlist
 from funestra_core.pointer import OMNIPAUSE_TOGGLE
 from funestra_core.satellite_hud import MARGIN, HudModel
@@ -275,7 +274,7 @@ class TestAPress:
         funestra, engine = _wearing_a_panel(tmp_path)
         left, top, panel = engine.overlays[HUD_OVERLAY_ID]
 
-        funestra.press(left + panel.shape[1] + 20, top + panel.shape[0] + 20, window=WINDOW)
+        funestra.press(left + panel.shape[1] // 2, top + panel.shape[0] + 20, window=WINDOW)
 
         assert _asked(tmp_path) == ["omnipause_toggle"]
 
@@ -783,7 +782,7 @@ class TestAUsersOwnPicture:
         row = funestra._panel._clip_row
 
         assert (row.position_ms, row.duration_ms) == (genau.elapsed_ms, genau.interval_ms)
-        assert row.playhead == video_playhead(genau.elapsed_ms, genau.interval_ms, 0)
+        assert row.playhead.text == "frame 6 / 20 · 0:04 / 0:10"
         assert row.loop == (genau.played, genau.count)
         assert row.volume is funestra._volume.hud
 
@@ -872,7 +871,7 @@ class TestAWindowsOwnPanel:
         funestra.tick(window=WINDOW)
         left, top, panel = engine.overlays[HUD_OVERLAY_ID]
 
-        funestra.press(left + panel.shape[1] + 20, top + panel.shape[0] + 20, window=WINDOW)
+        funestra.press(left + panel.shape[1] // 2, top + panel.shape[0] + 20, window=WINDOW)
 
         assert user.commands == [OMNIPAUSE_TOGGLE]
         assert _asked(tmp_path) == []

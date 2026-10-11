@@ -16,6 +16,10 @@ class TestWhatAVideosReadoutSays:
     def test_where_it_is_of_how_long_it_runs(self):
         assert video_playhead(42_000.0, 195_000.0, 0.0).text == "0:42 / 3:15"
 
+    def test_its_frame_comes_first_with_how_many_there_are_then_the_time(self):
+        """The way a flick's row reads, so the two modes differ only by the dial."""
+        assert video_playhead(42_000.0, 195_000.0, 30.0).text == "frame 1260 / 5850 · 0:42 / 3:15"
+
     def test_where_it_is_takes_the_shape_of_how_long_it_runs(self):
         """Every digit is as wide as every other in the face these are drawn in,
         so a clock with the length's own fields never moves along the row."""
@@ -30,7 +34,7 @@ class TestWhatAVideosReadoutSays:
         truncating the product lands one frame short at 238."""
         playhead = video_playhead(7_974.633333333334, 8_008.0, 29.970029830932617)
 
-        assert playhead.text == "0:07 / 0:08 · frame 239"
+        assert playhead.text == "frame 239 / 240 · 0:07 / 0:08"
 
     def test_a_video_whose_length_mpv_has_not_said_yet_has_no_readout(self):
         assert video_playhead(0.0, 0.0, 0.0) is None
@@ -43,7 +47,7 @@ class TestWhatAVideosReadoutSays:
         digit partway through the video never pushes the clock along the row."""
         playhead = video_playhead(42_000.0, 2_715_000.0, 60.0)
 
-        assert playhead.widest == "45:15 / 45:15 · frame 162900"
+        assert playhead.widest == "frame 162900 / 162900 · 45:15 / 45:15"
 
 
 class TestWhatAClipsReadoutSays:

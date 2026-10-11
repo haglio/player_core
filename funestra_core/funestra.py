@@ -28,7 +28,7 @@ from .mpv_engine import MpvEngine
 from .outside_buttons import OutsideButtons
 from .play_points import PlayPoints
 from .playback import Playback, funscripts_of
-from .playhead import video_playhead
+from .playhead import framed_playhead, video_playhead
 from .playlist import PlaylistItem
 from .playlist_follower import PlaylistFollower
 from .pointer import OMNIPAUSE_TOGGLE, Pointer
@@ -499,11 +499,12 @@ class Funestra:
 
 def picture_row(picture: Picture, volume) -> RowHud | None:
     """The row for a picture a User put up itself: its time on screen on the
-    track, and its loop on the dial and in the frame count, or None while
-    there is none up."""
+    track, its loop on the dial, and the frame and the time read out between
+    them, or None while there is none up."""
     if picture.count <= 0:
         return None
     return RowHud(position_ms=picture.elapsed_ms, duration_ms=picture.interval_ms,
                   volume=volume,
-                  playhead=video_playhead(picture.elapsed_ms, picture.interval_ms, 0),
+                  playhead=framed_playhead(picture.played, picture.count,
+                                           picture.elapsed_ms, picture.interval_ms),
                   loop=(picture.played, picture.count))
