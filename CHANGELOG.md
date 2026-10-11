@@ -18,6 +18,10 @@ the clip's row, has it draw itself there before any tooltip, and says where in
 `host_block_rect`, which the host reads to place a press. A control only one
 host has goes inside that host's one panel this way, rather than on a second
 panel beside it: FunTimeVR's projection list and angle bar are the first.
+A Funestra takes the same as `host_block`, something that says what it draws
+now (`drawing()`) and takes the presses on it (`press`, `drag_to`, `holding`,
+`release`, each in the panel's own pixels with the rect it landed in); its
+console offers every press to it before anything of its own.
 
 ## 2026-10-10 — a flick's track runs its time on screen, a dial beside it goes round with the loop, and the row is one line
 

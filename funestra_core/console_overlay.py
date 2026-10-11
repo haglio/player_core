@@ -11,17 +11,47 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from pathlib import Path
+from typing import Protocol
 
 from .console import ConsoleModel, ModeHud, read_console
 from .console_hud import ConsoleHud, ConsolePainter, with_playback_speed
 from .dashboard import ask
 from .drive_readout import DriveHud, read_drive
+from .geometry import Rect
 from .hud_corners import HudPlace
 from .hud_overlay import HUD_OVERLAY_ID
 from .hud_placement import HudEdge, PointerReading
 from .hud_row import RowHud, RowLayout, RowPress, track_on_screen
 
 __all__ = []
+
+
+class HostBlock(Protocol):
+    holding: bool
+
+    def drawing(self): ...
+
+    def press(self, px: int, py: int, *, rect: Rect | None) -> bool: ...
+
+    def drag_to(self, px: int, py: int, *, rect: Rect | None) -> bool: ...
+
+    def release(self) -> None: ...
+
+
+class _NoBlock:
+    holding = False
+
+    def drawing(self) -> None:
+        return None
+
+    def press(self, _px: int, _py: int, *, rect: Rect | None) -> bool:
+        return False
+
+    def drag_to(self, _px: int, _py: int, *, rect: Rect | None) -> bool:
+        return False
+
+    def release(self) -> None:
+        pass
 
 
 class ConsoleOverlay:
@@ -41,6 +71,7 @@ class ConsoleOverlay:
         seek_loop=None,
         set_volume=None,
         toggle_mute=None,
+        host_block: HostBlock | None = None,
     ) -> None:
         self._console_file = Path(console_file)
         self._drive_file = None if drive_file is None else Path(drive_file)
@@ -61,6 +92,7 @@ class ConsoleOverlay:
         # The console draws the clip's row, so it places a press on it too.
         self._row = RowPress(seek=seek, seek_loop=seek_loop, set_volume=set_volume,
                              toggle_mute=toggle_mute)
+        self._host_block = host_block or _NoBlock()
 
     @property
     def console(self) -> ConsoleModel:
@@ -93,7 +125,8 @@ class ConsoleOverlay:
             modes=self._top_block(),
             console=with_playback_speed(self._console, playback_speed),
             drive=drive,
-        ), hover=self._hover.on(self._console), clip_row=clip_row, heatmap=heatmap)
+        ), hover=self._hover.on(self._console), clip_row=clip_row, heatmap=heatmap,
+           host_block=self._host_block.drawing())
         self._origin = self._painter.place(window=window)
         self._panel_height = bgra.shape[0]
         self._engine.overlay(self.overlay_id, *self._origin, bgra)
@@ -116,7 +149,10 @@ class ConsoleOverlay:
         return self._painter.covers(x, y)
 
     def press(self, x: int, y: int) -> bool:
-        if self._row.press(*self._local(x, y), layout=self._painter.row,
+        px, py = self._local(x, y)
+        if self._host_block.press(px, py, rect=self._painter.host_block_rect):
+            return True
+        if self._row.press(px, py, layout=self._painter.row,
                            duration_ms=self._track_duration()):
             return True
         asked = self._painter.press_at(x, y)
@@ -127,10 +163,13 @@ class ConsoleOverlay:
 
     @property
     def holding(self) -> bool:
-        return self._row.holding or self._painter.holding
+        return self._host_block.holding or self._row.holding or self._painter.holding
 
     def drag_to(self, x: int, y: int) -> str:
-        if self._row.drag_to(*self._local(x, y), layout=self._painter.row,
+        px, py = self._local(x, y)
+        if self._host_block.drag_to(px, py, rect=self._painter.host_block_rect):
+            return ""
+        if self._row.drag_to(px, py, layout=self._painter.row,
                              duration_ms=self._track_duration()):
             return ""
         dragged = self._painter.drag_to(x, y)
@@ -139,6 +178,7 @@ class ConsoleOverlay:
         return dragged
 
     def release(self) -> None:
+        self._host_block.release()
         self._row.release()
         self._painter.release()
 
