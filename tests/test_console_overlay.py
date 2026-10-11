@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from console_rows import console_rows
 from funestra_fakes import FakeEngine
+from host_blocks import RED_BAND, HostsBlock
 from shared_ui.spacing import BUTTON_SIZE_HUD
 
 from funestra_core.console import ConsoleModel, ModeHud, console_text
@@ -46,7 +47,8 @@ def _drive_file(path: Path, position: int = 4_000) -> Path:
     return path
 
 
-def _overlay(tmp_path: Path, *, top_block=None, gate=None, drive: bool = True) -> tuple[ConsoleOverlay, FakeEngine, SpyGate]:
+def _overlay(tmp_path: Path, *, top_block=None, gate=None, drive: bool = True,
+             host_block=None) -> tuple[ConsoleOverlay, FakeEngine, SpyGate]:
     engine = FakeEngine()
     gate = gate or SpyGate()
     overlay = ConsoleOverlay(
@@ -54,6 +56,7 @@ def _overlay(tmp_path: Path, *, top_block=None, gate=None, drive: bool = True) -
         drive_file=tmp_path / "drive.txt" if drive else None,
         command_file=tmp_path / "dashboard_cmd.txt",
         engine=engine, drive_gate=gate, top_block=top_block or ModeHud,
+        host_block=host_block,
     )
     return overlay, engine, gate
 
@@ -208,9 +211,10 @@ def _publish(tmp_path: Path, corner: HudCorner = HudCorner.UPPER_LEFT, **over) -
     (tmp_path / "console.json").write_text(console_text(model), encoding="utf-8")
 
 
-def _published(tmp_path: Path, corner: HudCorner = HudCorner.UPPER_LEFT, **over) -> ConsoleOverlay:
+def _published(tmp_path: Path, corner: HudCorner = HudCorner.UPPER_LEFT, *, host_block=None,
+               **over) -> ConsoleOverlay:
     _publish(tmp_path, corner, **over)
-    overlay, _engine, _gate = _overlay(tmp_path)
+    overlay, _engine, _gate = _overlay(tmp_path, host_block=host_block)
     _tick(overlay)
     return overlay
 
@@ -345,6 +349,52 @@ class TestNamingTheButtonUnderThePointer:
 
         bgra = overlay._engine.overlays[HUD_OVERLAY_ID][2]
         assert bgra.shape[:2] == (BUTTON_SIZE_HUD, BUTTON_SIZE_HUD)
+
+
+class TestABlockItsHostHandsIt:
+    def test_is_drawn_inside_the_console(self, tmp_path):
+        overlay = _published(tmp_path, host_block=HostsBlock())
+        _left, _top, bgra = overlay._engine.overlays[HUD_OVERLAY_ID]
+        x, y, w, h = overlay._painter.host_block_rect
+
+        assert tuple(bgra[y + h // 2, x + w // 2, :3]) == RED_BAND[::-1]
+
+    def test_a_press_on_it_is_the_hosts_in_the_panels_own_pixels(self, tmp_path):
+        host = HostsBlock()
+        overlay = _published(tmp_path, host_block=host)
+        left, top, _bgra = overlay._engine.overlays[HUD_OVERLAY_ID]
+        x, y, w, h = overlay._painter.host_block_rect
+
+        taken = overlay.press(left + x + 5, top + y + 6)
+
+        assert taken is True
+        assert host.presses == [(x + 5, y + 6, (x, y, w, h))]
+        assert _asked(tmp_path) == []
+
+    def test_a_drag_while_it_holds_is_the_hosts_too(self, tmp_path):
+        host = HostsBlock()
+        overlay = _published(tmp_path, host_block=host)
+        left, top, _bgra = overlay._engine.overlays[HUD_OVERLAY_ID]
+        x, y, w, h = overlay._painter.host_block_rect
+        overlay.press(left + x + 5, top + y + 6)
+
+        held = overlay.holding
+        overlay.drag_to(left + x + 40, top + y + 6)
+
+        assert held is True
+        assert host.drags == [(x + 40, y + 6, (x, y, w, h))]
+        assert _asked(tmp_path) == []
+
+    def test_letting_go_lets_it_go(self, tmp_path):
+        host = HostsBlock()
+        overlay = _published(tmp_path, host_block=host)
+        left, top, _bgra = overlay._engine.overlays[HUD_OVERLAY_ID]
+        x, y, _w, _h = overlay._painter.host_block_rect
+        overlay.press(left + x + 5, top + y + 6)
+
+        overlay.release()
+
+        assert overlay.holding is False
 
 
 @pytest.mark.parametrize("corner", list(HudCorner))

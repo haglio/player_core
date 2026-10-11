@@ -6,6 +6,7 @@ from dataclasses import replace
 import numpy as np
 import pytest
 from console_rows import console_rows, motion_rows, osr2_controls
+from host_blocks import RED_BAND, Band
 from shared_ui import colors
 from shared_ui.palette import BG_PRIMARY, BLUE, BORDER_PANEL, GREEN, MAGENTA, TEXT_MUTED, WHITE
 from shared_ui.spacing import BUTTON_GAP
@@ -1359,26 +1360,6 @@ class TestTheRowTheConsoleCarriesForItsVideo:
         assert row_part((x0 + x1) // 2, row_h - 2, painter.row) == SCRUBBER
 
 
-class _HostsOwn:
-    """A block a host paints itself: here, a band of one color across its rect."""
-
-    height = 18
-    least_width = 120
-
-    def __init__(self, color: tuple[int, int, int] = (200, 40, 30)) -> None:
-        self.color = color
-
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, _HostsOwn) and other.color == self.color
-
-    def __hash__(self) -> int:
-        return hash(self.color)
-
-    def draw(self, image, rect) -> None:
-        x, y, width, height = rect
-        image.paste((*self.color, 255), (x, y, x + width, y + height))
-
-
 class TestABlockTheHostPaints:
     """A control only one host has -- the headset's projection, say -- drawn by
     that host into room the console makes for it, inside the one panel."""
@@ -1391,26 +1372,26 @@ class TestABlockTheHostPaints:
     def test_the_panel_grows_by_the_room_the_block_asks_for(self):
         without = ConsolePainter().rgba(self._hud())[1][1]
 
-        with_block = ConsolePainter().rgba(self._hud(), host_block=_HostsOwn())[1][1]
+        with_block = ConsolePainter().rgba(self._hud(), host_block=Band())[1][1]
 
-        assert with_block >= without + _HostsOwn.height
+        assert with_block >= without + Band.height
 
     def test_the_host_paints_it_at_the_foot_under_everything_else(self):
         painter = ConsolePainter()
         row = RowHud(position_ms=30_000, duration_ms=60_000, volume=VolumeHud(volume=40))
 
-        rgba, (width, height) = painter.rgba(self._hud(), clip_row=row, host_block=_HostsOwn())
+        rgba, (width, height) = painter.rgba(self._hud(), clip_row=row, host_block=Band())
         x, y, block_w, block_h = painter.host_block_rect
         image = np.frombuffer(rgba, np.uint8).reshape(height, width, 4)
 
-        assert block_h == _HostsOwn.height
+        assert block_h == Band.height
         assert y + block_h == height - PAD
         assert painter.row.rect[1] + painter.row.rect[3] <= y
         assert all(rect[1] + rect[3] <= y for rect, _button in painter.buttons)
-        assert tuple(image[y + block_h // 2, x + block_w // 2, :3]) == (200, 40, 30)
+        assert tuple(image[y + block_h // 2, x + block_w // 2, :3]) == RED_BAND
 
     def test_a_block_wider_than_the_panel_widens_it_rather_than_being_cut(self):
-        wide = _HostsOwn()
+        wide = Band()
         wide.least_width = 900
         painter = ConsolePainter(width=380)
 
@@ -1422,18 +1403,18 @@ class TestABlockTheHostPaints:
     def test_a_block_the_host_changes_shows_on_the_next_paint(self):
         painter = ConsolePainter()
 
-        red = painter.rgba(self._hud(), host_block=_HostsOwn((200, 40, 30)))[0]
-        blue = painter.rgba(self._hud(), host_block=_HostsOwn((30, 40, 200)))[0]
+        red = painter.rgba(self._hud(), host_block=Band(RED_BAND))[0]
+        blue = painter.rgba(self._hud(), host_block=Band((30, 40, 200)))[0]
 
         assert red != blue
 
     def test_a_minimized_console_has_no_block_to_press(self):
         painter = ConsolePainter()
-        painter.rgba(self._hud(), host_block=_HostsOwn())
+        painter.rgba(self._hud(), host_block=Band())
         hud = self._hud()
         minimized = replace(hud, console=replace(hud.console, hud_minimized=True))
 
-        painter.rgba(minimized, host_block=_HostsOwn())
+        painter.rgba(minimized, host_block=Band())
 
         assert painter.host_block_rect is None
 
