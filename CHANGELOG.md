@@ -21,19 +21,25 @@ press along it puts the flick that far into its interval. The loop has no start
 or end to scrub between, so it is a dial at the row's left end: a clock hand
 going round once per turn, a mark at twelve o'clock at the loop's A end and a
 dot at six at its B end, and a press on it puts the loop (and the device, whose
-picture the frame is) at that point. The frame count stays, beside the dial,
-"frame 7 / 20"; the time sits beside the track it runs on.
+picture the frame is) at that point.
 
-The row is one line now wherever it is drawn, laid out from what is on it with
-the track as wide as the rest leaves it, since the heatmap and a seek are what
-need the room: a flick's dial with its frame count, then its time, each readout
-against the control it reads out, or a video's one readout; the track; and the
-volume chip, 64 pixels wide where it was 112, flush with the row's right end as
-the first readout is with its left, a few pixels between each part. A panel
-too narrow to leave the track at least as long as everything else on the line
-widens until it does, sizing itself for a flick of up to 999 frames and a video
-of under an hour so it keeps one width from one to the next; the console grows
-by about half in Genau mode, and a side player's panel as far as the row needs.
+Both rows read the same way, the frame of how many and then the time, "frame
+7 / 20 · 0:04 / 0:10" for a flick and "frame 1260 / 5850 · 0:42 / 3:15" for a
+video (which used to read "0:42 / 3:15 · frame 1260"), so a flick's row differs
+from a video's by its dial alone, and its frames sit beside the dial and its
+time beside the track. `framed_playhead` says it, and `video_playhead` says it
+for a video whose frame rate is known.
+
+The row is one line now wherever it is drawn: a flick's dial, the readout, the
+track, and the volume chip, 64 pixels wide where it was 112, flush with the
+row's right end as the first part is with its left, a few pixels between each.
+A video's track is what the heatmap and a seek need room on, so a panel too
+narrow to leave it at least as long as everything else on the line widens
+until it does, sized for a video of under an hour so it keeps one width from
+one to the next. A flick's track has no heatmap and nothing to find along it,
+so it is at most 96 pixels and no panel widens for it past the 60 it needs to
+be pressed. `bar_track_x` now starts a track after a readout wider than half
+the row, where it used to start it at the middle, under the readout.
 A console held to one width, as the headset holds its own, is held at least as
 wide as the widest row it can carry (`RowSection.least_width_for_any_row`), so
 it keeps that one width whichever row it carries, or none.
@@ -44,7 +50,7 @@ chip's.
 
 `loop_dial` (new, private): the dial and what a press on it names.
 `RowHud.loop` is a flick's frames played of how many, which the dial goes round
-with and the frame count counts; `RowLayout`, from `row_layout`, is where each
+with; `RowLayout`, from `row_layout`, is where each
 part of the row landed, and `row_part`, `scrub_to`, `turn_to`, `volume_to` and
 `RowPress` read it, as do the panels (`ConsolePainter.row`, `HudTargets.row`)
 and the overlays (`ConsoleOverlay.row`, `HudOverlay.row`) in place of a rect.
@@ -53,7 +59,7 @@ track, and `HeatmapStrip.update` is handed the track's width rather than the
 row's. `readout_width` is the room a readout takes, and `volume.TRACK_GAP` the
 gap between the track and the chip, which `MARGIN` was. `FlickAdvanceState`'s
 `elapsed` and `set_elapsed` are the track's two halves,
-`FlickRenderController.playhead` the dial's and the frame count's, and
+`FlickRenderController.playhead` the dial's and the readout's frame, and
 `GenauRefreshController.seek_the_time_on_screen` the press reaching the engine;
 `set_locked` and `toggle_lock` are gone, the flag being all that was left of
 them, and nothing outside this package ever called them. A `Picture` a User

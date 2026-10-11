@@ -9,8 +9,9 @@ from PIL import Image
 
 from funestra_core.hud_row import (
     DIAL,
+    FLICK_TRACK_W,
     GAP,
-    GROUP_GAP,
+    LEAST_TRACK,
     MUTE,
     PARTS_Y,
     READOUT,
@@ -27,7 +28,7 @@ from funestra_core.hud_row import (
     volume_to,
 )
 from funestra_core.loop_dial import DIAL_SIZE
-from funestra_core.playhead import PlayheadHud, flick_playhead, readout_width, video_playhead
+from funestra_core.playhead import PlayheadHud, framed_playhead, readout_width, video_playhead
 from funestra_core.timeline import (
     AMBER,
     HEATMAP_ALPHA,
@@ -48,9 +49,9 @@ from funestra_core.volume import (
 WIDTH = 400
 TIME = PlayheadHud(text="0:04 / 0:10", widest="0:10 / 0:10")
 VIDEO = RowHud(position_ms=4_000, duration_ms=10_000, playhead=TIME, volume=VolumeHud(volume=50))
-CLIP = RowHud(position_ms=4_000, duration_ms=10_000, playhead=TIME, loop=(6, 20),
+FRAMED = framed_playhead(6, 20, 4_000, 10_000)
+CLIP = RowHud(position_ms=4_000, duration_ms=10_000, playhead=FRAMED, loop=(6, 20),
               volume=VolumeHud(volume=50))
-FRAME = flick_playhead(6, 20)
 
 
 def _layout(row: RowHud, width: int = WIDTH, at: tuple[int, int] = (0, 0)):
@@ -58,9 +59,9 @@ def _layout(row: RowHud, width: int = WIDTH, at: tuple[int, int] = (0, 0)):
 
 
 class TestHowTheRowIsLaidOut:
-    """One line, laid out from what is on it, with the track as wide as the
-    rest leaves it: the readout, or a flick's dial and frame count and then its
-    time, at the row's left end, and the chip at its right."""
+    """One line, laid out from what is on it: the readout at the row's left
+    end, after the dial on a flick's row, then the track, and the chip at its
+    right end."""
 
     def test_a_videos_row_is_its_readout_then_the_track_then_the_chip(self):
         layout = _layout(VIDEO)
@@ -70,19 +71,14 @@ class TestHowTheRowIsLaidOut:
         assert layout.dial is None
         assert layout.track == (width + GAP, WIDTH - SLOT_W)
 
-    def test_a_flicks_row_is_its_dial_with_its_frame_count_then_its_time_with_the_track(self):
-        """The frames go with the dial and the time with the scrubber, each
-        readout against the control it reads out."""
+    def test_a_flicks_row_is_its_dial_then_the_readout_a_videos_row_carries(self):
+        """Its frame and then its time, the frames beside the dial and the time
+        beside the scrubber, so the two rows differ by the dial alone."""
         layout = _layout(CLIP)
 
         assert layout.dial == 0
-        assert layout.frame == (DIAL_SIZE + GAP, readout_width(FRAME))
-        frames_end = layout.frame[0] + layout.frame[1]
-        assert layout.readout == (frames_end + GROUP_GAP, readout_width(TIME))
+        assert layout.readout == (DIAL_SIZE + GAP, readout_width(FRAMED))
         assert layout.track[0] == layout.readout[0] + layout.readout[1] + GAP
-
-    def test_a_videos_row_counts_no_frames_of_its_own(self):
-        assert _layout(VIDEO).frame is None
 
     def test_a_row_with_nothing_before_its_track_starts_it_at_the_edge(self):
         layout = _layout(RowHud(duration_ms=10_000))
@@ -98,16 +94,28 @@ class TestHowTheRowIsLaidOut:
         assert long.track[0] > short.track[0]
         assert long.readout[0] == short.readout[0] == 0
 
-    def test_the_narrowest_panel_leaves_the_track_no_shorter_than_the_rest_of_its_line(self):
-        for row in (VIDEO, CLIP, RowHud(duration_ms=10_000)):
+    def test_a_videos_narrowest_panel_leaves_its_track_no_shorter_than_the_rest_of_its_line(self):
+        for row in (VIDEO, RowHud(duration_ms=10_000)):
             layout = _layout(row, width=RowSection.least_width(row))
             track = layout.track[1] - layout.track[0]
             assert track >= layout.width - track
-        assert RowSection.least_width(CLIP) > RowSection.least_width(VIDEO)
+
+    def test_no_panel_widens_for_a_flicks_track_past_the_room_to_press_it(self):
+        widest = RowHud(playhead=framed_playhead(999, 999, 599_000, 599_000), loop=(0, 999))
+        layout = _layout(widest, width=RowSection.least_width(widest))
+
+        assert layout.track[1] - layout.track[0] == LEAST_TRACK
+
+    def test_a_flicks_track_stays_short_on_a_wide_panel_and_the_chip_keeps_the_end(self):
+        layout = _layout(CLIP, width=800)
+
+        assert layout.track[1] - layout.track[0] == FLICK_TRACK_W
+        assert chip_xy(win_w=800, win_h=ROW_H, timeline_h=ROW_H)[0] == 800 - CHIP_W
 
     def test_the_narrowest_panel_is_one_width_from_one_flick_to_the_next(self):
         def flick(frames: int) -> RowHud:
-            return RowHud(position_ms=4_000, duration_ms=10_000, playhead=TIME, loop=(6, frames))
+            return RowHud(position_ms=4_000, duration_ms=10_000, loop=(6, frames),
+                          playhead=framed_playhead(6, frames, 4_000, 10_000))
 
         assert RowSection.least_width(flick(20)) == RowSection.least_width(flick(238))
 
@@ -137,25 +145,22 @@ def test_it_draws_everything_inside_the_room_it_was_laid_out_in():
 def test_it_draws_each_part_where_it_laid_it_out_and_nothing_between_them():
     painted, layout = _painted(CLIP)
     (readout_x, readout_w), dial_x = layout.readout, layout.dial
-    (frame_x, frame_w), (track_x0, _x1) = layout.frame, layout.track
+    track_x0 = layout.track[0]
     middle = PARTS_Y + CHIP_H // 2
 
     assert painted[PARTS_Y:PARTS_Y + CHIP_H, readout_x:readout_x + readout_w, 3].any()
     assert painted[middle, dial_x + DIAL_SIZE // 2, 3] > 0
-    assert painted[PARTS_Y:PARTS_Y + CHIP_H, frame_x:frame_x + frame_w, 3].any()
     assert painted[ROW_H // 2, track_x0 + 5, 3] > 0
     assert painted[middle, dial_x + DIAL_SIZE + GAP // 2, 3] == 0
-    assert painted[middle, frame_x + frame_w + GROUP_GAP // 2, 3] == 0
     assert painted[middle, readout_x + readout_w + GAP // 2, 3] == 0
 
 
-def test_the_frame_count_reads_as_a_flicks_readout_does():
-    """"frame 6 / 20", the readout a flick's row carried before the dial."""
+def test_a_flicks_readout_says_its_frame_and_then_its_time():
     painted, layout = _painted(CLIP)
-    frame_x, frame_w = layout.frame
-    expected = RowSection()._readout.bgra(FRAME)[:, :, [2, 1, 0, 3]]
+    readout_x, readout_w = layout.readout
+    expected = RowSection()._readout.bgra(FRAMED)[:, :, [2, 1, 0, 3]]
 
-    drawn = painted[PARTS_Y:PARTS_Y + CHIP_H, frame_x:frame_x + frame_w].astype(int)
+    drawn = painted[PARTS_Y:PARTS_Y + CHIP_H, readout_x:readout_x + readout_w].astype(int)
     assert np.abs(drawn - expected).max() <= 1
 
 
@@ -238,11 +243,6 @@ class TestWhatAPressOnTheRowIsOn:
         back to its start, so it is its own part and does nothing."""
         assert self._part(self.LAYOUT.track[0] - 1, ROW_H // 2) == READOUT
         assert self._part(self.LAYOUT.readout[0] + 3, ROW_H // 2) == READOUT
-
-    def test_a_flicks_frame_count_is_a_readout_too(self):
-        layout = _layout(CLIP)
-
-        assert row_part(layout.frame[0] + 3, ROW_H // 2, layout) == READOUT
 
     def test_above_or_under_the_row_is_on_nothing(self):
         assert self._part(WIDTH // 2, -1) == ""

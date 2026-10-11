@@ -11,9 +11,10 @@ So the row is a block a panel hosts, the way the device line and the drive
 readout are: one line, laid out from what is on it against the block's own
 width rather than the window's.  The track is what the room is for -- the
 heatmap and a seek need it wide -- so everything else takes only what it
-must: a video's readout at the left end; a flick's dial with its frame count,
-then its time, each readout against the control it reads out; the chip flush
-with the right end.
+must: the readout of the frame and the time at the left end, after a
+flick's dial; the chip flush with the right end.  A flick's track has no
+heatmap and nothing to find along it, so it stays short and no panel widens
+for it.
 """
 from __future__ import annotations
 
@@ -26,7 +27,7 @@ from .loop_dial import DIAL_SIZE, LoopDialPainter, on_dial, turn_at
 from .playhead import (
     PlayheadHud,
     PlayheadHudPainter,
-    flick_playhead,
+    framed_playhead,
     readout_width,
     video_playhead,
 )
@@ -58,18 +59,21 @@ _CHIP_PARTS = {"mute": MUTE, "track": VOLUME}
 ROW_H = TIMELINE_HEIGHT
 # The readout, the dial and the chip are as tall as each other, centered in the row.
 PARTS_Y = (ROW_H - CHIP_H) // 2
-# Between a readout and the control it reads out, and between the dial's pair
-# and the time's.
+# Between a readout and the control it reads out.
 GAP = 4
-GROUP_GAP = 10
+
+# The least track worth pressing, and how long a flick's track is.
+LEAST_TRACK = 60
+FLICK_TRACK_W = 96
 
 # Between the panel's lower edge and the loop's two frames hanging under it.
 UNDER_THE_PANEL_GAP = 2
 
 # The readouts a panel is held wide enough for, so it keeps one width from one
 # flick or video to the next instead of moving with the digits of each: a flick
-# of up to 999 frames, and a video of under an hour at up to 60 frames a second.
-_HELD_FRAME_COUNT = flick_playhead(999, 999)
+# of up to 999 frames shown for under ten minutes, and a video of under an hour
+# at up to 60 frames a second.
+_HELD_FLICK_READOUT = framed_playhead(999, 999, 599_000, 599_000)
 _HELD_VIDEO_READOUT = video_playhead(3_599_000, 3_599_000, 60.0)
 
 
@@ -85,15 +89,14 @@ class RowHud:
     playhead: PlayheadHud | None = None
     loop_bounds: tuple[float, float] | None = None
     record_in_ms: float | None = None
-    # A flick's loop: how many of its frames have played, of how many.  The
-    # dial goes round with it and the frame count after the dial counts it;
-    # None on a video's row, which has neither.
+    # A flick's loop: how many of its frames have played, of how many, which
+    # the dial goes round with; None on a video's row, which has no dial.
     loop: tuple[int, int] | None = None
 
 
 # The widest rows a panel carries, each with the longest readouts it is held for.
 _WIDEST_ROWS = (
-    RowHud(playhead=video_playhead(599_000, 599_000, 0.0), loop=(0, 999)),
+    RowHud(playhead=_HELD_FLICK_READOUT, loop=(0, 999)),
     RowHud(playhead=_HELD_VIDEO_READOUT),
 )
 
@@ -101,13 +104,11 @@ _WIDEST_ROWS = (
 @dataclass(frozen=True)
 class RowLayout:
     """Where the row lies in its panel, and where each part lands across it,
-    left to right: a flick's dial and its frame count, the time, the track,
-    and the chip."""
+    left to right: a flick's dial, the readout, the track, and the chip."""
 
     rect: tuple[int, int, int, int]
-    readout: tuple[int, int] | None  # the time's x and width, in the row's own pixels
+    readout: tuple[int, int] | None  # its x and width, in the row's own pixels
     dial: int | None                  # the dial's x
-    frame: tuple[int, int] | None    # the frame count's x and width
     track: tuple[int, int]            # the track's two ends
 
     @property
@@ -122,29 +123,24 @@ class RowLayout:
         return px - self.rect[0], py - self.rect[1]
 
 
-def _frame_count(row: RowHud) -> PlayheadHud | None:
-    return None if row.loop is None else flick_playhead(*row.loop)
-
-
 def _before_the_track(row: RowHud, *, held: bool = False) -> tuple[
-        tuple[int, int] | None, int | None, tuple[int, int] | None, int]:
-    """The dial's place and its frame count's, the time's, and where the track
-    starts after them, from the row's own left edge; *held*, with each readout
-    as wide as the widest a panel is held for."""
+        tuple[int, int] | None, int | None, int]:
+    """The readout's place and the dial's, and where the track starts after
+    them, from the row's own left edge; *held*, with the readout as wide as the
+    widest a panel is held for."""
     x = 0
-    readout = dial = frame = None
-    count = _frame_count(row)
-    if count is not None:
+    readout = dial = None
+    if row.loop is not None:
         dial = x
         x += DIAL_SIZE + GAP
-        width = _width(count, _HELD_FRAME_COUNT if held else None)
-        frame = (x, width)
-        x += width + GROUP_GAP
     if row.playhead is not None:
-        width = _width(row.playhead, _HELD_VIDEO_READOUT if held and count is None else None)
+        held_for = None
+        if held:
+            held_for = _HELD_VIDEO_READOUT if row.loop is None else _HELD_FLICK_READOUT
+        width = _width(row.playhead, held_for)
         readout = (x, width)
         x += width + GAP
-    return readout, dial, frame, x
+    return readout, dial, x
 
 
 def _width(readout: PlayheadHud, held_for: PlayheadHud | None) -> int:
@@ -153,8 +149,11 @@ def _width(readout: PlayheadHud, held_for: PlayheadHud | None) -> int:
 
 
 def row_layout(row: RowHud, *, rect: tuple[int, int, int, int]) -> RowLayout:
-    readout, dial, frame, left = _before_the_track(row)
-    return RowLayout(rect, readout, dial, frame, bar_track_x(rect[2], left=left))
+    readout, dial, left = _before_the_track(row)
+    x0, x1 = bar_track_x(rect[2], left=left)
+    if row.loop is not None:
+        x1 = min(x1, x0 + FLICK_TRACK_W)
+    return RowLayout(rect, readout, dial, (x0, x1))
 
 
 class RowSection:
@@ -167,10 +166,14 @@ class RowSection:
 
     @staticmethod
     def least_width(row: RowHud) -> int:
-        """The narrowest panel the row can be laid out in: one that leaves the
-        track no shorter than everything else on the line, since the heatmap
-        and a seek are what the row is for."""
-        return 2 * (_before_the_track(row, held=True)[3] + SLOT_W)
+        """The narrowest panel the row can be laid out in: for a video's, one
+        that leaves the track no shorter than everything else on the line,
+        since the heatmap and a seek are what the row is for; for a flick's,
+        one that leaves its track the room to be pressed."""
+        before = _before_the_track(row, held=True)[2]
+        if row.loop is not None:
+            return before + LEAST_TRACK + SLOT_W
+        return 2 * (before + SLOT_W)
 
     @staticmethod
     def least_width_for_any_row() -> int:
@@ -198,9 +201,6 @@ class RowSection:
             played, count = row.loop
             dial = _rgba(self._dial.bgra(LoopDialPainter.hand(played / count)))
             image.alpha_composite(dial, (x + layout.dial, y + PARTS_Y))
-        if layout.frame is not None:
-            frame = _rgba(self._readout.bgra(_frame_count(row)))
-            image.alpha_composite(frame, (x + layout.frame[0], y + PARTS_Y))
         if layout.readout is not None:
             readout = _rgba(self._readout.bgra(row.playhead))
             image.alpha_composite(readout, (x + layout.readout[0], y + PARTS_Y))

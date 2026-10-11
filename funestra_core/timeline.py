@@ -59,7 +59,7 @@ def bar_track_x(width: int, *, left: int = 0) -> tuple[int, int]:
     strip, the plain bar and click-to-seek all use this, so they agree on where
     the track ends.
     """
-    inset = min(left, max(0, width // 2 - 1))
+    inset = min(left, max(0, width - _VOLUME_SLOT_W - 1))
     return inset, max(inset + 1, width - _VOLUME_SLOT_W)
 
 

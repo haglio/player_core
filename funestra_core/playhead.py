@@ -36,18 +36,30 @@ def _clock(ms: float, length_ms: float) -> str:
     return f"{hours:0{len(str(length_s // 3600))}d}:{minutes:02d}:{seconds:02d}"
 
 
-def _video_text(position_ms: float, duration_ms: float, frame_rate: float) -> str:
-    text = f"{_clock(position_ms, duration_ms)} / {_clock(duration_ms, duration_ms)}"
-    if frame_rate > 0:
-        text += f"{SEPARATOR}frame {round(position_ms / 1000 * frame_rate)}"
-    return text
+def _time(position_ms: float, duration_ms: float) -> str:
+    return f"{_clock(position_ms, duration_ms)} / {_clock(duration_ms, duration_ms)}"
+
+
+def _framed(frame: int, total: int, position_ms: float, duration_ms: float) -> str:
+    return f"frame {frame} / {total}{SEPARATOR}{_time(position_ms, duration_ms)}"
+
+
+def framed_playhead(frame: int, total: int, position_ms: float,
+                    duration_ms: float) -> PlayheadHud:
+    """A frame of how many, then the time, which a video's row and a flick's
+    both read."""
+    return PlayheadHud(text=_framed(frame, total, position_ms, duration_ms),
+                       widest=_framed(total, total, duration_ms, duration_ms))
 
 
 def video_playhead(position_ms: float, duration_ms: float, frame_rate: float) -> PlayheadHud | None:
     if duration_ms <= 0:
         return None
-    return PlayheadHud(text=_video_text(position_ms, duration_ms, frame_rate),
-                       widest=_video_text(duration_ms, duration_ms, frame_rate))
+    if frame_rate <= 0:
+        return PlayheadHud(text=_time(position_ms, duration_ms),
+                           widest=_time(duration_ms, duration_ms))
+    return framed_playhead(round(position_ms / 1000 * frame_rate),
+                           round(duration_ms / 1000 * frame_rate), position_ms, duration_ms)
 
 
 def flick_playhead(frame: int, frame_count: int) -> PlayheadHud | None:
