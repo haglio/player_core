@@ -361,6 +361,15 @@ def test_the_panel_its_source_publishes_is_the_one_thing_over_the_picture(tmp_pa
     assert list(engine.overlays) == [HUD_OVERLAY_ID]
 
 
+def test_a_panel_over_the_picture_carries_its_own_minus_so_none_hangs_outside_it(tmp_path):
+    funestra, _engine = _funestra(tmp_path, [str(clip) for clip in _clips(tmp_path, "v0")], hud=True)
+    _publish_panel(tmp_path)
+
+    funestra.tick(window=WINDOW)
+
+    assert funestra.outside_buttons is None
+
+
 def test_on_a_window_the_way_of_playing_is_mpv_opened_on_that_window(tmp_path):
     clips = _clips(tmp_path, "v0")
     channels = _channels(tmp_path, [str(clips[0])])
@@ -1034,6 +1043,32 @@ class TestAPanelBesideThePicture:
         funestra, _engine, _surface = self._wearing_a_panel_beside(tmp_path)
 
         assert not funestra.panel_minimized
+
+    def test_the_window_is_handed_the_minus_that_hangs_outside_an_open_panel(self, tmp_path):
+        funestra, _engine, _surface = self._wearing_a_panel_beside(tmp_path)
+
+        assert funestra.outside_buttons.toggle(pointed=False).command == "portrait_hud_minimize"
+
+    def test_minimized_the_window_is_handed_the_plus_on_that_same_spot_to_open_it(self, tmp_path):
+        funestra, _engine, _surface = self._wearing_a_panel_beside(tmp_path)
+        _publish_panel(tmp_path, hud_minimized=True)
+
+        funestra.tick(window=WINDOW)
+
+        assert funestra.outside_buttons.toggle(pointed=False).command == "portrait_hud_restore"
+
+    def test_the_console_beside_the_picture_hands_the_window_its_minus_too(self, tmp_path):
+        funestra, _engine = self._main_beside(tmp_path, _ASurface(width=380))
+
+        assert funestra.outside_buttons.toggle(pointed=False).command == "main_hud_minimize"
+
+    def test_before_its_panel_has_been_read_nothing_hangs_outside_it(self, tmp_path):
+        clips = _clips(tmp_path, "v0")
+        channels = _channels(tmp_path, [str(clips[0])], hud=True, commands="")
+        funestra = Funestra(FakeEngine(), channels=channels,
+                            playlist=read_playlist(channels.playlist), panel_surface=_ASurface())
+
+        assert funestra.outside_buttons is None
 
     def test_a_press_is_placed_by_the_surfaces_own_pixels_and_where_the_panel_was_drawn(self, tmp_path):
         """A squeeze on the hanging screen lands in the panel's own pixels; the

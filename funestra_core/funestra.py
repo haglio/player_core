@@ -25,6 +25,7 @@ from .hud_overlay import HUD_OVERLAY_ID, HudOverlay
 from .hud_placement import HudEdge
 from .hud_row import RowHud
 from .mpv_engine import MpvEngine
+from .outside_buttons import OutsideButtons
 from .play_points import PlayPoints
 from .playback import Playback, funscripts_of
 from .playhead import flick_playhead, video_playhead
@@ -325,6 +326,11 @@ class Funestra:
     @property
     def panel_minimized(self) -> bool:
         return self._panel is not None and self._panel.minimized
+
+    @property
+    def outside_buttons(self) -> OutsideButtons | None:
+        place = None if self._panel_surface is None else self._panel.hud_place
+        return None if place is None else OutsideButtons(place.funestra, minimized=place.minimized)
 
     def set_muted(self, muted: bool) -> None:
         self._volume.set_muted(muted)
